@@ -10,6 +10,9 @@ import Tasks from "./pages/Tasks";
 import KanbanBoard from "./pages/KanbanBoard";
 import TeamDirectory from "./pages/TeamDirectory";
 import TeamMemberProfile from "./pages/TeamMemberProfile";
+import Backlog from "./pages/Backlog";
+import SprintPlanning from "./pages/SprintPlanning";
+import Roadmap from "./pages/Roadmap";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 
@@ -31,6 +34,9 @@ const App = () => (
             <Route path="projects" element={<Projects />} />
             <Route path="tasks" element={<Tasks />} />
             <Route path="board" element={<KanbanBoard />} />
+            <Route path="backlog" element={<Backlog />} />
+            <Route path="sprints" element={<SprintPlanning />} />
+            <Route path="roadmap" element={<Roadmap />} />
             <Route path="team" element={<TeamDirectory />} />
             <Route path="team/:memberId" element={<TeamMemberProfile />} />
           </Route>

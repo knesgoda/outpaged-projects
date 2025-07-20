@@ -6,6 +6,9 @@ import {
   CheckSquare,
   Calendar,
   Users,
+  Target,
+  Zap,
+  Map,
   Settings,
   HelpCircle,
 } from "lucide-react";
@@ -27,6 +30,9 @@ const navigationItems = [
   { title: "Projects", url: "/projects", icon: FolderKanban },
   { title: "Tasks", url: "/tasks", icon: CheckSquare },
   { title: "Kanban Board", url: "/board", icon: Calendar },
+  { title: "Backlog", url: "/backlog", icon: Target },
+  { title: "Sprint Planning", url: "/sprints", icon: Zap },
+  { title: "Roadmap", url: "/roadmap", icon: Map },
   { title: "Team", url: "/team", icon: Users },
 ];
 
