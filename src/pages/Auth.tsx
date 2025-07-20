@@ -63,6 +63,17 @@ export default function Auth() {
     const password = formData.get('password') as string;
     const fullName = formData.get('fullName') as string;
 
+    // Check if email domain is allowed
+    if (!email.endsWith('@outpaged.com')) {
+      toast({
+        variant: 'destructive',
+        title: 'Invalid email domain',
+        description: 'Only @outpaged.com email addresses are allowed to sign up.',
+      });
+      setIsSubmitting(false);
+      return;
+    }
+
     const { error } = await signUp(email, password, fullName);
 
     if (error) {
