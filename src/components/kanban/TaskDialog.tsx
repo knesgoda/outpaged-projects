@@ -25,10 +25,13 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { FileUpload, UploadedFile } from "@/components/ui/file-upload";
 import { Task } from "./TaskCard";
 import { CalendarIcon, X, User, Tag, MessageSquare, Paperclip } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { useFileUpload } from "@/hooks/useFileUpload";
+import { useToast } from "@/hooks/use-toast";
 
 interface TaskDialogProps {
   task?: Task | null;
@@ -55,9 +58,12 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId }: TaskDial
     assignee: task?.assignee || null,
     dueDate: task?.dueDate ? new Date(task.dueDate) : undefined,
     tags: task?.tags || [],
+    attachments: task?.attachments || [],
   });
 
   const [newTag, setNewTag] = useState("");
+  const { uploadFile, deleteFile, isUploading } = useFileUpload();
+  const { toast } = useToast();
 
   const handleSave = () => {
     const taskData: Partial<Task> = {
@@ -66,11 +72,86 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId }: TaskDial
       status: columnId || task?.status || "todo",
       dueDate: formData.dueDate ? format(formData.dueDate, "MMM dd") : undefined,
       comments: task?.comments || 0,
-      attachments: task?.attachments || 0,
+      attachments: Array.isArray(formData.attachments) ? formData.attachments.length : (task?.attachments || 0),
     };
 
     onSave(taskData);
     onClose();
+  };
+
+  const handleFileUpload = async (file: File) => {
+    if (!task?.id && !columnId) {
+      toast({
+        title: "Error",
+        description: "Please save the task first before uploading files.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const taskId = task?.id || `task-${Date.now()}`;
+      const fileUrl = await uploadFile(file, taskId);
+      
+      if (fileUrl) {
+        const newAttachment = {
+          id: `attachment-${Date.now()}`,
+          name: file.name,
+          size: file.size,
+          url: fileUrl,
+          uploadedAt: new Date().toISOString(),
+        };
+
+        setFormData(prev => ({
+          ...prev,
+          attachments: [...(Array.isArray(prev.attachments) ? prev.attachments : []), newAttachment]
+        }));
+
+        toast({
+          title: "Success",
+          description: "File uploaded successfully!",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Upload failed",
+        description: "Failed to upload file. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleFileRemove = async (attachmentId: string) => {
+    const attachment = Array.isArray(formData.attachments) 
+      ? formData.attachments.find((a: any) => a.id === attachmentId)
+      : null;
+    
+    if (attachment) {
+      try {
+        // Extract file path from URL for deletion
+        const urlParts = attachment.url.split('/');
+        const filePath = urlParts.slice(-2).join('/'); // Get taskId/filename
+        await deleteFile(filePath);
+        
+        setFormData(prev => ({
+          ...prev,
+          attachments: Array.isArray(prev.attachments) 
+            ? prev.attachments.filter((a: any) => a.id !== attachmentId)
+            : []
+        }));
+
+        toast({
+          title: "Success",
+          description: "File removed successfully!",
+        });
+      } catch (error) {
+        toast({
+          title: "Error",
+          description: "Failed to remove file. Please try again.",
+          variant: "destructive",
+        });
+      }
+    }
   };
 
   const addTag = () => {
@@ -275,6 +356,33 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId }: TaskDial
                         <X className="w-3 h-3" />
                       </button>
                     </Badge>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* File Attachments */}
+          <div className="space-y-2">
+            <Label>Attachments</Label>
+            <div className="space-y-4">
+              <FileUpload 
+                onFileUpload={handleFileUpload}
+                disabled={isUploading}
+                accept="*/*"
+                maxSizeMB={10}
+              />
+              
+              {Array.isArray(formData.attachments) && formData.attachments.length > 0 && (
+                <div className="space-y-2">
+                  {formData.attachments.map((attachment: any) => (
+                    <UploadedFile
+                      key={attachment.id}
+                      fileName={attachment.name}
+                      fileSize={attachment.size}
+                      onRemove={() => handleFileRemove(attachment.id)}
+                      onDownload={() => window.open(attachment.url, '_blank')}
+                    />
                   ))}
                 </div>
               )}

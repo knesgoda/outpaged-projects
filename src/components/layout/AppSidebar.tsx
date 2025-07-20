@@ -9,6 +9,7 @@ import {
   Target,
   Zap,
   Map,
+  Bell,
   Settings,
   HelpCircle,
 } from "lucide-react";
@@ -26,14 +27,15 @@ import {
 } from "@/components/ui/sidebar";
 
 const navigationItems = [
-  { title: "Dashboard", url: "/", icon: LayoutDashboard },
-  { title: "Projects", url: "/projects", icon: FolderKanban },
-  { title: "Tasks", url: "/tasks", icon: CheckSquare },
-  { title: "Kanban Board", url: "/board", icon: Calendar },
-  { title: "Backlog", url: "/backlog", icon: Target },
-  { title: "Sprint Planning", url: "/sprints", icon: Zap },
-  { title: "Roadmap", url: "/roadmap", icon: Map },
-  { title: "Team", url: "/team", icon: Users },
+  { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
+  { title: "Projects", url: "/dashboard/projects", icon: FolderKanban },
+  { title: "Tasks", url: "/dashboard/tasks", icon: CheckSquare },
+  { title: "Kanban Board", url: "/dashboard/board", icon: Calendar },
+  { title: "Backlog", url: "/dashboard/backlog", icon: Target },
+  { title: "Sprint Planning", url: "/dashboard/sprints", icon: Zap },
+  { title: "Roadmap", url: "/dashboard/roadmap", icon: Map },
+  { title: "Notifications", url: "/dashboard/notifications", icon: Bell },
+  { title: "Team", url: "/dashboard/team", icon: Users },
 ];
 
 const bottomItems = [

@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRealtime } from "@/hooks/useRealtime";
+import { useToast } from "@/hooks/use-toast";
 import {
   DndContext,
   DragEndEvent,
@@ -124,6 +126,35 @@ export default function KanbanBoard() {
     task?: Task | null;
     columnId?: string;
   }>({ isOpen: false });
+  
+  const { toast } = useToast();
+
+  // Real-time updates for tasks
+  useRealtime({
+    table: 'tasks',
+    onInsert: (payload) => {
+      toast({
+        title: "New Task Created",
+        description: `"${payload.new.title}" was added to the board`,
+      });
+      // In a real app, you would refresh the data here
+    },
+    onUpdate: (payload) => {
+      toast({
+        title: "Task Updated",
+        description: `"${payload.new.title}" was modified`,
+      });
+      // In a real app, you would update the specific task
+    },
+    onDelete: (payload) => {
+      toast({
+        title: "Task Deleted",
+        description: "A task was removed from the board",
+        variant: "destructive",
+      });
+      // In a real app, you would remove the task from state
+    },
+  });
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
