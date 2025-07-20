@@ -157,9 +157,14 @@ export default function Auth() {
                     id="signup-email"
                     name="email"
                     type="email"
-                    placeholder="Enter your email"
+                    placeholder="your.name@outpaged.com"
                     required
+                    pattern=".*@outpaged\.com$"
+                    title="Only @outpaged.com email addresses are allowed"
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Only @outpaged.com email addresses are allowed
+                  </p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="signup-password">Password</Label>

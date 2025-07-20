@@ -55,6 +55,7 @@ export type Database = {
           created_at: string
           full_name: string | null
           id: string
+          is_admin: boolean | null
           role: Database["public"]["Enums"]["team_role"] | null
           updated_at: string
           user_id: string
@@ -64,6 +65,7 @@ export type Database = {
           created_at?: string
           full_name?: string | null
           id?: string
+          is_admin?: boolean | null
           role?: Database["public"]["Enums"]["team_role"] | null
           updated_at?: string
           user_id: string
@@ -73,6 +75,7 @@ export type Database = {
           created_at?: string
           full_name?: string | null
           id?: string
+          is_admin?: boolean | null
           role?: Database["public"]["Enums"]["team_role"] | null
           updated_at?: string
           user_id?: string
@@ -259,7 +262,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      is_admin: {
+        Args: { user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       project_status:
@@ -278,6 +284,7 @@ export type Database = {
         | "designer"
         | "qa"
         | "viewer"
+        | "super_admin"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -422,6 +429,7 @@ export const Constants = {
         "designer",
         "qa",
         "viewer",
+        "super_admin",
       ],
     },
   },
