@@ -15,11 +15,11 @@ import {
   Shield,
   Globe
 } from "lucide-react";
-import { useAuth } from "@/hooks/useAuth";
+import { useOptionalAuth } from "@/hooks/useOptionalAuth";
 import heroImage from "@/assets/hero-bg.jpg";
 
 export default function Index() {
-  const { user } = useAuth();
+  const { user } = useOptionalAuth();
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5">
