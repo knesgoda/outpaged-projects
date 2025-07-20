@@ -34,7 +34,7 @@ const App = () => (
             <Route path="/auth" element={<Auth />} />
             
             {/* Protected routes with layout */}
-            <Route path="/" element={
+            <Route path="/dashboard" element={
               <ProtectedRoute>
                 <AppLayout />
               </ProtectedRoute>
@@ -49,6 +49,9 @@ const App = () => (
               <Route path="team" element={<TeamDirectory />} />
               <Route path="team/:memberId" element={<TeamMemberProfile />} />
             </Route>
+            
+            {/* Default route - redirect to welcome page */}
+            <Route path="/" element={<Index />} />
             
             {/* Catch-all route */}
             <Route path="*" element={<NotFound />} />

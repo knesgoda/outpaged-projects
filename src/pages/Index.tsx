@@ -43,7 +43,7 @@ export default function Index() {
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             {user ? (
               <Button size="lg" className="text-lg px-8 py-3" asChild>
-                <Link to="/">
+                <Link to="/dashboard">
                   Go to Dashboard
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </Link>
