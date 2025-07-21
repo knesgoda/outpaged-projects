@@ -1,4 +1,3 @@
-import { useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useOptionalAuth } from '@/hooks/useOptionalAuth';
 import { Loader2 } from 'lucide-react';
