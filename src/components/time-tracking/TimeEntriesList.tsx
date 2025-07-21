@@ -24,6 +24,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { useTimeTracking, TimeEntry } from '@/hooks/useTimeTracking';
+import { useAuth } from '@/hooks/useAuth';
 import { format } from 'date-fns';
 
 interface TimeEntriesListProps {
@@ -32,6 +33,7 @@ interface TimeEntriesListProps {
 }
 
 export function TimeEntriesList({ taskId, showTaskInfo = false }: TimeEntriesListProps) {
+  const { user } = useAuth();
   const {
     timeEntries,
     deleteTimeEntry,
@@ -41,6 +43,11 @@ export function TimeEntriesList({ taskId, showTaskInfo = false }: TimeEntriesLis
 
   const [editingEntry, setEditingEntry] = useState<TimeEntry | null>(null);
   const [editDescription, setEditDescription] = useState('');
+
+  // Don't render if user is not authenticated
+  if (!user) {
+    return null;
+  }
 
   const filteredEntries = taskId 
     ? timeEntries.filter(entry => entry.task_id === taskId)

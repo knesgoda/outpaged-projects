@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useTimeTracking } from '@/hooks/useTimeTracking';
+import { useAuth } from '@/hooks/useAuth';
 
 interface TimeTrackerProps {
   taskId: string;
@@ -12,6 +13,7 @@ interface TimeTrackerProps {
 }
 
 export function TimeTracker({ taskId, taskTitle }: TimeTrackerProps) {
+  const { user } = useAuth();
   const {
     runningEntry,
     startTimer,
@@ -23,6 +25,11 @@ export function TimeTracker({ taskId, taskTitle }: TimeTrackerProps) {
   
   const [description, setDescription] = useState('');
   const [isStarting, setIsStarting] = useState(false);
+
+  // Don't render if user is not authenticated
+  if (!user) {
+    return null;
+  }
 
   const totalTime = getTotalTimeForTask(taskId);
   const isRunning = runningEntry?.task_id === taskId;

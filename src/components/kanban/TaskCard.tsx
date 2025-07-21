@@ -20,6 +20,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useTimeTracking } from "@/hooks/useTimeTracking";
+import { useAuth } from "@/hooks/useAuth";
 
 export interface Task {
   id: string;
@@ -52,8 +53,9 @@ const priorityColors = {
 };
 
 export function TaskCard({ task, onEdit, onDelete }: TaskCardProps) {
+  const { user } = useAuth();
   const { getTotalTimeForTask, formatDuration } = useTimeTracking();
-  const totalTime = getTotalTimeForTask(task.id);
+  const totalTime = user ? getTotalTimeForTask(task.id) : 0;
   
   const {
     attributes,

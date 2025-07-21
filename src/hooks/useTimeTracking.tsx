@@ -219,6 +219,10 @@ export function useTimeTracking(taskId?: string) {
   useEffect(() => {
     if (user) {
       fetchTimeEntries(taskId);
+    } else {
+      // Clear data if user is not authenticated
+      setTimeEntries([]);
+      setRunningEntry(null);
     }
   }, [user, taskId]);
 
