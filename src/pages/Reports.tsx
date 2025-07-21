@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -6,8 +6,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { format } from 'date-fns';
+import { format, startOfMonth, subMonths } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/hooks/use-toast';
 import {
   BarChart,
   Bar,
@@ -39,24 +42,237 @@ import {
   Activity
 } from 'lucide-react';
 
-// Analytics data will be loaded from Supabase
-const projectPerformanceData: any[] = [];
-const teamPerformanceData: any[] = [];
-const burndownData: any[] = [];
-const taskDistributionData: any[] = [];
-const velocityData: any[] = [];
+interface AnalyticsData {
+  tasksCompleted: number;
+  tasksCompletedLastMonth: number;
+  hoursTracked: number;
+  hoursTrackedLastMonth: number;
+  teamEfficiency: number;
+  teamEfficiencyLastMonth: number;
+  blockedTasks: number;
+  blockedTasksLastMonth: number;
+}
+
+interface Project {
+  id: string;
+  name: string;
+}
+
+interface TeamMember {
+  id: string;
+  name: string;
+  tasksCompleted: number;
+  hoursWorked: number;
+  efficiency: number;
+}
 
 export default function Reports() {
   const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({
-    from: new Date(2024, 0, 1),
+    from: startOfMonth(subMonths(new Date(), 1)),
     to: new Date(),
   });
   const [selectedProject, setSelectedProject] = useState('all');
   const [selectedTeam, setSelectedTeam] = useState('all');
+  const [loading, setLoading] = useState(true);
+  const [analyticsData, setAnalyticsData] = useState<AnalyticsData>({
+    tasksCompleted: 0,
+    tasksCompletedLastMonth: 0,
+    hoursTracked: 0,
+    hoursTrackedLastMonth: 0,
+    teamEfficiency: 0,
+    teamEfficiencyLastMonth: 0,
+    blockedTasks: 0,
+    blockedTasksLastMonth: 0,
+  });
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [projectPerformanceData, setProjectPerformanceData] = useState<any[]>([]);
+  const [taskDistributionData, setTaskDistributionData] = useState<any[]>([]);
+
+  const { user } = useAuth();
+  const { toast } = useToast();
+
+  useEffect(() => {
+    if (user) {
+      fetchAnalyticsData();
+      fetchProjects();
+    }
+  }, [user, dateRange, selectedProject]);
+
+  const fetchAnalyticsData = async () => {
+    if (!user || !dateRange.from || !dateRange.to) return;
+
+    try {
+      setLoading(true);
+      
+      // Get current period data
+      const currentPeriodStart = dateRange.from.toISOString();
+      const currentPeriodEnd = dateRange.to.toISOString();
+      
+      // Get last month's data for comparison
+      const lastMonthStart = startOfMonth(subMonths(dateRange.from, 1)).toISOString();
+      const lastMonthEnd = startOfMonth(dateRange.from).toISOString();
+
+      // Build query filters
+      let tasksQuery = supabase
+        .from('tasks')
+        .select('*', { count: 'exact' });
+
+      if (selectedProject !== 'all') {
+        tasksQuery = tasksQuery.eq('project_id', selectedProject);
+      }
+
+      // Current period tasks
+      const { data: currentTasks, count: currentTasksCount } = await tasksQuery
+        .gte('created_at', currentPeriodStart)
+        .lte('created_at', currentPeriodEnd);
+
+      // Completed tasks in current period
+      const { count: completedTasksCount } = await tasksQuery
+        .eq('status', 'done')
+        .gte('updated_at', currentPeriodStart)
+        .lte('updated_at', currentPeriodEnd);
+
+      // For now, we'll consider "todo" tasks as potentially blocked
+      // In a real implementation, you might add a separate "blocked" field
+      const { count: blockedTasksCount } = await supabase
+        .from('tasks')
+        .select('*', { count: 'exact' })
+        .eq('status', 'todo')
+        .gte('created_at', currentPeriodStart)
+        .lte('created_at', currentPeriodEnd);
+
+      // Last month's completed tasks
+      const { count: lastMonthCompletedCount } = await tasksQuery
+        .eq('status', 'done')
+        .gte('updated_at', lastMonthStart)
+        .lt('updated_at', lastMonthEnd);
+
+      // Time tracking data
+      let currentTimeEntries;
+      let lastMonthTimeEntries;
+      
+      if (selectedProject !== 'all') {
+        // Get time entries for specific project
+        const { data: projectTimeEntries } = await supabase
+          .from('time_entries')
+          .select('duration_minutes, tasks!inner(project_id)')
+          .eq('tasks.project_id', selectedProject)
+          .gte('started_at', currentPeriodStart)
+          .lte('started_at', currentPeriodEnd);
+        
+        const { data: projectLastMonthTimeEntries } = await supabase
+          .from('time_entries')
+          .select('duration_minutes, tasks!inner(project_id)')
+          .eq('tasks.project_id', selectedProject)
+          .gte('started_at', lastMonthStart)
+          .lt('started_at', lastMonthEnd);
+          
+        currentTimeEntries = projectTimeEntries;
+        lastMonthTimeEntries = projectLastMonthTimeEntries;
+      } else {
+        // Get all time entries
+        const { data: allCurrentTimeEntries } = await supabase
+          .from('time_entries')
+          .select('duration_minutes')
+          .gte('started_at', currentPeriodStart)
+          .lte('started_at', currentPeriodEnd);
+
+        const { data: allLastMonthTimeEntries } = await supabase
+          .from('time_entries')
+          .select('duration_minutes')
+          .gte('started_at', lastMonthStart)
+          .lt('started_at', lastMonthEnd);
+          
+        currentTimeEntries = allCurrentTimeEntries;
+        lastMonthTimeEntries = allLastMonthTimeEntries;
+      }
+
+      // Calculate hours
+      const currentHours = Math.round((currentTimeEntries?.reduce((sum, entry) => 
+        sum + (entry.duration_minutes || 0), 0) || 0) / 60);
+      const lastMonthHours = Math.round((lastMonthTimeEntries?.reduce((sum, entry) => 
+        sum + (entry.duration_minutes || 0), 0) || 0) / 60);
+
+      // Calculate efficiency (tasks completed vs tasks created)
+      const currentEfficiency = currentTasksCount ? 
+        Math.round((completedTasksCount || 0) / currentTasksCount * 100) : 0;
+      const lastMonthEfficiency = 75; // Placeholder for now
+
+      setAnalyticsData({
+        tasksCompleted: completedTasksCount || 0,
+        tasksCompletedLastMonth: lastMonthCompletedCount || 0,
+        hoursTracked: currentHours,
+        hoursTrackedLastMonth: lastMonthHours,
+        teamEfficiency: currentEfficiency,
+        teamEfficiencyLastMonth: lastMonthEfficiency,
+        blockedTasks: blockedTasksCount || 0,
+        blockedTasksLastMonth: 0, // Placeholder
+      });
+
+      // Task distribution data
+      const { data: allTasks } = await supabase
+        .from('tasks')
+        .select('status')
+        .gte('created_at', currentPeriodStart)
+        .lte('created_at', currentPeriodEnd);
+
+      const statusCounts = allTasks?.reduce((acc, task) => {
+        acc[task.status] = (acc[task.status] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>) || {};
+
+      const colors = {
+        todo: '#6b7280',
+        in_progress: '#f59e0b',
+        in_review: '#3b82f6',
+        done: '#22c55e'
+      };
+
+      setTaskDistributionData([
+        { name: 'To Do', value: statusCounts.todo || 0, color: colors.todo },
+        { name: 'In Progress', value: statusCounts.in_progress || 0, color: colors.in_progress },
+        { name: 'In Review', value: statusCounts.in_review || 0, color: colors.in_review },
+        { name: 'Done', value: statusCounts.done || 0, color: colors.done },
+      ].filter(item => item.value > 0));
+
+    } catch (error) {
+      console.error('Error fetching analytics data:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load analytics data",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchProjects = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('projects')
+        .select('id, name')
+        .order('name');
+
+      if (error) throw error;
+      setProjects(data || []);
+    } catch (error) {
+      console.error('Error fetching projects:', error);
+    }
+  };
+
+  const calculatePercentChange = (current: number, previous: number) => {
+    if (previous === 0) return current > 0 ? 100 : 0;
+    return Math.round(((current - previous) / previous) * 100);
+  };
 
   const handleExport = () => {
     // Export report logic would go here
-    console.log('Exporting report...');
+    toast({
+      title: "Export Report",
+      description: "Report export functionality coming soon!",
+    });
   };
 
   return (
@@ -130,9 +346,11 @@ export default function Reports() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Projects</SelectItem>
-                  <SelectItem value="website">Website Redesign</SelectItem>
-                  <SelectItem value="mobile">Mobile App</SelectItem>
-                  <SelectItem value="api">API Integration</SelectItem>
+                  {projects.map((project) => (
+                    <SelectItem key={project.id} value={project.id}>
+                      {project.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -179,11 +397,29 @@ export default function Reports() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Tasks Completed</p>
-                <p className="text-2xl font-bold">247</p>
+                <p className="text-2xl font-bold">
+                  {loading ? "..." : analyticsData.tasksCompleted}
+                </p>
                 <div className="flex items-center gap-1 text-xs">
-                  <TrendingUp className="w-3 h-3 text-success" />
-                  <span className="text-success">+12%</span>
-                  <span className="text-muted-foreground">vs last month</span>
+                  {(() => {
+                    const change = calculatePercentChange(
+                      analyticsData.tasksCompleted,
+                      analyticsData.tasksCompletedLastMonth
+                    );
+                    return (
+                      <>
+                        {change >= 0 ? (
+                          <TrendingUp className="w-3 h-3 text-success" />
+                        ) : (
+                          <TrendingDown className="w-3 h-3 text-destructive" />
+                        )}
+                        <span className={change >= 0 ? "text-success" : "text-destructive"}>
+                          {change >= 0 ? "+" : ""}{change}%
+                        </span>
+                        <span className="text-muted-foreground">vs last month</span>
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
             </div>
@@ -198,11 +434,29 @@ export default function Reports() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Hours Tracked</p>
-                <p className="text-2xl font-bold">1,428</p>
+                <p className="text-2xl font-bold">
+                  {loading ? "..." : analyticsData.hoursTracked.toLocaleString()}
+                </p>
                 <div className="flex items-center gap-1 text-xs">
-                  <TrendingUp className="w-3 h-3 text-success" />
-                  <span className="text-success">+8%</span>
-                  <span className="text-muted-foreground">vs last month</span>
+                  {(() => {
+                    const change = calculatePercentChange(
+                      analyticsData.hoursTracked,
+                      analyticsData.hoursTrackedLastMonth
+                    );
+                    return (
+                      <>
+                        {change >= 0 ? (
+                          <TrendingUp className="w-3 h-3 text-success" />
+                        ) : (
+                          <TrendingDown className="w-3 h-3 text-destructive" />
+                        )}
+                        <span className={change >= 0 ? "text-success" : "text-destructive"}>
+                          {change >= 0 ? "+" : ""}{change}%
+                        </span>
+                        <span className="text-muted-foreground">vs last month</span>
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
             </div>
@@ -217,11 +471,29 @@ export default function Reports() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Team Efficiency</p>
-                <p className="text-2xl font-bold">88%</p>
+                <p className="text-2xl font-bold">
+                  {loading ? "..." : `${analyticsData.teamEfficiency}%`}
+                </p>
                 <div className="flex items-center gap-1 text-xs">
-                  <TrendingDown className="w-3 h-3 text-destructive" />
-                  <span className="text-destructive">-3%</span>
-                  <span className="text-muted-foreground">vs last month</span>
+                  {(() => {
+                    const change = calculatePercentChange(
+                      analyticsData.teamEfficiency,
+                      analyticsData.teamEfficiencyLastMonth
+                    );
+                    return (
+                      <>
+                        {change >= 0 ? (
+                          <TrendingUp className="w-3 h-3 text-success" />
+                        ) : (
+                          <TrendingDown className="w-3 h-3 text-destructive" />
+                        )}
+                        <span className={change >= 0 ? "text-success" : "text-destructive"}>
+                          {change >= 0 ? "+" : ""}{change}%
+                        </span>
+                        <span className="text-muted-foreground">vs last month</span>
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
             </div>
@@ -236,11 +508,29 @@ export default function Reports() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Blocked Tasks</p>
-                <p className="text-2xl font-bold">12</p>
+                <p className="text-2xl font-bold">
+                  {loading ? "..." : analyticsData.blockedTasks}
+                </p>
                 <div className="flex items-center gap-1 text-xs">
-                  <TrendingDown className="w-3 h-3 text-success" />
-                  <span className="text-success">-25%</span>
-                  <span className="text-muted-foreground">vs last month</span>
+                  {(() => {
+                    const change = calculatePercentChange(
+                      analyticsData.blockedTasks,
+                      analyticsData.blockedTasksLastMonth
+                    );
+                    return (
+                      <>
+                        {change <= 0 ? (
+                          <TrendingDown className="w-3 h-3 text-success" />
+                        ) : (
+                          <TrendingUp className="w-3 h-3 text-destructive" />
+                        )}
+                        <span className={change <= 0 ? "text-success" : "text-destructive"}>
+                          {change >= 0 ? "+" : ""}{change}%
+                        </span>
+                        <span className="text-muted-foreground">vs last month</span>
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
             </div>
@@ -268,17 +558,27 @@ export default function Reports() {
                 <CardDescription>Weekly task completion breakdown</CardDescription>
               </CardHeader>
               <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={projectPerformanceData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis />
-                    <Tooltip />
-                    <Bar dataKey="completed" fill="#22c55e" name="Completed" />
-                    <Bar dataKey="inProgress" fill="#f59e0b" name="In Progress" />
-                    <Bar dataKey="todo" fill="#6b7280" name="To Do" />
-                  </BarChart>
-                </ResponsiveContainer>
+                {loading ? (
+                  <div className="flex items-center justify-center h-[300px]">
+                    <div className="text-muted-foreground">Loading chart data...</div>
+                  </div>
+                ) : projectPerformanceData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={projectPerformanceData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" />
+                      <YAxis />
+                      <Tooltip />
+                      <Bar dataKey="completed" fill="#22c55e" name="Completed" />
+                      <Bar dataKey="inProgress" fill="#f59e0b" name="In Progress" />
+                      <Bar dataKey="todo" fill="#6b7280" name="To Do" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+                    No data available for the selected period
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -291,25 +591,35 @@ export default function Reports() {
                 <CardDescription>Current state of all tasks</CardDescription>
               </CardHeader>
               <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <PieChart>
-                    <Pie
-                      data={taskDistributionData}
-                      cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                      outerRadius={80}
-                      fill="#8884d8"
-                      dataKey="value"
-                    >
-                      {taskDistributionData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
+                {loading ? (
+                  <div className="flex items-center justify-center h-[300px]">
+                    <div className="text-muted-foreground">Loading chart data...</div>
+                  </div>
+                ) : taskDistributionData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <PieChart>
+                      <Pie
+                        data={taskDistributionData}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                        outerRadius={80}
+                        fill="#8884d8"
+                        dataKey="value"
+                      >
+                        {taskDistributionData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+                    No tasks found for the selected period
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -325,26 +635,36 @@ export default function Reports() {
               <CardDescription>Individual team member metrics</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {teamPerformanceData.map((member) => (
-                  <div key={member.name} className="flex items-center justify-between p-4 border rounded-lg">
-                    <div className="space-y-1">
-                      <h4 className="font-medium">{member.name}</h4>
-                      <div className="flex gap-4 text-sm text-muted-foreground">
-                        <span>{member.tasksCompleted} tasks</span>
-                        <span>{member.hoursWorked}h tracked</span>
+              {loading ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="text-muted-foreground">Loading team performance data...</div>
+                </div>
+              ) : teamMembers.length > 0 ? (
+                <div className="space-y-4">
+                  {teamMembers.map((member) => (
+                    <div key={member.id} className="flex items-center justify-between p-4 border rounded-lg">
+                      <div className="space-y-1">
+                        <h4 className="font-medium">{member.name}</h4>
+                        <div className="flex gap-4 text-sm text-muted-foreground">
+                          <span>{member.tasksCompleted} tasks</span>
+                          <span>{member.hoursWorked}h tracked</span>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <Badge 
+                          variant={member.efficiency >= 90 ? "default" : member.efficiency >= 80 ? "secondary" : "destructive"}
+                        >
+                          {member.efficiency}% efficiency
+                        </Badge>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <Badge 
-                        variant={member.efficiency >= 90 ? "default" : member.efficiency >= 80 ? "secondary" : "destructive"}
-                      >
-                        {member.efficiency}% efficiency
-                      </Badge>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex items-center justify-center py-8 text-muted-foreground">
+                  No team performance data available
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -356,16 +676,13 @@ export default function Reports() {
               <CardDescription>Progress tracking for current sprint</CardDescription>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={400}>
-                <LineChart data={burndownData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="day" />
-                  <YAxis />
-                  <Tooltip />
-                  <Line type="monotone" dataKey="planned" stroke="#6b7280" strokeDasharray="5 5" name="Planned" />
-                  <Line type="monotone" dataKey="actual" stroke="#f97316" strokeWidth={2} name="Actual" />
-                </LineChart>
-              </ResponsiveContainer>
+              <div className="flex items-center justify-center h-[400px] text-muted-foreground">
+                <div className="text-center">
+                  <BarChart3 className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                  <p>Sprint burndown charts coming soon!</p>
+                  <p className="text-sm">Feature will be available when sprint tracking is implemented</p>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -377,16 +694,13 @@ export default function Reports() {
               <CardDescription>Sprint velocity and commitment tracking</CardDescription>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={400}>
-                <AreaChart data={velocityData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="sprint" />
-                  <YAxis />
-                  <Tooltip />
-                  <Area type="monotone" dataKey="commitment" stroke="#e11d48" fill="#fecaca" name="Commitment" />
-                  <Area type="monotone" dataKey="velocity" stroke="#059669" fill="#86efac" name="Velocity" />
-                </AreaChart>
-              </ResponsiveContainer>
+              <div className="flex items-center justify-center h-[400px] text-muted-foreground">
+                <div className="text-center">
+                  <Activity className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                  <p>Team velocity tracking coming soon!</p>
+                  <p className="text-sm">Feature will be available when sprint planning is fully implemented</p>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
