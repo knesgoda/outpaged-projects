@@ -615,6 +615,54 @@ export type Database = {
           },
         ]
       }
+      user_notification_preferences: {
+        Row: {
+          created_at: string
+          email_mentions: boolean
+          email_project_updates: boolean
+          email_task_updates: boolean
+          id: string
+          in_app_mentions: boolean
+          in_app_project_updates: boolean
+          in_app_task_updates: boolean
+          push_mentions: boolean
+          push_project_updates: boolean
+          push_task_updates: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email_mentions?: boolean
+          email_project_updates?: boolean
+          email_task_updates?: boolean
+          id?: string
+          in_app_mentions?: boolean
+          in_app_project_updates?: boolean
+          in_app_task_updates?: boolean
+          push_mentions?: boolean
+          push_project_updates?: boolean
+          push_task_updates?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email_mentions?: boolean
+          email_project_updates?: boolean
+          email_task_updates?: boolean
+          id?: string
+          in_app_mentions?: boolean
+          in_app_project_updates?: boolean
+          in_app_task_updates?: boolean
+          push_mentions?: boolean
+          push_project_updates?: boolean
+          push_task_updates?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       task_assignees_with_profiles: {
