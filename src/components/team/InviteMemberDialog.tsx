@@ -11,7 +11,7 @@ import { useAuth } from "@/hooks/useAuth";
 interface InviteMemberDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  projectId: string;
+  projectId?: string;
   onMemberAdded: () => void;
 }
 
@@ -36,7 +36,7 @@ export function InviteMemberDialog({ open, onOpenChange, projectId, onMemberAdde
       // For now, we'll simulate adding a member
       // In practice, you'd use an edge function to send invitations
       
-      console.log('Inviting member to project:', projectId);
+      console.log('Inviting member to project:', projectId || 'organization');
       
       toast({
         title: "Invitation sent",
