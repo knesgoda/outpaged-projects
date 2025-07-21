@@ -195,23 +195,21 @@ export default function KanbanBoard() {
         story_points: task.story_points
       })) || [];
 
-      // Map tasks to columns based on status and custom column mappings
-      const newColumns = kanbanColumns.map(col => {
-        // Get status mappings for this column
-        const columnTasks = tasksWithDetails.filter(task => {
-          // For default columns, use direct status mapping
-          if (col.is_default) {
-            const statusMap: { [key: string]: string } = {
-              'To Do': 'todo',
-              'In Progress': 'in_progress', 
-              'Review': 'in_review',
-              'Done': 'done'
-            };
-            return task.status === statusMap[col.name];
-          }
-          // For custom columns, we'll need to implement status mappings
-          return false; // TODO: Implement custom status mappings
-        });
+  // Get status mappings for all columns
+  const { data: statusMappings } = await supabase
+    .from('task_status_mappings')
+    .select('*')
+    .eq('project_id', projectId);
+
+  // Map tasks to columns based on status and custom column mappings
+  const newColumns = kanbanColumns.map(col => {
+    // Find the status mapping for this column
+    const mapping = statusMappings?.find(m => m.column_id === col.id);
+    const targetStatus = mapping?.status_value || col.name.toLowerCase().replace(' ', '_');
+    
+    const columnTasks = tasksWithDetails.filter(task => {
+      return task.status === targetStatus;
+    });
 
         return {
           id: col.id,
@@ -368,9 +366,9 @@ export default function KanbanBoard() {
     if (!activeTask || !user) return;
 
     // Moving to a different column
-    if (overColumn && activeTask.status !== getStatusFromColumn(overColumn)) {
+    if (overColumn && activeTask.status !== await getStatusFromColumn(overColumn)) {
       try {
-        const newStatus = getStatusFromColumn(overColumn);
+        const newStatus = await getStatusFromColumn(overColumn);
         const { error } = await supabase
           .from('tasks')
           .update({ status: newStatus as "todo" | "in_progress" | "in_review" | "done" })
@@ -420,15 +418,18 @@ export default function KanbanBoard() {
     }
   };
 
-  const getStatusFromColumn = (column: Column): string => {
-    // Map column names to status values
-    const statusMap: { [key: string]: string } = {
-      'To Do': 'todo',
-      'In Progress': 'in_progress',
-      'Review': 'in_review', 
-      'Done': 'done'
-    };
-    return statusMap[column.title] || 'todo';
+  const getStatusFromColumn = async (column: Column): Promise<string> => {
+    if (!currentProjectId) return 'todo';
+    
+    // Check if we have a status mapping for this column
+    const { data: mapping } = await supabase
+      .from('task_status_mappings')
+      .select('status_value')
+      .eq('project_id', currentProjectId)
+      .eq('column_id', column.id)
+      .maybeSingle();
+    
+    return mapping?.status_value || column.title.toLowerCase().replace(' ', '_');
   };
 
   const findTask = (id: string): Task | undefined => {
@@ -522,7 +523,7 @@ export default function KanbanBoard() {
         });
       } else {
         // Create new task
-        const statusFromColumn = taskDialog.columnId ? getStatusFromColumnId(taskDialog.columnId) : 'todo';
+        const statusFromColumn = taskDialog.columnId ? await getStatusFromColumnId(taskDialog.columnId) : 'todo';
         
         const { error } = await supabase
           .from('tasks')
@@ -562,16 +563,55 @@ export default function KanbanBoard() {
     }
   };
 
-  const getStatusFromColumnId = (columnId: string): string => {
+  const getStatusFromColumnId = async (columnId: string): Promise<string> => {
     const column = columns.find(col => col.id === columnId);
-    return column ? getStatusFromColumn(column) : 'todo';
+    return column ? await getStatusFromColumn(column) : 'todo';
   };
 
-  const addNewColumn = () => {
-    toast({
-      title: "Info",
-      description: "Custom columns coming soon!",
-    });
+  const addNewColumn = async () => {
+    if (!user || !currentProjectId) {
+      toast({
+        title: "Error",
+        description: "You must be logged in to add columns",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const newColumnName = prompt("Enter column name:");
+    if (!newColumnName?.trim()) return;
+
+    try {
+      // Get the next position
+      const maxPosition = Math.max(...columns.map(col => parseInt(col.id) || 0), 0);
+      
+      const { error } = await supabase
+        .from('kanban_columns')
+        .insert({
+          project_id: currentProjectId,
+          name: newColumnName.trim(),
+          position: maxPosition + 1,
+          color: '#6b7280',
+          is_default: false
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Column added successfully",
+      });
+
+      // Refresh the board
+      await fetchTasks();
+    } catch (error) {
+      console.error('Error adding column:', error);
+      toast({
+        title: "Error", 
+        description: "Failed to add column",
+        variant: "destructive",
+      });
+    }
   };
 
   // Apply filters
