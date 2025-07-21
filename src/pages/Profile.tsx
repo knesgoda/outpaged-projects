@@ -68,7 +68,7 @@ export default function Profile() {
         .upsert({
           user_id: user?.id,
           full_name: formData.full_name,
-          role: formData.role,
+          role: formData.role as "admin" | "project_manager" | "developer" | "designer" | "qa" | "viewer" | "super_admin",
         });
 
       if (error) throw error;
