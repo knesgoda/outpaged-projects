@@ -115,15 +115,15 @@ export default function KanbanBoard() {
         description: task.description || '',
         status: task.status,
         priority: task.priority,
-        assignee: task.assignee && Array.isArray(task.assignee) && task.assignee.length > 0 ? {
-          name: task.assignee[0].full_name || 'Unknown',
-          initials: (task.assignee[0].full_name || 'U')
+        assignee: task.assignee ? {
+          name: task.assignee.full_name || 'Unknown',
+          initials: (task.assignee.full_name || 'U')
             .split(' ')
             .map(n => n[0])
             .join('')
             .toUpperCase()
             .slice(0, 2),
-          avatar: task.assignee[0].avatar_url || ''
+          avatar: task.assignee.avatar_url || ''
         } : null,
         dueDate: task.due_date ? new Date(task.due_date).toLocaleDateString('en-US', { 
           month: 'short', 
@@ -296,8 +296,8 @@ export default function KanbanBoard() {
             title: taskData.title,
             description: taskData.description,
             priority: taskData.priority,
-            assignee_id: taskData.assignee?.name === 'Unassigned' ? null : null, // TODO: Map assignee properly
-            due_date: taskData.dueDate ? new Date(taskData.dueDate).toISOString() : null,
+            assignee_id: (taskData as any).assignee_id || null,
+            due_date: (taskData as any).due_date || null,
           })
           .eq('id', taskDialog.task.id);
 
@@ -334,8 +334,8 @@ export default function KanbanBoard() {
             status: (taskDialog.columnId || 'todo') as "todo" | "in_progress" | "in_review" | "done",
             project_id: projects[0].id,
             reporter_id: user?.id,
-            assignee_id: taskData.assignee?.name === 'Unassigned' ? null : null, // TODO: Map assignee properly
-            due_date: taskData.dueDate ? new Date(taskData.dueDate).toISOString() : null,
+            assignee_id: (taskData as any).assignee_id || null,
+            due_date: (taskData as any).due_date || null,
           });
 
         if (error) throw error;

@@ -317,12 +317,54 @@ export default function Tasks() {
       <TaskDialog
         isOpen={isTaskDialogOpen}
         onClose={() => setIsTaskDialogOpen(false)}
-        onSave={(taskData) => {
-          // Handle task creation
-          console.log('New task:', taskData);
-          setIsTaskDialogOpen(false);
-          // In a real app, you'd refresh the tasks list
-          fetchTasks();
+        onSave={async (taskData) => {
+          try {
+            // Get the first project the user has access to
+            const { data: projects, error: projectError } = await supabase
+              .from('projects')
+              .select('id')
+              .limit(1);
+
+            if (projectError) throw projectError;
+            if (!projects || projects.length === 0) {
+              toast({
+                title: "Error",
+                description: "No project found. Please create a project first.",
+                variant: "destructive",
+              });
+              return;
+            }
+
+            const { error } = await supabase
+              .from('tasks')
+              .insert({
+                title: taskData.title,
+                description: taskData.description,
+                priority: taskData.priority || 'medium',
+                status: 'todo',
+                project_id: projects[0].id,
+                reporter_id: user?.id,
+                assignee_id: (taskData as any).assignee_id || null,
+                due_date: (taskData as any).due_date || null,
+              });
+
+            if (error) throw error;
+
+            toast({
+              title: "Success",
+              description: "Task created successfully",
+            });
+
+            setIsTaskDialogOpen(false);
+            fetchTasks();
+          } catch (error) {
+            console.error('Error creating task:', error);
+            toast({
+              title: "Error",
+              description: "Failed to create task",
+              variant: "destructive",
+            });
+          }
         }}
         columnId="todo"
       />

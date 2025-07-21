@@ -111,11 +111,13 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId }: TaskDial
   };
 
   const handleSave = () => {
-    const taskData: Partial<Task> = {
+    const taskData: Partial<Task> & { assignee_id?: string; due_date?: string } = {
       ...formData,
       id: task?.id || `task-${Date.now()}`,
       status: columnId || task?.status || "todo",
       dueDate: formData.dueDate ? format(formData.dueDate, "MMM dd") : undefined,
+      assignee_id: formData.assignee ? teamMembers.find(m => m.name === formData.assignee?.name)?.id || null : null,
+      due_date: formData.dueDate ? formData.dueDate.toISOString() : null,
       comments: commentCount,
       attachments: Array.isArray(formData.attachments) ? formData.attachments.length : (task?.attachments || 0),
     };
