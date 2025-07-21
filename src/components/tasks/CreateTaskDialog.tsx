@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SmartTaskTypeSelector, SMART_TASK_TYPE_OPTIONS } from "./SmartTaskTypeSelector";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -23,8 +24,7 @@ export function CreateTaskDialog({ open, onOpenChange, projectId, onTaskCreated 
     description: "",
     priority: "medium",
     status: "todo",
-    hierarchy_level: "task",
-    task_type: "feature_request"
+    smartTaskType: "task"
   });
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
@@ -36,6 +36,12 @@ export function CreateTaskDialog({ open, onOpenChange, projectId, onTaskCreated 
 
     setLoading(true);
     try {
+      // Get the selected smart task type option
+      const selectedOption = SMART_TASK_TYPE_OPTIONS.find(option => option.id === formData.smartTaskType);
+      if (!selectedOption) {
+        throw new Error("Invalid task type selected");
+      }
+
       const { error } = await supabase
         .from('tasks')
         .insert({
@@ -43,8 +49,8 @@ export function CreateTaskDialog({ open, onOpenChange, projectId, onTaskCreated 
           description: formData.description,
           priority: formData.priority as 'low' | 'medium' | 'high' | 'urgent',
           status: formData.status as 'todo' | 'in_progress' | 'in_review' | 'done',
-          hierarchy_level: formData.hierarchy_level as 'initiative' | 'epic' | 'story' | 'task' | 'subtask',
-          task_type: formData.task_type as 'story' | 'epic' | 'initiative' | 'task' | 'subtask' | 'bug' | 'feature_request' | 'design',
+          hierarchy_level: selectedOption.hierarchy_level,
+          task_type: selectedOption.task_type,
           project_id: projectId,
           reporter_id: user.id
         });
@@ -61,8 +67,7 @@ export function CreateTaskDialog({ open, onOpenChange, projectId, onTaskCreated 
         description: "",
         priority: "medium",
         status: "todo",
-        hierarchy_level: "task",
-        task_type: "feature_request"
+        smartTaskType: "task"
       });
       
       onTaskCreated();
@@ -108,6 +113,13 @@ export function CreateTaskDialog({ open, onOpenChange, projectId, onTaskCreated 
             />
           </div>
 
+          <SmartTaskTypeSelector
+            value={formData.smartTaskType}
+            onChange={(value) => setFormData(prev => ({ ...prev, smartTaskType: value }))}
+            label="What type of work is this?"
+            placeholder="Choose the type of work..."
+          />
+
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Priority</Label>
@@ -141,50 +153,6 @@ export function CreateTaskDialog({ open, onOpenChange, projectId, onTaskCreated 
                   <SelectItem value="in_progress">In Progress</SelectItem>
                   <SelectItem value="in_review">Review</SelectItem>
                   <SelectItem value="done">Done</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {/* Hierarchy Level and Issue Type Row */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Hierarchy Level</Label>
-              <Select
-                value={formData.hierarchy_level}
-                onValueChange={(value) => setFormData(prev => ({ ...prev, hierarchy_level: value }))}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="initiative">🎯 Initiative</SelectItem>
-                  <SelectItem value="epic">🚀 Epic</SelectItem>
-                  <SelectItem value="story">📖 Story</SelectItem>
-                  <SelectItem value="task">✅ Task</SelectItem>
-                  <SelectItem value="subtask">🔸 Sub-task</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Issue Type</Label>
-              <Select
-                value={formData.task_type}
-                onValueChange={(value) => setFormData(prev => ({ ...prev, task_type: value }))}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="story">📖 Story</SelectItem>
-                  <SelectItem value="epic">🚀 Epic</SelectItem>
-                  <SelectItem value="initiative">🎯 Initiative</SelectItem>
-                  <SelectItem value="task">✅ Task</SelectItem>
-                  <SelectItem value="subtask">🔸 Sub-task</SelectItem>
-                  <SelectItem value="bug">🐛 Bug</SelectItem>
-                  <SelectItem value="feature_request">✨ Feature Request</SelectItem>
-                  <SelectItem value="design">🎨 Design</SelectItem>
                 </SelectContent>
               </Select>
             </div>

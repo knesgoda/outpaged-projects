@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import {
   Dialog,
@@ -27,6 +26,7 @@ import {
 } from "@/components/ui/popover";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { FileUpload, UploadedFile } from "@/components/ui/file-upload";
+import { SmartTaskTypeSelector, SMART_TASK_TYPE_OPTIONS } from "@/components/tasks/SmartTaskTypeSelector";
 import { Task } from "./TaskCard";
 import { CalendarIcon, X, User, Tag, MessageSquare, Paperclip, GitBranch } from "lucide-react";
 import { format } from "date-fns";
@@ -56,8 +56,7 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
     title: task?.title || "",
     description: task?.description || "",
     priority: task?.priority || "medium",
-    hierarchy_level: task?.hierarchy_level || "task",
-    task_type: task?.task_type || "feature_request",
+    smartTaskType: "task",
     parent_id: task?.parent_id || null,
     assignee: task?.assignee || null,
     dueDate: task?.dueDate ? new Date(task.dueDate) : undefined,
@@ -79,12 +78,17 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
     if (isOpen) {
       fetchTeamMembers();
       if (task) {
+        // Find the smart task type based on hierarchy_level and task_type
+        const smartTaskType = SMART_TASK_TYPE_OPTIONS.find(option => 
+          option.hierarchy_level === task.hierarchy_level && 
+          option.task_type === task.task_type
+        )?.id || "task";
+
         setFormData({
           title: task.title,
           description: task.description,
           priority: task.priority,
-          hierarchy_level: task.hierarchy_level || "task",
-          task_type: task.task_type || "feature_request",
+          smartTaskType,
           parent_id: task.parent_id || null,
           assignee: task.assignee,
           dueDate: task.dueDate ? new Date(task.dueDate) : undefined,
@@ -123,6 +127,17 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
   };
 
   const handleSave = () => {
+    // Get the selected smart task type option
+    const selectedOption = SMART_TASK_TYPE_OPTIONS.find(option => option.id === formData.smartTaskType);
+    if (!selectedOption) {
+      toast({
+        title: "Error",
+        description: "Invalid task type selected",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const taskData: Partial<Task> & { assignee_id?: string; due_date?: string; hierarchy_level?: string; task_type?: string; parent_id?: string } = {
       ...formData,
       id: task?.id || `task-${Date.now()}`,
@@ -130,8 +145,8 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
       dueDate: formData.dueDate ? format(formData.dueDate, "MMM dd") : undefined,
       assignee_id: formData.assignee ? teamMembers.find(m => m.name === formData.assignee?.name)?.id || null : null,
       due_date: formData.dueDate ? formData.dueDate.toISOString() : null,
-      hierarchy_level: formData.hierarchy_level,
-      task_type: formData.task_type,
+      hierarchy_level: selectedOption.hierarchy_level,
+      task_type: selectedOption.task_type,
       parent_id: formData.parent_id,
       comments: commentCount,
       attachments: Array.isArray(formData.attachments) ? formData.attachments.length : (task?.attachments || 0),
@@ -271,6 +286,14 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
               />
             </div>
 
+            {/* Smart Task Type Selector */}
+            <SmartTaskTypeSelector
+              value={formData.smartTaskType}
+              onChange={(value) => setFormData(prev => ({ ...prev, smartTaskType: value }))}
+              label="What type of work is this?"
+              placeholder="Choose the type of work..."
+            />
+
             {/* Priority and Assignee Row */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -344,56 +367,6 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
                         </div>
                       </SelectItem>
                     ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            {/* Hierarchy Level and Issue Type Row */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Hierarchy Level</Label>
-                <Select
-                  value={formData.hierarchy_level}
-                  onValueChange={(value) => setFormData(prev => ({ 
-                    ...prev, 
-                    hierarchy_level: value as "initiative" | "epic" | "story" | "task" | "subtask"
-                  }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="initiative">🎯 Initiative</SelectItem>
-                    <SelectItem value="epic">🚀 Epic</SelectItem>
-                    <SelectItem value="story">📖 Story</SelectItem>
-                    <SelectItem value="task">✅ Task</SelectItem>
-                    <SelectItem value="subtask">🔸 Sub-task</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Issue Type</Label>
-                <Select
-                  value={formData.task_type}
-                  onValueChange={(value) => setFormData(prev => ({ 
-                    ...prev, 
-                    task_type: value as "story" | "epic" | "initiative" | "task" | "subtask" | "bug" | "feature_request" | "design"
-                  }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="story">📖 Story</SelectItem>
-                    <SelectItem value="epic">🚀 Epic</SelectItem>
-                    <SelectItem value="initiative">🎯 Initiative</SelectItem>
-                    <SelectItem value="task">✅ Task</SelectItem>
-                    <SelectItem value="subtask">🔸 Sub-task</SelectItem>
-                    <SelectItem value="bug">🐛 Bug</SelectItem>
-                    <SelectItem value="feature_request">✨ Feature Request</SelectItem>
-                    <SelectItem value="design">🎨 Design</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
