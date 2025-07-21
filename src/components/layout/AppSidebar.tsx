@@ -64,13 +64,13 @@ export function AppSidebar() {
       <SidebarContent>
         {/* Logo/Brand */}
         <div className="p-4 border-b border-border">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-gradient-primary rounded-lg flex items-center justify-center">
-              <FolderKanban className="w-4 h-4 text-white" />
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-gradient-primary rounded-xl flex items-center justify-center shadow-glow">
+              <FolderKanban className="w-5 h-5 text-white" />
             </div>
             {!collapsed && (
               <div>
-                <h2 className="font-bold text-foreground">ProjectFlow</h2>
+                <h2 className="font-bold text-lg text-foreground">ProjectFlow</h2>
                 <p className="text-xs text-muted-foreground">Project Management</p>
               </div>
             )}

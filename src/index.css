@@ -21,11 +21,11 @@ All colors MUST be HSL.
     --popover: 240 5.9% 10%;
     --popover-foreground: 0 0% 98%;
     
-    /* Primary brand colors - Professional blue */
-    --primary: 217 91% 60%;
+    /* Primary brand colors - Vibrant orange like Project Studio */
+    --primary: 20.5 90.2% 48.2%;
     --primary-foreground: 0 0% 98%;
-    --primary-hover: 217 91% 55%;
-    --primary-light: 217 91% 70%;
+    --primary-hover: 20.5 90.2% 42%;
+    --primary-light: 20.5 90.2% 58%;
     
     /* Secondary colors - Elegant gray-blue */
     --secondary: 240 4.8% 15.9%;
@@ -51,34 +51,39 @@ All colors MUST be HSL.
     /* Interactive elements */
     --border: 240 3.7% 15.9%;
     --input: 240 3.7% 15.9%;
-    --ring: 217 91% 60%;
+    --ring: 20.5 90.2% 48.2%;
 
-    --radius: 0.5rem;
+    --radius: 0.75rem;
 
     /* Gradients for visual appeal */
     --gradient-primary: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-light)));
     --gradient-accent: linear-gradient(135deg, hsl(var(--accent)), hsl(var(--accent-light)));
     --gradient-hero: linear-gradient(135deg, hsl(var(--background)) 0%, hsl(var(--muted)) 100%);
     
-    /* Shadows for depth */
+    /* Enhanced shadows */
     --shadow-soft: 0 4px 6px -1px hsl(var(--primary) / 0.1);
     --shadow-medium: 0 10px 15px -3px hsl(var(--primary) / 0.1);
     --shadow-large: 0 25px 50px -12px hsl(var(--primary) / 0.25);
+    --shadow-glow: 0 0 20px hsl(var(--primary) / 0.3);
     
-    /* Sidebar colors */
+    /* Enhanced card styling */
+    --card-shadow: 0 4px 12px -2px hsl(240 10% 3.9% / 0.8);
+    --card-hover: 0 8px 25px -5px hsl(240 10% 3.9% / 0.6);
+    
+    /* Sidebar colors with orange accent */
     --sidebar-background: 240 5.9% 10%;
     --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 217 91% 60%;
+    --sidebar-primary: 20.5 90.2% 48.2%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 240 3.7% 15.9%;
     --sidebar-accent-foreground: 240 4.8% 95.9%;
     --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217 91% 60%;
+    --sidebar-ring: 20.5 90.2% 48.2%;
     
-    /* Animations */
-    --transition-fast: all 0.15s ease-out;
-    --transition-normal: all 0.3s ease-out;
-    --transition-slow: all 0.5s ease-out;
+    /* Smooth transitions */
+    --transition-fast: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-normal: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-slow: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
   }
 }
 

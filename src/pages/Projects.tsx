@@ -1,37 +1,66 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, MoreHorizontal, FolderOpen, Calendar, Users } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Plus, MoreHorizontal, FolderOpen, Calendar, Users, CheckSquare2 } from "lucide-react";
 
 const projects = [
   {
     name: "Website Redesign",
     description: "Complete overhaul of company website with modern design",
-    status: "In Progress",
-    progress: 75,
-    dueDate: "Dec 15, 2024",
-    team: 5,
-    tasks: 23,
-    color: "bg-primary/10 border-primary/20",
-  },
-  {
-    name: "Mobile App Development",
-    description: "Native iOS and Android app for customer portal",
-    status: "Planning",
-    progress: 25,
-    dueDate: "Jan 20, 2025",
-    team: 3,
-    tasks: 45,
-    color: "bg-warning/10 border-warning/20",
-  },
-  {
-    name: "API Integration",
-    description: "Connect third-party services and improve data flow",
-    status: "Review",
-    progress: 90,
-    dueDate: "Dec 8, 2024",
-    team: 2,
+    status: "Active",
     tasks: 12,
-    color: "bg-success/10 border-success/20",
+    completed: 7,
+    dueDate: "Today",
+    team: [
+      { name: "Alex", avatar: "", initials: "AL" },
+      { name: "Sarah", avatar: "", initials: "SA" },
+      { name: "Mike", avatar: "", initials: "MI" },
+    ],
+    color: "bg-card/50 border-border hover:border-primary/40",
+  },
+  {
+    name: "Mobile App Launch",
+    description: "Native iOS and Android app for customer portal",
+    status: "Active", 
+    tasks: 10,
+    completed: 8,
+    dueDate: "2 days ago",
+    team: [
+      { name: "Emma", avatar: "", initials: "EM" },
+      { name: "John", avatar: "", initials: "JO" },
+      { name: "Lisa", avatar: "", initials: "LI" },
+      { name: "Tom", avatar: "", initials: "TO" },
+    ],
+    color: "bg-card/50 border-border hover:border-primary/40",
+  },
+  {
+    name: "QA Marketing Campaign",
+    description: "Quality assurance testing for upcoming marketing campaign",
+    status: "Active",
+    tasks: 5,
+    completed: 2,
+    dueDate: "3 week ago",
+    team: [
+      { name: "Kate", avatar: "", initials: "KA" },
+      { name: "Ben", avatar: "", initials: "BE" },
+      { name: "Zoe", avatar: "", initials: "ZO" },
+    ],
+    color: "bg-card/50 border-border hover:border-primary/40",
+  },
+  {
+    name: "Internal Knowledge Base",
+    description: "Comprehensive documentation and knowledge management system",
+    status: "Completed",
+    tasks: 13,
+    completed: 13,
+    dueDate: "5 months ago", 
+    team: [
+      { name: "David", avatar: "", initials: "DA" },
+      { name: "Anna", avatar: "", initials: "AN" },
+      { name: "Chris", avatar: "", initials: "CH" },
+    ],
+    color: "bg-card/50 border-border hover:border-primary/40",
   },
 ];
 
@@ -69,40 +98,39 @@ export default function Projects() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {/* Status and Progress */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    project.status === 'In Progress' ? 'bg-primary/20 text-primary' :
-                    project.status === 'Planning' ? 'bg-warning/20 text-warning' :
-                    'bg-success/20 text-success'
-                  }`}>
-                    {project.status}
-                  </span>
-                  <span className="text-sm font-medium text-foreground">{project.progress}%</span>
-                </div>
-                <div className="w-full h-2 bg-muted rounded-full">
-                  <div 
-                    className="h-2 bg-gradient-primary rounded-full transition-all" 
-                    style={{ width: `${project.progress}%` }}
-                  />
+              {/* Status and task count */}
+              <div className="flex items-center justify-between">
+                <Badge variant={project.status === 'Active' ? 'default' : 'secondary'}>
+                  {project.status}
+                </Badge>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <CheckSquare2 className="w-4 h-4" />
+                  <span>{project.completed}/{project.tasks} Tasks</span>
                 </div>
               </div>
 
-              {/* Stats */}
-              <div className="flex items-center justify-between text-sm text-muted-foreground">
-                <div className="flex items-center gap-1">
+              {/* Team avatars */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Users className="w-4 h-4 text-muted-foreground" />
+                  <div className="flex -space-x-2">
+                    {project.team.slice(0, 3).map((member, index) => (
+                      <Avatar key={index} className="w-6 h-6 border-2 border-background">
+                        <AvatarImage src={member.avatar} />
+                        <AvatarFallback className="text-xs">{member.initials}</AvatarFallback>
+                      </Avatar>
+                    ))}
+                    {project.team.length > 3 && (
+                      <div className="w-6 h-6 rounded-full bg-muted border-2 border-background flex items-center justify-center">
+                        <span className="text-xs text-muted-foreground">+{project.team.length - 3}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 text-sm text-muted-foreground">
                   <Calendar className="w-4 h-4" />
                   {project.dueDate}
                 </div>
-              </div>
-              
-              <div className="flex items-center justify-between text-sm text-muted-foreground">
-                <div className="flex items-center gap-1">
-                  <Users className="w-4 h-4" />
-                  {project.team} members
-                </div>
-                <div>{project.tasks} tasks</div>
               </div>
             </CardContent>
           </Card>
