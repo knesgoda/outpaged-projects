@@ -349,49 +349,45 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
               </div>
             </div>
 
-            {/* Hierarchy Level and Task Type Row */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Hierarchy Level</Label>
-                <Select
-                  value={formData.hierarchy_level}
-                  onValueChange={(value) => setFormData(prev => ({ 
+            {/* Combined Task Type & Hierarchy Level */}
+            <div className="space-y-2">
+              <Label>Task Type & Level</Label>
+              <Select
+                value={`${formData.hierarchy_level}-${formData.task_type}`}
+                onValueChange={(value) => {
+                  const [hierarchy_level, task_type] = value.split('-');
+                  setFormData(prev => ({ 
                     ...prev, 
-                    hierarchy_level: value as "initiative" | "epic" | "story" | "task" | "subtask"
-                  }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="initiative">🎯 Initiative</SelectItem>
-                    <SelectItem value="epic">🚀 Epic</SelectItem>
-                    <SelectItem value="story">📖 Story</SelectItem>
-                    <SelectItem value="task">✅ Task</SelectItem>
-                    <SelectItem value="subtask">🔸 Sub-task</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Task Type</Label>
-                <Select
-                  value={formData.task_type}
-                  onValueChange={(value) => setFormData(prev => ({ 
-                    ...prev, 
-                    task_type: value as "bug" | "feature_request" | "design"
-                  }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="bug">🐛 Bug</SelectItem>
-                    <SelectItem value="feature_request">✨ Feature Request</SelectItem>
-                    <SelectItem value="design">🎨 Design</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+                    hierarchy_level: hierarchy_level as "initiative" | "epic" | "story" | "task" | "subtask",
+                    task_type: task_type as "bug" | "feature_request" | "design"
+                  }));
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="initiative-feature_request">🎯 Initiative - ✨ Feature Request</SelectItem>
+                  <SelectItem value="initiative-bug">🎯 Initiative - 🐛 Bug</SelectItem>
+                  <SelectItem value="initiative-design">🎯 Initiative - 🎨 Design</SelectItem>
+                  
+                  <SelectItem value="epic-feature_request">🚀 Epic - ✨ Feature Request</SelectItem>
+                  <SelectItem value="epic-bug">🚀 Epic - 🐛 Bug</SelectItem>
+                  <SelectItem value="epic-design">🚀 Epic - 🎨 Design</SelectItem>
+                  
+                  <SelectItem value="story-feature_request">📖 Story - ✨ Feature Request</SelectItem>
+                  <SelectItem value="story-bug">📖 Story - 🐛 Bug</SelectItem>
+                  <SelectItem value="story-design">📖 Story - 🎨 Design</SelectItem>
+                  
+                  <SelectItem value="task-feature_request">✅ Task - ✨ Feature Request</SelectItem>
+                  <SelectItem value="task-bug">✅ Task - 🐛 Bug</SelectItem>
+                  <SelectItem value="task-design">✅ Task - 🎨 Design</SelectItem>
+                  
+                  <SelectItem value="subtask-feature_request">🔸 Sub-task - ✨ Feature Request</SelectItem>
+                  <SelectItem value="subtask-bug">🔸 Sub-task - 🐛 Bug</SelectItem>
+                  <SelectItem value="subtask-design">🔸 Sub-task - 🎨 Design</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Due Date */}
