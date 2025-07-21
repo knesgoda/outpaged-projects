@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Plus, Filter, Search, Calendar, MessageSquare, Paperclip, Clock } from "lucide-react";
+import { Plus, Filter, Search, Calendar, MessageSquare, Paperclip, Clock, Eye, Edit } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -15,7 +15,24 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { TaskDialog } from "@/components/kanban/TaskDialog";
+import { Task } from "@/components/kanban/TaskCard";
 
 interface Task {
   id: string;
@@ -81,6 +98,8 @@ export default function Tasks() {
   const [hierarchyFilter, setHierarchyFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [taskToDelete, setTaskToDelete] = useState<string | null>(null);
 
   const fetchTasks = async () => {
     if (!user) return;
@@ -153,6 +172,200 @@ export default function Tasks() {
     }
   }, [user]);
 
+  const handleTaskClick = (task: Task) => {
+    setSelectedTask(task);
+    setIsTaskDialogOpen(true);
+  };
+
+  const handleEditTask = (e: React.MouseEvent, task: Task) => {
+    e.stopPropagation();
+    setSelectedTask(task);
+    setIsTaskDialogOpen(true);
+  };
+
+  const handleDeleteTask = (e: React.MouseEvent, taskId: string) => {
+    e.stopPropagation();
+    setTaskToDelete(taskId);
+  };
+
+  const confirmDeleteTask = async () => {
+    if (!taskToDelete) return;
+
+    try {
+      const { error } = await supabase
+        .from('tasks')
+        .delete()
+        .eq('id', taskToDelete);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Task deleted successfully",
+      });
+
+      setTaskToDelete(null);
+      fetchTasks();
+    } catch (error) {
+      console.error('Error deleting task:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete task",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleSaveTask = async (taskData: Partial<Task>) => {
+    try {
+      if (selectedTask) {
+        // Update existing task
+        const { error } = await supabase
+          .from('tasks')
+          .update({
+            title: taskData.title,
+            description: taskData.description,
+            priority: taskData.priority,
+            status: taskData.status,
+            hierarchy_level: (taskData as any).hierarchy_level,
+            task_type: (taskData as any).task_type,
+            due_date: (taskData as any).due_date,
+            parent_id: (taskData as any).parent_id,
+          })
+          .eq('id', selectedTask.id);
+
+        if (error) throw error;
+
+        // Update assignees if provided
+        if (taskData.assignees) {
+          // Remove existing assignees
+          await supabase
+            .from('task_assignees')
+            .delete()
+            .eq('task_id', selectedTask.id);
+
+          // Add new assignees
+          if (taskData.assignees.length > 0) {
+            const assigneeInserts = taskData.assignees.map(assignee => ({
+              task_id: selectedTask.id,
+              user_id: assignee.id,
+              assigned_by: user?.id
+            }));
+
+            await supabase
+              .from('task_assignees')
+              .insert(assigneeInserts);
+          }
+        }
+
+        toast({
+          title: "Success",
+          description: "Task updated successfully",
+        });
+      } else {
+        // Create new task (existing logic)
+        const { data: projects, error: projectError } = await supabase
+          .from('projects')
+          .select('id')
+          .limit(1);
+
+        if (projectError) throw projectError;
+        if (!projects || projects.length === 0) {
+          toast({
+            title: "Error",
+            description: "No project found. Please create a project first.",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        const { data: newTask, error } = await supabase
+          .from('tasks')
+          .insert({
+            title: taskData.title,
+            description: taskData.description,
+            priority: taskData.priority || 'medium',
+            hierarchy_level: (taskData as any).hierarchy_level || 'task',
+            task_type: (taskData as any).task_type || 'feature_request',
+            parent_id: (taskData as any).parent_id || null,
+            status: 'todo',
+            project_id: projects[0].id,
+            reporter_id: user?.id,
+            due_date: (taskData as any).due_date || null,
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        // Add assignees for new task
+        if (taskData.assignees && taskData.assignees.length > 0 && newTask) {
+          const assigneeInserts = taskData.assignees.map(assignee => ({
+            task_id: newTask.id,
+            user_id: assignee.id,
+            assigned_by: user?.id
+          }));
+
+          const { error: assigneeError } = await supabase
+            .from('task_assignees')
+            .insert(assigneeInserts);
+
+          if (assigneeError) {
+            console.error('Error adding assignees:', assigneeError);
+            toast({
+              title: "Warning",
+              description: "Task created but failed to add assignees",
+              variant: "destructive",
+            });
+          }
+        }
+
+        toast({
+          title: "Success",
+          description: "Task created successfully",
+        });
+      }
+
+      setIsTaskDialogOpen(false);
+      setSelectedTask(null);
+      fetchTasks();
+    } catch (error) {
+      console.error('Error saving task:', error);
+      toast({
+        title: "Error",
+        description: selectedTask ? "Failed to update task" : "Failed to create task",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleCreateSubTask = (parentTask: Task) => {
+    setSelectedTask({
+      ...parentTask,
+      id: '', // Clear ID to indicate this is a new task
+      title: '',
+      description: '',
+      parent_id: parentTask.id,
+      hierarchy_level: getSubTaskHierarchy(parentTask.hierarchy_level),
+    } as Task);
+    setIsTaskDialogOpen(true);
+  };
+
+  const getSubTaskHierarchy = (parentLevel: string) => {
+    switch (parentLevel) {
+      case 'initiative':
+        return 'epic';
+      case 'epic':
+        return 'story';
+      case 'story':
+        return 'task';
+      case 'task':
+        return 'subtask';
+      default:
+        return 'subtask';
+    }
+  };
+
   const filteredTasks = tasks.filter(task => {
     const matchesSearch = task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          task.description?.toLowerCase().includes(searchQuery.toLowerCase());
@@ -202,7 +415,10 @@ export default function Tasks() {
         </div>
         <Button 
           className="bg-gradient-primary hover:opacity-90"
-          onClick={() => setIsTaskDialogOpen(true)}
+          onClick={() => {
+            setSelectedTask(null);
+            setIsTaskDialogOpen(true);
+          }}
         >
           <Plus className="w-4 h-4 mr-2" />
           New Task
@@ -320,12 +536,16 @@ export default function Tasks() {
       ) : (
         <div className="space-y-4">
           {filteredTasks.map((task) => (
-            <Card key={task.id} className="hover:shadow-medium transition-shadow cursor-pointer">
+            <Card 
+              key={task.id} 
+              className="hover:shadow-medium transition-shadow cursor-pointer group"
+              onClick={() => handleTaskClick(task)}
+            >
               <CardContent className="p-6">
                 <div className="space-y-4">
                   {/* Header */}
                   <div className="flex items-start justify-between">
-                    <div className="space-y-2">
+                    <div className="space-y-2 flex-1">
                       <h3 className="font-semibold text-foreground leading-tight">
                         {task.title}
                       </h3>
@@ -335,21 +555,57 @@ export default function Tasks() {
                         </p>
                       )}
                     </div>
-                     <div className="flex flex-wrap items-center gap-2">
-                       <Badge className={hierarchyColors[task.hierarchy_level]} variant="secondary">
-                         {task.hierarchy_level}
-                       </Badge>
-                       <Badge variant="outline" className="text-xs">
-                         <span className="mr-1">{typeIcons[task.task_type]}</span>
-                         {task.task_type.replace('_', ' ')}
-                       </Badge>
-                       <Badge className={priorityColors[task.priority]} variant="secondary">
-                         {task.priority}
-                       </Badge>
-                       <Badge className={statusColors[task.status]} variant="secondary">
-                         {task.status.replace('_', ' ')}
-                       </Badge>
-                     </div>
+                    <div className="flex items-center gap-2 ml-4">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge className={hierarchyColors[task.hierarchy_level]} variant="secondary">
+                          {task.hierarchy_level}
+                        </Badge>
+                        <Badge variant="outline" className="text-xs">
+                          <span className="mr-1">{typeIcons[task.task_type]}</span>
+                          {task.task_type.replace('_', ' ')}
+                        </Badge>
+                        <Badge className={priorityColors[task.priority]} variant="secondary">
+                          {task.priority}
+                        </Badge>
+                        <Badge className={statusColors[task.status]} variant="secondary">
+                          {task.status.replace('_', ' ')}
+                        </Badge>
+                      </div>
+                      
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            className="opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            ⋯
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={(e) => handleEditTask(e, task)}>
+                            <Edit className="w-4 h-4 mr-2" />
+                            Edit Task
+                          </DropdownMenuItem>
+                          {(task.hierarchy_level === 'epic' || task.hierarchy_level === 'initiative' || task.hierarchy_level === 'story') && (
+                            <DropdownMenuItem onClick={(e) => {
+                              e.stopPropagation();
+                              handleCreateSubTask(task);
+                            }}>
+                              <Plus className="w-4 h-4 mr-2" />
+                              Create Sub-task
+                            </DropdownMenuItem>
+                          )}
+                          <DropdownMenuItem 
+                            className="text-destructive"
+                            onClick={(e) => handleDeleteTask(e, task.id)}
+                          >
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   </div>
 
                   {/* Meta Information */}
@@ -420,85 +676,34 @@ export default function Tasks() {
 
       {/* Task Dialog */}
       <TaskDialog
+        task={selectedTask}
         isOpen={isTaskDialogOpen}
-        onClose={() => setIsTaskDialogOpen(false)}
-        onSave={async (taskData) => {
-          try {
-            // Get the first project the user has access to
-            const { data: projects, error: projectError } = await supabase
-              .from('projects')
-              .select('id')
-              .limit(1);
-
-            if (projectError) throw projectError;
-            if (!projects || projects.length === 0) {
-              toast({
-                title: "Error",
-                description: "No project found. Please create a project first.",
-                variant: "destructive",
-              });
-              return;
-            }
-
-            const { data: newTask, error } = await supabase
-              .from('tasks')
-              .insert({
-                title: taskData.title,
-                description: taskData.description,
-                priority: taskData.priority || 'medium',
-                hierarchy_level: (taskData as any).hierarchy_level || 'task',
-                task_type: (taskData as any).task_type || 'feature_request',
-                parent_id: (taskData as any).parent_id || null,
-                status: 'todo',
-                project_id: projects[0].id,
-                reporter_id: user?.id,
-                due_date: (taskData as any).due_date || null,
-              })
-              .select()
-              .single();
-
-            if (error) throw error;
-
-            // Add assignees for new task
-            if (taskData.assignees && taskData.assignees.length > 0 && newTask) {
-              const assigneeInserts = taskData.assignees.map(assignee => ({
-                task_id: newTask.id,
-                user_id: assignee.id,
-                assigned_by: user?.id
-              }));
-
-              const { error: assigneeError } = await supabase
-                .from('task_assignees')
-                .insert(assigneeInserts);
-
-              if (assigneeError) {
-                console.error('Error adding assignees:', assigneeError);
-                toast({
-                  title: "Warning",
-                  description: "Task created but failed to add assignees",
-                  variant: "destructive",
-                });
-              }
-            }
-
-            toast({
-              title: "Success",
-              description: "Task created successfully",
-            });
-
-            setIsTaskDialogOpen(false);
-            fetchTasks();
-          } catch (error) {
-            console.error('Error creating task:', error);
-            toast({
-              title: "Error",
-              description: "Failed to create task",
-              variant: "destructive",
-            });
-          }
+        onClose={() => {
+          setIsTaskDialogOpen(false);
+          setSelectedTask(null);
         }}
+        onSave={handleSaveTask}
         columnId="todo"
+        projectId={tasks[0]?.project_id}
       />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!taskToDelete} onOpenChange={() => setTaskToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Task</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this task? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteTask} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
