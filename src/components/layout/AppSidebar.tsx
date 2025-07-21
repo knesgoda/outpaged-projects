@@ -41,7 +41,7 @@ const navigationItems = [
 ];
 
 const bottomItems = [
-  { title: "Settings", url: "/settings", icon: Settings },
+  { title: "Settings", url: "/dashboard/settings", icon: Settings },
   { title: "Help", url: "/help", icon: HelpCircle },
 ];
 

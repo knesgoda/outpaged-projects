@@ -158,7 +158,10 @@ export default function Settings() {
               <Label>Role</Label>
               <Select
                 value={profileData.role}
-                onValueChange={(value) => setProfileData(prev => ({ ...prev, role: value }))}
+                onValueChange={(value) => setProfileData(prev => ({ 
+                  ...prev, 
+                  role: value as 'developer' | 'admin' | 'project_manager' | 'designer' | 'qa' | 'viewer' | 'super_admin'
+                }))}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -166,7 +169,7 @@ export default function Settings() {
                 <SelectContent>
                   <SelectItem value="developer">Developer</SelectItem>
                   <SelectItem value="designer">Designer</SelectItem>
-                  <SelectItem value="manager">Project Manager</SelectItem>
+                  <SelectItem value="project_manager">Project Manager</SelectItem>
                   <SelectItem value="qa">QA Engineer</SelectItem>
                 </SelectContent>
               </Select>
