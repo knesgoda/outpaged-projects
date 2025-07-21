@@ -240,6 +240,51 @@ export type Database = {
           },
         ]
       }
+      task_relationships: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          notes: string | null
+          relationship_type: Database["public"]["Enums"]["task_relationship_type"]
+          source_task_id: string
+          target_task_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          notes?: string | null
+          relationship_type: Database["public"]["Enums"]["task_relationship_type"]
+          source_task_id: string
+          target_task_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          notes?: string | null
+          relationship_type?: Database["public"]["Enums"]["task_relationship_type"]
+          source_task_id?: string
+          target_task_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_source_task"
+            columns: ["source_task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_target_task"
+            columns: ["target_task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tasks: {
         Row: {
           assignee_id: string | null
@@ -425,6 +470,22 @@ export type Database = {
           depth: number
         }[]
       }
+      get_task_relationships: {
+        Args: { task_id_param: string }
+        Returns: {
+          id: string
+          source_task_id: string
+          target_task_id: string
+          relationship_type: Database["public"]["Enums"]["task_relationship_type"]
+          created_at: string
+          created_by: string
+          notes: string
+          source_task_title: string
+          target_task_title: string
+          source_task_status: Database["public"]["Enums"]["task_status"]
+          target_task_status: Database["public"]["Enums"]["task_status"]
+        }[]
+      }
       is_admin: {
         Args: { user_id: string }
         Returns: boolean
@@ -444,6 +505,11 @@ export type Database = {
       sprint_status: "planning" | "active" | "completed"
       task_hierarchy_level: "initiative" | "epic" | "story" | "task" | "subtask"
       task_priority: "low" | "medium" | "high" | "urgent"
+      task_relationship_type:
+        | "blocks"
+        | "depends_on"
+        | "duplicates"
+        | "relates_to"
       task_status: "todo" | "in_progress" | "in_review" | "done"
       task_type: "bug" | "feature_request" | "design"
       team_role:
@@ -591,6 +657,12 @@ export const Constants = {
       sprint_status: ["planning", "active", "completed"],
       task_hierarchy_level: ["initiative", "epic", "story", "task", "subtask"],
       task_priority: ["low", "medium", "high", "urgent"],
+      task_relationship_type: [
+        "blocks",
+        "depends_on",
+        "duplicates",
+        "relates_to",
+      ],
       task_status: ["todo", "in_progress", "in_review", "done"],
       task_type: ["bug", "feature_request", "design"],
       team_role: [

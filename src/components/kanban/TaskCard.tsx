@@ -21,6 +21,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useTimeTracking } from "@/hooks/useTimeTracking";
 import { useAuth } from "@/hooks/useAuth";
+import { TaskRelationshipIndicator } from "@/components/tasks/TaskRelationshipIndicator";
+import { useTaskRelationships } from "@/hooks/useTaskRelationships";
 
 export interface Task {
   id: string;
@@ -31,6 +33,7 @@ export interface Task {
   hierarchy_level: "initiative" | "epic" | "story" | "task" | "subtask";
   task_type: "bug" | "feature_request" | "design";
   parent_id?: string;
+  project_id?: string;
   assignee?: {
     name: string;
     avatar?: string;
@@ -73,6 +76,7 @@ const typeIcons = {
 export function TaskCard({ task, onEdit, onDelete }: TaskCardProps) {
   const { user } = useAuth();
   const { getTotalTimeForTask, formatDuration } = useTimeTracking();
+  const { relationships } = useTaskRelationships(task.id);
   const totalTime = user ? getTotalTimeForTask(task.id) : 0;
   
   const {
@@ -163,6 +167,17 @@ export function TaskCard({ task, onEdit, onDelete }: TaskCardProps) {
                 {tag}
               </Badge>
             ))}
+          </div>
+        )}
+
+        {/* Task Relationships */}
+        {relationships.length > 0 && (
+          <div className="flex flex-wrap gap-1">
+            <TaskRelationshipIndicator
+              relationships={relationships}
+              taskId={task.id}
+              compact={true}
+            />
           </div>
         )}
 

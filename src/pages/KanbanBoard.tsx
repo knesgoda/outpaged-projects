@@ -45,6 +45,7 @@ export default function KanbanBoard() {
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterBy, setFilterBy] = useState("all");
+  const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
   const [taskDialog, setTaskDialog] = useState<{
     isOpen: boolean;
     task?: Task | null;
@@ -118,6 +119,7 @@ export default function KanbanBoard() {
         hierarchy_level: task.hierarchy_level || 'task',
         task_type: task.task_type || 'feature_request',
         parent_id: task.parent_id,
+        project_id: task.project_id,
         assignee: task.assignee ? {
           name: task.assignee.full_name || 'Unknown',
           initials: (task.assignee.full_name || 'U')
@@ -146,6 +148,11 @@ export default function KanbanBoard() {
       }));
 
       setColumns(newColumns);
+      
+      // Set current project ID from the first task
+      if (tasksWithDetails.length > 0 && !currentProjectId) {
+        setCurrentProjectId(tasksWithDetails[0].project_id);
+      }
     } catch (error) {
       console.error('Error fetching tasks:', error);
       toast({
@@ -499,6 +506,7 @@ export default function KanbanBoard() {
         onClose={() => setTaskDialog({ isOpen: false })}
         onSave={handleSaveTask}
         columnId={taskDialog.columnId}
+        projectId={currentProjectId || undefined}
       />
     </div>
   );

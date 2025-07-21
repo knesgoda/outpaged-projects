@@ -28,7 +28,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { FileUpload, UploadedFile } from "@/components/ui/file-upload";
 import { Task } from "./TaskCard";
-import { CalendarIcon, X, User, Tag, MessageSquare, Paperclip } from "lucide-react";
+import { CalendarIcon, X, User, Tag, MessageSquare, Paperclip, GitBranch } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useFileUpload } from "@/hooks/useFileUpload";
@@ -36,6 +36,9 @@ import { useToast } from "@/hooks/use-toast";
 import { TimeTracker } from "@/components/time-tracking/TimeTracker";
 import { TimeEntriesList } from "@/components/time-tracking/TimeEntriesList";
 import { CommentsSystem } from "@/components/comments/CommentsSystem";
+import { TaskRelationshipsDialog } from "@/components/tasks/TaskRelationshipsDialog";
+import { TaskRelationshipIndicator } from "@/components/tasks/TaskRelationshipIndicator";
+import { useTaskRelationships } from "@/hooks/useTaskRelationships";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -45,9 +48,10 @@ interface TaskDialogProps {
   onClose: () => void;
   onSave: (task: Partial<Task>) => void;
   columnId?: string;
+  projectId?: string;
 }
 
-export function TaskDialog({ task, isOpen, onClose, onSave, columnId }: TaskDialogProps) {
+export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId }: TaskDialogProps) {
   const [formData, setFormData] = useState({
     title: task?.title || "",
     description: task?.description || "",
@@ -65,9 +69,11 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId }: TaskDial
   const [loading, setLoading] = useState(false);
   const [newTag, setNewTag] = useState("");
   const [commentCount, setCommentCount] = useState(0);
+  const [showRelationships, setShowRelationships] = useState(false);
   const { uploadFile, deleteFile, isUploading } = useFileUpload();
   const { toast } = useToast();
   const { user } = useAuth();
+  const { relationships } = useTaskRelationships(task?.id);
 
   useEffect(() => {
     if (isOpen) {
@@ -490,6 +496,34 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId }: TaskDial
               </div>
             )}
 
+            {/* Task Relationships */}
+            {task?.id && projectId && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold">Relationships</h3>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowRelationships(true)}
+                  >
+                    <GitBranch className="w-4 h-4 mr-2" />
+                    Manage
+                  </Button>
+                </div>
+                
+                {relationships.length > 0 ? (
+                  <TaskRelationshipIndicator
+                    relationships={relationships}
+                    taskId={task.id}
+                  />
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    No relationships defined for this task.
+                  </p>
+                )}
+              </div>
+            )}
+
             {/* Comments */}
             {task?.id && (
               <div className="space-y-4">
@@ -512,6 +546,10 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId }: TaskDial
                   <Paperclip className="w-4 h-4" />
                   {Array.isArray(formData.attachments) ? formData.attachments.length : 0} attachments
                 </div>
+                <div className="flex items-center gap-1">
+                  <GitBranch className="w-4 h-4" />
+                  {relationships.length} relationships
+                </div>
               </div>
             )}
           </div>
@@ -527,6 +565,17 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId }: TaskDial
           </Button>
         </div>
       </DialogContent>
+
+      {/* Task Relationships Dialog */}
+      {task?.id && projectId && (
+        <TaskRelationshipsDialog
+          isOpen={showRelationships}
+          onClose={() => setShowRelationships(false)}
+          taskId={task.id}
+          taskTitle={task.title}
+          projectId={projectId}
+        />
+      )}
     </Dialog>
   );
 }
