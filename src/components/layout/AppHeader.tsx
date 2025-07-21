@@ -29,19 +29,19 @@ export function AppHeader() {
     : user?.email?.[0]?.toUpperCase() || 'U';
 
   return (
-    <header className="h-16 border-b border-border bg-card px-6 flex items-center justify-between">
-      <div className="flex items-center gap-4">
+    <header className="h-16 border-b border-border bg-card px-4 sm:px-6 flex items-center justify-between">
+      <div className="flex items-center gap-2 sm:gap-4 flex-1">
         <SidebarTrigger className="text-muted-foreground hover:text-foreground" />
-        <div className="relative w-96">
+        <div className="relative flex-1 max-w-xs sm:max-w-md lg:max-w-lg">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
-            placeholder="Search projects, tasks, or team members..."
-            className="pl-10 bg-muted/30 border-muted focus:bg-background"
+            placeholder="Search..."
+            className="pl-10 bg-muted/30 border-muted focus:bg-background text-sm"
           />
         </div>
       </div>
 
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2 sm:gap-4">
         {/* Notifications */}
         <NotificationBell />
 

@@ -75,20 +75,25 @@ export function TaskCard({ task, onEdit, onDelete }: TaskCardProps) {
       style={style}
       {...attributes}
       {...listeners}
-      className={`cursor-grab hover:shadow-medium transition-shadow bg-card border-border ${
-        isDragging ? "opacity-50 rotate-2 shadow-large" : ""
+      className={`cursor-grab active:cursor-grabbing hover:shadow-medium transition-all duration-200 bg-card border-border touch-manipulation min-h-[120px] ${
+        isDragging ? "opacity-50 rotate-2 shadow-large scale-105" : "hover:scale-[1.02]"
       }`}
     >
-      <CardContent className="p-4 space-y-3">
+      <CardContent className="p-3 sm:p-4 space-y-3">
         {/* Header with priority and menu */}
         <div className="flex items-start justify-between">
           <Badge className={priorityColors[task.priority]} variant="secondary">
             <Flag className="w-3 h-3 mr-1" />
-            {task.priority}
+            <span className="text-xs sm:text-sm">{task.priority}</span>
           </Badge>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="w-6 h-6 opacity-50 hover:opacity-100">
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="w-8 h-8 sm:w-6 sm:h-6 opacity-50 hover:opacity-100 touch-manipulation"
+                onClick={(e) => e.stopPropagation()}
+              >
                 <MoreHorizontal className="w-4 h-4" />
               </Button>
             </DropdownMenuTrigger>
@@ -111,9 +116,9 @@ export function TaskCard({ task, onEdit, onDelete }: TaskCardProps) {
 
         {/* Title and Description */}
         <div className="space-y-2">
-          <h4 className="font-medium text-foreground leading-snug">{task.title}</h4>
+          <h4 className="font-medium text-foreground leading-snug text-sm sm:text-base">{task.title}</h4>
           {task.description && (
-            <p className="text-sm text-muted-foreground line-clamp-2">
+            <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2">
               {task.description}
             </p>
           )}
@@ -132,11 +137,12 @@ export function TaskCard({ task, onEdit, onDelete }: TaskCardProps) {
 
         {/* Footer */}
         <div className="flex items-center justify-between pt-2 border-t border-border">
-          <div className="flex items-center gap-3 text-muted-foreground">
+          <div className="flex items-center gap-2 sm:gap-3 text-muted-foreground flex-wrap">
             {task.dueDate && (
               <div className="flex items-center gap-1 text-xs">
                 <Calendar className="w-3 h-3" />
-                {task.dueDate}
+                <span className="hidden sm:inline">{task.dueDate}</span>
+                <span className="sm:hidden">{task.dueDate.split(' ')[0]}</span>
               </div>
             )}
             {task.comments > 0 && (
@@ -160,7 +166,7 @@ export function TaskCard({ task, onEdit, onDelete }: TaskCardProps) {
           </div>
           
           {task.assignee && (
-            <Avatar className="w-6 h-6">
+            <Avatar className="w-7 h-7 sm:w-6 sm:h-6">
               <AvatarImage src={task.assignee.avatar} alt={task.assignee.name} />
               <AvatarFallback className="text-xs">
                 {task.assignee.initials}

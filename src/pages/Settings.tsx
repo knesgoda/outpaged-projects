@@ -10,6 +10,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { FileUpload } from '@/components/ui/file-upload';
+import { ExportDialog } from '@/components/import-export/ExportDialog';
+import { ImportDialog } from '@/components/import-export/ImportDialog';
 import { 
   User, 
   Bell, 
@@ -18,6 +20,7 @@ import {
   Clock, 
   Mail,
   Upload,
+  Download,
   Save,
   Settings as SettingsIcon,
   BookOpen,
@@ -33,6 +36,8 @@ export default function Settings() {
   const { restartOnboarding } = useOnboarding();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const [exportDialog, setExportDialog] = useState(false);
+  const [importDialog, setImportDialog] = useState(false);
   
   // Profile settings
   const [profileData, setProfileData] = useState({
@@ -269,6 +274,43 @@ export default function Settings() {
         </Card>
       </div>
 
+      {/* Import/Export Section */}
+      <div className="space-y-4">
+        <h2 className="text-xl font-semibold">Data Management</h2>
+        
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Download className="h-5 w-5" />
+              Import/Export
+            </CardTitle>
+            <CardDescription>
+              Backup your data or import from external sources
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Button 
+                variant="outline" 
+                className="w-full"
+                onClick={() => setExportDialog(true)}
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Export Data
+              </Button>
+              <Button 
+                variant="outline" 
+                className="w-full"
+                onClick={() => setImportDialog(true)}
+              >
+                <Upload className="w-4 h-4 mr-2" />
+                Import Data
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
       {/* Help & Onboarding Section */}
       <div className="space-y-4">
         <h2 className="text-xl font-semibold">Help & Learning</h2>
@@ -328,6 +370,22 @@ export default function Settings() {
           </Card>
         </div>
       </div>
+
+      {/* Import/Export Dialogs */}
+      <ExportDialog 
+        isOpen={exportDialog} 
+        onClose={() => setExportDialog(false)} 
+      />
+      <ImportDialog 
+        isOpen={importDialog} 
+        onClose={() => setImportDialog(false)} 
+        onSuccess={() => {
+          toast({
+            title: "Import Successful",
+            description: "Your data has been imported successfully",
+          });
+        }}
+      />
     </div>
   );
 }

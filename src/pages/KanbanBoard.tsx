@@ -320,28 +320,30 @@ export default function KanbanBoard() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Kanban Board</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Kanban Board</h1>
+          <p className="text-muted-foreground text-sm sm:text-base">
             Drag and drop tasks to manage your workflow
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={addNewColumn}>
+        <div className="flex flex-col sm:flex-row gap-2">
+          <Button variant="outline" onClick={addNewColumn} className="w-full sm:w-auto">
             <Plus className="w-4 h-4 mr-2" />
-            Add Column
+            <span className="hidden sm:inline">Add Column</span>
+            <span className="sm:hidden">Column</span>
           </Button>
-          <Button className="bg-gradient-primary hover:opacity-90">
+          <Button className="bg-gradient-primary hover:opacity-90 w-full sm:w-auto">
             <Plus className="w-4 h-4 mr-2" />
-            Add Task
+            <span className="hidden sm:inline">Add Task</span>
+            <span className="sm:hidden">Task</span>
           </Button>
         </div>
       </div>
 
       {/* Filters and Search */}
-      <div className="flex items-center gap-4">
-        <div className="relative flex-1 max-w-md">
+      <div className="flex flex-col sm:flex-row gap-4">
+        <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
             placeholder="Search tasks..."
@@ -351,7 +353,7 @@ export default function KanbanBoard() {
           />
         </div>
         <Select value={filterBy} onValueChange={setFilterBy}>
-          <SelectTrigger className="w-48">
+          <SelectTrigger className="w-full sm:w-48">
             <Filter className="w-4 h-4 mr-2" />
             <SelectValue />
           </SelectTrigger>
