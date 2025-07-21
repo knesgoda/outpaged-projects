@@ -28,58 +28,7 @@ const currentUser = {
   avatar: "",
 };
 
-// Mock comments data
-const mockComments: Comment[] = [
-  {
-    id: "comment-1",
-    content: "I think we should add a loading state to improve the user experience. What do you think?",
-    author: {
-      id: "user-1",
-      name: "Alice Johnson",
-      initials: "AJ",
-      avatar: "",
-      role: "Designer"
-    },
-    createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 hours ago
-    likes: 3,
-    isLiked: false,
-    isEdited: false,
-    replies: [
-      {
-        id: "comment-2",
-        content: "Great idea! I can implement a skeleton loader for the cards.",
-        author: {
-          id: "user-2",
-          name: "Bob Smith",
-          initials: "BS",
-          avatar: "",
-          role: "Developer"
-        },
-        parentId: "comment-1",
-        createdAt: new Date(Date.now() - 1.5 * 60 * 60 * 1000),
-        likes: 1,
-        isLiked: true,
-        isEdited: false,
-      }
-    ]
-  },
-  {
-    id: "comment-3",
-    content: "The new design looks fantastic! The color scheme really works well with our brand guidelines. Should we also update the mobile version to match?",
-    author: {
-      id: "user-3",
-      name: "Carol Davis",
-      initials: "CD",
-      avatar: "",
-      role: "Product Manager"
-    },
-    createdAt: new Date(Date.now() - 30 * 60 * 1000), // 30 minutes ago
-    likes: 5,
-    isLiked: false,
-    isEdited: true,
-    replies: []
-  }
-];
+const mockComments: Comment[] = [];
 
 interface CommentsSystemProps {
   taskId: string;

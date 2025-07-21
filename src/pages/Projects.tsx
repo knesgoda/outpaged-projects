@@ -4,65 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Plus, MoreHorizontal, FolderOpen, Calendar, Users, CheckSquare2 } from "lucide-react";
 
-const projects = [
-  {
-    name: "Website Redesign",
-    description: "Complete overhaul of company website with modern design",
-    status: "Active",
-    tasks: 12,
-    completed: 7,
-    dueDate: "Today",
-    team: [
-      { name: "Alex", avatar: "", initials: "AL" },
-      { name: "Sarah", avatar: "", initials: "SA" },
-      { name: "Mike", avatar: "", initials: "MI" },
-    ],
-    color: "bg-card/50 border-border hover:border-primary/40",
-  },
-  {
-    name: "Mobile App Launch",
-    description: "Native iOS and Android app for customer portal",
-    status: "Active", 
-    tasks: 10,
-    completed: 8,
-    dueDate: "2 days ago",
-    team: [
-      { name: "Emma", avatar: "", initials: "EM" },
-      { name: "John", avatar: "", initials: "JO" },
-      { name: "Lisa", avatar: "", initials: "LI" },
-      { name: "Tom", avatar: "", initials: "TO" },
-    ],
-    color: "bg-card/50 border-border hover:border-primary/40",
-  },
-  {
-    name: "QA Marketing Campaign",
-    description: "Quality assurance testing for upcoming marketing campaign",
-    status: "Active",
-    tasks: 5,
-    completed: 2,
-    dueDate: "3 week ago",
-    team: [
-      { name: "Kate", avatar: "", initials: "KA" },
-      { name: "Ben", avatar: "", initials: "BE" },
-      { name: "Zoe", avatar: "", initials: "ZO" },
-    ],
-    color: "bg-card/50 border-border hover:border-primary/40",
-  },
-  {
-    name: "Internal Knowledge Base",
-    description: "Comprehensive documentation and knowledge management system",
-    status: "Completed",
-    tasks: 13,
-    completed: 13,
-    dueDate: "5 months ago", 
-    team: [
-      { name: "David", avatar: "", initials: "DA" },
-      { name: "Anna", avatar: "", initials: "AN" },
-      { name: "Chris", avatar: "", initials: "CH" },
-    ],
-    color: "bg-card/50 border-border hover:border-primary/40",
-  },
-];
+const projects: any[] = [];
 
 export default function Projects() {
   return (

@@ -22,38 +22,11 @@ import {
 } from "lucide-react";
 import { TeamMember } from "./TeamDirectory";
 
-// Mock data - would come from API in real app
-const mockMember: TeamMember = {
-  id: "1",
-  name: "Alice Johnson",
-  email: "alice@company.com",
-  role: "Senior Designer",
-  department: "Design",
-  initials: "AJ",
-  avatar: "https://images.unsplash.com/photo-1494790108755-2616b612b47c?w=300&h=300&fit=crop&crop=face",
-  status: "active",
-  phone: "+1 (555) 123-4567",
-  location: "San Francisco, CA",
-  joinDate: "Jan 2023",
-  lastActive: "2 hours ago",
-  projectsCount: 8,
-  tasksCompleted: 127,
-  skills: ["UI Design", "Figma", "Prototyping", "User Research", "Design Systems", "Accessibility"],
-  bio: "Passionate about creating intuitive user experiences with a focus on accessibility and modern design principles. I have over 5 years of experience in product design and love collaborating with cross-functional teams to solve complex user problems."
-};
+// Data will be loaded from Supabase
+const mockMember: TeamMember | null = null;
 
-const mockProjects = [
-  { id: "1", name: "Website Redesign", role: "Lead Designer", status: "In Progress", progress: 75 },
-  { id: "2", name: "Mobile App", role: "UI Designer", status: "Planning", progress: 25 },
-  { id: "3", name: "Design System", role: "Design Lead", status: "Completed", progress: 100 },
-];
-
-const mockRecentActivity = [
-  { id: "1", action: "Completed task", item: "Homepage wireframes", time: "2 hours ago" },
-  { id: "2", action: "Updated", item: "User research findings", time: "1 day ago" },
-  { id: "3", action: "Commented on", item: "Mobile app designs", time: "2 days ago" },
-  { id: "4", action: "Created", item: "Design system documentation", time: "3 days ago" },
-];
+const mockProjects: any[] = [];
+const mockRecentActivity: any[] = [];
 
 export default function TeamMemberProfile() {
   const { memberId } = useParams();

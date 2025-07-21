@@ -39,45 +39,12 @@ import {
   Activity
 } from 'lucide-react';
 
-// Mock data for analytics
-const projectPerformanceData = [
-  { name: 'Week 1', completed: 12, inProgress: 8, todo: 15 },
-  { name: 'Week 2', completed: 18, inProgress: 6, todo: 12 },
-  { name: 'Week 3', completed: 15, inProgress: 10, todo: 18 },
-  { name: 'Week 4', completed: 22, inProgress: 5, todo: 8 },
-];
-
-const teamPerformanceData = [
-  { name: 'Alice Johnson', tasksCompleted: 28, hoursWorked: 35, efficiency: 95 },
-  { name: 'Bob Smith', tasksCompleted: 22, hoursWorked: 40, efficiency: 87 },
-  { name: 'Carol Davis', tasksCompleted: 31, hoursWorked: 38, efficiency: 92 },
-  { name: 'David Wilson', tasksCompleted: 19, hoursWorked: 35, efficiency: 78 },
-];
-
-const burndownData = [
-  { day: 'Day 1', planned: 100, actual: 98 },
-  { day: 'Day 2', planned: 90, actual: 85 },
-  { day: 'Day 3', planned: 80, actual: 75 },
-  { day: 'Day 4', planned: 70, actual: 68 },
-  { day: 'Day 5', planned: 60, actual: 52 },
-  { day: 'Day 6', planned: 50, actual: 45 },
-  { day: 'Day 7', planned: 40, actual: 38 },
-];
-
-const taskDistributionData = [
-  { name: 'Completed', value: 45, color: '#22c55e' },
-  { name: 'In Progress', value: 25, color: '#f59e0b' },
-  { name: 'To Do', value: 20, color: '#6b7280' },
-  { name: 'Blocked', value: 10, color: '#ef4444' },
-];
-
-const velocityData = [
-  { sprint: 'Sprint 1', velocity: 32, commitment: 35 },
-  { sprint: 'Sprint 2', velocity: 28, commitment: 30 },
-  { sprint: 'Sprint 3', velocity: 36, commitment: 35 },
-  { sprint: 'Sprint 4', velocity: 42, commitment: 40 },
-  { sprint: 'Sprint 5', velocity: 38, commitment: 42 },
-];
+// Analytics data will be loaded from Supabase
+const projectPerformanceData: any[] = [];
+const teamPerformanceData: any[] = [];
+const burndownData: any[] = [];
+const taskDistributionData: any[] = [];
+const velocityData: any[] = [];
 
 export default function Reports() {
   const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({

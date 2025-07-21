@@ -67,77 +67,7 @@ export interface BacklogItem {
   sprintId?: string;
 }
 
-const mockBacklogItems: BacklogItem[] = [
-  {
-    id: "backlog-1",
-    title: "User Authentication with Social Login",
-    description: "Implement OAuth integration for Google, GitHub, and LinkedIn login options",
-    status: "ready",
-    priority: "high",
-    storyPoints: 8,
-    assignee: { name: "Alice Johnson", initials: "AJ", avatar: "" },
-    tags: ["Authentication", "Security", "Frontend"],
-    acceptanceCriteria: [
-      "Users can login with Google account",
-      "Users can login with GitHub account", 
-      "Login state persists across sessions"
-    ],
-    businessValue: 9,
-    effort: 7,
-    createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
-  },
-  {
-    id: "backlog-2", 
-    title: "Advanced Search and Filtering",
-    description: "Add comprehensive search functionality with filters for all data types",
-    status: "estimated",
-    priority: "medium",
-    storyPoints: 13,
-    tags: ["Search", "UX", "Performance"],
-    acceptanceCriteria: [
-      "Search works across all entities",
-      "Filters can be combined",
-      "Results load in under 2 seconds"
-    ],
-    businessValue: 7,
-    effort: 8,
-    createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
-  },
-  {
-    id: "backlog-3",
-    title: "Real-time Notifications System", 
-    description: "Build notification system with email, SMS, and in-app alerts",
-    status: "refined",
-    priority: "medium",
-    storyPoints: 21,
-    assignee: { name: "Bob Smith", initials: "BS", avatar: "" },
-    tags: ["Notifications", "Real-time", "Backend"],
-    acceptanceCriteria: [
-      "Users receive instant notifications",
-      "Notification preferences can be customized",
-      "Email notifications are sent for important events"
-    ],
-    businessValue: 8,
-    effort: 9,
-    createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
-  },
-  {
-    id: "backlog-4",
-    title: "Mobile Responsive Dashboard",
-    description: "Optimize dashboard layout and interactions for mobile devices",
-    status: "new", 
-    priority: "low",
-    tags: ["Mobile", "Responsive", "UI"],
-    acceptanceCriteria: [
-      "Dashboard works on mobile browsers",
-      "Touch interactions are optimized",
-      "Layout adapts to screen size"
-    ],
-    businessValue: 6,
-    effort: 5,
-    createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
-  }
-];
+const mockBacklogItems: BacklogItem[] = [];
 
 const statusColors = {
   new: "bg-muted text-muted-foreground",
