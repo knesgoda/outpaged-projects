@@ -1,5 +1,6 @@
-import { useDroppable, useDraggable } from "@dnd-kit/core";
-import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { useDroppable } from "@dnd-kit/core";
+import { SortableContext, verticalListSortingStrategy, useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -48,10 +49,11 @@ export function KanbanColumn({
   const {
     attributes,
     listeners,
-    setNodeRef: setDragRef,
+    setNodeRef: setSortableRef,
     transform,
+    transition,
     isDragging,
-  } = useDraggable({
+  } = useSortable({
     id: `column-${column.id}`,
     data: {
       type: 'column',
@@ -60,15 +62,16 @@ export function KanbanColumn({
     disabled: !isDraggable,
   });
 
-  const style = transform ? {
-    transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
-  } : undefined;
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
 
   const isOverLimit = column.limit && column.tasks.length >= column.limit;
 
   return (
     <div 
-      ref={isDraggable ? setDragRef : undefined}
+      ref={isDraggable ? setSortableRef : undefined}
       style={style}
       className={`flex-shrink-0 w-80 ${isDragging ? 'opacity-50' : ''}`}
     >
@@ -81,7 +84,7 @@ export function KanbanColumn({
               className="flex items-center gap-2 flex-1"
               {...(isDraggable ? { ...attributes, ...listeners } : {})}
             >
-              <CardTitle className="text-sm font-medium text-foreground cursor-grab active:cursor-grabbing">
+              <CardTitle className={`text-sm font-medium text-foreground ${isDraggable ? 'cursor-grab active:cursor-grabbing' : ''}`}>
                 {column.title}
               </CardTitle>
               <Badge variant="secondary" className="text-xs">

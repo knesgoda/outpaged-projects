@@ -17,6 +17,7 @@ import {
   closestCorners,
 } from "@dnd-kit/core";
 import { arrayMove, horizontalListSortingStrategy, SortableContext } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -373,8 +374,11 @@ export function KanbanBoard() {
 
     // Handle column reordering (admin only)
     if (activeData?.type === 'column' && overData?.type === 'column' && isAdmin) {
-      const activeColumnIndex = columns.findIndex(col => col.id === activeData.column.id);
-      const overColumnIndex = columns.findIndex(col => col.id === overData.column.id);
+      const activeColumnId = activeData.column.id;
+      const overColumnId = overData.column.id;
+      
+      const activeColumnIndex = columns.findIndex(col => col.id === activeColumnId);
+      const overColumnIndex = columns.findIndex(col => col.id === overColumnId);
       
       if (activeColumnIndex !== overColumnIndex) {
         const newColumns = arrayMove(columns, activeColumnIndex, overColumnIndex);
@@ -405,6 +409,52 @@ export function KanbanBoard() {
             description: "Failed to update column order",
             variant: "destructive",
           });
+          // Revert the change
+          await fetchTasks();
+        }
+      }
+      return;
+    }
+
+    // Handle column reordering when dragging over another column (not having specific overData.type)
+    if (activeData?.type === 'column' && !overData?.type && isAdmin) {
+      const activeColumnId = activeData.column.id;
+      const overColumnId = overId.replace('column-', '');
+      
+      const activeColumnIndex = columns.findIndex(col => col.id === activeColumnId);
+      const overColumnIndex = columns.findIndex(col => col.id === overColumnId);
+      
+      if (activeColumnIndex !== overColumnIndex && overColumnIndex !== -1) {
+        const newColumns = arrayMove(columns, activeColumnIndex, overColumnIndex);
+        setColumns(newColumns);
+        
+        // Update positions in database
+        try {
+          const updates = newColumns.map((col, index) => ({
+            id: col.id,
+            position: index + 1
+          }));
+          
+          for (const update of updates) {
+            await supabase
+              .from('kanban_columns')
+              .update({ position: update.position })
+              .eq('id', update.id);
+          }
+          
+          toast({
+            title: "Success",
+            description: "Column order updated successfully",
+          });
+        } catch (error) {
+          console.error('Error updating column positions:', error);
+          toast({
+            title: "Error",
+            description: "Failed to update column order",
+            variant: "destructive",
+          });
+          // Revert the change
+          await fetchTasks();
         }
       }
       return;
