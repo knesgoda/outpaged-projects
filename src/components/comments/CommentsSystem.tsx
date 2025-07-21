@@ -1,4 +1,5 @@
-import { useState } from "react";
+
+import { useState, useEffect } from "react";
 import { CommentItem, Comment } from "./CommentItem";
 import { CommentForm } from "./CommentForm";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,16 +20,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-
-// Mock current user
-const currentUser = {
-  id: "current-user",
-  name: "You",
-  initials: "YU",
-  avatar: "",
-};
-
-const mockComments: Comment[] = [];
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
 
 interface CommentsSystemProps {
   taskId: string;
@@ -36,125 +30,213 @@ interface CommentsSystemProps {
 }
 
 export function CommentsSystem({ taskId, onCommentCountChange }: CommentsSystemProps) {
-  const [comments, setComments] = useState<Comment[]>(mockComments);
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [loading, setLoading] = useState(true);
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [editingComment, setEditingComment] = useState<Comment | null>(null);
   const [sortBy, setSortBy] = useState<"newest" | "oldest" | "popular">("newest");
   const [filterBy, setFilterBy] = useState<"all" | "unresolved">("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const { user } = useAuth();
+  const { toast } = useToast();
 
-  const handleAddComment = (content: string, parentId?: string) => {
-    const newComment: Comment = {
-      id: `comment-${Date.now()}`,
-      content,
-      author: currentUser,
-      createdAt: new Date(),
-      parentId,
-      likes: 0,
-      isLiked: false,
-      isEdited: false,
-      replies: []
-    };
+  const currentUser = user ? {
+    id: user.id,
+    name: user.user_metadata?.full_name || user.email?.split('@')[0] || "User",
+    initials: (user.user_metadata?.full_name || user.email?.split('@')[0] || "U")
+      .split(' ')
+      .map(n => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2),
+    avatar: user.user_metadata?.avatar_url || "",
+  } : null;
 
-    if (parentId) {
-      // Add as reply
-      setComments(prev => prev.map(comment => {
-        if (comment.id === parentId) {
-          return {
-            ...comment,
-            replies: [...(comment.replies || []), newComment]
-          };
-        }
-        // Check nested replies
-        if (comment.replies) {
-          return {
-            ...comment,
-            replies: comment.replies.map(reply => 
-              reply.id === parentId 
-                ? { ...reply, replies: [...(reply.replies || []), newComment] }
-                : reply
-            )
-          };
-        }
-        return comment;
-      }));
-      setReplyingTo(null);
-    } else {
-      // Add as top-level comment
-      setComments(prev => [newComment, ...prev]);
+  useEffect(() => {
+    if (taskId) {
+      fetchComments();
     }
+  }, [taskId]);
 
-    // Update comment count
-    const totalComments = comments.length + comments.reduce((sum, c) => sum + (c.replies?.length || 0), 0) + 1;
-    onCommentCountChange?.(totalComments);
+  const fetchComments = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('comments')
+        .select(`
+          *,
+          profiles:author_id (
+            full_name,
+            avatar_url
+          )
+        `)
+        .eq('task_id', taskId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const formattedComments = data?.map(comment => ({
+        id: comment.id,
+        content: comment.content,
+        author: {
+          id: comment.author_id,
+          name: comment.profiles?.full_name || 'Unknown User',
+          initials: (comment.profiles?.full_name || 'U')
+            .split(' ')
+            .map(n => n[0])
+            .join('')
+            .toUpperCase()
+            .slice(0, 2),
+          avatar: comment.profiles?.avatar_url || ""
+        },
+        createdAt: new Date(comment.created_at),
+        updatedAt: comment.updated_at ? new Date(comment.updated_at) : undefined,
+        isEdited: !!comment.updated_at,
+        likes: 0, // TODO: Implement likes system
+        isLiked: false,
+        replies: [] // TODO: Implement nested replies
+      })) || [];
+
+      setComments(formattedComments);
+      onCommentCountChange?.(formattedComments.length);
+    } catch (error) {
+      console.error('Error fetching comments:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load comments",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddComment = async (content: string, parentId?: string) => {
+    if (!user || !currentUser) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('comments')
+        .insert({
+          content,
+          author_id: user.id,
+          task_id: taskId
+        })
+        .select(`
+          *,
+          profiles:author_id (
+            full_name,
+            avatar_url
+          )
+        `)
+        .single();
+
+      if (error) throw error;
+
+      const newComment: Comment = {
+        id: data.id,
+        content: data.content,
+        author: {
+          id: data.author_id,
+          name: data.profiles?.full_name || currentUser.name,
+          initials: currentUser.initials,
+          avatar: data.profiles?.avatar_url || ""
+        },
+        createdAt: new Date(data.created_at),
+        likes: 0,
+        isLiked: false,
+        isEdited: false,
+        replies: []
+      };
+
+      setComments(prev => [newComment, ...prev]);
+      onCommentCountChange?.(comments.length + 1);
+      
+      toast({
+        title: "Success",
+        description: "Comment added successfully",
+      });
+    } catch (error) {
+      console.error('Error adding comment:', error);
+      toast({
+        title: "Error",
+        description: "Failed to add comment",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleUpdateComment = async (content: string) => {
+    if (!editingComment || !user) return;
+
+    try {
+      const { error } = await supabase
+        .from('comments')
+        .update({ content })
+        .eq('id', editingComment.id);
+
+      if (error) throw error;
+
+      setComments(prev => prev.map(comment =>
+        comment.id === editingComment.id
+          ? { ...comment, content, isEdited: true, updatedAt: new Date() }
+          : comment
+      ));
+
+      setEditingComment(null);
+      
+      toast({
+        title: "Success",
+        description: "Comment updated successfully",
+      });
+    } catch (error) {
+      console.error('Error updating comment:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update comment",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteComment = async (commentId: string) => {
+    try {
+      const { error } = await supabase
+        .from('comments')
+        .delete()
+        .eq('id', commentId);
+
+      if (error) throw error;
+
+      setComments(prev => prev.filter(comment => comment.id !== commentId));
+      onCommentCountChange?.(comments.length - 1);
+      
+      toast({
+        title: "Success",
+        description: "Comment deleted successfully",
+      });
+    } catch (error) {
+      console.error('Error deleting comment:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete comment",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleEditComment = (comment: Comment) => {
     setEditingComment(comment);
   };
 
-  const handleUpdateComment = (content: string) => {
-    if (!editingComment) return;
-
-    setComments(prev => prev.map(comment => {
-      if (comment.id === editingComment.id) {
-        return {
-          ...comment,
-          content,
-          isEdited: true,
-          updatedAt: new Date()
-        };
-      }
-      // Check nested replies
-      if (comment.replies) {
-        return {
-          ...comment,
-          replies: comment.replies.map(reply =>
-            reply.id === editingComment.id
-              ? { ...reply, content, isEdited: true, updatedAt: new Date() }
-              : reply
-          )
-        };
-      }
-      return comment;
-    }));
-    setEditingComment(null);
-  };
-
-  const handleDeleteComment = (commentId: string) => {
-    setComments(prev => {
-      // Remove top-level comments
-      const filtered = prev.filter(comment => comment.id !== commentId);
-      // Remove nested replies
-      return filtered.map(comment => ({
-        ...comment,
-        replies: comment.replies?.filter(reply => reply.id !== commentId) || []
-      }));
-    });
-  };
-
   const handleLikeComment = (commentId: string) => {
+    // TODO: Implement likes system with database
     setComments(prev => prev.map(comment => {
       if (comment.id === commentId) {
         return {
           ...comment,
           isLiked: !comment.isLiked,
           likes: comment.isLiked ? comment.likes - 1 : comment.likes + 1
-        };
-      }
-      // Check nested replies
-      if (comment.replies) {
-        return {
-          ...comment,
-          replies: comment.replies.map(reply =>
-            reply.id === commentId
-              ? {
-                  ...reply,
-                  isLiked: !reply.isLiked,
-                  likes: reply.isLiked ? reply.likes - 1 : reply.likes + 1
-                }
-              : reply
-          )
         };
       }
       return comment;
@@ -185,7 +267,31 @@ export function CommentsSystem({ taskId, onCommentCountChange }: CommentsSystemP
     }
   });
 
-  const totalComments = comments.length + comments.reduce((sum, c) => sum + (c.replies?.length || 0), 0);
+  const totalComments = comments.length;
+
+  if (loading) {
+    return (
+      <Card className="bg-card border-border">
+        <CardContent className="p-6">
+          <div className="flex items-center justify-center py-8">
+            <div className="text-muted-foreground">Loading comments...</div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!user) {
+    return (
+      <Card className="bg-card border-border">
+        <CardContent className="p-6">
+          <div className="flex items-center justify-center py-8">
+            <div className="text-muted-foreground">Please log in to view and add comments</div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="bg-card border-border">
@@ -274,7 +380,7 @@ export function CommentsSystem({ taskId, onCommentCountChange }: CommentsSystemP
                   onEdit={handleEditComment}
                   onDelete={handleDeleteComment}
                   onLike={handleLikeComment}
-                  currentUserId={currentUser.id}
+                  currentUserId={currentUser?.id}
                 />
                 
                 {/* Reply Form */}

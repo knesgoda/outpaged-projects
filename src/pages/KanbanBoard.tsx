@@ -1,6 +1,9 @@
+
 import { useState, useEffect } from "react";
 import { useRealtime } from "@/hooks/useRealtime";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 import {
   DndContext,
   DragEndEvent,
@@ -28,96 +31,17 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-// Mock data
-const initialColumns: Column[] = [
-  {
-    id: "todo",
-    title: "To Do",
-    tasks: [
-      {
-        id: "task-1",
-        title: "Design new login page",
-        description: "Create wireframes and mockups for the new authentication flow",
-        status: "todo",
-        priority: "high",
-        assignee: { name: "Alice Johnson", initials: "AJ", avatar: "" },
-        dueDate: "Dec 15",
-        tags: ["Design", "Frontend"],
-        comments: 3,
-        attachments: 2,
-      },
-      {
-        id: "task-2",
-        title: "API Rate Limiting",
-        description: "Implement rate limiting for API endpoints to prevent abuse",
-        status: "todo",
-        priority: "medium",
-        assignee: { name: "Bob Smith", initials: "BS", avatar: "" },
-        dueDate: "Dec 20",
-        tags: ["Backend", "Security"],
-        comments: 1,
-        attachments: 0,
-      },
-    ],
-  },
-  {
-    id: "inprogress",
-    title: "In Progress",
-    tasks: [
-      {
-        id: "task-3",
-        title: "User dashboard redesign",
-        description: "Modernize the dashboard with new charts and improved UX",
-        status: "inprogress",
-        priority: "high",
-        assignee: { name: "Carol Davis", initials: "CD", avatar: "" },
-        dueDate: "Dec 18",
-        tags: ["Design", "Frontend"],
-        comments: 5,
-        attachments: 3,
-      },
-    ],
-  },
-  {
-    id: "review",
-    title: "Review",
-    tasks: [
-      {
-        id: "task-4",
-        title: "Database optimization",
-        description: "Optimize slow queries and add proper indexing",
-        status: "review",
-        priority: "medium",
-        assignee: { name: "David Wilson", initials: "DW", avatar: "" },
-        dueDate: "Dec 12",
-        tags: ["Backend", "Performance"],
-        comments: 2,
-        attachments: 1,
-      },
-    ],
-  },
-  {
-    id: "done",
-    title: "Done",
-    tasks: [
-      {
-        id: "task-5",
-        title: "Setup CI/CD pipeline",
-        description: "Configure automated testing and deployment",
-        status: "done",
-        priority: "low",
-        assignee: { name: "Alice Johnson", initials: "AJ", avatar: "" },
-        dueDate: "Dec 5",
-        tags: ["DevOps", "Backend"],
-        comments: 4,
-        attachments: 2,
-      },
-    ],
-  },
+// Define the column structure
+const columnDefinitions = [
+  { id: "todo", title: "To Do" },
+  { id: "in_progress", title: "In Progress" },
+  { id: "review", title: "Review" },
+  { id: "done", title: "Done" },
 ];
 
 export default function KanbanBoard() {
-  const [columns, setColumns] = useState<Column[]>(initialColumns);
+  const [columns, setColumns] = useState<Column[]>([]);
+  const [loading, setLoading] = useState(true);
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterBy, setFilterBy] = useState("all");
@@ -127,6 +51,7 @@ export default function KanbanBoard() {
     columnId?: string;
   }>({ isOpen: false });
   
+  const { user } = useAuth();
   const { toast } = useToast();
 
   // Real-time updates for tasks
@@ -137,14 +62,14 @@ export default function KanbanBoard() {
         title: "New Task Created",
         description: `"${payload.new.title}" was added to the board`,
       });
-      // In a real app, you would refresh the data here
+      fetchTasks();
     },
     onUpdate: (payload) => {
       toast({
         title: "Task Updated",
         description: `"${payload.new.title}" was modified`,
       });
-      // In a real app, you would update the specific task
+      fetchTasks();
     },
     onDelete: (payload) => {
       toast({
@@ -152,9 +77,83 @@ export default function KanbanBoard() {
         description: "A task was removed from the board",
         variant: "destructive",
       });
-      // In a real app, you would remove the task from state
+      fetchTasks();
     },
   });
+
+  useEffect(() => {
+    if (user) {
+      fetchTasks();
+    }
+  }, [user]);
+
+  const fetchTasks = async () => {
+    if (!user) return;
+
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('tasks')
+        .select(`
+          *,
+          assignee:assignee_id (
+            full_name,
+            avatar_url
+          ),
+          project:project_id (
+            name
+          )
+        `)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      // Transform the data to match the expected format
+      const tasksWithDetails = data?.map(task => ({
+        id: task.id,
+        title: task.title,
+        description: task.description || '',
+        status: task.status,
+        priority: task.priority,
+        assignee: task.assignee ? {
+          name: task.assignee.full_name || 'Unknown',
+          initials: (task.assignee.full_name || 'U')
+            .split(' ')
+            .map(n => n[0])
+            .join('')
+            .toUpperCase()
+            .slice(0, 2),
+          avatar: task.assignee.avatar_url || ''
+        } : null,
+        dueDate: task.due_date ? new Date(task.due_date).toLocaleDateString('en-US', { 
+          month: 'short', 
+          day: 'numeric' 
+        }) : undefined,
+        tags: [], // TODO: Implement tags system
+        comments: 0, // TODO: Get actual comment count
+        attachments: 0, // TODO: Get actual attachment count
+        projectName: task.project?.name
+      })) || [];
+
+      // Group tasks by status into columns
+      const newColumns = columnDefinitions.map(colDef => ({
+        id: colDef.id,
+        title: colDef.title,
+        tasks: tasksWithDetails.filter(task => task.status === colDef.id)
+      }));
+
+      setColumns(newColumns);
+    } catch (error) {
+      console.error('Error fetching tasks:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load tasks",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -170,7 +169,7 @@ export default function KanbanBoard() {
     setActiveTask(task);
   };
 
-  const handleDragEnd = (event: DragEndEvent) => {
+  const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
     setActiveTask(null);
 
@@ -184,60 +183,58 @@ export default function KanbanBoard() {
 
     if (!activeTask) return;
 
-    setColumns((columns) => {
-      const activeColumn = columns.find((col) =>
-        col.tasks.some((task) => task.id === activeId)
-      );
+    // Moving to a different column
+    if (overColumn && activeTask.status !== overColumn.id) {
+      try {
+        const { error } = await supabase
+          .from('tasks')
+          .update({ status: overColumn.id })
+          .eq('id', activeId);
 
-      if (!activeColumn) return columns;
+        if (error) throw error;
 
-      // Moving to a different column
-      if (overColumn && activeColumn.id !== overColumn.id) {
-        const activeIndex = activeColumn.tasks.findIndex(
-          (task) => task.id === activeId
-        );
-        const updatedTask = { ...activeTask, status: overColumn.id };
+        // Update local state
+        setColumns((columns) => {
+          const activeColumn = columns.find((col) =>
+            col.tasks.some((task) => task.id === activeId)
+          );
 
-        return columns.map((col) => {
-          if (col.id === activeColumn.id) {
-            return {
-              ...col,
-              tasks: col.tasks.filter((task) => task.id !== activeId),
-            };
-          }
-          if (col.id === overColumn.id) {
-            return {
-              ...col,
-              tasks: [...col.tasks, updatedTask],
-            };
-          }
-          return col;
+          if (!activeColumn) return columns;
+
+          const updatedTask = { ...activeTask, status: overColumn.id };
+
+          return columns.map((col) => {
+            if (col.id === activeColumn.id) {
+              return {
+                ...col,
+                tasks: col.tasks.filter((task) => task.id !== activeId),
+              };
+            }
+            if (col.id === overColumn.id) {
+              return {
+                ...col,
+                tasks: [...col.tasks, updatedTask],
+              };
+            }
+            return col;
+          });
+        });
+
+        toast({
+          title: "Success",
+          description: "Task moved successfully",
+        });
+      } catch (error) {
+        console.error('Error updating task status:', error);
+        toast({
+          title: "Error",
+          description: "Failed to move task",
+          variant: "destructive",
         });
       }
+    }
 
-      // Reordering within the same column
-      const overTask = findTask(overId);
-      if (overTask && activeColumn.id === overTask.status) {
-        const activeIndex = activeColumn.tasks.findIndex(
-          (task) => task.id === activeId
-        );
-        const overIndex = activeColumn.tasks.findIndex(
-          (task) => task.id === overId
-        );
-
-        return columns.map((col) => {
-          if (col.id === activeColumn.id) {
-            return {
-              ...col,
-              tasks: arrayMove(col.tasks, activeIndex, overIndex),
-            };
-          }
-          return col;
-        });
-      }
-
-      return columns;
-    });
+    // TODO: Implement reordering within the same column if needed
   };
 
   const findTask = (id: string): Task | undefined => {
@@ -259,48 +256,115 @@ export default function KanbanBoard() {
     setTaskDialog({ isOpen: true, task });
   };
 
-  const handleDeleteTask = (taskId: string) => {
-    setColumns((columns) =>
-      columns.map((col) => ({
-        ...col,
-        tasks: col.tasks.filter((task) => task.id !== taskId),
-      }))
-    );
-  };
+  const handleDeleteTask = async (taskId: string) => {
+    try {
+      const { error } = await supabase
+        .from('tasks')
+        .delete()
+        .eq('id', taskId);
 
-  const handleSaveTask = (taskData: Partial<Task>) => {
-    if (taskDialog.task) {
-      // Update existing task
+      if (error) throw error;
+
       setColumns((columns) =>
         columns.map((col) => ({
           ...col,
-          tasks: col.tasks.map((task) =>
-            task.id === taskDialog.task!.id ? { ...task, ...taskData } : task
-          ),
+          tasks: col.tasks.filter((task) => task.id !== taskId),
         }))
       );
-    } else {
-      // Add new task
-      const columnId = taskDialog.columnId;
-      if (columnId) {
-        setColumns((columns) =>
-          columns.map((col) =>
-            col.id === columnId
-              ? { ...col, tasks: [...col.tasks, taskData as Task] }
-              : col
-          )
-        );
+
+      toast({
+        title: "Success",
+        description: "Task deleted successfully",
+      });
+    } catch (error) {
+      console.error('Error deleting task:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete task",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleSaveTask = async (taskData: Partial<Task>) => {
+    try {
+      if (taskDialog.task) {
+        // Update existing task
+        const { error } = await supabase
+          .from('tasks')
+          .update({
+            title: taskData.title,
+            description: taskData.description,
+            priority: taskData.priority,
+            assignee_id: taskData.assignee?.name === 'Unassigned' ? null : null, // TODO: Map assignee properly
+            due_date: taskData.dueDate ? new Date(taskData.dueDate).toISOString() : null,
+          })
+          .eq('id', taskDialog.task.id);
+
+        if (error) throw error;
+
+        toast({
+          title: "Success",
+          description: "Task updated successfully",
+        });
+      } else {
+        // Create new task - need project_id
+        // For now, we'll use the first project the user has access to
+        const { data: projects, error: projectError } = await supabase
+          .from('projects')
+          .select('id')
+          .limit(1);
+
+        if (projectError) throw projectError;
+        if (!projects || projects.length === 0) {
+          toast({
+            title: "Error",
+            description: "No project found. Please create a project first.",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        const { error } = await supabase
+          .from('tasks')
+          .insert({
+            title: taskData.title,
+            description: taskData.description,
+            priority: taskData.priority,
+            status: taskDialog.columnId || 'todo',
+            project_id: projects[0].id,
+            reporter_id: user?.id,
+            assignee_id: taskData.assignee?.name === 'Unassigned' ? null : null, // TODO: Map assignee properly
+            due_date: taskData.dueDate ? new Date(taskData.dueDate).toISOString() : null,
+          });
+
+        if (error) throw error;
+
+        toast({
+          title: "Success",
+          description: "Task created successfully",
+        });
       }
+
+      // Refresh tasks
+      await fetchTasks();
+      setTaskDialog({ isOpen: false });
+    } catch (error) {
+      console.error('Error saving task:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save task",
+        variant: "destructive",
+      });
     }
   };
 
   const addNewColumn = () => {
-    const newColumn: Column = {
-      id: `column-${Date.now()}`,
-      title: "New Column",
-      tasks: [],
-    };
-    setColumns([...columns, newColumn]);
+    // TODO: Implement custom column creation
+    toast({
+      title: "Info",
+      description: "Custom columns coming soon!",
+    });
   };
 
   const filteredColumns = columns.map((column) => ({
@@ -316,6 +380,29 @@ export default function KanbanBoard() {
       return matchesSearch && matchesFilter;
     }),
   }));
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-muted-foreground">Loading tasks...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-center">
+            <h2 className="text-xl font-semibold mb-2">Authentication Required</h2>
+            <p className="text-muted-foreground">Please log in to view your Kanban board</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -333,7 +420,10 @@ export default function KanbanBoard() {
             <span className="hidden sm:inline">Add Column</span>
             <span className="sm:hidden">Column</span>
           </Button>
-          <Button className="bg-gradient-primary hover:opacity-90 w-full sm:w-auto">
+          <Button 
+            className="bg-gradient-primary hover:opacity-90 w-full sm:w-auto"
+            onClick={() => setTaskDialog({ isOpen: true, columnId: 'todo' })}
+          >
             <Plus className="w-4 h-4 mr-2" />
             <span className="hidden sm:inline">Add Task</span>
             <span className="sm:hidden">Task</span>

@@ -26,7 +26,7 @@ export default function ProjectDetails() {
   const [showInviteMember, setShowInviteMember] = useState(false);
 
   useEffect(() => {
-    if (projectId) {
+    if (projectId && user) {
       fetchProjectDetails();
       fetchTasks();
       fetchMembers();
@@ -121,39 +121,67 @@ export default function ProjectDetails() {
   const getPriorityColor = (priority: string) => {
     switch (priority) {
       case 'urgent':
-        return 'bg-red-100 text-red-800';
+        return 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-300';
       case 'high':
-        return 'bg-orange-100 text-orange-800';
+        return 'bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-300';
       case 'medium':
-        return 'bg-yellow-100 text-yellow-800';
+        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-300';
       case 'low':
-        return 'bg-green-100 text-green-800';
+        return 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-300';
     }
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'done':
-        return 'bg-green-100 text-green-800';
+        return 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300';
       case 'in_progress':
-        return 'bg-blue-100 text-blue-800';
+        return 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300';
       case 'review':
-        return 'bg-purple-100 text-purple-800';
+        return 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-300';
       case 'todo':
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-300';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-300';
     }
   };
 
   if (loading) {
-    return <div className="flex items-center justify-center min-h-[200px]">Loading...</div>;
+    return (
+      <div className="flex items-center justify-center min-h-[200px]">
+        <div className="text-muted-foreground">Loading project details...</div>
+      </div>
+    );
   }
 
   if (!project) {
-    return <div>Project not found</div>;
+    return (
+      <div className="flex items-center justify-center min-h-[200px]">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold mb-2">Project Not Found</h2>
+          <p className="text-muted-foreground">The project you're looking for doesn't exist or you don't have access to it.</p>
+          <Button 
+            onClick={() => navigate('/dashboard/projects')}
+            className="mt-4"
+          >
+            Back to Projects
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="flex items-center justify-center min-h-[200px]">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold mb-2">Authentication Required</h2>
+          <p className="text-muted-foreground">Please log in to view project details</p>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -251,7 +279,7 @@ export default function ProjectDetails() {
                         {task.priority}
                       </Badge>
                       <Badge className={getStatusColor(task.status)}>
-                        {task.status}
+                        {task.status.replace('_', ' ')}
                       </Badge>
                     </div>
                   </div>
@@ -298,7 +326,7 @@ export default function ProjectDetails() {
                           {task.priority}
                         </Badge>
                         <Badge className={getStatusColor(task.status)}>
-                          {task.status}
+                          {task.status.replace('_', ' ')}
                         </Badge>
                       </div>
                       {task.description && (
