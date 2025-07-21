@@ -1,16 +1,103 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Plus, MoreHorizontal, FolderOpen, Calendar, Users, CheckSquare2 } from "lucide-react";
+import { Plus, MoreHorizontal, FolderOpen, Calendar, Users, CheckSquare2, Loader2 } from "lucide-react";
 import { ProjectDialog } from "@/components/projects/ProjectDialog";
-
-const projects: any[] = [];
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
+import { format } from "date-fns";
 
 export default function Projects() {
+  const { user } = useAuth();
+  const { toast } = useToast();
   const [isProjectDialogOpen, setIsProjectDialogOpen] = useState(false);
-  
+  const [projects, setProjects] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchProjects = async () => {
+    if (!user) return;
+    
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('projects')
+        .select(`
+          *,
+          project_members(count),
+          tasks(count)
+        `)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      setProjects(data || []);
+    } catch (error: any) {
+      console.error('Error fetching projects:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load projects. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchProjects();
+  }, [user]);
+
+  const handleProjectSuccess = () => {
+    fetchProjects(); // Refresh the projects list
+  };
+
+  const getStatusVariant = (status: string) => {
+    switch (status) {
+      case 'active':
+        return 'default';
+      case 'completed':
+        return 'secondary';
+      case 'on_hold':
+        return 'outline';
+      default:
+        return 'secondary';
+    }
+  };
+
+  const formatStatus = (status: string) => {
+    switch (status) {
+      case 'active':
+        return 'Active';
+      case 'completed':
+        return 'Completed';
+      case 'on_hold':
+        return 'On Hold';
+      case 'planning':
+        return 'Planning';
+      default:
+        return status;
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground">Projects</h1>
+            <p className="text-muted-foreground">Manage your projects and track progress</p>
+          </div>
+        </div>
+        <div className="flex items-center justify-center min-h-[200px]">
+          <Loader2 className="h-8 w-8 animate-spin" />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -31,7 +118,7 @@ export default function Projects() {
       {/* Projects Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {projects.map((project) => (
-          <Card key={project.name} className={`${project.color} hover:shadow-soft transition-all cursor-pointer`}>
+          <Card key={project.id} className="hover:shadow-soft transition-all cursor-pointer">
             <CardHeader>
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-2">
@@ -43,43 +130,38 @@ export default function Projects() {
                 </Button>
               </div>
               <CardDescription className="text-sm">
-                {project.description}
+                {project.description || "No description provided"}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {/* Status and task count */}
+              {/* Status and dates */}
               <div className="flex items-center justify-between">
-                <Badge variant={project.status === 'Active' ? 'default' : 'secondary'}>
-                  {project.status}
+                <Badge variant={getStatusVariant(project.status)}>
+                  {formatStatus(project.status)}
                 </Badge>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                {project.end_date && (
+                  <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                    <Calendar className="w-4 h-4" />
+                    {format(new Date(project.end_date), "MMM dd, yyyy")}
+                  </div>
+                )}
+              </div>
+
+              {/* Project details */}
+              <div className="flex items-center justify-between text-sm text-muted-foreground">
+                <div className="flex items-center gap-2">
+                  <Users className="w-4 h-4" />
+                  <span>{Array.isArray(project.project_members) ? project.project_members.length : 0} members</span>
+                </div>
+                <div className="flex items-center gap-2">
                   <CheckSquare2 className="w-4 h-4" />
-                  <span>{project.completed}/{project.tasks} Tasks</span>
+                  <span>{Array.isArray(project.tasks) ? project.tasks.length : 0} tasks</span>
                 </div>
               </div>
 
-              {/* Team avatars */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Users className="w-4 h-4 text-muted-foreground" />
-                  <div className="flex -space-x-2">
-                    {project.team.slice(0, 3).map((member, index) => (
-                      <Avatar key={index} className="w-6 h-6 border-2 border-background">
-                        <AvatarImage src={member.avatar} />
-                        <AvatarFallback className="text-xs">{member.initials}</AvatarFallback>
-                      </Avatar>
-                    ))}
-                    {project.team.length > 3 && (
-                      <div className="w-6 h-6 rounded-full bg-muted border-2 border-background flex items-center justify-center">
-                        <span className="text-xs text-muted-foreground">+{project.team.length - 3}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-                <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                  <Calendar className="w-4 h-4" />
-                  {project.dueDate}
-                </div>
+              {/* Created date */}
+              <div className="text-xs text-muted-foreground border-t pt-2">
+                Created {format(new Date(project.created_at), "MMM dd, yyyy")}
               </div>
             </CardContent>
           </Card>
@@ -104,10 +186,7 @@ export default function Projects() {
       <ProjectDialog 
         isOpen={isProjectDialogOpen}
         onClose={() => setIsProjectDialogOpen(false)}
-        onSuccess={() => {
-          // Project was created successfully
-          // In a real app, you'd refresh the projects list here
-        }}
+        onSuccess={handleProjectSuccess}
       />
     </div>
   );
