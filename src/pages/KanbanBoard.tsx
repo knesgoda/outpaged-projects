@@ -3,6 +3,7 @@ import { useRealtime } from "@/hooks/useRealtime";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useOptionalAuth } from "@/hooks/useOptionalAuth";
+import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { supabase } from "@/integrations/supabase/client";
 import {
   DndContext,
@@ -15,7 +16,7 @@ import {
   useSensors,
   closestCorners,
 } from "@dnd-kit/core";
-import { arrayMove } from "@dnd-kit/sortable";
+import { arrayMove, horizontalListSortingStrategy, SortableContext } from "@dnd-kit/sortable";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,7 +42,11 @@ interface KanbanColumnData {
   project_id: string;
 }
 
-export default function KanbanBoard() {
+export function KanbanBoard() {
+  const { user } = useOptionalAuth();
+  const { isAdmin } = useIsAdmin();
+  const { toast } = useToast();
+  
   const [columns, setColumns] = useState<Column[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTask, setActiveTask] = useState<Task | null>(null);
@@ -55,9 +60,6 @@ export default function KanbanBoard() {
     columnId?: string;
   }>({ isOpen: false });
   const [detailViewTask, setDetailViewTask] = useState<Task | null>(null);
-  
-  const { user } = useOptionalAuth();
-  const { toast } = useToast();
 
   // Real-time updates for tasks
   useRealtime({
@@ -347,8 +349,15 @@ export default function KanbanBoard() {
 
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;
+    const activeData = active.data.current;
+    
+    if (activeData?.type === 'column') {
+      // Column drag started - don't set activeTask
+      return;
+    }
+    
     const task = findTask(active.id as string);
-    setActiveTask(task);
+    setActiveTask(task || null);
   };
 
   const handleDragEnd = async (event: DragEndEvent) => {
@@ -359,7 +368,49 @@ export default function KanbanBoard() {
 
     const activeId = active.id as string;
     const overId = over.id as string;
+    const activeData = active.data.current;
+    const overData = over.data.current;
 
+    // Handle column reordering (admin only)
+    if (activeData?.type === 'column' && overData?.type === 'column' && isAdmin) {
+      const activeColumnIndex = columns.findIndex(col => col.id === activeData.column.id);
+      const overColumnIndex = columns.findIndex(col => col.id === overData.column.id);
+      
+      if (activeColumnIndex !== overColumnIndex) {
+        const newColumns = arrayMove(columns, activeColumnIndex, overColumnIndex);
+        setColumns(newColumns);
+        
+        // Update positions in database
+        try {
+          const updates = newColumns.map((col, index) => ({
+            id: col.id,
+            position: index + 1
+          }));
+          
+          for (const update of updates) {
+            await supabase
+              .from('kanban_columns')
+              .update({ position: update.position })
+              .eq('id', update.id);
+          }
+          
+          toast({
+            title: "Success",
+            description: "Column order updated successfully",
+          });
+        } catch (error) {
+          console.error('Error updating column positions:', error);
+          toast({
+            title: "Error",
+            description: "Failed to update column order",
+            variant: "destructive",
+          });
+        }
+      }
+      return;
+    }
+
+    // Handle task movement between columns
     const activeTask = findTask(activeId);
     const overColumn = findColumn(overId);
 
@@ -717,18 +768,25 @@ export default function KanbanBoard() {
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
         >
-          <div className="flex gap-6 min-w-fit">
-            {filteredColumns.map((column) => (
-              <KanbanColumn
-                key={column.id}
-                column={column}
-                onAddTask={handleAddTask}
-                onEditTask={handleEditTask}
-                onDeleteTask={handleDeleteTask}
-                onViewTask={handleViewTask}
-              />
-            ))}
-          </div>
+          <SortableContext 
+            items={columns.map(col => `column-${col.id}`)}
+            strategy={horizontalListSortingStrategy}
+            disabled={!isAdmin}
+          >
+            <div className="flex gap-6 min-w-fit">
+              {filteredColumns.map((column) => (
+                <KanbanColumn
+                  key={column.id}
+                  column={column}
+                  onAddTask={handleAddTask}
+                  onEditTask={handleEditTask}
+                  onDeleteTask={handleDeleteTask}
+                  onViewTask={handleViewTask}
+                  isDraggable={isAdmin}
+                />
+              ))}
+            </div>
+          </SortableContext>
           <DragOverlay>
             {activeTask ? (
               <div className="rotate-2 opacity-90">
@@ -762,3 +820,5 @@ export default function KanbanBoard() {
     </div>
   );
 }
+
+export default KanbanBoard;

@@ -1,4 +1,4 @@
-import { useDroppable } from "@dnd-kit/core";
+import { useDroppable, useDraggable } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -28,6 +28,7 @@ interface KanbanColumnProps {
   onEditColumn?: (column: Column) => void;
   onDeleteColumn?: (columnId: string) => void;
   onViewTask?: (task: Task) => void;
+  isDraggable?: boolean;
 }
 
 export function KanbanColumn({ 
@@ -37,23 +38,50 @@ export function KanbanColumn({
   onDeleteTask,
   onEditColumn,
   onDeleteColumn,
-  onViewTask
+  onViewTask,
+  isDraggable = false
 }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: column.id,
   });
 
+  const {
+    attributes,
+    listeners,
+    setNodeRef: setDragRef,
+    transform,
+    isDragging,
+  } = useDraggable({
+    id: `column-${column.id}`,
+    data: {
+      type: 'column',
+      column,
+    },
+    disabled: !isDraggable,
+  });
+
+  const style = transform ? {
+    transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
+  } : undefined;
+
   const isOverLimit = column.limit && column.tasks.length >= column.limit;
 
   return (
-    <div className="flex-shrink-0 w-80">
+    <div 
+      ref={isDraggable ? setDragRef : undefined}
+      style={style}
+      className={`flex-shrink-0 w-80 ${isDragging ? 'opacity-50' : ''}`}
+    >
       <Card className={`h-fit transition-colors ${
         isOver ? "ring-2 ring-primary/50 bg-primary/5" : ""
       }`}>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <CardTitle className="text-sm font-medium text-foreground">
+            <div 
+              className="flex items-center gap-2 flex-1"
+              {...(isDraggable ? { ...attributes, ...listeners } : {})}
+            >
+              <CardTitle className="text-sm font-medium text-foreground cursor-grab active:cursor-grabbing">
                 {column.title}
               </CardTitle>
               <Badge variant="secondary" className="text-xs">
