@@ -1,6 +1,17 @@
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, TrendingUp, CheckCircle, Clock, Users } from "lucide-react";
+import { 
+  Plus, 
+  TrendingUp, 
+  Users, 
+  CheckCircle, 
+  Clock
+} from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { useNavigate } from "react-router-dom";
+import { ProjectDialog } from "@/components/projects/ProjectDialog";
+import { InviteMemberDialog } from "@/components/team/InviteMemberDialog";
 
 const stats = [
   {
@@ -40,6 +51,11 @@ const recentProjects = [
 ];
 
 export default function Dashboard() {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const [isProjectDialogOpen, setIsProjectDialogOpen] = useState(false);
+  const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -48,7 +64,10 @@ export default function Dashboard() {
           <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Dashboard</h1>
           <p className="text-muted-foreground text-sm sm:text-base">Welcome back! Here's your project overview.</p>
         </div>
-        <Button className="bg-gradient-primary hover:opacity-90 w-full sm:w-auto">
+        <Button 
+          className="bg-gradient-primary hover:opacity-90 w-full sm:w-auto"
+          onClick={() => setIsProjectDialogOpen(true)}
+        >
           <Plus className="w-4 h-4 mr-2" />
           New Project
         </Button>
@@ -116,25 +135,60 @@ export default function Dashboard() {
             <CardDescription>Get started with common tasks</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            <Button variant="outline" className="w-full justify-start h-12">
+            <Button 
+              variant="outline" 
+              className="w-full justify-start h-12"
+              onClick={() => navigate('/dashboard/tasks')}
+            >
               <Plus className="w-4 h-4 mr-3" />
               Create New Task
             </Button>
-            <Button variant="outline" className="w-full justify-start h-12">
+            <Button 
+              variant="outline" 
+              className="w-full justify-start h-12"
+              onClick={() => navigate('/dashboard/board')}
+            >
               <CheckCircle className="w-4 h-4 mr-3" />
               View Kanban Board
             </Button>
-            <Button variant="outline" className="w-full justify-start h-12">
+            <Button 
+              variant="outline" 
+              className="w-full justify-start h-12"
+              onClick={() => setIsInviteDialogOpen(true)}
+            >
               <Users className="w-4 h-4 mr-3" />
               Invite Team Member
             </Button>
-            <Button variant="outline" className="w-full justify-start h-12">
+            <Button 
+              variant="outline" 
+              className="w-full justify-start h-12"
+              onClick={() => navigate('/dashboard/reports')}
+            >
               <TrendingUp className="w-4 h-4 mr-3" />
               View Reports
             </Button>
           </CardContent>
         </Card>
       </div>
+
+      {/* Dialogs */}
+      <ProjectDialog 
+        isOpen={isProjectDialogOpen}
+        onClose={() => setIsProjectDialogOpen(false)}
+        onSuccess={() => {
+          // Optionally refresh data or navigate to projects
+          navigate('/dashboard/projects');
+        }}
+      />
+      
+      <InviteMemberDialog
+        isOpen={isInviteDialogOpen}
+        onClose={() => setIsInviteDialogOpen(false)}
+        onSuccess={() => {
+          // Optionally refresh team data
+          navigate('/dashboard/team');
+        }}
+      />
     </div>
   );
 }

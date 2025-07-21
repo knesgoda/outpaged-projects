@@ -15,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { TaskDialog } from "@/components/kanban/TaskDialog";
 
 interface Task {
   id: string;
@@ -60,6 +61,7 @@ export default function Tasks() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState("all");
+  const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
 
   const fetchTasks = async () => {
     if (!user) return;
@@ -140,7 +142,10 @@ export default function Tasks() {
           <h1 className="text-3xl font-bold text-foreground">Tasks</h1>
           <p className="text-muted-foreground">Manage and track all your tasks</p>
         </div>
-        <Button className="bg-gradient-primary hover:opacity-90">
+        <Button 
+          className="bg-gradient-primary hover:opacity-90"
+          onClick={() => setIsTaskDialogOpen(true)}
+        >
           <Plus className="w-4 h-4 mr-2" />
           New Task
         </Button>
@@ -217,7 +222,10 @@ export default function Tasks() {
                 }
               </p>
               {tasks.length === 0 && (
-                <Button className="bg-gradient-primary hover:opacity-90">
+                <Button 
+                  className="bg-gradient-primary hover:opacity-90"
+                  onClick={() => setIsTaskDialogOpen(true)}
+                >
                   <Plus className="w-4 h-4 mr-2" />
                   Create First Task
                 </Button>
@@ -304,6 +312,20 @@ export default function Tasks() {
           ))}
         </div>
       )}
+
+      {/* Task Dialog */}
+      <TaskDialog
+        isOpen={isTaskDialogOpen}
+        onClose={() => setIsTaskDialogOpen(false)}
+        onSave={(taskData) => {
+          // Handle task creation
+          console.log('New task:', taskData);
+          setIsTaskDialogOpen(false);
+          // In a real app, you'd refresh the tasks list
+          fetchTasks();
+        }}
+        columnId="todo"
+      />
     </div>
   );
 }

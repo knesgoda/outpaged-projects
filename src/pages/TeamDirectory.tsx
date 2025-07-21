@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { InviteMemberDialog } from "@/components/team/InviteMemberDialog";
 
 export interface TeamMember {
   id: string;
@@ -69,6 +70,7 @@ export default function TeamDirectory() {
   const [filterDepartment, setFilterDepartment] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
 
   const handleDeactivate = (memberId: string) => {
     setMembers(prev => prev.map(member => 
@@ -110,7 +112,10 @@ export default function TeamDirectory() {
             Manage your team members and their profiles
           </p>
         </div>
-        <Button className="bg-gradient-primary hover:opacity-90">
+        <Button 
+          className="bg-gradient-primary hover:opacity-90"
+          onClick={() => setIsInviteDialogOpen(true)}
+        >
           <Plus className="w-4 h-4 mr-2" />
           Invite Member
         </Button>
@@ -362,6 +367,16 @@ export default function TeamDirectory() {
           </CardContent>
         </Card>
       )}
+
+      {/* Invite Member Dialog */}
+      <InviteMemberDialog
+        isOpen={isInviteDialogOpen}
+        onClose={() => setIsInviteDialogOpen(false)}
+        onSuccess={() => {
+          // In a real app, you'd refresh the team members list
+          console.log('Member invitation sent successfully');
+        }}
+      />
     </div>
   );
 }

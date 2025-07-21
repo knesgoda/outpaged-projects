@@ -1,12 +1,16 @@
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Plus, MoreHorizontal, FolderOpen, Calendar, Users, CheckSquare2 } from "lucide-react";
+import { ProjectDialog } from "@/components/projects/ProjectDialog";
 
 const projects: any[] = [];
 
 export default function Projects() {
+  const [isProjectDialogOpen, setIsProjectDialogOpen] = useState(false);
+  
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -15,7 +19,10 @@ export default function Projects() {
           <h1 className="text-3xl font-bold text-foreground">Projects</h1>
           <p className="text-muted-foreground">Manage your projects and track progress</p>
         </div>
-        <Button className="bg-gradient-primary hover:opacity-90">
+        <Button 
+          className="bg-gradient-primary hover:opacity-90"
+          onClick={() => setIsProjectDialogOpen(true)}
+        >
           <Plus className="w-4 h-4 mr-2" />
           New Project
         </Button>
@@ -79,7 +86,10 @@ export default function Projects() {
         ))}
 
         {/* Add Project Card */}
-        <Card className="border-dashed border-2 border-muted-foreground/20 hover:border-primary/40 hover:bg-primary/5 transition-colors cursor-pointer">
+        <Card 
+          className="border-dashed border-2 border-muted-foreground/20 hover:border-primary/40 hover:bg-primary/5 transition-colors cursor-pointer"
+          onClick={() => setIsProjectDialogOpen(true)}
+        >
           <CardContent className="flex items-center justify-center h-full min-h-[200px]">
             <div className="text-center space-y-2">
               <Plus className="w-8 h-8 text-muted-foreground mx-auto" />
@@ -90,15 +100,15 @@ export default function Projects() {
         </Card>
       </div>
 
-      {/* Note about backend */}
-      <Card className="bg-warning/10 border-warning/20">
-        <CardContent className="p-4">
-          <p className="text-sm text-warning-foreground">
-            <strong>Next Step:</strong> To enable full project management functionality (creating, editing, and storing projects), 
-            you'll need to connect to Supabase for backend data storage and user authentication.
-          </p>
-        </CardContent>
-      </Card>
+      {/* Project Dialog */}
+      <ProjectDialog 
+        isOpen={isProjectDialogOpen}
+        onClose={() => setIsProjectDialogOpen(false)}
+        onSuccess={() => {
+          // Project was created successfully
+          // In a real app, you'd refresh the projects list here
+        }}
+      />
     </div>
   );
 }
