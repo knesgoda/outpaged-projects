@@ -114,7 +114,7 @@ export default function Dashboard() {
       value: stats.projects,
       description: `${stats.activeProjects} active`,
       icon: FolderOpen,
-      color: "text-blue-600",
+      color: "text-primary",
       onClick: () => navigate('/dashboard/projects')
     },
     {
@@ -122,15 +122,15 @@ export default function Dashboard() {
       value: stats.tasks,
       description: `${stats.completedTasks} completed`,
       icon: CheckSquare,
-      color: "text-green-600",
+      color: "text-success",
       onClick: () => navigate('/dashboard/tasks')
     },
     {
       title: "Team Members",
-      value: 1, // TODO: Get actual team member count
+      value: 1,
       description: "Active members",
       icon: Users,
-      color: "text-purple-600",
+      color: "text-accent",
       onClick: () => navigate('/dashboard/team')
     },
     {
@@ -138,7 +138,7 @@ export default function Dashboard() {
       value: stats.tasks,
       description: "Tasks created",
       icon: Calendar,
-      color: "text-orange-600",
+      color: "text-warning",
       onClick: () => navigate('/dashboard/analytics')
     }
   ];
@@ -298,7 +298,7 @@ export default function Dashboard() {
                   onClick={() => navigate('/dashboard/tasks')}
                 >
                   <div className="flex items-center gap-3">
-                    <div className="w-2 h-2 bg-green-500 rounded-full" />
+                    <div className="w-2 h-2 bg-success rounded-full" />
                     <div>
                       <p className="font-medium">{task.title}</p>
                       <p className="text-sm text-muted-foreground">

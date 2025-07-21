@@ -13,42 +13,42 @@ export function QuickActions() {
       description: "Create a new project",
       icon: FolderOpen,
       action: () => navigate('/dashboard/projects'),
-      color: "bg-blue-500"
+      color: "bg-primary"
     },
     {
       title: "Add Task",
       description: "Create a new task",
       icon: CheckSquare,
       action: () => navigate('/dashboard/tasks'),
-      color: "bg-green-500"
+      color: "bg-success"
     },
     {
       title: "View Team",
       description: "Manage team members",
       icon: Users,
       action: () => navigate('/dashboard/team'),
-      color: "bg-purple-500"
+      color: "bg-accent"
     },
     {
       title: "Search",
       description: "Find projects and tasks",
       icon: Search,
       action: () => navigate('/dashboard/search'),
-      color: "bg-orange-500"
+      color: "bg-warning"
     },
     {
       title: "Sprint Planning",
       description: "Plan your sprints",
       icon: Calendar,
       action: () => navigate('/dashboard/sprints'),
-      color: "bg-indigo-500"
+      color: "bg-primary"
     },
     {
       title: "Settings",
       description: "Configure your workspace",
       icon: Settings,
       action: () => navigate('/dashboard/settings'),
-      color: "bg-gray-500"
+      color: "bg-muted-foreground"
     }
   ];
 

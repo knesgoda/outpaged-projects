@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
@@ -16,6 +17,7 @@ import {
   Search,
   Settings,
   HelpCircle,
+  Layers,
 } from "lucide-react";
 
 import {
@@ -70,11 +72,11 @@ export function AppSidebar() {
         <div className="p-4 border-b border-border">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-gradient-primary rounded-xl flex items-center justify-center shadow-glow">
-              <FolderKanban className="w-5 h-5 text-white" />
+              <Layers className="w-5 h-5 text-white" />
             </div>
             {!collapsed && (
               <div>
-                <h2 className="font-bold text-lg text-foreground">ProjectFlow</h2>
+                <h2 className="font-bold text-lg text-foreground">OutPaged</h2>
                 <p className="text-xs text-muted-foreground">Project Management</p>
               </div>
             )}

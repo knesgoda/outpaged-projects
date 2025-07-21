@@ -1,57 +1,58 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Project Management App Design System
-Beautiful, modern design tokens for productivity and collaboration
+/* OutPaged Project Management Design System
+Modern, professional design tokens for streamlined project management
 All colors MUST be HSL.
 */
 
 @layer base {
   :root {
     /* Core backgrounds and surfaces */
-    --background: 240 10% 3.9%;
-    --foreground: 0 0% 98%;
+    --background: 210 11% 9%;
+    --foreground: 210 11% 98%;
     
     /* Card and elevated surfaces */
-    --card: 240 10% 3.9%;
-    --card-foreground: 0 0% 98%;
+    --card: 210 11% 11%;
+    --card-foreground: 210 11% 98%;
     
     /* Popover and floating elements */
-    --popover: 240 5.9% 10%;
-    --popover-foreground: 0 0% 98%;
+    --popover: 210 11% 13%;
+    --popover-foreground: 210 11% 98%;
     
-    /* Primary brand colors - Vibrant orange like Project Studio */
-    --primary: 20.5 90.2% 48.2%;
-    --primary-foreground: 0 0% 98%;
-    --primary-hover: 20.5 90.2% 42%;
-    --primary-light: 20.5 90.2% 58%;
+    /* Primary brand colors - Professional teal */
+    --primary: 180 100% 25%;
+    --primary-foreground: 210 11% 98%;
+    --primary-hover: 180 100% 20%;
+    --primary-light: 180 100% 35%;
     
-    /* Secondary colors - Elegant gray-blue */
-    --secondary: 240 4.8% 15.9%;
-    --secondary-foreground: 0 0% 98%;
+    /* Secondary colors - Warm charcoal */
+    --secondary: 210 11% 15%;
+    --secondary-foreground: 210 11% 98%;
     
     /* Muted backgrounds and subtle elements */
-    --muted: 240 3.7% 15.9%;
-    --muted-foreground: 240 5% 64.9%;
+    --muted: 210 11% 17%;
+    --muted-foreground: 210 6% 65%;
     
-    /* Accent colors - Success green */
-    --accent: 142 76% 36%;
-    --accent-foreground: 0 0% 98%;
-    --accent-light: 142 69% 58%;
+    /* Accent colors - Vibrant orange */
+    --accent: 25 100% 50%;
+    --accent-foreground: 210 11% 98%;
+    --accent-light: 25 100% 60%;
     
     /* Status colors */
     --success: 142 76% 36%;
-    --success-foreground: 0 0% 98%;
+    --success-foreground: 210 11% 98%;
     --warning: 38 92% 50%;
-    --warning-foreground: 0 0% 98%;
+    --warning-foreground: 210 11% 98%;
     --destructive: 0 72% 51%;
-    --destructive-foreground: 0 0% 98%;
+    --destructive-foreground: 210 11% 98%;
     
     /* Interactive elements */
-    --border: 240 3.7% 15.9%;
-    --input: 240 3.7% 15.9%;
-    --ring: 20.5 90.2% 48.2%;
+    --border: 210 11% 19%;
+    --input: 210 11% 17%;
+    --ring: 180 100% 25%;
 
     --radius: 0.75rem;
 
@@ -67,18 +68,18 @@ All colors MUST be HSL.
     --shadow-glow: 0 0 20px hsl(var(--primary) / 0.3);
     
     /* Enhanced card styling */
-    --card-shadow: 0 4px 12px -2px hsl(240 10% 3.9% / 0.8);
-    --card-hover: 0 8px 25px -5px hsl(240 10% 3.9% / 0.6);
+    --card-shadow: 0 4px 12px -2px hsl(210 11% 9% / 0.8);
+    --card-hover: 0 8px 25px -5px hsl(210 11% 9% / 0.6);
     
-    /* Sidebar colors with orange accent */
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 20.5 90.2% 48.2%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 20.5 90.2% 48.2%;
+    /* Sidebar colors with teal accent */
+    --sidebar-background: 210 11% 13%;
+    --sidebar-foreground: 210 11% 95%;
+    --sidebar-primary: 180 100% 25%;
+    --sidebar-primary-foreground: 210 11% 98%;
+    --sidebar-accent: 210 11% 17%;
+    --sidebar-accent-foreground: 210 11% 95%;
+    --sidebar-border: 210 11% 19%;
+    --sidebar-ring: 180 100% 25%;
     
     /* Smooth transitions */
     --transition-fast: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
