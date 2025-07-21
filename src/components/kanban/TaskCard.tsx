@@ -1,3 +1,4 @@
+
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Card, CardContent } from "@/components/ui/card";
@@ -12,7 +13,10 @@ import {
   Flag,
   User,
   Clock,
-  Eye
+  Eye,
+  CheckCircle2,
+  AlertCircle,
+  XCircle
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -35,6 +39,7 @@ export interface Task {
   task_type: "story" | "epic" | "initiative" | "task" | "subtask" | "bug" | "feature_request" | "design";
   parent_id?: string;
   project_id?: string;
+  swimlane_id?: string;
   assignees?: Array<{
     id: string;
     name: string;
@@ -46,6 +51,9 @@ export interface Task {
   comments: number;
   attachments: number;
   children?: Task[];
+  story_points?: number;
+  blocked?: boolean;
+  blocking_reason?: string;
 }
 
 interface TaskCardProps {
@@ -53,6 +61,7 @@ interface TaskCardProps {
   onEdit?: (task: Task) => void;
   onDelete?: (taskId: string) => void;
   onView?: (task: Task) => void;
+  compact?: boolean;
 }
 
 const priorityColors = {
@@ -81,7 +90,15 @@ const typeIcons = {
   design: "🎨",
 };
 
-export function TaskCard({ task, onEdit, onDelete, onView }: TaskCardProps) {
+const statusIcons = {
+  todo: AlertCircle,
+  in_progress: Clock,
+  in_review: Eye,
+  done: CheckCircle2,
+  blocked: XCircle,
+};
+
+export function TaskCard({ task, onEdit, onDelete, onView, compact = false }: TaskCardProps) {
   const { user } = useAuth();
   const { getTotalTimeForTask, formatDuration } = useTimeTracking();
   const { relationships } = useTaskRelationships(task.id);
@@ -101,6 +118,11 @@ export function TaskCard({ task, onEdit, onDelete, onView }: TaskCardProps) {
     transition,
   };
 
+  const StatusIcon = statusIcons[task.status as keyof typeof statusIcons] || AlertCircle;
+
+  const isOverdue = task.dueDate && new Date(task.dueDate) < new Date();
+  const isDueSoon = task.dueDate && new Date(task.dueDate) <= new Date(Date.now() + 24 * 60 * 60 * 1000);
+
   return (
     <Card
       ref={setNodeRef}
@@ -108,11 +130,17 @@ export function TaskCard({ task, onEdit, onDelete, onView }: TaskCardProps) {
       {...attributes}
       {...listeners}
       onClick={() => onView?.(task)}
-      className={`cursor-pointer hover:shadow-medium transition-all duration-200 bg-card border-border touch-manipulation min-h-[120px] ${
+      className={`cursor-pointer hover:shadow-medium transition-all duration-200 bg-card border-border touch-manipulation ${
+        compact ? 'min-h-[80px]' : 'min-h-[120px]'
+      } ${
         isDragging ? "opacity-50 rotate-2 shadow-large scale-105" : "hover:scale-[1.02]"
+      } ${
+        task.blocked ? "border-destructive/50 bg-destructive/5" : ""
+      } ${
+        isOverdue ? "border-destructive border-l-4" : isDueSoon ? "border-warning border-l-4" : ""
       }`}
     >
-      <CardContent className="p-3 sm:p-4 space-y-3">
+      <CardContent className={`${compact ? 'p-2' : 'p-3 sm:p-4'} space-y-${compact ? '2' : '3'}`}>
         {/* Header with hierarchy level, task type and priority */}
         <div className="flex items-start justify-between">
           <div className="flex flex-wrap gap-1">
@@ -121,51 +149,72 @@ export function TaskCard({ task, onEdit, onDelete, onView }: TaskCardProps) {
             </Badge>
             <Badge variant="outline" className="text-xs">
               <span className="mr-1">{typeIcons[task.task_type as keyof typeof typeIcons]}</span>
-              {task.task_type.replace('_', ' ')}
+              {compact ? task.task_type.charAt(0).toUpperCase() : task.task_type.replace('_', ' ')}
             </Badge>
+            {task.story_points && (
+              <Badge variant="outline" className="text-xs">
+                {task.story_points} pts
+              </Badge>
+            )}
           </div>
           <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
+              <StatusIcon className={`w-3 h-3 ${
+                task.status === 'done' ? 'text-success' : 
+                task.status === 'blocked' ? 'text-destructive' :
+                task.status === 'in_progress' ? 'text-primary' : 'text-muted-foreground'
+              }`} />
+              {task.blocked && (
+                <Badge variant="destructive" className="text-xs">
+                  Blocked
+                </Badge>
+              )}
+            </div>
             <Badge className={priorityColors[task.priority]} variant="secondary">
               <Flag className="w-3 h-3 mr-1" />
-              <span className="text-xs sm:text-sm">{task.priority}</span>
+              <span className="text-xs sm:text-sm">{compact ? task.priority.charAt(0).toUpperCase() : task.priority}</span>
             </Badge>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="w-8 h-8 sm:w-6 sm:h-6 opacity-50 hover:opacity-100 touch-manipulation"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <MoreHorizontal className="w-4 h-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="z-50" align="end">
-                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onView?.(task); }}>
-                  <Eye className="w-4 h-4 mr-2" />
-                  View Details
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onEdit?.(task); }}>
-                  Edit Task
-                </DropdownMenuItem>
-                <DropdownMenuItem>
-                  Duplicate
-                </DropdownMenuItem>
-                <DropdownMenuItem 
-                  className="text-destructive"
-                  onClick={(e) => { e.stopPropagation(); onDelete?.(task.id); }}
-                >
-                  Delete
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {!compact && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="w-8 h-8 sm:w-6 sm:h-6 opacity-50 hover:opacity-100 touch-manipulation"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <MoreHorizontal className="w-4 h-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="z-50" align="end">
+                  <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onView?.(task); }}>
+                    <Eye className="w-4 h-4 mr-2" />
+                    View Details
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onEdit?.(task); }}>
+                    Edit Task
+                  </DropdownMenuItem>
+                  <DropdownMenuItem>
+                    Duplicate
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    className="text-destructive"
+                    onClick={(e) => { e.stopPropagation(); onDelete?.(task.id); }}
+                  >
+                    Delete
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
           </div>
         </div>
 
         {/* Title and Description */}
         <div className="space-y-2">
-          <h4 className="font-medium text-foreground leading-snug text-sm sm:text-base">{task.title}</h4>
-          {task.description && (
+          <h4 className={`font-medium text-foreground leading-snug ${compact ? 'text-xs' : 'text-sm sm:text-base'}`}>
+            {task.title}
+          </h4>
+          {!compact && task.description && (
             <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2">
               {task.description}
             </p>
@@ -173,18 +222,23 @@ export function TaskCard({ task, onEdit, onDelete, onView }: TaskCardProps) {
         </div>
 
         {/* Tags */}
-        {task.tags.length > 0 && (
+        {!compact && task.tags.length > 0 && (
           <div className="flex flex-wrap gap-1">
-            {task.tags.map((tag) => (
+            {task.tags.slice(0, 3).map((tag) => (
               <Badge key={tag} variant="outline" className="text-xs px-2 py-0">
                 {tag}
               </Badge>
             ))}
+            {task.tags.length > 3 && (
+              <Badge variant="outline" className="text-xs px-2 py-0">
+                +{task.tags.length - 3}
+              </Badge>
+            )}
           </div>
         )}
 
         {/* Task Relationships */}
-        {relationships.length > 0 && (
+        {!compact && relationships.length > 0 && (
           <div className="flex flex-wrap gap-1">
             <TaskRelationshipIndicator
               relationships={relationships}
@@ -194,14 +248,27 @@ export function TaskCard({ task, onEdit, onDelete, onView }: TaskCardProps) {
           </div>
         )}
 
+        {/* Blocking Reason */}
+        {task.blocked && task.blocking_reason && !compact && (
+          <div className="text-xs text-destructive bg-destructive/10 p-2 rounded border">
+            <strong>Blocked:</strong> {task.blocking_reason}
+          </div>
+        )}
+
         {/* Footer */}
         <div className="flex items-center justify-between pt-2 border-t border-border">
           <div className="flex items-center gap-2 sm:gap-3 text-muted-foreground flex-wrap">
             {task.dueDate && (
-              <div className="flex items-center gap-1 text-xs">
+              <div className={`flex items-center gap-1 text-xs ${
+                isOverdue ? 'text-destructive font-medium' : isDueSoon ? 'text-warning font-medium' : ''
+              }`}>
                 <Calendar className="w-3 h-3" />
-                <span className="hidden sm:inline">{task.dueDate}</span>
-                <span className="sm:hidden">{task.dueDate.split(' ')[0]}</span>
+                <span className={compact ? "text-xs" : "hidden sm:inline"}>
+                  {compact ? task.dueDate.split(' ')[0] : task.dueDate}
+                </span>
+                {!compact && (
+                  <span className="sm:hidden">{task.dueDate.split(' ')[0]}</span>
+                )}
               </div>
             )}
             {task.comments > 0 && (
@@ -226,17 +293,17 @@ export function TaskCard({ task, onEdit, onDelete, onView }: TaskCardProps) {
           
           {task.assignees && task.assignees.length > 0 && (
             <div className="flex -space-x-2">
-              {task.assignees.slice(0, 3).map((assignee, index) => (
-                <Avatar key={assignee.id} className="w-7 h-7 sm:w-6 sm:h-6 border-2 border-background">
+              {task.assignees.slice(0, compact ? 2 : 3).map((assignee, index) => (
+                <Avatar key={assignee.id} className={`${compact ? 'w-5 h-5' : 'w-7 h-7 sm:w-6 sm:h-6'} border-2 border-background`}>
                   <AvatarImage src={assignee.avatar} alt={assignee.name} />
                   <AvatarFallback className="text-xs">
                     {assignee.initials}
                   </AvatarFallback>
                 </Avatar>
               ))}
-              {task.assignees.length > 3 && (
-                <div className="w-7 h-7 sm:w-6 sm:h-6 rounded-full bg-muted border-2 border-background flex items-center justify-center text-xs font-medium">
-                  +{task.assignees.length - 3}
+              {task.assignees.length > (compact ? 2 : 3) && (
+                <div className={`${compact ? 'w-5 h-5' : 'w-7 h-7 sm:w-6 sm:h-6'} rounded-full bg-muted border-2 border-background flex items-center justify-center text-xs font-medium`}>
+                  +{task.assignees.length - (compact ? 2 : 3)}
                 </div>
               )}
             </div>

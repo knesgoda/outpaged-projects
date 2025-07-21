@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useRealtime } from "@/hooks/useRealtime";
 import { useToast } from "@/hooks/use-toast";
@@ -21,9 +22,12 @@ import { CSS } from "@dnd-kit/utilities";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { KanbanColumn, Column } from "@/components/kanban/KanbanColumn";
+import { EnhancedKanbanColumn, Column } from "@/components/kanban/EnhancedKanbanColumn";
 import { TaskCard, Task } from "@/components/kanban/TaskCard";
-import { TaskDialog } from "@/components/kanban/TaskDialog";
+import { EnhancedTaskDialog } from "@/components/kanban/EnhancedTaskDialog";
+import { BulkOperations } from "@/components/kanban/BulkOperations";
+import { TaskTemplates } from "@/components/kanban/TaskTemplates";
+import { TaskMetrics } from "@/components/kanban/TaskMetrics";
 import { ProjectSelector } from "@/components/kanban/ProjectSelector";
 import { KanbanFiltersComponent, KanbanFilters } from "@/components/kanban/KanbanFilters";
 import { BoardSettings } from "@/components/kanban/BoardSettings";
@@ -75,6 +79,9 @@ export function KanbanBoard() {
   const [detailViewTask, setDetailViewTask] = useState<Task | null>(null);
   const [availableAssignees, setAvailableAssignees] = useState<Array<{ id: string; name: string }>>([]);
   const [showSwimlanes, setShowSwimlanes] = useState(false);
+  const [selectedTasks, setSelectedTasks] = useState<string[]>([]);
+  const [showQuickAdd, setShowQuickAdd] = useState<{ columnId: string; swimlaneId?: string } | null>(null);
+  const [viewMode, setViewMode] = useState<'standard' | 'compact' | 'list'>('standard');
   
   // Enhanced filters state
   const [filters, setFilters] = useState<KanbanFilters>({
@@ -252,6 +259,7 @@ export function KanbanBoard() {
           task_type: task.task_type || 'feature_request',
           parent_id: task.parent_id,
           project_id: task.project_id,
+          swimlane_id: task.swimlane_id,
           assignees: taskAssignees,
           dueDate: task.due_date ? new Date(task.due_date).toLocaleDateString('en-US', { 
             month: 'short', 
@@ -263,7 +271,8 @@ export function KanbanBoard() {
           children: [],
           projectName: task.projects?.name,
           story_points: task.story_points,
-          swimlane_id: task.swimlane_id
+          blocked: task.blocked || false,
+          blocking_reason: task.blocking_reason
         };
       }) || [];
 
@@ -848,6 +857,22 @@ export function KanbanBoard() {
           </div>
         </div>
         <div className="flex flex-col sm:flex-row gap-2">
+          <div className="flex gap-2">
+            <Button 
+              variant={viewMode === 'standard' ? 'default' : 'outline'} 
+              size="sm"
+              onClick={() => setViewMode('standard')}
+            >
+              Standard
+            </Button>
+            <Button 
+              variant={viewMode === 'compact' ? 'default' : 'outline'} 
+              size="sm"
+              onClick={() => setViewMode('compact')}
+            >
+              Compact
+            </Button>
+          </div>
           <Button 
             variant="outline" 
             size="sm"
@@ -856,6 +881,7 @@ export function KanbanBoard() {
             <Layers className="w-4 h-4 mr-2" />
             {showSwimlanes ? 'Hide' : 'Show'} Swimlanes
           </Button>
+          <TaskTemplates projectId={currentProjectId!} onTaskCreated={fetchTasks} />
           <BoardSettings projectId={currentProjectId!} onUpdate={fetchTasks} />
           <Button variant="outline" onClick={addNewColumn} className="w-full sm:w-auto">
             <Plus className="w-4 h-4 mr-2" />
@@ -873,12 +899,25 @@ export function KanbanBoard() {
         </div>
       </div>
 
+      {/* Task Metrics */}
+      <TaskMetrics tasks={filteredColumns.flatMap(col => col.tasks)} />
+
       {/* Enhanced Filters */}
       <KanbanFiltersComponent
         filters={filters}
         onFiltersChange={setFilters}
         availableAssignees={availableAssignees}
         availableTags={[]} // TODO: Implement tags system
+      />
+
+      {/* Bulk Operations */}
+      <BulkOperations
+        selectedTasks={selectedTasks}
+        onSelectionChange={setSelectedTasks}
+        tasks={filteredColumns.flatMap(col => col.tasks)}
+        onOperationComplete={fetchTasks}
+        availableAssignees={availableAssignees}
+        availableColumns={columns}
       />
 
       {/* Kanban Board */}
@@ -906,7 +945,7 @@ export function KanbanBoard() {
                   </div>
                   <div className="flex gap-6 min-w-fit">
                     {getTasksBySwimlane(swimlane.id).map((column) => (
-                      <KanbanColumn
+                      <EnhancedKanbanColumn
                         key={column.id}
                         column={column}
                         onAddTask={(columnId) => handleAddTask(columnId, swimlane.id)}
@@ -914,6 +953,13 @@ export function KanbanBoard() {
                         onDeleteTask={handleDeleteTask}
                         onViewTask={handleViewTask}
                         isDraggable={isAdmin}
+                        viewMode={viewMode}
+                        selectedTasks={selectedTasks}
+                        onTaskSelectionChange={setSelectedTasks}
+                        showQuickAdd={showQuickAdd}
+                        onShowQuickAdd={setShowQuickAdd}
+                        onQuickTaskCreated={fetchTasks}
+                        swimlaneId={swimlane.id}
                       />
                     ))}
                   </div>
@@ -931,7 +977,7 @@ export function KanbanBoard() {
                 </div>
                 <div className="flex gap-6 min-w-fit">
                   {getTasksWithoutSwimlane().map((column) => (
-                    <KanbanColumn
+                    <EnhancedKanbanColumn
                       key={column.id}
                       column={column}
                       onAddTask={handleAddTask}
@@ -939,6 +985,12 @@ export function KanbanBoard() {
                       onDeleteTask={handleDeleteTask}
                       onViewTask={handleViewTask}
                       isDraggable={isAdmin}
+                      viewMode={viewMode}
+                      selectedTasks={selectedTasks}
+                      onTaskSelectionChange={setSelectedTasks}
+                      showQuickAdd={showQuickAdd}
+                      onShowQuickAdd={setShowQuickAdd}
+                      onQuickTaskCreated={fetchTasks}
                     />
                   ))}
                 </div>
@@ -953,7 +1005,7 @@ export function KanbanBoard() {
             >
               <div className="flex gap-6 min-w-fit">
                 {filteredColumns.map((column) => (
-                  <KanbanColumn
+                  <EnhancedKanbanColumn
                     key={column.id}
                     column={column}
                     onAddTask={handleAddTask}
@@ -961,6 +1013,12 @@ export function KanbanBoard() {
                     onDeleteTask={handleDeleteTask}
                     onViewTask={handleViewTask}
                     isDraggable={isAdmin}
+                    viewMode={viewMode}
+                    selectedTasks={selectedTasks}
+                    onTaskSelectionChange={setSelectedTasks}
+                    showQuickAdd={showQuickAdd}
+                    onShowQuickAdd={setShowQuickAdd}
+                    onQuickTaskCreated={fetchTasks}
                   />
                 ))}
               </div>
@@ -969,31 +1027,36 @@ export function KanbanBoard() {
           <DragOverlay>
             {activeTask ? (
               <div className="rotate-2 opacity-90">
-                <TaskCard task={activeTask} />
+                <TaskCard task={activeTask} compact={viewMode === 'compact'} />
               </div>
             ) : null}
           </DragOverlay>
         </DndContext>
       </div>
 
-      {/* Task Dialog */}
-      <TaskDialog
+      {/* Enhanced Task Dialog */}
+      <EnhancedTaskDialog
+        open={taskDialog.isOpen}
+        onOpenChange={(open) => setTaskDialog({ isOpen: open })}
         task={taskDialog.task}
-        isOpen={taskDialog.isOpen}
-        onClose={() => setTaskDialog({ isOpen: false })}
-        onSave={handleSaveTask}
+        projectId={currentProjectId || ""}
         columnId={taskDialog.columnId}
-        projectId={currentProjectId || undefined}
+        swimlaneId={taskDialog.swimlaneId}
+        onTaskSaved={fetchTasks}
+        availableAssignees={availableAssignees}
+        availableTags={[]}
       />
 
       {/* Task Detail View Dialog */}
       {detailViewTask && (
-        <TaskDialog
+        <EnhancedTaskDialog
+          open={true}
+          onOpenChange={(open) => !open && setDetailViewTask(null)}
           task={detailViewTask}
-          isOpen={true}
-          onClose={() => setDetailViewTask(null)}
-          onSave={handleSaveTask}
-          projectId={currentProjectId || undefined}
+          projectId={currentProjectId || ""}
+          onTaskSaved={fetchTasks}
+          availableAssignees={availableAssignees}
+          availableTags={[]}
         />
       )}
     </div>
