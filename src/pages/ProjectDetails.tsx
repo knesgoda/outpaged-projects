@@ -76,7 +76,7 @@ export default function ProjectDetails() {
         .from('project_members')
         .select(`
           *,
-          profiles:user_id (
+          profiles!project_members_user_id_fkey (
             full_name,
             avatar_url
           )
