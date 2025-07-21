@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useRealtime } from "@/hooks/useRealtime";
 import { useToast } from "@/hooks/use-toast";
@@ -21,12 +20,14 @@ import { arrayMove, horizontalListSortingStrategy, SortableContext } from "@dnd-
 import { CSS } from "@dnd-kit/utilities";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { KanbanColumn, Column } from "@/components/kanban/KanbanColumn";
 import { TaskCard, Task } from "@/components/kanban/TaskCard";
 import { TaskDialog } from "@/components/kanban/TaskDialog";
 import { ProjectSelector } from "@/components/kanban/ProjectSelector";
 import { KanbanFiltersComponent, KanbanFilters } from "@/components/kanban/KanbanFilters";
-import { Plus, ArrowLeft, Settings } from "lucide-react";
+import { BoardSettings } from "@/components/kanban/BoardSettings";
+import { Plus, ArrowLeft, Settings, Layers } from "lucide-react";
 
 interface KanbanColumnData {
   id: string;
@@ -34,6 +35,15 @@ interface KanbanColumnData {
   position: number;
   color?: string;
   wip_limit?: number;
+  is_default: boolean;
+  project_id: string;
+}
+
+interface Swimlane {
+  id: string;
+  name: string;
+  position: number;
+  color: string;
   is_default: boolean;
   project_id: string;
 }
@@ -52,6 +62,7 @@ export function KanbanBoard() {
   
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [columns, setColumns] = useState<Column[]>([]);
+  const [swimlanes, setSwimlanes] = useState<Swimlane[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
@@ -59,9 +70,11 @@ export function KanbanBoard() {
     isOpen: boolean;
     task?: Task | null;
     columnId?: string;
+    swimlaneId?: string;
   }>({ isOpen: false });
   const [detailViewTask, setDetailViewTask] = useState<Task | null>(null);
   const [availableAssignees, setAvailableAssignees] = useState<Array<{ id: string; name: string }>>([]);
+  const [showSwimlanes, setShowSwimlanes] = useState(false);
   
   // Enhanced filters state
   const [filters, setFilters] = useState<KanbanFilters>({
@@ -105,6 +118,7 @@ export function KanbanBoard() {
     if (currentProjectId) {
       fetchTasks();
       fetchProjectMembers();
+      fetchSwimlanes();
     }
   }, [currentProjectId]);
 
@@ -138,6 +152,23 @@ export function KanbanBoard() {
       setAvailableAssignees(assignees);
     } catch (error) {
       console.error('Error fetching project members:', error);
+    }
+  };
+
+  const fetchSwimlanes = async () => {
+    if (!currentProjectId) return;
+
+    try {
+      const { data: swimlanesData, error } = await supabase
+        .from('swimlanes')
+        .select('*')
+        .eq('project_id', currentProjectId)
+        .order('position');
+
+      if (error) throw error;
+      setSwimlanes(swimlanesData || []);
+    } catch (error) {
+      console.error('Error fetching swimlanes:', error);
     }
   };
 
@@ -231,7 +262,8 @@ export function KanbanBoard() {
           attachments: 0, // TODO: Get actual attachment count
           children: [],
           projectName: task.projects?.name,
-          story_points: task.story_points
+          story_points: task.story_points,
+          swimlane_id: task.swimlane_id
         };
       }) || [];
 
@@ -478,33 +510,22 @@ export function KanbanBoard() {
     }
   };
 
-  const getStatusFromColumn = async (column: Column): Promise<string> => {
-    if (!currentProjectId) return 'todo';
-    
-    // Check if we have a status mapping for this column
-    const { data: mapping } = await supabase
-      .from('task_status_mappings')
-      .select('status_value')
-      .eq('project_id', currentProjectId)
-      .eq('column_id', column.id)
-      .maybeSingle();
-    
-    return mapping?.status_value || column.title.toLowerCase().replace(' ', '_');
+  const getTasksBySwimlane = (swimlaneId: string) => {
+    return columns.map(column => ({
+      ...column,
+      tasks: column.tasks.filter(task => task.swimlane_id === swimlaneId)
+    }));
   };
 
-  const findTask = (id: string): Task | undefined => {
-    for (const column of columns) {
-      const task = column.tasks.find((task) => task.id === id);
-      if (task) return task;
-    }
+  const getTasksWithoutSwimlane = () => {
+    return columns.map(column => ({
+      ...column,
+      tasks: column.tasks.filter(task => !task.swimlane_id)
+    }));
   };
 
-  const findColumn = (id: string): Column | undefined => {
-    return columns.find((col) => col.id === id);
-  };
-
-  const handleAddTask = (columnId: string) => {
-    setTaskDialog({ isOpen: true, columnId });
+  const handleAddTask = (columnId: string, swimlaneId?: string) => {
+    setTaskDialog({ isOpen: true, columnId, swimlaneId });
   };
 
   const handleEditTask = (task: Task) => {
@@ -572,6 +593,7 @@ export function KanbanBoard() {
             due_date: (taskData as any).due_date || null,
             story_points: (taskData as any).story_points || null,
             status: (taskData as any).status,
+            swimlane_id: taskDialog.swimlaneId || null,
           })
           .eq('id', taskDialog.task.id);
 
@@ -599,6 +621,7 @@ export function KanbanBoard() {
             reporter_id: user?.id,
             due_date: (taskData as any).due_date || null,
             story_points: (taskData as any).story_points || null,
+            swimlane_id: taskDialog.swimlaneId || null,
           })
           .select()
           .single();
@@ -649,6 +672,31 @@ export function KanbanBoard() {
   const getStatusFromColumnId = async (columnId: string): Promise<string> => {
     const column = columns.find(col => col.id === columnId);
     return column ? await getStatusFromColumn(column) : 'todo';
+  };
+
+  const getStatusFromColumn = async (column: Column): Promise<string> => {
+    if (!currentProjectId) return 'todo';
+    
+    // Check if we have a status mapping for this column
+    const { data: mapping } = await supabase
+      .from('task_status_mappings')
+      .select('status_value')
+      .eq('project_id', currentProjectId)
+      .eq('column_id', column.id)
+      .maybeSingle();
+    
+    return mapping?.status_value || column.title.toLowerCase().replace(' ', '_');
+  };
+
+  const findTask = (id: string): Task | undefined => {
+    for (const column of columns) {
+      const task = column.tasks.find((task) => task.id === id);
+      if (task) return task;
+    }
+  };
+
+  const findColumn = (id: string): Column | undefined => {
+    return columns.find((col) => col.id === id);
   };
 
   const addNewColumn = async () => {
@@ -800,6 +848,15 @@ export function KanbanBoard() {
           </div>
         </div>
         <div className="flex flex-col sm:flex-row gap-2">
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => setShowSwimlanes(!showSwimlanes)}
+          >
+            <Layers className="w-4 h-4 mr-2" />
+            {showSwimlanes ? 'Hide' : 'Show'} Swimlanes
+          </Button>
+          <BoardSettings projectId={currentProjectId!} onUpdate={fetchTasks} />
           <Button variant="outline" onClick={addNewColumn} className="w-full sm:w-auto">
             <Plus className="w-4 h-4 mr-2" />
             <span className="hidden sm:inline">Add Column</span>
@@ -832,25 +889,83 @@ export function KanbanBoard() {
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
         >
-          <SortableContext 
-            items={columns.map(col => `column-${col.id}`)}
-            strategy={horizontalListSortingStrategy}
-            disabled={!isAdmin}
-          >
-            <div className="flex gap-6 min-w-fit">
-              {filteredColumns.map((column) => (
-                <KanbanColumn
-                  key={column.id}
-                  column={column}
-                  onAddTask={handleAddTask}
-                  onEditTask={handleEditTask}
-                  onDeleteTask={handleDeleteTask}
-                  onViewTask={handleViewTask}
-                  isDraggable={isAdmin}
-                />
+          {showSwimlanes && swimlanes.length > 0 ? (
+            // Swimlanes view
+            <div className="space-y-8">
+              {swimlanes.map((swimlane) => (
+                <div key={swimlane.id} className="space-y-4">
+                  <div className="flex items-center gap-3 px-4">
+                    <div
+                      className="w-4 h-4 rounded-full"
+                      style={{ backgroundColor: swimlane.color }}
+                    />
+                    <h3 className="text-lg font-semibold">{swimlane.name}</h3>
+                    <Badge variant="secondary" className="text-xs">
+                      {getTasksBySwimlane(swimlane.id).reduce((acc, col) => acc + col.tasks.length, 0)} tasks
+                    </Badge>
+                  </div>
+                  <div className="flex gap-6 min-w-fit">
+                    {getTasksBySwimlane(swimlane.id).map((column) => (
+                      <KanbanColumn
+                        key={column.id}
+                        column={column}
+                        onAddTask={(columnId) => handleAddTask(columnId, swimlane.id)}
+                        onEditTask={handleEditTask}
+                        onDeleteTask={handleDeleteTask}
+                        onViewTask={handleViewTask}
+                        isDraggable={isAdmin}
+                      />
+                    ))}
+                  </div>
+                </div>
               ))}
+              
+              {/* Tasks without swimlane */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-3 px-4">
+                  <div className="w-4 h-4 rounded border-2 border-muted-foreground bg-muted" />
+                  <h3 className="text-lg font-semibold">No Swimlane</h3>
+                  <Badge variant="secondary" className="text-xs">
+                    {getTasksWithoutSwimlane().reduce((acc, col) => acc + col.tasks.length, 0)} tasks
+                  </Badge>
+                </div>
+                <div className="flex gap-6 min-w-fit">
+                  {getTasksWithoutSwimlane().map((column) => (
+                    <KanbanColumn
+                      key={column.id}
+                      column={column}
+                      onAddTask={handleAddTask}
+                      onEditTask={handleEditTask}
+                      onDeleteTask={handleDeleteTask}
+                      onViewTask={handleViewTask}
+                      isDraggable={isAdmin}
+                    />
+                  ))}
+                </div>
+              </div>
             </div>
-          </SortableContext>
+          ) : (
+            // Standard view
+            <SortableContext 
+              items={columns.map(col => `column-${col.id}`)}
+              strategy={horizontalListSortingStrategy}
+              disabled={!isAdmin}
+            >
+              <div className="flex gap-6 min-w-fit">
+                {filteredColumns.map((column) => (
+                  <KanbanColumn
+                    key={column.id}
+                    column={column}
+                    onAddTask={handleAddTask}
+                    onEditTask={handleEditTask}
+                    onDeleteTask={handleDeleteTask}
+                    onViewTask={handleViewTask}
+                    isDraggable={isAdmin}
+                  />
+                ))}
+              </div>
+            </SortableContext>
+          )}
           <DragOverlay>
             {activeTask ? (
               <div className="rotate-2 opacity-90">
