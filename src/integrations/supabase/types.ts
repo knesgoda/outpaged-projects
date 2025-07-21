@@ -344,6 +344,10 @@ export type Database = {
         Args: { user_id: string }
         Returns: boolean
       }
+      is_project_member: {
+        Args: { project_id: string; user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       project_status:
