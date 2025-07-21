@@ -231,6 +231,14 @@ export default function ProjectDetails() {
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
+          <div className="flex justify-between items-center">
+            <h3 className="text-lg font-semibold">Project Overview</h3>
+            <Button size="sm" onClick={() => setShowCreateTask(true)}>
+              <Plus className="w-4 h-4 mr-2" />
+              Create Task
+            </Button>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Card>
               <CardHeader className="pb-3">
@@ -261,8 +269,14 @@ export default function ProjectDetails() {
           </div>
 
           <Card>
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>Recent Activity</CardTitle>
+              {tasks.length === 0 && (
+                <Button variant="outline" size="sm" onClick={() => setShowCreateTask(true)}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Create First Task
+                </Button>
+              )}
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
@@ -285,7 +299,10 @@ export default function ProjectDetails() {
                   </div>
                 ))}
                 {tasks.length === 0 && (
-                  <p className="text-muted-foreground text-center py-8">No recent activity</p>
+                  <div className="text-center py-8">
+                    <CheckSquare2 className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                    <p className="text-muted-foreground">No tasks yet. Create your first task to get started!</p>
+                  </div>
                 )}
               </div>
             </CardContent>
