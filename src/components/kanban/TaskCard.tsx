@@ -11,7 +11,8 @@ import {
   Paperclip, 
   Flag,
   User,
-  Clock
+  Clock,
+  Eye
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -50,6 +51,7 @@ interface TaskCardProps {
   task: Task;
   onEdit?: (task: Task) => void;
   onDelete?: (taskId: string) => void;
+  onView?: (task: Task) => void;
 }
 
 const priorityColors = {
@@ -78,7 +80,7 @@ const typeIcons = {
   design: "🎨",
 };
 
-export function TaskCard({ task, onEdit, onDelete }: TaskCardProps) {
+export function TaskCard({ task, onEdit, onDelete, onView }: TaskCardProps) {
   const { user } = useAuth();
   const { getTotalTimeForTask, formatDuration } = useTimeTracking();
   const { relationships } = useTaskRelationships(task.id);
@@ -104,7 +106,8 @@ export function TaskCard({ task, onEdit, onDelete }: TaskCardProps) {
       style={style}
       {...attributes}
       {...listeners}
-      className={`cursor-grab active:cursor-grabbing hover:shadow-medium transition-all duration-200 bg-card border-border touch-manipulation min-h-[120px] ${
+      onClick={() => onView?.(task)}
+      className={`cursor-pointer hover:shadow-medium transition-all duration-200 bg-card border-border touch-manipulation min-h-[120px] ${
         isDragging ? "opacity-50 rotate-2 shadow-large scale-105" : "hover:scale-[1.02]"
       }`}
     >
@@ -137,7 +140,11 @@ export function TaskCard({ task, onEdit, onDelete }: TaskCardProps) {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent className="z-50" align="end">
-                <DropdownMenuItem onClick={() => onEdit?.(task)}>
+                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onView?.(task); }}>
+                  <Eye className="w-4 h-4 mr-2" />
+                  View Details
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onEdit?.(task); }}>
                   Edit Task
                 </DropdownMenuItem>
                 <DropdownMenuItem>
@@ -145,7 +152,7 @@ export function TaskCard({ task, onEdit, onDelete }: TaskCardProps) {
                 </DropdownMenuItem>
                 <DropdownMenuItem 
                   className="text-destructive"
-                  onClick={() => onDelete?.(task.id)}
+                  onClick={(e) => { e.stopPropagation(); onDelete?.(task.id); }}
                 >
                   Delete
                 </DropdownMenuItem>

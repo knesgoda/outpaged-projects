@@ -56,6 +56,42 @@ export type Database = {
           },
         ]
       }
+      kanban_columns: {
+        Row: {
+          color: string | null
+          created_at: string
+          id: string
+          is_default: boolean | null
+          name: string
+          position: number
+          project_id: string
+          updated_at: string
+          wip_limit: number | null
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          id?: string
+          is_default?: boolean | null
+          name: string
+          position: number
+          project_id: string
+          updated_at?: string
+          wip_limit?: number | null
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          id?: string
+          is_default?: boolean | null
+          name?: string
+          position?: number
+          project_id?: string
+          updated_at?: string
+          wip_limit?: number | null
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           created_at: string
@@ -240,6 +276,39 @@ export type Database = {
           },
         ]
       }
+      swimlanes: {
+        Row: {
+          color: string | null
+          created_at: string
+          id: string
+          is_default: boolean | null
+          name: string
+          position: number
+          project_id: string
+          updated_at: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          id?: string
+          is_default?: boolean | null
+          name: string
+          position: number
+          project_id: string
+          updated_at?: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          id?: string
+          is_default?: boolean | null
+          name?: string
+          position?: number
+          project_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       task_relationships: {
         Row: {
           created_at: string
@@ -285,6 +354,33 @@ export type Database = {
           },
         ]
       }
+      task_status_mappings: {
+        Row: {
+          column_id: string
+          created_at: string
+          display_name: string
+          id: string
+          project_id: string
+          status_value: string
+        }
+        Insert: {
+          column_id: string
+          created_at?: string
+          display_name: string
+          id?: string
+          project_id: string
+          status_value: string
+        }
+        Update: {
+          column_id?: string
+          created_at?: string
+          display_name?: string
+          id?: string
+          project_id?: string
+          status_value?: string
+        }
+        Relationships: []
+      }
       tasks: {
         Row: {
           assignee_id: string | null
@@ -302,6 +398,7 @@ export type Database = {
           sprint_id: string | null
           status: Database["public"]["Enums"]["task_status"] | null
           story_points: number | null
+          swimlane_id: string | null
           task_type: Database["public"]["Enums"]["task_type"] | null
           title: string
           updated_at: string
@@ -322,6 +419,7 @@ export type Database = {
           sprint_id?: string | null
           status?: Database["public"]["Enums"]["task_status"] | null
           story_points?: number | null
+          swimlane_id?: string | null
           task_type?: Database["public"]["Enums"]["task_type"] | null
           title: string
           updated_at?: string
@@ -342,6 +440,7 @@ export type Database = {
           sprint_id?: string | null
           status?: Database["public"]["Enums"]["task_status"] | null
           story_points?: number | null
+          swimlane_id?: string | null
           task_type?: Database["public"]["Enums"]["task_type"] | null
           title?: string
           updated_at?: string

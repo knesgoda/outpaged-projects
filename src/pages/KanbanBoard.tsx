@@ -1,8 +1,8 @@
-
 import { useState, useEffect } from "react";
 import { useRealtime } from "@/hooks/useRealtime";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { useOptionalAuth } from "@/hooks/useOptionalAuth";
 import { supabase } from "@/integrations/supabase/client";
 import {
   DndContext,
@@ -22,7 +22,7 @@ import { Input } from "@/components/ui/input";
 import { KanbanColumn, Column } from "@/components/kanban/KanbanColumn";
 import { TaskCard, Task } from "@/components/kanban/TaskCard";
 import { TaskDialog } from "@/components/kanban/TaskDialog";
-import { Plus, Filter, Search, Settings } from "lucide-react";
+import { Plus, Filter, Search, Settings, Eye } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -31,28 +31,32 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-// Define the column structure
-const columnDefinitions = [
-  { id: "todo", title: "To Do" },
-  { id: "in_progress", title: "In Progress" },
-  { id: "in_review", title: "Review" },
-  { id: "done", title: "Done" },
-];
+interface KanbanColumnData {
+  id: string;
+  name: string;
+  position: number;
+  color?: string;
+  wip_limit?: number;
+  is_default: boolean;
+  project_id: string;
+}
 
 export default function KanbanBoard() {
   const [columns, setColumns] = useState<Column[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [filterBy, setFilterBy] = useState("all");
+  const [hierarchyFilter, setHierarchyFilter] = useState("all");
+  const [priorityFilter, setPriorityFilter] = useState("all");
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
   const [taskDialog, setTaskDialog] = useState<{
     isOpen: boolean;
     task?: Task | null;
     columnId?: string;
   }>({ isOpen: false });
+  const [detailViewTask, setDetailViewTask] = useState<Task | null>(null);
   
-  const { user } = useAuth();
+  const { user } = useOptionalAuth();
   const { toast } = useToast();
 
   // Real-time updates for tasks
@@ -67,7 +71,7 @@ export default function KanbanBoard() {
     },
     onUpdate: (payload) => {
       toast({
-        title: "Task Updated",
+        title: "Task Updated", 
         description: `"${payload.new.title}" was modified`,
       });
       fetchTasks();
@@ -83,17 +87,65 @@ export default function KanbanBoard() {
   });
 
   useEffect(() => {
-    if (user) {
-      fetchTasks();
-    }
-  }, [user]);
+    fetchTasks();
+  }, []);
 
   const fetchTasks = async () => {
-    if (!user) return;
-
     try {
       setLoading(true);
-      const { data, error } = await supabase
+      
+      // First get available projects
+      let projectQuery = supabase.from('projects').select('id, name');
+      
+      if (user) {
+        // For authenticated users, get their projects
+        projectQuery = projectQuery.or(`owner_id.eq.${user.id},id.in.(${await getUserProjectMemberships()})`);
+      } else {
+        // For anonymous users, we'll create a demo project later if needed
+        setCurrentProjectId('demo-project');
+      }
+      
+      const { data: projects, error: projectError } = await projectQuery.limit(1);
+      
+      if (projectError && user) {
+        console.error('Project fetch error:', projectError);
+        throw projectError;
+      }
+
+      let projectId = currentProjectId;
+      if (!projectId && projects && projects.length > 0) {
+        projectId = projects[0].id;
+        setCurrentProjectId(projectId);
+      } else if (!projectId && !user) {
+        // For demo mode, use fake data
+        setColumns(getDemoColumns());
+        setLoading(false);
+        return;
+      }
+
+      if (!projectId) {
+        setColumns([]);
+        setLoading(false);
+        return;
+      }
+
+      // Fetch custom columns for the project
+      const { data: kanbanColumns, error: columnsError } = await supabase
+        .from('kanban_columns')
+        .select('*')
+        .eq('project_id', projectId)
+        .order('position');
+
+      if (columnsError) throw columnsError;
+
+      // If no custom columns exist, create default ones
+      if (!kanbanColumns || kanbanColumns.length === 0) {
+        await createDefaultColumns(projectId);
+        return fetchTasks(); // Retry after creating defaults
+      }
+
+      // Fetch tasks for the project
+      const { data: tasks, error: tasksError } = await supabase
         .from('tasks')
         .select(`
           *,
@@ -105,12 +157,13 @@ export default function KanbanBoard() {
             name
           )
         `)
+        .eq('project_id', projectId)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (tasksError) throw tasksError;
 
-      // Transform the data to match the expected format
-      const tasksWithDetails = data?.map(task => ({
+      // Transform tasks
+      const tasksWithDetails = tasks?.map(task => ({
         id: task.id,
         title: task.title,
         description: task.description || '',
@@ -135,24 +188,41 @@ export default function KanbanBoard() {
           day: 'numeric' 
         }) : undefined,
         tags: [], // TODO: Implement tags system
-        comments: 0, // TODO: Get actual comment count
+        comments: 0, // TODO: Get actual comment count  
         attachments: 0, // TODO: Get actual attachment count
-        projectName: task.projects?.name
+        children: [],
+        projectName: task.projects?.name,
+        story_points: task.story_points
       })) || [];
 
-      // Group tasks by status into columns
-      const newColumns = columnDefinitions.map(colDef => ({
-        id: colDef.id,
-        title: colDef.title,
-        tasks: tasksWithDetails.filter(task => task.status === colDef.id)
-      }));
+      // Map tasks to columns based on status and custom column mappings
+      const newColumns = kanbanColumns.map(col => {
+        // Get status mappings for this column
+        const columnTasks = tasksWithDetails.filter(task => {
+          // For default columns, use direct status mapping
+          if (col.is_default) {
+            const statusMap: { [key: string]: string } = {
+              'To Do': 'todo',
+              'In Progress': 'in_progress', 
+              'Review': 'in_review',
+              'Done': 'done'
+            };
+            return task.status === statusMap[col.name];
+          }
+          // For custom columns, we'll need to implement status mappings
+          return false; // TODO: Implement custom status mappings
+        });
+
+        return {
+          id: col.id,
+          title: col.name,
+          tasks: columnTasks,
+          color: col.color || '#6b7280',
+          limit: col.wip_limit || undefined
+        };
+      });
 
       setColumns(newColumns);
-      
-      // Set current project ID from the first task
-      if (tasksWithDetails.length > 0 && !currentProjectId) {
-        setCurrentProjectId(tasksWithDetails[0].project_id);
-      }
     } catch (error) {
       console.error('Error fetching tasks:', error);
       toast({
@@ -163,6 +233,110 @@ export default function KanbanBoard() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const getUserProjectMemberships = async (): Promise<string> => {
+    if (!user) return '';
+    
+    const { data } = await supabase
+      .from('project_members')
+      .select('project_id')
+      .eq('user_id', user.id);
+    
+    return data?.map(pm => pm.project_id).join(',') || '';
+  };
+
+  const createDefaultColumns = async (projectId: string) => {
+    const defaultColumns = [
+      { name: 'To Do', position: 1, color: '#6b7280' },
+      { name: 'In Progress', position: 2, color: '#3b82f6' },
+      { name: 'Review', position: 3, color: '#f59e0b' },
+      { name: 'Done', position: 4, color: '#10b981' }
+    ];
+
+    const { error } = await supabase
+      .from('kanban_columns')
+      .insert(
+        defaultColumns.map(col => ({
+          project_id: projectId,
+          name: col.name,
+          position: col.position,
+          color: col.color,
+          is_default: true
+        }))
+      );
+
+    if (error) {
+      console.error('Error creating default columns:', error);
+      throw error;
+    }
+  };
+
+  const getDemoColumns = (): Column[] => {
+    return [
+      {
+        id: 'todo',
+        title: 'To Do',
+        tasks: [
+          {
+            id: 'demo-1',
+            title: 'Implement user authentication',
+            description: 'Add login and signup functionality',
+            status: 'todo',
+            priority: 'high',
+            hierarchy_level: 'story',
+            task_type: 'feature_request',
+            tags: ['auth', 'security'],
+            comments: 0,
+            attachments: 0,
+            children: []
+          }
+        ]
+      },
+      {
+        id: 'in_progress', 
+        title: 'In Progress',
+        tasks: [
+          {
+            id: 'demo-2',
+            title: 'Design dashboard mockups',
+            description: 'Create wireframes and visual designs',
+            status: 'in_progress',
+            priority: 'medium',
+            hierarchy_level: 'task',
+            task_type: 'design',
+            tags: ['design', 'ui'],
+            comments: 2,
+            attachments: 1,
+            children: []
+          }
+        ]
+      },
+      {
+        id: 'review',
+        title: 'Review',
+        tasks: []
+      },
+      {
+        id: 'done',
+        title: 'Done',
+        tasks: [
+          {
+            id: 'demo-3',
+            title: 'Setup project structure',
+            description: 'Initialize React project with TypeScript',
+            status: 'done',
+            priority: 'low',
+            hierarchy_level: 'task',
+            task_type: 'task',
+            tags: ['setup'],
+            comments: 1,
+            attachments: 0,
+            children: []
+          }
+        ]
+      }
+    ];
   };
 
   const sensors = useSensors(
@@ -191,14 +365,15 @@ export default function KanbanBoard() {
     const activeTask = findTask(activeId);
     const overColumn = findColumn(overId);
 
-    if (!activeTask) return;
+    if (!activeTask || !user) return;
 
     // Moving to a different column
-    if (overColumn && activeTask.status !== overColumn.id) {
+    if (overColumn && activeTask.status !== getStatusFromColumn(overColumn)) {
       try {
+        const newStatus = getStatusFromColumn(overColumn);
         const { error } = await supabase
           .from('tasks')
-          .update({ status: overColumn.id as "todo" | "in_progress" | "in_review" | "done" })
+          .update({ status: newStatus as "todo" | "in_progress" | "in_review" | "done" })
           .eq('id', activeId);
 
         if (error) throw error;
@@ -211,7 +386,7 @@ export default function KanbanBoard() {
 
           if (!activeColumn) return columns;
 
-          const updatedTask = { ...activeTask, status: overColumn.id };
+          const updatedTask = { ...activeTask, status: newStatus };
 
           return columns.map((col) => {
             if (col.id === activeColumn.id) {
@@ -243,8 +418,17 @@ export default function KanbanBoard() {
         });
       }
     }
+  };
 
-    // TODO: Implement reordering within the same column if needed
+  const getStatusFromColumn = (column: Column): string => {
+    // Map column names to status values
+    const statusMap: { [key: string]: string } = {
+      'To Do': 'todo',
+      'In Progress': 'in_progress',
+      'Review': 'in_review', 
+      'Done': 'done'
+    };
+    return statusMap[column.title] || 'todo';
   };
 
   const findTask = (id: string): Task | undefined => {
@@ -266,7 +450,13 @@ export default function KanbanBoard() {
     setTaskDialog({ isOpen: true, task });
   };
 
+  const handleViewTask = (task: Task) => {
+    setDetailViewTask(task);
+  };
+
   const handleDeleteTask = async (taskId: string) => {
+    if (!user) return;
+    
     try {
       const { error } = await supabase
         .from('tasks')
@@ -297,6 +487,15 @@ export default function KanbanBoard() {
   };
 
   const handleSaveTask = async (taskData: Partial<Task>) => {
+    if (!currentProjectId) {
+      toast({
+        title: "Error",
+        description: "No project selected",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       if (taskDialog.task) {
         // Update existing task
@@ -306,8 +505,12 @@ export default function KanbanBoard() {
             title: taskData.title,
             description: taskData.description,
             priority: taskData.priority,
+            hierarchy_level: (taskData as any).hierarchy_level,
+            task_type: (taskData as any).task_type,
             assignee_id: (taskData as any).assignee_id || null,
             due_date: (taskData as any).due_date || null,
+            story_points: (taskData as any).story_points || null,
+            status: (taskData as any).status,
           })
           .eq('id', taskDialog.task.id);
 
@@ -318,43 +521,30 @@ export default function KanbanBoard() {
           description: "Task updated successfully",
         });
       } else {
-        // Create new task - need project_id
-        // For now, we'll use the first project the user has access to
-        const { data: projects, error: projectError } = await supabase
-          .from('projects')
-          .select('id')
-          .limit(1);
-
-        if (projectError) throw projectError;
-        if (!projects || projects.length === 0) {
-          toast({
-            title: "Error",
-            description: "No project found. Please create a project first.",
-            variant: "destructive",
-          });
-          return;
-        }
-
+        // Create new task
+        const statusFromColumn = taskDialog.columnId ? getStatusFromColumnId(taskDialog.columnId) : 'todo';
+        
         const { error } = await supabase
           .from('tasks')
           .insert({
-            title: taskData.title,
+            title: taskData.title!,
             description: taskData.description,
-            priority: taskData.priority,
+            priority: taskData.priority!,
             hierarchy_level: (taskData as any).hierarchy_level || 'task',
             task_type: (taskData as any).task_type || 'feature_request',
             parent_id: (taskData as any).parent_id || null,
-            status: (taskDialog.columnId || 'todo') as "todo" | "in_progress" | "in_review" | "done",
-            project_id: projects[0].id,
+            status: statusFromColumn as "todo" | "in_progress" | "in_review" | "done",
+            project_id: currentProjectId,
             reporter_id: user?.id,
             assignee_id: (taskData as any).assignee_id || null,
             due_date: (taskData as any).due_date || null,
+            story_points: (taskData as any).story_points || null,
           });
 
         if (error) throw error;
 
         toast({
-          title: "Success",
+          title: "Success", 
           description: "Task created successfully",
         });
       }
@@ -372,25 +562,31 @@ export default function KanbanBoard() {
     }
   };
 
+  const getStatusFromColumnId = (columnId: string): string => {
+    const column = columns.find(col => col.id === columnId);
+    return column ? getStatusFromColumn(column) : 'todo';
+  };
+
   const addNewColumn = () => {
-    // TODO: Implement custom column creation
     toast({
       title: "Info",
       description: "Custom columns coming soon!",
     });
   };
 
+  // Apply filters
   const filteredColumns = columns.map((column) => ({
     ...column,
     tasks: column.tasks.filter((task) => {
       const matchesSearch = task.title
         .toLowerCase()
-        .includes(searchQuery.toLowerCase());
-      const matchesFilter =
-        filterBy === "all" ||
-        task.priority === filterBy ||
-        task.assignee?.name.toLowerCase().includes(filterBy.toLowerCase());
-      return matchesSearch && matchesFilter;
+        .includes(searchQuery.toLowerCase()) ||
+        (task.description || '').toLowerCase().includes(searchQuery.toLowerCase());
+      
+      const matchesHierarchy = hierarchyFilter === "all" || task.hierarchy_level === hierarchyFilter;
+      const matchesPriority = priorityFilter === "all" || task.priority === priorityFilter;
+      
+      return matchesSearch && matchesHierarchy && matchesPriority;
     }),
   }));
 
@@ -399,19 +595,6 @@ export default function KanbanBoard() {
       <div className="space-y-6">
         <div className="flex items-center justify-center min-h-[400px]">
           <div className="text-muted-foreground">Loading tasks...</div>
-        </div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-center min-h-[400px]">
-          <div className="text-center">
-            <h2 className="text-xl font-semibold mb-2">Authentication Required</h2>
-            <p className="text-muted-foreground">Please log in to view your Kanban board</p>
-          </div>
         </div>
       </div>
     );
@@ -435,7 +618,7 @@ export default function KanbanBoard() {
           </Button>
           <Button 
             className="bg-gradient-primary hover:opacity-90 w-full sm:w-auto"
-            onClick={() => setTaskDialog({ isOpen: true, columnId: 'todo' })}
+            onClick={() => setTaskDialog({ isOpen: true, columnId: columns[0]?.id })}
           >
             <Plus className="w-4 h-4 mr-2" />
             <span className="hidden sm:inline">Add Task</span>
@@ -455,17 +638,33 @@ export default function KanbanBoard() {
             className="pl-10 bg-muted/30 border-muted focus:bg-background"
           />
         </div>
-        <Select value={filterBy} onValueChange={setFilterBy}>
+        
+        <Select value={hierarchyFilter} onValueChange={setHierarchyFilter}>
           <SelectTrigger className="w-full sm:w-48">
             <Filter className="w-4 h-4 mr-2" />
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Tasks</SelectItem>
-            <SelectItem value="urgent">Urgent Priority</SelectItem>
-            <SelectItem value="high">High Priority</SelectItem>
-            <SelectItem value="medium">Medium Priority</SelectItem>
-            <SelectItem value="low">Low Priority</SelectItem>
+            <SelectItem value="all">All Types</SelectItem>
+            <SelectItem value="initiative">Initiatives</SelectItem>
+            <SelectItem value="epic">Epics</SelectItem>
+            <SelectItem value="story">Stories</SelectItem>
+            <SelectItem value="task">Tasks</SelectItem>
+            <SelectItem value="subtask">Sub-tasks</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+          <SelectTrigger className="w-full sm:w-48">
+            <Filter className="w-4 h-4 mr-2" />
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Priorities</SelectItem>
+            <SelectItem value="urgent">Urgent</SelectItem>
+            <SelectItem value="high">High</SelectItem>
+            <SelectItem value="medium">Medium</SelectItem>
+            <SelectItem value="low">Low</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -486,6 +685,7 @@ export default function KanbanBoard() {
                 onAddTask={handleAddTask}
                 onEditTask={handleEditTask}
                 onDeleteTask={handleDeleteTask}
+                onViewTask={handleViewTask}
               />
             ))}
           </div>
@@ -508,6 +708,17 @@ export default function KanbanBoard() {
         columnId={taskDialog.columnId}
         projectId={currentProjectId || undefined}
       />
+
+      {/* Task Detail View Dialog */}
+      {detailViewTask && (
+        <TaskDialog
+          task={detailViewTask}
+          isOpen={true}
+          onClose={() => setDetailViewTask(null)}
+          onSave={handleSaveTask}
+          projectId={currentProjectId || undefined}
+        />
+      )}
     </div>
   );
 }

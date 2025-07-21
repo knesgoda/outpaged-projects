@@ -56,6 +56,7 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
     title: task?.title || "",
     description: task?.description || "",
     priority: task?.priority || "medium",
+    status: task?.status || "todo",
     smartTaskType: "task",
     parent_id: task?.parent_id || null,
     assignee: task?.assignee || null,
@@ -88,6 +89,7 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
           title: task.title,
           description: task.description,
           priority: task.priority,
+          status: task.status,
           smartTaskType,
           parent_id: task.parent_id || null,
           assignee: task.assignee,
@@ -141,7 +143,7 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
     const taskData: Partial<Task> & { assignee_id?: string; due_date?: string; hierarchy_level?: string; task_type?: string; parent_id?: string } = {
       ...formData,
       id: task?.id || `task-${Date.now()}`,
-      status: columnId || task?.status || "todo",
+      status: formData.status || columnId || task?.status || "todo",
       dueDate: formData.dueDate ? format(formData.dueDate, "MMM dd") : undefined,
       assignee_id: formData.assignee ? teamMembers.find(m => m.name === formData.assignee?.name)?.id || null : null,
       due_date: formData.dueDate ? formData.dueDate.toISOString() : null,
@@ -294,7 +296,7 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
               placeholder="Choose the type of work..."
             />
 
-            {/* Priority and Assignee Row */}
+            {/* Priority, Status and Assignee Row */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Priority</Label>
@@ -316,6 +318,34 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
                   </SelectContent>
                 </Select>
               </div>
+
+              {/* Status Selection for editing tasks */}
+              {task && (
+                <div className="space-y-2">
+                  <Label>Status</Label>
+                  <Select
+                    value={task.status}
+                    onValueChange={(value) => setFormData(prev => ({ 
+                      ...prev, 
+                      status: value 
+                    }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="todo">To Do</SelectItem>
+                      <SelectItem value="in_progress">In Progress</SelectItem>
+                      <SelectItem value="in_review">Review</SelectItem>
+                      <SelectItem value="done">Done</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </div>
+
+            {/* Assignee Row */}
+            <div className="grid grid-cols-1 gap-4">
 
               <div className="space-y-2">
                 <Label>Assignee</Label>
