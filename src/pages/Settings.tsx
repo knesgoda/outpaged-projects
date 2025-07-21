@@ -19,14 +19,18 @@ import {
   Mail,
   Upload,
   Save,
-  Settings as SettingsIcon
+  Settings as SettingsIcon,
+  BookOpen,
+  RotateCcw
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import { useOnboarding } from '@/hooks/useOnboarding';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 
 export default function Settings() {
   const { user } = useAuth();
+  const { restartOnboarding } = useOnboarding();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   
@@ -263,6 +267,66 @@ export default function Settings() {
             </div>
           </CardContent>
         </Card>
+      </div>
+
+      {/* Help & Onboarding Section */}
+      <div className="space-y-4">
+        <h2 className="text-xl font-semibold">Help & Learning</h2>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Restart Onboarding */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <BookOpen className="h-5 w-5" />
+                Tutorial
+              </CardTitle>
+              <CardDescription>
+                Restart the onboarding tutorial to learn the features again
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button
+                onClick={() => {
+                  restartOnboarding();
+                  toast({
+                    title: "Tutorial Restarted",
+                    description: "The onboarding tutorial will begin shortly.",
+                  });
+                }}
+                variant="outline"
+                className="w-full"
+              >
+                <RotateCcw className="h-4 w-4 mr-2" />
+                Restart Onboarding
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Help Resources */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <BookOpen className="h-5 w-5" />
+                Help Resources
+              </CardTitle>
+              <CardDescription>
+                Get help and learn more about ProjectFlow features
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <Button variant="outline" size="sm" className="w-full justify-start">
+                📚 User Guide
+              </Button>
+              <Button variant="outline" size="sm" className="w-full justify-start">
+                🎥 Video Tutorials
+              </Button>
+              <Button variant="outline" size="sm" className="w-full justify-start">
+                💬 Contact Support
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );
