@@ -32,6 +32,8 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useFileUpload } from "@/hooks/useFileUpload";
 import { useToast } from "@/hooks/use-toast";
+import { TimeTracker } from "@/components/time-tracking/TimeTracker";
+import { TimeEntriesList } from "@/components/time-tracking/TimeEntriesList";
 
 interface TaskDialogProps {
   task?: Task | null;
@@ -361,6 +363,16 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId }: TaskDial
               )}
             </div>
           </div>
+
+          {/* Time Tracking */}
+          {task?.id && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <TimeTracker taskId={task.id} taskTitle={task.title} />
+                <TimeEntriesList taskId={task.id} />
+              </div>
+            </div>
+          )}
 
           {/* File Attachments */}
           <div className="space-y-2">

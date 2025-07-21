@@ -17,6 +17,7 @@ import Backlog from "./pages/Backlog";
 import SprintPlanning from "./pages/SprintPlanning";
 import Roadmap from "./pages/Roadmap";
 import Notifications from "./pages/Notifications";
+import TimeAnalytics from "./pages/TimeAnalytics";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
@@ -48,6 +49,7 @@ const App = () => (
               <Route path="sprints" element={<SprintPlanning />} />
               <Route path="roadmap" element={<Roadmap />} />
               <Route path="notifications" element={<Notifications />} />
+              <Route path="analytics" element={<TimeAnalytics />} />
               <Route path="team" element={<TeamDirectory />} />
               <Route path="team/:memberId" element={<TeamMemberProfile />} />
             </Route>

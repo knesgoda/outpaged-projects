@@ -10,6 +10,7 @@ import {
   Zap,
   Map,
   Bell,
+  BarChart3,
   Settings,
   HelpCircle,
 } from "lucide-react";
@@ -34,6 +35,7 @@ const navigationItems = [
   { title: "Backlog", url: "/dashboard/backlog", icon: Target },
   { title: "Sprint Planning", url: "/dashboard/sprints", icon: Zap },
   { title: "Roadmap", url: "/dashboard/roadmap", icon: Map },
+  { title: "Time Analytics", url: "/dashboard/analytics", icon: BarChart3 },
   { title: "Notifications", url: "/dashboard/notifications", icon: Bell },
   { title: "Team", url: "/dashboard/team", icon: Users },
 ];

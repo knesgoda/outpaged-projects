@@ -10,7 +10,8 @@ import {
   MessageSquare, 
   Paperclip, 
   Flag,
-  User
+  User,
+  Clock
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -18,6 +19,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useTimeTracking } from "@/hooks/useTimeTracking";
 
 export interface Task {
   id: string;
@@ -50,6 +52,9 @@ const priorityColors = {
 };
 
 export function TaskCard({ task, onEdit, onDelete }: TaskCardProps) {
+  const { getTotalTimeForTask, formatDuration } = useTimeTracking();
+  const totalTime = getTotalTimeForTask(task.id);
+  
   const {
     attributes,
     listeners,
@@ -144,6 +149,12 @@ export function TaskCard({ task, onEdit, onDelete }: TaskCardProps) {
               <div className="flex items-center gap-1 text-xs">
                 <Paperclip className="w-3 h-3" />
                 {task.attachments}
+              </div>
+            )}
+            {totalTime > 0 && (
+              <div className="flex items-center gap-1 text-xs">
+                <Clock className="w-3 h-3" />
+                {formatDuration(totalTime)}
               </div>
             )}
           </div>
