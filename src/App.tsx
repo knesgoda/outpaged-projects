@@ -6,7 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./hooks/useAuth";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { AppLayout } from "./components/layout/AppLayout";
-import Index from "./pages/Index";
+import { AuthRedirect } from "./components/AuthRedirect";
 import Dashboard from "./pages/Dashboard";
 import Projects from "./pages/Projects";
 import Tasks from "./pages/Tasks";
@@ -36,7 +36,6 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             {/* Public routes */}
-            <Route path="/welcome" element={<Index />} />
             <Route path="/auth" element={<Auth />} />
             
             {/* Protected routes with layout */}
@@ -62,8 +61,8 @@ const App = () => (
               <Route path="team/:memberId" element={<TeamMemberProfile />} />
             </Route>
             
-            {/* Default route - redirect to welcome page */}
-            <Route path="/" element={<Index />} />
+            {/* Default route - redirect based on auth status */}
+            <Route path="/" element={<AuthRedirect />} />
             
             {/* Catch-all route */}
             <Route path="*" element={<NotFound />} />
