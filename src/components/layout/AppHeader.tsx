@@ -1,3 +1,4 @@
+
 import { Search, User, LogOut, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,13 +12,24 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/useAuth";
+import { useNavigate } from "react-router-dom";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
+import { SearchBar } from "@/components/search/SearchBar";
 
 export function AppHeader() {
   const { user, signOut } = useAuth();
+  const navigate = useNavigate();
 
   const handleSignOut = async () => {
     await signOut();
+  };
+
+  const handleProfileClick = () => {
+    navigate("/dashboard/profile");
+  };
+
+  const handleSettingsClick = () => {
+    navigate("/dashboard/settings");
   };
 
   const initials = user?.user_metadata?.full_name
@@ -32,13 +44,7 @@ export function AppHeader() {
     <header className="h-16 border-b border-border bg-card px-4 sm:px-6 flex items-center justify-between">
       <div className="flex items-center gap-2 sm:gap-4 flex-1">
         <SidebarTrigger className="text-muted-foreground hover:text-foreground" />
-        <div className="relative flex-1 max-w-xs sm:max-w-md lg:max-w-lg">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder="Search..."
-            className="pl-10 bg-muted/30 border-muted focus:bg-background text-sm"
-          />
-        </div>
+        <SearchBar className="flex-1 max-w-xs sm:max-w-md lg:max-w-lg" />
       </div>
 
       <div className="flex items-center gap-2 sm:gap-4">
@@ -58,11 +64,11 @@ export function AppHeader() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent className="w-56 z-50" align="end" forceMount>
-            <DropdownMenuItem>
+            <DropdownMenuItem onClick={handleProfileClick}>
               <User className="mr-2 h-4 w-4" />
               Profile
             </DropdownMenuItem>
-            <DropdownMenuItem>
+            <DropdownMenuItem onClick={handleSettingsClick}>
               <Settings className="mr-2 h-4 w-4" />
               Settings
             </DropdownMenuItem>

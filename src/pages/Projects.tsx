@@ -1,4 +1,6 @@
+
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -13,6 +15,7 @@ import { format } from "date-fns";
 export default function Projects() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [isProjectDialogOpen, setIsProjectDialogOpen] = useState(false);
   const [projects, setProjects] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,6 +51,10 @@ export default function Projects() {
 
   const handleProjectSuccess = () => {
     fetchProjects(); // Refresh the projects list
+  };
+
+  const handleProjectClick = (projectId: string) => {
+    navigate(`/dashboard/projects/${projectId}`);
   };
 
   const getStatusVariant = (status: string) => {
@@ -114,14 +121,26 @@ export default function Projects() {
       {/* Projects Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {projects.map((project) => (
-          <Card key={project.id} className="hover:shadow-soft transition-all cursor-pointer">
+          <Card 
+            key={project.id} 
+            className="hover:shadow-soft transition-all cursor-pointer"
+            onClick={() => handleProjectClick(project.id)}
+          >
             <CardHeader>
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-2">
                   <FolderOpen className="w-5 h-5 text-primary" />
                   <CardTitle className="text-lg text-foreground">{project.name}</CardTitle>
                 </div>
-                <Button variant="ghost" size="icon" className="w-8 h-8">
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="w-8 h-8"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    // Handle menu action
+                  }}
+                >
                   <MoreHorizontal className="w-4 h-4" />
                 </Button>
               </div>

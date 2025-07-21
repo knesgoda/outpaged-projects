@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -9,6 +10,8 @@ import { AppLayout } from "./components/layout/AppLayout";
 import { AuthRedirect } from "./components/AuthRedirect";
 import Dashboard from "./pages/Dashboard";
 import Projects from "./pages/Projects";
+import ProjectDetails from "./pages/ProjectDetails";
+import Profile from "./pages/Profile";
 import Tasks from "./pages/Tasks";
 import KanbanBoard from "./pages/KanbanBoard";
 import TeamDirectory from "./pages/TeamDirectory";
@@ -46,6 +49,8 @@ const App = () => (
             }>
               <Route index element={<Dashboard />} />
               <Route path="projects" element={<Projects />} />
+              <Route path="projects/:projectId" element={<ProjectDetails />} />
+              <Route path="profile" element={<Profile />} />
               <Route path="tasks" element={<Tasks />} />
               <Route path="board" element={<KanbanBoard />} />
               <Route path="backlog" element={<Backlog />} />

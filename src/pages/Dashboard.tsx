@@ -1,194 +1,320 @@
-import { useState } from "react";
+
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { 
-  Plus, 
-  TrendingUp, 
+  FolderOpen, 
+  CheckSquare, 
   Users, 
-  CheckCircle, 
-  Clock
+  Calendar, 
+  TrendingUp, 
+  Clock,
+  ArrowRight,
+  Plus
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
-import { ProjectDialog } from "@/components/projects/ProjectDialog";
-import { InviteMemberDialog } from "@/components/team/InviteMemberDialog";
-
-const stats = [
-  {
-    title: "Active Projects",
-    value: "12",
-    description: "+2 this month",
-    icon: TrendingUp,
-    color: "text-primary",
-  },
-  {
-    title: "Completed Tasks",
-    value: "147",
-    description: "+23 this week",
-    icon: CheckCircle,
-    color: "text-success",
-  },
-  {
-    title: "Pending Tasks",
-    value: "34",
-    description: "Due this week",
-    icon: Clock,
-    color: "text-warning",
-  },
-  {
-    title: "Team Members",
-    value: "8",
-    description: "Active contributors",
-    icon: Users,
-    color: "text-accent",
-  },
-];
-
-const recentProjects = [
-  { name: "Website Redesign", status: "In Progress", progress: 75, dueDate: "Dec 15" },
-  { name: "Mobile App", status: "Planning", progress: 25, dueDate: "Jan 20" },
-  { name: "API Integration", status: "Review", progress: 90, dueDate: "Dec 8" },
-];
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import { QuickActions } from "@/components/dashboard/QuickActions";
 
 export default function Dashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [isProjectDialogOpen, setIsProjectDialogOpen] = useState(false);
-  const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
+  const { toast } = useToast();
+  const [stats, setStats] = useState({
+    projects: 0,
+    tasks: 0,
+    completedTasks: 0,
+    activeProjects: 0
+  });
+  const [recentProjects, setRecentProjects] = useState<any[]>([]);
+  const [recentTasks, setRecentTasks] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (user) {
+      fetchDashboardData();
+    }
+  }, [user]);
+
+  const fetchDashboardData = async () => {
+    try {
+      setLoading(true);
+      
+      // Fetch projects
+      const { data: projects, error: projectsError } = await supabase
+        .from('projects')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (projectsError) throw projectsError;
+
+      // Fetch tasks
+      const { data: tasks, error: tasksError } = await supabase
+        .from('tasks')
+        .select(`
+          *,
+          projects:project_id (
+            name
+          )
+        `)
+        .order('created_at', { ascending: false });
+
+      if (tasksError) throw tasksError;
+
+      // Calculate stats
+      const activeProjects = projects?.filter(p => p.status === 'active').length || 0;
+      const completedTasks = tasks?.filter(t => t.status === 'done').length || 0;
+
+      setStats({
+        projects: projects?.length || 0,
+        tasks: tasks?.length || 0,
+        completedTasks,
+        activeProjects
+      });
+
+      setRecentProjects(projects?.slice(0, 3) || []);
+      setRecentTasks(tasks?.slice(0, 5) || []);
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load dashboard data",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getStatusVariant = (status: string) => {
+    switch (status) {
+      case 'active':
+      case 'in_progress':
+        return 'default';
+      case 'completed':
+      case 'done':
+        return 'secondary';
+      case 'on_hold':
+        return 'outline';
+      default:
+        return 'secondary';
+    }
+  };
+
+  const formatStatus = (status: string) => {
+    return status.replace('_', ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
+  };
+
+  const statCards = [
+    {
+      title: "Total Projects",
+      value: stats.projects,
+      description: `${stats.activeProjects} active`,
+      icon: FolderOpen,
+      color: "text-blue-600",
+      onClick: () => navigate('/dashboard/projects')
+    },
+    {
+      title: "Total Tasks",
+      value: stats.tasks,
+      description: `${stats.completedTasks} completed`,
+      icon: CheckSquare,
+      color: "text-green-600",
+      onClick: () => navigate('/dashboard/tasks')
+    },
+    {
+      title: "Team Members",
+      value: 1, // TODO: Get actual team member count
+      description: "Active members",
+      icon: Users,
+      color: "text-purple-600",
+      onClick: () => navigate('/dashboard/team')
+    },
+    {
+      title: "This Week",
+      value: stats.tasks,
+      description: "Tasks created",
+      icon: Calendar,
+      color: "text-orange-600",
+      onClick: () => navigate('/dashboard/analytics')
+    }
+  ];
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Dashboard</h1>
-          <p className="text-muted-foreground text-sm sm:text-base">Welcome back! Here's your project overview.</p>
+          <h1 className="text-3xl font-bold">Dashboard</h1>
+          <p className="text-muted-foreground">Welcome back! Here's your project overview.</p>
         </div>
         <Button 
-          className="bg-gradient-primary hover:opacity-90 w-full sm:w-auto"
-          onClick={() => setIsProjectDialogOpen(true)}
+          className="bg-gradient-primary hover:opacity-90"
+          onClick={() => navigate('/dashboard/projects')}
         >
           <Plus className="w-4 h-4 mr-2" />
           New Project
         </Button>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {stats.map((stat) => (
-          <Card key={stat.title} className="border-border bg-card hover:shadow-soft transition-shadow">
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {statCards.map((card) => (
+          <Card 
+            key={card.title} 
+            className="hover:shadow-soft transition-all cursor-pointer"
+            onClick={card.onClick}
+          >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                {stat.title}
-              </CardTitle>
-              <stat.icon className={`w-4 h-4 ${stat.color}`} />
+              <CardTitle className="text-sm font-medium">{card.title}</CardTitle>
+              <card.icon className={`h-4 w-4 ${card.color}`} />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-foreground">{stat.value}</div>
-              <p className="text-xs text-muted-foreground">{stat.description}</p>
+              <div className="text-2xl font-bold">{card.value}</div>
+              <p className="text-xs text-muted-foreground">{card.description}</p>
             </CardContent>
           </Card>
         ))}
       </div>
 
-      {/* Recent Projects */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card className="border-border bg-card">
-          <CardHeader>
-            <CardTitle className="text-foreground">Recent Projects</CardTitle>
-            <CardDescription>Your most active projects</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {recentProjects.map((project) => (
-              <div key={project.name} className="flex items-center justify-between p-4 bg-muted/20 rounded-lg">
-                <div className="space-y-1">
-                  <h4 className="font-medium text-foreground">{project.name}</h4>
-                  <div className="flex items-center gap-2 text-sm">
-                    <span className={`px-2 py-1 rounded-full text-xs ${
-                      project.status === 'In Progress' ? 'bg-primary/20 text-primary' :
-                      project.status === 'Planning' ? 'bg-warning/20 text-warning' :
-                      'bg-success/20 text-success'
-                    }`}>
-                      {project.status}
-                    </span>
-                    <span className="text-muted-foreground">Due {project.dueDate}</span>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="text-sm font-medium text-foreground">{project.progress}%</div>
-                  <div className="w-20 h-2 bg-muted rounded-full">
-                    <div 
-                      className="h-2 bg-gradient-primary rounded-full transition-all" 
-                      style={{ width: `${project.progress}%` }}
-                    />
-                  </div>
-                </div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-
+      {/* Main Content Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Quick Actions */}
-        <Card className="border-border bg-card">
-          <CardHeader>
-            <CardTitle className="text-foreground">Quick Actions</CardTitle>
-            <CardDescription>Get started with common tasks</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <Button 
-              variant="outline" 
-              className="w-full justify-start h-12"
-              onClick={() => navigate('/dashboard/tasks')}
-            >
-              <Plus className="w-4 h-4 mr-3" />
-              Create New Task
-            </Button>
-            <Button 
-              variant="outline" 
-              className="w-full justify-start h-12"
-              onClick={() => navigate('/dashboard/board')}
-            >
-              <CheckCircle className="w-4 h-4 mr-3" />
-              View Kanban Board
-            </Button>
-            <Button 
-              variant="outline" 
-              className="w-full justify-start h-12"
-              onClick={() => setIsInviteDialogOpen(true)}
-            >
-              <Users className="w-4 h-4 mr-3" />
-              Invite Team Member
-            </Button>
-            <Button 
-              variant="outline" 
-              className="w-full justify-start h-12"
-              onClick={() => navigate('/dashboard/reports')}
-            >
-              <TrendingUp className="w-4 h-4 mr-3" />
-              View Reports
-            </Button>
-          </CardContent>
-        </Card>
+        <div className="lg:col-span-1">
+          <QuickActions />
+        </div>
+
+        {/* Recent Projects */}
+        <div className="lg:col-span-2">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <FolderOpen className="w-5 h-5" />
+                  Recent Projects
+                </CardTitle>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => navigate('/dashboard/projects')}
+                >
+                  View All
+                  <ArrowRight className="w-4 h-4 ml-1" />
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {recentProjects.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <FolderOpen className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                    <p>No projects yet</p>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="mt-2"
+                      onClick={() => navigate('/dashboard/projects')}
+                    >
+                      Create Your First Project
+                    </Button>
+                  </div>
+                ) : (
+                  recentProjects.map((project) => (
+                    <div
+                      key={project.id}
+                      className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
+                      onClick={() => navigate(`/dashboard/projects/${project.id}`)}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-2 h-2 bg-primary rounded-full" />
+                        <div>
+                          <p className="font-medium">{project.name}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {project.description || "No description"}
+                          </p>
+                        </div>
+                      </div>
+                      <Badge variant={getStatusVariant(project.status)}>
+                        {formatStatus(project.status)}
+                      </Badge>
+                    </div>
+                  ))
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
-      {/* Dialogs */}
-      <ProjectDialog 
-        isOpen={isProjectDialogOpen}
-        onClose={() => setIsProjectDialogOpen(false)}
-        onSuccess={() => {
-          // Optionally refresh data or navigate to projects
-          navigate('/dashboard/projects');
-        }}
-      />
-      
-      <InviteMemberDialog
-        isOpen={isInviteDialogOpen}
-        onClose={() => setIsInviteDialogOpen(false)}
-        onSuccess={() => {
-          // Optionally refresh team data
-          navigate('/dashboard/team');
-        }}
-      />
+      {/* Recent Tasks */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <CheckSquare className="w-5 h-5" />
+              Recent Tasks
+            </CardTitle>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => navigate('/dashboard/tasks')}
+            >
+              View All
+              <ArrowRight className="w-4 h-4 ml-1" />
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            {recentTasks.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <CheckSquare className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                <p>No tasks yet</p>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="mt-2"
+                  onClick={() => navigate('/dashboard/tasks')}
+                >
+                  Create Your First Task
+                </Button>
+              </div>
+            ) : (
+              recentTasks.map((task) => (
+                <div
+                  key={task.id}
+                  className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
+                  onClick={() => navigate('/dashboard/tasks')}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-2 h-2 bg-green-500 rounded-full" />
+                    <div>
+                      <p className="font-medium">{task.title}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {task.projects?.name || "Unknown Project"}
+                      </p>
+                    </div>
+                  </div>
+                  <Badge variant={getStatusVariant(task.status)}>
+                    {formatStatus(task.status)}
+                  </Badge>
+                </div>
+              ))
+            )}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
