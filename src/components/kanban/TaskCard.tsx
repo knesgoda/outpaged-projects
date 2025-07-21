@@ -31,7 +31,7 @@ export interface Task {
   status: string;
   priority: "low" | "medium" | "high" | "urgent";
   hierarchy_level: "initiative" | "epic" | "story" | "task" | "subtask";
-  task_type: "bug" | "feature_request" | "design";
+  task_type: "story" | "epic" | "initiative" | "task" | "subtask" | "bug" | "feature_request" | "design";
   parent_id?: string;
   project_id?: string;
   assignee?: {
@@ -68,6 +68,11 @@ const hierarchyColors = {
 };
 
 const typeIcons = {
+  story: "📖",
+  epic: "🚀",
+  initiative: "🎯",
+  task: "✅",
+  subtask: "🔸",
   bug: "🐛",
   feature_request: "✨",
   design: "🎨",
@@ -111,7 +116,7 @@ export function TaskCard({ task, onEdit, onDelete }: TaskCardProps) {
               <span className="text-xs">{task.hierarchy_level}</span>
             </Badge>
             <Badge variant="outline" className="text-xs">
-              <span className="mr-1">{typeIcons[task.task_type]}</span>
+              <span className="mr-1">{typeIcons[task.task_type as keyof typeof typeIcons]}</span>
               {task.task_type.replace('_', ' ')}
             </Badge>
           </div>

@@ -450,6 +450,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      calculate_story_points_rollup: {
+        Args: { task_id_param: string }
+        Returns: number
+      }
       get_task_children: {
         Args: { task_id: string }
         Returns: {
@@ -511,7 +515,15 @@ export type Database = {
         | "duplicates"
         | "relates_to"
       task_status: "todo" | "in_progress" | "in_review" | "done"
-      task_type: "bug" | "feature_request" | "design"
+      task_type:
+        | "bug"
+        | "feature_request"
+        | "design"
+        | "story"
+        | "epic"
+        | "initiative"
+        | "task"
+        | "subtask"
       team_role:
         | "admin"
         | "project_manager"
@@ -664,7 +676,16 @@ export const Constants = {
         "relates_to",
       ],
       task_status: ["todo", "in_progress", "in_review", "done"],
-      task_type: ["bug", "feature_request", "design"],
+      task_type: [
+        "bug",
+        "feature_request",
+        "design",
+        "story",
+        "epic",
+        "initiative",
+        "task",
+        "subtask",
+      ],
       team_role: [
         "admin",
         "project_manager",
