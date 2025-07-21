@@ -72,11 +72,6 @@ export function GlobalCreateButton() {
       <ProjectDialog
         open={showProjectDialog}
         onOpenChange={setShowProjectDialog}
-        onProjectCreated={() => {
-          setShowProjectDialog(false);
-          // Refresh current page data if needed
-          window.location.reload();
-        }}
       />
     </>
   );

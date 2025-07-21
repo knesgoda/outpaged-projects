@@ -123,6 +123,10 @@ export function ProjectSelector({
     ).join(' ');
   };
 
+  const handleViewModeChange = (value: string) => {
+    setViewMode(value as 'grid' | 'list');
+  };
+
   if (loading) {
     return (
       <div className="space-y-4">
@@ -149,7 +153,7 @@ export function ProjectSelector({
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Select value={viewMode} onValueChange={setViewMode}>
+          <Select value={viewMode} onValueChange={handleViewModeChange}>
             <SelectTrigger className="w-24">
               <SelectValue />
             </SelectTrigger>

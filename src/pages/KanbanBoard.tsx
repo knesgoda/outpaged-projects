@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useRealtime } from "@/hooks/useRealtime";
 import { useToast } from "@/hooks/use-toast";
@@ -10,6 +11,7 @@ import {
   DragEndEvent,
   DragOverEvent,
   DragStartEvent,
+  DragOverlay,
   PointerSensor,
   useSensor,
   useSensors,
@@ -130,7 +132,7 @@ export function KanbanBoard() {
 
       const assignees = members?.map(member => ({
         id: member.user_id,
-        name: member.profiles?.full_name || 'Unknown User'
+        name: (member as any).profiles?.full_name || 'Unknown User'
       })) || [];
 
       setAvailableAssignees(assignees);
