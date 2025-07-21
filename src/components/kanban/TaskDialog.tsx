@@ -52,6 +52,9 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId }: TaskDial
     title: task?.title || "",
     description: task?.description || "",
     priority: task?.priority || "medium",
+    hierarchy_level: task?.hierarchy_level || "task",
+    task_type: task?.task_type || "feature_request",
+    parent_id: task?.parent_id || null,
     assignee: task?.assignee || null,
     dueDate: task?.dueDate ? new Date(task.dueDate) : undefined,
     tags: task?.tags || [],
@@ -74,6 +77,9 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId }: TaskDial
           title: task.title,
           description: task.description,
           priority: task.priority,
+          hierarchy_level: task.hierarchy_level || "task",
+          task_type: task.task_type || "feature_request",
+          parent_id: task.parent_id || null,
           assignee: task.assignee,
           dueDate: task.dueDate ? new Date(task.dueDate) : undefined,
           tags: task.tags || [],
@@ -111,13 +117,16 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId }: TaskDial
   };
 
   const handleSave = () => {
-    const taskData: Partial<Task> & { assignee_id?: string; due_date?: string } = {
+    const taskData: Partial<Task> & { assignee_id?: string; due_date?: string; hierarchy_level?: string; task_type?: string; parent_id?: string } = {
       ...formData,
       id: task?.id || `task-${Date.now()}`,
       status: columnId || task?.status || "todo",
       dueDate: formData.dueDate ? format(formData.dueDate, "MMM dd") : undefined,
       assignee_id: formData.assignee ? teamMembers.find(m => m.name === formData.assignee?.name)?.id || null : null,
       due_date: formData.dueDate ? formData.dueDate.toISOString() : null,
+      hierarchy_level: formData.hierarchy_level,
+      task_type: formData.task_type,
+      parent_id: formData.parent_id,
       comments: commentCount,
       attachments: Array.isArray(formData.attachments) ? formData.attachments.length : (task?.attachments || 0),
     };
@@ -329,6 +338,51 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId }: TaskDial
                         </div>
                       </SelectItem>
                     ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Hierarchy Level and Task Type Row */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Hierarchy Level</Label>
+                <Select
+                  value={formData.hierarchy_level}
+                  onValueChange={(value) => setFormData(prev => ({ 
+                    ...prev, 
+                    hierarchy_level: value as "initiative" | "epic" | "story" | "task" | "subtask"
+                  }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="initiative">🎯 Initiative</SelectItem>
+                    <SelectItem value="epic">🚀 Epic</SelectItem>
+                    <SelectItem value="story">📖 Story</SelectItem>
+                    <SelectItem value="task">✅ Task</SelectItem>
+                    <SelectItem value="subtask">🔸 Sub-task</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Task Type</Label>
+                <Select
+                  value={formData.task_type}
+                  onValueChange={(value) => setFormData(prev => ({ 
+                    ...prev, 
+                    task_type: value as "bug" | "feature_request" | "design"
+                  }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="bug">🐛 Bug</SelectItem>
+                    <SelectItem value="feature_request">✨ Feature Request</SelectItem>
+                    <SelectItem value="design">🎨 Design</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

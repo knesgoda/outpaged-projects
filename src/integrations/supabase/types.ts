@@ -246,13 +246,18 @@ export type Database = {
           created_at: string
           description: string | null
           due_date: string | null
+          hierarchy_level:
+            | Database["public"]["Enums"]["task_hierarchy_level"]
+            | null
           id: string
+          parent_id: string | null
           priority: Database["public"]["Enums"]["task_priority"] | null
           project_id: string
           reporter_id: string
           sprint_id: string | null
           status: Database["public"]["Enums"]["task_status"] | null
           story_points: number | null
+          task_type: Database["public"]["Enums"]["task_type"] | null
           title: string
           updated_at: string
         }
@@ -261,13 +266,18 @@ export type Database = {
           created_at?: string
           description?: string | null
           due_date?: string | null
+          hierarchy_level?:
+            | Database["public"]["Enums"]["task_hierarchy_level"]
+            | null
           id?: string
+          parent_id?: string | null
           priority?: Database["public"]["Enums"]["task_priority"] | null
           project_id: string
           reporter_id: string
           sprint_id?: string | null
           status?: Database["public"]["Enums"]["task_status"] | null
           story_points?: number | null
+          task_type?: Database["public"]["Enums"]["task_type"] | null
           title: string
           updated_at?: string
         }
@@ -276,13 +286,18 @@ export type Database = {
           created_at?: string
           description?: string | null
           due_date?: string | null
+          hierarchy_level?:
+            | Database["public"]["Enums"]["task_hierarchy_level"]
+            | null
           id?: string
+          parent_id?: string | null
           priority?: Database["public"]["Enums"]["task_priority"] | null
           project_id?: string
           reporter_id?: string
           sprint_id?: string | null
           status?: Database["public"]["Enums"]["task_status"] | null
           story_points?: number | null
+          task_type?: Database["public"]["Enums"]["task_type"] | null
           title?: string
           updated_at?: string
         }
@@ -307,6 +322,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "tasks_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "tasks_project_id_fkey"
@@ -383,6 +405,26 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_task_children: {
+        Args: { task_id: string }
+        Returns: {
+          id: string
+          title: string
+          hierarchy_level: Database["public"]["Enums"]["task_hierarchy_level"]
+          task_type: Database["public"]["Enums"]["task_type"]
+          status: Database["public"]["Enums"]["task_status"]
+          priority: Database["public"]["Enums"]["task_priority"]
+        }[]
+      }
+      get_task_hierarchy_path: {
+        Args: { task_id: string }
+        Returns: {
+          id: string
+          title: string
+          hierarchy_level: Database["public"]["Enums"]["task_hierarchy_level"]
+          depth: number
+        }[]
+      }
       is_admin: {
         Args: { user_id: string }
         Returns: boolean
@@ -400,8 +442,10 @@ export type Database = {
         | "completed"
         | "cancelled"
       sprint_status: "planning" | "active" | "completed"
+      task_hierarchy_level: "initiative" | "epic" | "story" | "task" | "subtask"
       task_priority: "low" | "medium" | "high" | "urgent"
       task_status: "todo" | "in_progress" | "in_review" | "done"
+      task_type: "bug" | "feature_request" | "design"
       team_role:
         | "admin"
         | "project_manager"
@@ -545,8 +589,10 @@ export const Constants = {
         "cancelled",
       ],
       sprint_status: ["planning", "active", "completed"],
+      task_hierarchy_level: ["initiative", "epic", "story", "task", "subtask"],
       task_priority: ["low", "medium", "high", "urgent"],
       task_status: ["todo", "in_progress", "in_review", "done"],
+      task_type: ["bug", "feature_request", "design"],
       team_role: [
         "admin",
         "project_manager",

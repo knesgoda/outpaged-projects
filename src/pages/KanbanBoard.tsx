@@ -115,6 +115,9 @@ export default function KanbanBoard() {
         description: task.description || '',
         status: task.status,
         priority: task.priority,
+        hierarchy_level: task.hierarchy_level || 'task',
+        task_type: task.task_type || 'feature_request',
+        parent_id: task.parent_id,
         assignee: task.assignee ? {
           name: task.assignee.full_name || 'Unknown',
           initials: (task.assignee.full_name || 'U')
@@ -331,6 +334,9 @@ export default function KanbanBoard() {
             title: taskData.title,
             description: taskData.description,
             priority: taskData.priority,
+            hierarchy_level: (taskData as any).hierarchy_level || 'task',
+            task_type: (taskData as any).task_type || 'feature_request',
+            parent_id: (taskData as any).parent_id || null,
             status: (taskDialog.columnId || 'todo') as "todo" | "in_progress" | "in_review" | "done",
             project_id: projects[0].id,
             reporter_id: user?.id,

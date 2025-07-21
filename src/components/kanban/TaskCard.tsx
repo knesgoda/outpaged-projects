@@ -28,6 +28,9 @@ export interface Task {
   description?: string;
   status: string;
   priority: "low" | "medium" | "high" | "urgent";
+  hierarchy_level: "initiative" | "epic" | "story" | "task" | "subtask";
+  task_type: "bug" | "feature_request" | "design";
+  parent_id?: string;
   assignee?: {
     name: string;
     avatar?: string;
@@ -37,6 +40,7 @@ export interface Task {
   tags: string[];
   comments: number;
   attachments: number;
+  children?: Task[];
 }
 
 interface TaskCardProps {
@@ -50,6 +54,20 @@ const priorityColors = {
   medium: "bg-warning/20 text-warning",
   high: "bg-destructive/20 text-destructive",
   urgent: "bg-destructive text-destructive-foreground",
+};
+
+const hierarchyColors = {
+  initiative: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
+  epic: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
+  story: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+  task: "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200",
+  subtask: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200",
+};
+
+const typeIcons = {
+  bug: "🐛",
+  feature_request: "✨",
+  design: "🎨",
 };
 
 export function TaskCard({ task, onEdit, onDelete }: TaskCardProps) {
@@ -82,38 +100,49 @@ export function TaskCard({ task, onEdit, onDelete }: TaskCardProps) {
       }`}
     >
       <CardContent className="p-3 sm:p-4 space-y-3">
-        {/* Header with priority and menu */}
+        {/* Header with hierarchy level, task type and priority */}
         <div className="flex items-start justify-between">
-          <Badge className={priorityColors[task.priority]} variant="secondary">
-            <Flag className="w-3 h-3 mr-1" />
-            <span className="text-xs sm:text-sm">{task.priority}</span>
-          </Badge>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="w-8 h-8 sm:w-6 sm:h-6 opacity-50 hover:opacity-100 touch-manipulation"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <MoreHorizontal className="w-4 h-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="z-50" align="end">
-              <DropdownMenuItem onClick={() => onEdit?.(task)}>
-                Edit Task
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                Duplicate
-              </DropdownMenuItem>
-              <DropdownMenuItem 
-                className="text-destructive"
-                onClick={() => onDelete?.(task.id)}
-              >
-                Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <div className="flex flex-wrap gap-1">
+            <Badge className={hierarchyColors[task.hierarchy_level]} variant="secondary">
+              <span className="text-xs">{task.hierarchy_level}</span>
+            </Badge>
+            <Badge variant="outline" className="text-xs">
+              <span className="mr-1">{typeIcons[task.task_type]}</span>
+              {task.task_type.replace('_', ' ')}
+            </Badge>
+          </div>
+          <div className="flex items-center gap-2">
+            <Badge className={priorityColors[task.priority]} variant="secondary">
+              <Flag className="w-3 h-3 mr-1" />
+              <span className="text-xs sm:text-sm">{task.priority}</span>
+            </Badge>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="w-8 h-8 sm:w-6 sm:h-6 opacity-50 hover:opacity-100 touch-manipulation"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <MoreHorizontal className="w-4 h-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="z-50" align="end">
+                <DropdownMenuItem onClick={() => onEdit?.(task)}>
+                  Edit Task
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                  Duplicate
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  className="text-destructive"
+                  onClick={() => onDelete?.(task.id)}
+                >
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
 
         {/* Title and Description */}

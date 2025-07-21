@@ -23,6 +23,9 @@ interface Task {
   description?: string;
   status: 'todo' | 'in_progress' | 'done' | 'in_review';
   priority: 'low' | 'medium' | 'high' | 'urgent';
+  hierarchy_level: 'initiative' | 'epic' | 'story' | 'task' | 'subtask';
+  task_type: 'bug' | 'feature_request' | 'design';
+  parent_id?: string;
   assignee_id?: string;
   reporter_id: string;
   due_date?: string;
@@ -53,6 +56,20 @@ const statusColors = {
   done: "bg-success/20 text-success",
 };
 
+const hierarchyColors = {
+  initiative: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
+  epic: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
+  story: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+  task: "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200",
+  subtask: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200",
+};
+
+const typeIcons = {
+  bug: "🐛",
+  feature_request: "✨",
+  design: "🎨",
+};
+
 export default function Tasks() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -61,6 +78,8 @@ export default function Tasks() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState("all");
+  const [hierarchyFilter, setHierarchyFilter] = useState("all");
+  const [typeFilter, setTypeFilter] = useState("all");
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
 
   const fetchTasks = async () => {
@@ -102,8 +121,10 @@ export default function Tasks() {
                          task.description?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = statusFilter === "all" || task.status === statusFilter;
     const matchesPriority = priorityFilter === "all" || task.priority === priorityFilter;
+    const matchesHierarchy = hierarchyFilter === "all" || task.hierarchy_level === hierarchyFilter;
+    const matchesType = typeFilter === "all" || task.task_type === typeFilter;
     
-    return matchesSearch && matchesStatus && matchesPriority;
+    return matchesSearch && matchesStatus && matchesPriority && matchesHierarchy && matchesType;
   });
 
   if (!user) {
@@ -188,6 +209,32 @@ export default function Tasks() {
             <SelectItem value="low">Low</SelectItem>
           </SelectContent>
         </Select>
+
+        <Select value={hierarchyFilter} onValueChange={setHierarchyFilter}>
+          <SelectTrigger className="w-full sm:w-40">
+            <SelectValue placeholder="Hierarchy" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Levels</SelectItem>
+            <SelectItem value="initiative">🎯 Initiative</SelectItem>
+            <SelectItem value="epic">🚀 Epic</SelectItem>
+            <SelectItem value="story">📖 Story</SelectItem>
+            <SelectItem value="task">✅ Task</SelectItem>
+            <SelectItem value="subtask">🔸 Sub-task</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Select value={typeFilter} onValueChange={setTypeFilter}>
+          <SelectTrigger className="w-full sm:w-36">
+            <SelectValue placeholder="Type" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Types</SelectItem>
+            <SelectItem value="bug">🐛 Bug</SelectItem>
+            <SelectItem value="feature_request">✨ Feature Request</SelectItem>
+            <SelectItem value="design">🎨 Design</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Tasks List */}
@@ -251,14 +298,21 @@ export default function Tasks() {
                         </p>
                       )}
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Badge className={priorityColors[task.priority]} variant="secondary">
-                        {task.priority}
-                      </Badge>
-                      <Badge className={statusColors[task.status]} variant="secondary">
-                        {task.status.replace('_', ' ')}
-                      </Badge>
-                    </div>
+                     <div className="flex flex-wrap items-center gap-2">
+                       <Badge className={hierarchyColors[task.hierarchy_level]} variant="secondary">
+                         {task.hierarchy_level}
+                       </Badge>
+                       <Badge variant="outline" className="text-xs">
+                         <span className="mr-1">{typeIcons[task.task_type]}</span>
+                         {task.task_type.replace('_', ' ')}
+                       </Badge>
+                       <Badge className={priorityColors[task.priority]} variant="secondary">
+                         {task.priority}
+                       </Badge>
+                       <Badge className={statusColors[task.status]} variant="secondary">
+                         {task.status.replace('_', ' ')}
+                       </Badge>
+                     </div>
                   </div>
 
                   {/* Meta Information */}
@@ -341,6 +395,9 @@ export default function Tasks() {
                 title: taskData.title,
                 description: taskData.description,
                 priority: taskData.priority || 'medium',
+                hierarchy_level: (taskData as any).hierarchy_level || 'task',
+                task_type: (taskData as any).task_type || 'feature_request',
+                parent_id: (taskData as any).parent_id || null,
                 status: 'todo',
                 project_id: projects[0].id,
                 reporter_id: user?.id,
