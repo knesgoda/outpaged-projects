@@ -18,6 +18,8 @@ import SprintPlanning from "./pages/SprintPlanning";
 import Roadmap from "./pages/Roadmap";
 import Notifications from "./pages/Notifications";
 import TimeAnalytics from "./pages/TimeAnalytics";
+import Reports from "./pages/Reports";
+import ProjectTemplates from "./pages/ProjectTemplates";
 import Settings from "./pages/Settings";
 import Search from "./pages/Search";
 import Auth from "./pages/Auth";
@@ -52,6 +54,8 @@ const App = () => (
               <Route path="roadmap" element={<Roadmap />} />
               <Route path="notifications" element={<Notifications />} />
               <Route path="analytics" element={<TimeAnalytics />} />
+              <Route path="reports" element={<Reports />} />
+              <Route path="templates" element={<ProjectTemplates />} />
               <Route path="search" element={<Search />} />
               <Route path="settings" element={<Settings />} />
               <Route path="team" element={<TeamDirectory />} />
