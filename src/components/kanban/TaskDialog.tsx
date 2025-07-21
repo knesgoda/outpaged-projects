@@ -233,17 +233,21 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId }: TaskDial
             <div className="space-y-2">
               <Label>Assignee</Label>
               <Select
-                value={formData.assignee?.name || ""}
+                value={formData.assignee?.name || "unassigned"}
                 onValueChange={(value) => {
-                  const member = mockTeamMembers.find(m => m.name === value);
-                  setFormData(prev => ({ 
-                    ...prev, 
-                    assignee: member ? {
-                      name: member.name,
-                      initials: member.initials,
-                      avatar: member.avatar
-                    } : null
-                  }));
+                  if (value === "unassigned") {
+                    setFormData(prev => ({ ...prev, assignee: null }));
+                  } else {
+                    const member = mockTeamMembers.find(m => m.name === value);
+                    setFormData(prev => ({ 
+                      ...prev, 
+                      assignee: member ? {
+                        name: member.name,
+                        initials: member.initials,
+                        avatar: member.avatar
+                      } : null
+                    }));
+                  }
                 }}
               >
                 <SelectTrigger>
@@ -262,7 +266,7 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId }: TaskDial
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Unassigned</SelectItem>
+                  <SelectItem value="unassigned">Unassigned</SelectItem>
                   {mockTeamMembers.map((member) => (
                     <SelectItem key={member.id} value={member.name}>
                       <div className="flex items-center gap-2">
