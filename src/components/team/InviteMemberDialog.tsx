@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -12,10 +11,11 @@ import { useAuth } from "@/hooks/useAuth";
 interface InviteMemberDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  projectId: string;
   onMemberAdded: () => void;
 }
 
-export function InviteMemberDialog({ open, onOpenChange, onMemberAdded }: InviteMemberDialogProps) {
+export function InviteMemberDialog({ open, onOpenChange, projectId, onMemberAdded }: InviteMemberDialogProps) {
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("developer");
   const [loading, setLoading] = useState(false);
@@ -35,6 +35,8 @@ export function InviteMemberDialog({ open, onOpenChange, onMemberAdded }: Invite
       
       // For now, we'll simulate adding a member
       // In practice, you'd use an edge function to send invitations
+      
+      console.log('Inviting member to project:', projectId);
       
       toast({
         title: "Invitation sent",
