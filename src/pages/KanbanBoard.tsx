@@ -152,10 +152,6 @@ export function KanbanBoard() {
         .from('tasks')
         .select(`
           *,
-          assignee:profiles!tasks_assignee_id_fkey (
-            full_name,
-            avatar_url
-          ),
           projects (
             name
           )
@@ -165,38 +161,60 @@ export function KanbanBoard() {
 
       if (tasksError) throw tasksError;
 
-      // Transform tasks
-      const tasksWithDetails = tasks?.map(task => ({
-        id: task.id,
-        title: task.title,
-        description: task.description || '',
-        status: task.status,
-        priority: task.priority,
-        hierarchy_level: task.hierarchy_level || 'task',
-        task_type: task.task_type || 'feature_request',
-        parent_id: task.parent_id,
-        project_id: task.project_id,
-        assignee: task.assignee ? {
-          name: task.assignee.full_name || 'Unknown',
-          initials: (task.assignee.full_name || 'U')
-            .split(' ')
-            .map(n => n[0])
-            .join('')
-            .toUpperCase()
-            .slice(0, 2),
-          avatar: task.assignee.avatar_url || ''
-        } : null,
-        dueDate: task.due_date ? new Date(task.due_date).toLocaleDateString('en-US', { 
-          month: 'short', 
-          day: 'numeric' 
-        }) : undefined,
-        tags: [], // TODO: Implement tags system
-        comments: 0, // TODO: Get actual comment count  
-        attachments: 0, // TODO: Get actual attachment count
-        children: [],
-        projectName: task.projects?.name,
-        story_points: task.story_points
-      })) || [];
+      // Fetch assignees for all tasks
+      const taskIds = tasks?.map(t => t.id) || [];
+      let assigneesData: any[] = [];
+      
+      if (taskIds.length > 0) {
+        const { data: assignees, error: assigneesError } = await supabase
+          .from('task_assignees_with_profiles')
+          .select('*')
+          .in('task_id', taskIds);
+        
+        if (!assigneesError) {
+          assigneesData = assignees || [];
+        }
+      }
+
+      // Transform tasks with assignees
+      const tasksWithDetails = tasks?.map(task => {
+        const taskAssignees = assigneesData
+          .filter(a => a.task_id === task.id)
+          .map(assignee => ({
+            id: assignee.user_id,
+            name: assignee.full_name || 'Unknown User',
+            avatar: assignee.avatar_url,
+            initials: (assignee.full_name || 'U')
+              .split(' ')
+              .map(n => n[0])
+              .join('')
+              .toUpperCase()
+              .slice(0, 2)
+          }));
+
+        return {
+          id: task.id,
+          title: task.title,
+          description: task.description || '',
+          status: task.status,
+          priority: task.priority,
+          hierarchy_level: task.hierarchy_level || 'task',
+          task_type: task.task_type || 'feature_request',
+          parent_id: task.parent_id,
+          project_id: task.project_id,
+          assignees: taskAssignees,
+          dueDate: task.due_date ? new Date(task.due_date).toLocaleDateString('en-US', { 
+            month: 'short', 
+            day: 'numeric' 
+          }) : undefined,
+          tags: [], // TODO: Implement tags system
+          comments: 0, // TODO: Get actual comment count  
+          attachments: 0, // TODO: Get actual attachment count
+          children: [],
+          projectName: task.projects?.name,
+          story_points: task.story_points
+        };
+      }) || [];
 
   // Get status mappings for all columns
   const { data: statusMappings } = await supabase
@@ -626,7 +644,7 @@ export function KanbanBoard() {
         // Create new task
         const statusFromColumn = taskDialog.columnId ? await getStatusFromColumnId(taskDialog.columnId) : 'todo';
         
-        const { error } = await supabase
+        const { data: newTask, error } = await supabase
           .from('tasks')
           .insert({
             title: taskData.title!,
@@ -638,12 +656,35 @@ export function KanbanBoard() {
             status: statusFromColumn as "todo" | "in_progress" | "in_review" | "done",
             project_id: currentProjectId,
             reporter_id: user?.id,
-            assignee_id: (taskData as any).assignee_id || null,
             due_date: (taskData as any).due_date || null,
             story_points: (taskData as any).story_points || null,
-          });
+          })
+          .select()
+          .single();
 
         if (error) throw error;
+
+        // Add assignees for new task
+        if (taskData.assignees && taskData.assignees.length > 0 && newTask) {
+          const assigneeInserts = taskData.assignees.map(assignee => ({
+            task_id: newTask.id,
+            user_id: assignee.id,
+            assigned_by: user?.id
+          }));
+
+          const { error: assigneeError } = await supabase
+            .from('task_assignees')
+            .insert(assigneeInserts);
+
+          if (assigneeError) {
+            console.error('Error adding assignees:', assigneeError);
+            toast({
+              title: "Warning",
+              description: "Task created but failed to add assignees",
+              variant: "destructive",
+            });
+          }
+        }
 
         toast({
           title: "Success", 

@@ -35,11 +35,12 @@ export interface Task {
   task_type: "story" | "epic" | "initiative" | "task" | "subtask" | "bug" | "feature_request" | "design";
   parent_id?: string;
   project_id?: string;
-  assignee?: {
+  assignees?: Array<{
+    id: string;
     name: string;
     avatar?: string;
     initials: string;
-  };
+  }>;
   dueDate?: string;
   tags: string[];
   comments: number;
@@ -223,13 +224,22 @@ export function TaskCard({ task, onEdit, onDelete, onView }: TaskCardProps) {
             )}
           </div>
           
-          {task.assignee && (
-            <Avatar className="w-7 h-7 sm:w-6 sm:h-6">
-              <AvatarImage src={task.assignee.avatar} alt={task.assignee.name} />
-              <AvatarFallback className="text-xs">
-                {task.assignee.initials}
-              </AvatarFallback>
-            </Avatar>
+          {task.assignees && task.assignees.length > 0 && (
+            <div className="flex -space-x-2">
+              {task.assignees.slice(0, 3).map((assignee, index) => (
+                <Avatar key={assignee.id} className="w-7 h-7 sm:w-6 sm:h-6 border-2 border-background">
+                  <AvatarImage src={assignee.avatar} alt={assignee.name} />
+                  <AvatarFallback className="text-xs">
+                    {assignee.initials}
+                  </AvatarFallback>
+                </Avatar>
+              ))}
+              {task.assignees.length > 3 && (
+                <div className="w-7 h-7 sm:w-6 sm:h-6 rounded-full bg-muted border-2 border-background flex items-center justify-center text-xs font-medium">
+                  +{task.assignees.length - 3}
+                </div>
+              )}
+            </div>
           )}
         </div>
       </CardContent>

@@ -91,13 +91,50 @@ export default function Tasks() {
         .from('tasks')
         .select(`
           *,
-          assignee:profiles!tasks_assignee_id_fkey(full_name, avatar_url),
           project:projects(name)
         `)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setTasks((data as Task[]) || []);
+
+      // Fetch assignees for all tasks
+      const taskIds = data?.map(t => t.id) || [];
+      let assigneesData: any[] = [];
+      
+      if (taskIds.length > 0) {
+        const { data: assignees, error: assigneesError } = await supabase
+          .from('task_assignees_with_profiles')
+          .select('*')
+          .in('task_id', taskIds);
+        
+        if (!assigneesError) {
+          assigneesData = assignees || [];
+        }
+      }
+
+      // Transform tasks with assignees
+      const tasksWithAssignees = data?.map(task => {
+        const taskAssignees = assigneesData
+          .filter(a => a.task_id === task.id)
+          .map(assignee => ({
+            id: assignee.user_id,
+            name: assignee.full_name || 'Unknown User',
+            avatar: assignee.avatar_url,
+            initials: (assignee.full_name || 'U')
+              .split(' ')
+              .map(n => n[0])
+              .join('')
+              .toUpperCase()
+              .slice(0, 2)
+          }));
+
+        return {
+          ...task,
+          assignees: taskAssignees
+        };
+      }) || [];
+
+      setTasks((tasksWithAssignees as Task[]) || []);
     } catch (error: any) {
       console.error('Error fetching tasks:', error);
       toast({
@@ -318,17 +355,31 @@ export default function Tasks() {
                   {/* Meta Information */}
                   <div className="flex items-center justify-between text-sm text-muted-foreground">
                     <div className="flex items-center gap-4">
-                      {task.assignee && task.assignee.full_name && (
-                        <div className="flex items-center gap-2">
-                          <Avatar className="w-5 h-5">
-                            <AvatarImage src={task.assignee.avatar_url} />
-                            <AvatarFallback className="text-xs">
-                              {task.assignee.full_name?.charAt(0) || 'U'}
-                            </AvatarFallback>
-                          </Avatar>
-                          <span>{task.assignee.full_name}</span>
-                        </div>
-                      )}
+                       {(task as any).assignees && (task as any).assignees.length > 0 && (
+                         <div className="flex items-center gap-2">
+                           <div className="flex -space-x-1">
+                             {(task as any).assignees.slice(0, 3).map((assignee: any, index: number) => (
+                               <Avatar key={assignee.id} className="w-5 h-5 border border-background">
+                                 <AvatarImage src={assignee.avatar} />
+                                 <AvatarFallback className="text-xs">
+                                   {assignee.initials}
+                                 </AvatarFallback>
+                               </Avatar>
+                             ))}
+                             {(task as any).assignees.length > 3 && (
+                               <div className="w-5 h-5 rounded-full bg-muted border border-background flex items-center justify-center text-xs">
+                                 +{(task as any).assignees.length - 3}
+                               </div>
+                             )}
+                           </div>
+                           <span>
+                             {(task as any).assignees.length === 1 
+                               ? (task as any).assignees[0].name
+                               : `${(task as any).assignees.length} assignees`
+                             }
+                           </span>
+                         </div>
+                       )}
                       
                       {task.project && task.project.name && (
                         <div className="flex items-center gap-1">
@@ -389,7 +440,7 @@ export default function Tasks() {
               return;
             }
 
-            const { error } = await supabase
+            const { data: newTask, error } = await supabase
               .from('tasks')
               .insert({
                 title: taskData.title,
@@ -401,11 +452,34 @@ export default function Tasks() {
                 status: 'todo',
                 project_id: projects[0].id,
                 reporter_id: user?.id,
-                assignee_id: (taskData as any).assignee_id || null,
                 due_date: (taskData as any).due_date || null,
-              });
+              })
+              .select()
+              .single();
 
             if (error) throw error;
+
+            // Add assignees for new task
+            if (taskData.assignees && taskData.assignees.length > 0 && newTask) {
+              const assigneeInserts = taskData.assignees.map(assignee => ({
+                task_id: newTask.id,
+                user_id: assignee.id,
+                assigned_by: user?.id
+              }));
+
+              const { error: assigneeError } = await supabase
+                .from('task_assignees')
+                .insert(assigneeInserts);
+
+              if (assigneeError) {
+                console.error('Error adding assignees:', assigneeError);
+                toast({
+                  title: "Warning",
+                  description: "Task created but failed to add assignees",
+                  variant: "destructive",
+                });
+              }
+            }
 
             toast({
               title: "Success",

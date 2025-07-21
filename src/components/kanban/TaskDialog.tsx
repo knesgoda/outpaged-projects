@@ -41,6 +41,7 @@ import { TaskRelationshipIndicator } from "@/components/tasks/TaskRelationshipIn
 import { useTaskRelationships } from "@/hooks/useTaskRelationships";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useTaskAssignees } from "@/hooks/useTaskAssignees";
 
 interface TaskDialogProps {
   task?: Task | null;
@@ -59,7 +60,7 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
     status: task?.status || "todo",
     smartTaskType: "task",
     parent_id: task?.parent_id || null,
-    assignee: task?.assignee || null,
+    assignees: task?.assignees || [],
     dueDate: task?.dueDate ? new Date(task.dueDate) : undefined,
     tags: task?.tags || [],
     attachments: task?.attachments || [],
@@ -74,6 +75,7 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
   const { toast } = useToast();
   const { user } = useAuth();
   const { relationships } = useTaskRelationships(task?.id);
+  const { assignees: currentAssignees, updateAssignees } = useTaskAssignees(task?.id);
 
   useEffect(() => {
     if (isOpen) {
@@ -92,7 +94,7 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
           status: task.status,
           smartTaskType,
           parent_id: task.parent_id || null,
-          assignee: task.assignee,
+          assignees: task.assignees || [],
           dueDate: task.dueDate ? new Date(task.dueDate) : undefined,
           tags: task.tags || [],
           attachments: task.attachments || [],
@@ -145,7 +147,7 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
       id: task?.id || `task-${Date.now()}`,
       status: formData.status || columnId || task?.status || "todo",
       dueDate: formData.dueDate ? format(formData.dueDate, "MMM dd") : undefined,
-      assignee_id: formData.assignee ? teamMembers.find(m => m.name === formData.assignee?.name)?.id || null : null,
+      assignees: formData.assignees,
       due_date: formData.dueDate ? formData.dueDate.toISOString() : null,
       hierarchy_level: selectedOption.hierarchy_level,
       task_type: selectedOption.task_type,
@@ -348,57 +350,78 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
             <div className="grid grid-cols-1 gap-4">
 
               <div className="space-y-2">
-                <Label>Assignee</Label>
-                <Select
-                  value={formData.assignee?.name || "unassigned"}
-                  onValueChange={(value) => {
-                    if (value === "unassigned") {
-                      setFormData(prev => ({ ...prev, assignee: null }));
-                    } else {
-                      const member = teamMembers.find(m => m.name === value);
-                      setFormData(prev => ({ 
-                        ...prev, 
-                        assignee: member ? {
-                          name: member.name,
-                          initials: member.initials,
-                          avatar: member.avatar
-                        } : null
-                      }));
-                    }
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select assignee">
-                      {formData.assignee && (
-                        <div className="flex items-center gap-2">
-                          <Avatar className="w-5 h-5">
-                            <AvatarImage src={formData.assignee.avatar} />
+                <Label>Assignees</Label>
+                <div className="space-y-2">
+                  {formData.assignees.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {formData.assignees.map((assignee) => (
+                        <Badge key={assignee.id} variant="secondary" className="flex items-center gap-2">
+                          <Avatar className="w-4 h-4">
+                            <AvatarImage src={assignee.avatar} />
                             <AvatarFallback className="text-xs">
-                              {formData.assignee.initials}
+                              {assignee.initials}
                             </AvatarFallback>
                           </Avatar>
-                          <span>{formData.assignee.name}</span>
-                        </div>
-                      )}
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="unassigned">Unassigned</SelectItem>
-                    {teamMembers.map((member) => (
-                      <SelectItem key={member.id} value={member.name}>
-                        <div className="flex items-center gap-2">
-                          <Avatar className="w-5 h-5">
-                            <AvatarImage src={member.avatar} />
-                            <AvatarFallback className="text-xs">
-                              {member.initials}
-                            </AvatarFallback>
-                          </Avatar>
-                          <span>{member.name}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                          <span>{assignee.name}</span>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-4 w-4 p-0 hover:bg-destructive hover:text-destructive-foreground"
+                            onClick={() => {
+                              setFormData(prev => ({
+                                ...prev,
+                                assignees: prev.assignees.filter(a => a.id !== assignee.id)
+                              }));
+                            }}
+                          >
+                            ×
+                          </Button>
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                  <Select
+                    value=""
+                    onValueChange={(value) => {
+                      if (value !== "unassigned") {
+                        const member = teamMembers.find(m => m.id === value);
+                        if (member && !formData.assignees.find(a => a.id === member.id)) {
+                          setFormData(prev => ({ 
+                            ...prev, 
+                            assignees: [...prev.assignees, {
+                              id: member.id,
+                              name: member.name,
+                              initials: member.initials,
+                              avatar: member.avatar
+                            }]
+                          }));
+                        }
+                      }
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Add assignee..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {teamMembers
+                        .filter(member => !formData.assignees.find(a => a.id === member.id))
+                        .map((member) => (
+                        <SelectItem key={member.id} value={member.id}>
+                          <div className="flex items-center gap-2">
+                            <Avatar className="w-5 h-5">
+                              <AvatarImage src={member.avatar} />
+                              <AvatarFallback className="text-xs">
+                                {member.initials}
+                              </AvatarFallback>
+                            </Avatar>
+                            <span>{member.name}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </div>
 

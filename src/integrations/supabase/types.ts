@@ -309,6 +309,33 @@ export type Database = {
         }
         Relationships: []
       }
+      task_assignees: {
+        Row: {
+          assigned_at: string
+          assigned_by: string
+          created_at: string
+          id: string
+          task_id: string
+          user_id: string
+        }
+        Insert: {
+          assigned_at?: string
+          assigned_by: string
+          created_at?: string
+          id?: string
+          task_id: string
+          user_id: string
+        }
+        Update: {
+          assigned_at?: string
+          assigned_by?: string
+          created_at?: string
+          id?: string
+          task_id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       task_relationships: {
         Row: {
           created_at: string
@@ -590,7 +617,18 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      task_assignees_with_profiles: {
+        Row: {
+          assigned_at: string | null
+          assigned_by: string | null
+          avatar_url: string | null
+          full_name: string | null
+          id: string | null
+          task_id: string | null
+          user_id: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       calculate_story_points_rollup: {
@@ -652,6 +690,10 @@ export type Database = {
       is_project_member: {
         Args: { project_id: string; user_id: string }
         Returns: boolean
+      }
+      migrate_existing_assignees: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
       }
       should_show_in_kanban: {
         Args: {
