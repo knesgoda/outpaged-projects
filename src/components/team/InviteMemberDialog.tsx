@@ -28,15 +28,17 @@ export function InviteMemberDialog({ open, onOpenChange, projectId, onMemberAdde
 
     setLoading(true);
     try {
-      // In a real implementation, you would:
-      // 1. Send an invitation email to the user
-      // 2. Create a pending invitation record
-      // 3. When they accept, create their profile
-      
-      // For now, we'll simulate adding a member
-      // In practice, you'd use an edge function to send invitations
-      
-      console.log('Inviting member to project:', projectId || 'organization');
+      // Create a team invitation record
+      const { error: inviteError } = await supabase
+        .from('team_invitations')
+        .insert({
+          email: email.trim(),
+          role: role as any,
+          invited_by: user.id,
+          project_id: projectId || null,
+        });
+
+      if (inviteError) throw inviteError;
       
       toast({
         title: "Invitation sent",
@@ -47,11 +49,11 @@ export function InviteMemberDialog({ open, onOpenChange, projectId, onMemberAdde
       setRole("developer");
       onMemberAdded();
       onOpenChange(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error sending invitation:', error);
       toast({
         title: "Error",
-        description: "Failed to send invitation",
+        description: error.message || "Failed to send invitation",
         variant: "destructive",
       });
     } finally {

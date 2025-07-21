@@ -497,6 +497,50 @@ export type Database = {
           },
         ]
       }
+      team_invitations: {
+        Row: {
+          accepted_at: string | null
+          created_at: string
+          email: string
+          expires_at: string
+          id: string
+          invited_by: string
+          project_id: string | null
+          role: Database["public"]["Enums"]["team_role"]
+          updated_at: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          created_at?: string
+          email: string
+          expires_at?: string
+          id?: string
+          invited_by: string
+          project_id?: string | null
+          role?: Database["public"]["Enums"]["team_role"]
+          updated_at?: string
+        }
+        Update: {
+          accepted_at?: string | null
+          created_at?: string
+          email?: string
+          expires_at?: string
+          id?: string
+          invited_by?: string
+          project_id?: string | null
+          role?: Database["public"]["Enums"]["team_role"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_invitations_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       time_entries: {
         Row: {
           created_at: string
@@ -553,6 +597,10 @@ export type Database = {
         Args: { task_id_param: string }
         Returns: number
       }
+      can_delete_default_project: {
+        Args: { project_id: string }
+        Returns: boolean
+      }
       get_task_children: {
         Args: { task_id: string }
         Returns: {
@@ -589,12 +637,26 @@ export type Database = {
           target_task_status: Database["public"]["Enums"]["task_status"]
         }[]
       }
+      get_team_member_stats: {
+        Args: { member_user_id: string }
+        Returns: {
+          projects_count: number
+          tasks_completed: number
+          total_time_minutes: number
+        }[]
+      }
       is_admin: {
         Args: { user_id: string }
         Returns: boolean
       }
       is_project_member: {
         Args: { project_id: string; user_id: string }
+        Returns: boolean
+      }
+      should_show_in_kanban: {
+        Args: {
+          task_hierarchy: Database["public"]["Enums"]["task_hierarchy_level"]
+        }
         Returns: boolean
       }
     }

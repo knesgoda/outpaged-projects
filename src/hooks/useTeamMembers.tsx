@@ -26,25 +26,39 @@ export function useTeamMembers() {
 
       if (profilesError) throw profilesError;
 
-      // Transform profiles to TeamMember format
-      const transformedMembers: TeamMember[] = profiles.map(profile => ({
-        id: profile.user_id,
-        name: profile.full_name || 'Unknown',
-        email: '', // We'll need to get this from auth if needed
-        role: profile.role || 'developer',
-        department: getDepartmentFromRole(profile.role || 'developer'),
-        initials: getInitials(profile.full_name || 'Unknown'),
-        status: 'active' as const,
-        avatar: profile.avatar_url,
-        joinDate: new Date(profile.created_at).toLocaleDateString(),
-        lastActive: 'Today', // This would need real tracking
-        projectsCount: 0, // Would need to calculate from project_members
-        tasksCompleted: 0, // Would need to calculate from tasks
-        skills: [], // Would need a separate skills table
-        bio: undefined
-      }));
+      // Get stats for each team member using the new database function
+      const membersWithStats = await Promise.all(
+        profiles.map(async (profile) => {
+          const { data: stats } = await supabase.rpc('get_team_member_stats', {
+            member_user_id: profile.user_id
+          });
 
-      setMembers(transformedMembers);
+          const memberStats = stats?.[0] || { 
+            projects_count: 0, 
+            tasks_completed: 0, 
+            total_time_minutes: 0 
+          };
+
+          return {
+            id: profile.user_id,
+            name: profile.full_name || 'Unknown',
+            email: '', // We'll need to get this from auth if needed
+            role: profile.role || 'developer',
+            department: getDepartmentFromRole(profile.role || 'developer'),
+            initials: getInitials(profile.full_name || 'Unknown'),
+            status: 'active' as const,
+            avatar: profile.avatar_url,
+            joinDate: new Date(profile.created_at).toLocaleDateString(),
+            lastActive: 'Today', // This would need real tracking
+            projectsCount: memberStats.projects_count || 0,
+            tasksCompleted: memberStats.tasks_completed || 0,
+            skills: [], // Would need a separate skills table
+            bio: undefined
+          };
+        })
+      );
+
+      setMembers(membersWithStats);
     } catch (err) {
       console.error('Error fetching team members:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch team members');
