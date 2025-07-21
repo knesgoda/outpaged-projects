@@ -43,8 +43,12 @@ interface TaskDialogProps {
   columnId?: string;
 }
 
-const mockTeamMembers: any[] = [];
-const mockTags: string[] = [];
+const mockTeamMembers = [
+  { id: 1, name: "Alice Johnson", initials: "AJ", avatar: null },
+  { id: 2, name: "Bob Smith", initials: "BS", avatar: null },
+  { id: 3, name: "Carol Davis", initials: "CD", avatar: null },
+];
+const mockTags = ["Frontend", "Backend", "Bug", "Feature", "Urgent", "Review"];
 
 export function TaskDialog({ task, isOpen, onClose, onSave, columnId }: TaskDialogProps) {
   const [formData, setFormData] = useState({
