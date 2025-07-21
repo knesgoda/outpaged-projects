@@ -270,9 +270,7 @@ export function KanbanBoard() {
           attachments: 0, // TODO: Get actual attachment count
           children: [],
           projectName: task.projects?.name,
-          story_points: task.story_points,
-          blocked: task.blocked || false,
-          blocking_reason: task.blocking_reason
+          story_points: task.story_points
         };
       }) || [];
 

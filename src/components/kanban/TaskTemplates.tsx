@@ -11,7 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { 
-  Template, 
+  Folder, 
   Plus, 
   Code, 
   Bug, 
@@ -207,7 +207,7 @@ export function TaskTemplates({ projectId, onTaskCreated }: TaskTemplatesProps) 
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button variant="outline" size="sm">
-          <Template className="w-4 h-4 mr-2" />
+          <Folder className="w-4 h-4 mr-2" />
           Templates
         </Button>
       </DialogTrigger>
@@ -218,7 +218,7 @@ export function TaskTemplates({ projectId, onTaskCreated }: TaskTemplatesProps) 
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {predefinedTemplates.map((template) => {
-            const IconComponent = templateIcons[template.id as keyof typeof templateIcons] || Template;
+            const IconComponent = templateIcons[template.id as keyof typeof templateIcons] || Folder;
             
             return (
               <Card key={template.id} className="hover:shadow-md transition-shadow cursor-pointer">

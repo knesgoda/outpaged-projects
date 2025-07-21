@@ -51,7 +51,7 @@ export function BulkOperations({
     }
   };
 
-  const bulkUpdateStatus = async (status: string) => {
+  const bulkUpdateStatus = async (status: "todo" | "in_progress" | "in_review" | "done") => {
     if (selectedTasks.length === 0) return;
 
     setLoading(true);
@@ -82,7 +82,7 @@ export function BulkOperations({
     }
   };
 
-  const bulkUpdatePriority = async (priority: string) => {
+  const bulkUpdatePriority = async (priority: "low" | "medium" | "high" | "urgent") => {
     if (selectedTasks.length === 0) return;
 
     setLoading(true);
@@ -124,11 +124,14 @@ export function BulkOperations({
         .delete()
         .in('task_id', selectedTasks);
 
+      // Get current user ID
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      
       // Add new assignments
       const assignments = selectedTasks.map(taskId => ({
         task_id: taskId,
         user_id: assigneeId,
-        assigned_by: (await supabase.auth.getUser()).data.user?.id
+        assigned_by: currentUser?.id
       }));
 
       const { error } = await supabase
