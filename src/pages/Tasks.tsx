@@ -32,9 +32,9 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { TaskDialog } from "@/components/kanban/TaskDialog";
-import { Task } from "@/components/kanban/TaskCard";
+import { Task as TaskCardType } from "@/components/kanban/TaskCard";
 
-interface Task {
+interface TaskType {
   id: string;
   title: string;
   description?: string;
@@ -49,11 +49,21 @@ interface Task {
   created_at: string;
   updated_at: string;
   project_id: string;
+  // Additional properties required by TaskDialog
+  tags: string[];
+  comments: number;
+  attachments: number;
   // We'll join these from other tables
   assignee?: {
     full_name?: string;
     avatar_url?: string;
   } | null;
+  assignees?: Array<{
+    id: string;
+    name: string;
+    avatar?: string;
+    initials: string;
+  }>;
   project?: {
     name?: string;
   } | null;
@@ -90,7 +100,7 @@ const typeIcons = {
 export default function Tasks() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [tasks, setTasks] = useState<Task[]>([]);
+  const [tasks, setTasks] = useState<TaskType[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -98,7 +108,7 @@ export default function Tasks() {
   const [hierarchyFilter, setHierarchyFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [selectedTask, setSelectedTask] = useState<TaskType | null>(null);
   const [taskToDelete, setTaskToDelete] = useState<string | null>(null);
 
   const fetchTasks = async () => {
@@ -149,11 +159,14 @@ export default function Tasks() {
 
         return {
           ...task,
-          assignees: taskAssignees
+          assignees: taskAssignees,
+          tags: [],
+          comments: 0,
+          attachments: 0
         };
       }) || [];
 
-      setTasks((tasksWithAssignees as Task[]) || []);
+      setTasks((tasksWithAssignees as TaskType[]) || []);
     } catch (error: any) {
       console.error('Error fetching tasks:', error);
       toast({
@@ -172,12 +185,12 @@ export default function Tasks() {
     }
   }, [user]);
 
-  const handleTaskClick = (task: Task) => {
+  const handleTaskClick = (task: TaskType) => {
     setSelectedTask(task);
     setIsTaskDialogOpen(true);
   };
 
-  const handleEditTask = (e: React.MouseEvent, task: Task) => {
+  const handleEditTask = (e: React.MouseEvent, task: TaskType) => {
     e.stopPropagation();
     setSelectedTask(task);
     setIsTaskDialogOpen(true);
@@ -216,7 +229,7 @@ export default function Tasks() {
     }
   };
 
-  const handleSaveTask = async (taskData: Partial<Task>) => {
+  const handleSaveTask = async (taskData: Partial<TaskType>) => {
     try {
       if (selectedTask) {
         // Update existing task
@@ -339,7 +352,7 @@ export default function Tasks() {
     }
   };
 
-  const handleCreateSubTask = (parentTask: Task) => {
+  const handleCreateSubTask = (parentTask: TaskType) => {
     setSelectedTask({
       ...parentTask,
       id: '', // Clear ID to indicate this is a new task
@@ -347,7 +360,7 @@ export default function Tasks() {
       description: '',
       parent_id: parentTask.id,
       hierarchy_level: getSubTaskHierarchy(parentTask.hierarchy_level),
-    } as Task);
+    } as TaskType);
     setIsTaskDialogOpen(true);
   };
 
