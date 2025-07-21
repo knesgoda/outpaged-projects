@@ -370,9 +370,10 @@ export default function TeamDirectory() {
 
       {/* Invite Member Dialog */}
       <InviteMemberDialog
-        isOpen={isInviteDialogOpen}
-        onClose={() => setIsInviteDialogOpen(false)}
-        onSuccess={() => {
+        open={isInviteDialogOpen}
+        onOpenChange={setIsInviteDialogOpen}
+        projectId="dummy-project-id"
+        onMemberAdded={() => {
           // In a real app, you'd refresh the team members list
           console.log('Member invitation sent successfully');
         }}

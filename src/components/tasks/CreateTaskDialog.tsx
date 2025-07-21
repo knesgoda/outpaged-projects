@@ -40,7 +40,7 @@ export function CreateTaskDialog({ open, onOpenChange, projectId, onTaskCreated 
           title: formData.title,
           description: formData.description,
           priority: formData.priority as 'low' | 'medium' | 'high' | 'urgent',
-          status: formData.status as 'todo' | 'in_progress' | 'review' | 'done',
+          status: formData.status as 'todo' | 'in_progress' | 'in_review' | 'done',
           project_id: projectId,
           reporter_id: user.id
         });
@@ -133,7 +133,7 @@ export function CreateTaskDialog({ open, onOpenChange, projectId, onTaskCreated 
                 <SelectContent>
                   <SelectItem value="todo">Todo</SelectItem>
                   <SelectItem value="in_progress">In Progress</SelectItem>
-                  <SelectItem value="review">Review</SelectItem>
+                  <SelectItem value="in_review">Review</SelectItem>
                   <SelectItem value="done">Done</SelectItem>
                 </SelectContent>
               </Select>
