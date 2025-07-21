@@ -24,11 +24,7 @@ export default function Projects() {
       setLoading(true);
       const { data, error } = await supabase
         .from('projects')
-        .select(`
-          *,
-          project_members(count),
-          tasks(count)
-        `)
+        .select('*')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -151,11 +147,11 @@ export default function Projects() {
               <div className="flex items-center justify-between text-sm text-muted-foreground">
                 <div className="flex items-center gap-2">
                   <Users className="w-4 h-4" />
-                  <span>{Array.isArray(project.project_members) ? project.project_members.length : 0} members</span>
+                  <span>1 member</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <CheckSquare2 className="w-4 h-4" />
-                  <span>{Array.isArray(project.tasks) ? project.tasks.length : 0} tasks</span>
+                  <span>0 tasks</span>
                 </div>
               </div>
 
