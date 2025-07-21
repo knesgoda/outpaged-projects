@@ -10,6 +10,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import { CreateTaskDialog } from "@/components/tasks/CreateTaskDialog";
+import { InviteMemberDialog } from "@/components/team/InviteMemberDialog";
 
 export default function ProjectDetails() {
   const { projectId } = useParams();
@@ -20,6 +22,8 @@ export default function ProjectDetails() {
   const [loading, setLoading] = useState(true);
   const [tasks, setTasks] = useState<any[]>([]);
   const [members, setMembers] = useState<any[]>([]);
+  const [showCreateTask, setShowCreateTask] = useState(false);
+  const [showInviteMember, setShowInviteMember] = useState(false);
 
   useEffect(() => {
     if (projectId) {
@@ -56,7 +60,8 @@ export default function ProjectDetails() {
       const { data, error } = await supabase
         .from('tasks')
         .select('*')
-        .eq('project_id', projectId);
+        .eq('project_id', projectId)
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
       setTasks(data || []);
@@ -110,6 +115,36 @@ export default function ProjectDetails() {
         return 'Planning';
       default:
         return status;
+    }
+  };
+
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case 'urgent':
+        return 'bg-red-100 text-red-800';
+      case 'high':
+        return 'bg-orange-100 text-orange-800';
+      case 'medium':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'low':
+        return 'bg-green-100 text-green-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'done':
+        return 'bg-green-100 text-green-800';
+      case 'in_progress':
+        return 'bg-blue-100 text-blue-800';
+      case 'review':
+        return 'bg-purple-100 text-purple-800';
+      case 'todo':
+        return 'bg-gray-100 text-gray-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
     }
   };
 
@@ -192,28 +227,86 @@ export default function ProjectDetails() {
               </CardContent>
             </Card>
           </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Recent Activity</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {tasks.slice(0, 5).map((task) => (
+                  <div key={task.id} className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                    <div>
+                      <p className="font-medium">{task.title}</p>
+                      <p className="text-sm text-muted-foreground">
+                        Created {format(new Date(task.created_at), "MMM dd, yyyy")}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge className={getPriorityColor(task.priority)}>
+                        {task.priority}
+                      </Badge>
+                      <Badge className={getStatusColor(task.status)}>
+                        {task.status}
+                      </Badge>
+                    </div>
+                  </div>
+                ))}
+                {tasks.length === 0 && (
+                  <p className="text-muted-foreground text-center py-8">No recent activity</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="tasks" className="space-y-4">
           <div className="flex justify-between items-center">
             <h3 className="text-lg font-semibold">Project Tasks</h3>
-            <Button size="sm">
+            <Button size="sm" onClick={() => setShowCreateTask(true)}>
               <Plus className="w-4 h-4 mr-2" />
               Add Task
             </Button>
           </div>
-          <div className="space-y-2">
+          <div className="space-y-3">
             {tasks.length === 0 ? (
-              <p className="text-muted-foreground text-center py-8">No tasks yet</p>
+              <Card className="p-8">
+                <div className="text-center space-y-4">
+                  <CheckSquare2 className="w-12 h-12 text-muted-foreground mx-auto" />
+                  <div>
+                    <p className="text-lg font-medium">No tasks yet</p>
+                    <p className="text-muted-foreground">Create your first task to get started</p>
+                  </div>
+                  <Button onClick={() => setShowCreateTask(true)}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Create Task
+                  </Button>
+                </div>
+              </Card>
             ) : (
               tasks.map((task) => (
                 <Card key={task.id} className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="font-medium">{task.title}</h4>
-                      <p className="text-sm text-muted-foreground">{task.description}</p>
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <h4 className="font-medium">{task.title}</h4>
+                        <Badge className={getPriorityColor(task.priority)}>
+                          {task.priority}
+                        </Badge>
+                        <Badge className={getStatusColor(task.status)}>
+                          {task.status}
+                        </Badge>
+                      </div>
+                      {task.description && (
+                        <p className="text-sm text-muted-foreground mb-2">{task.description}</p>
+                      )}
+                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                        <span>Created {format(new Date(task.created_at), "MMM dd, yyyy")}</span>
+                        {task.due_date && (
+                          <span>Due {format(new Date(task.due_date), "MMM dd, yyyy")}</span>
+                        )}
+                      </div>
                     </div>
-                    <Badge variant="outline">{task.status}</Badge>
                   </div>
                 </Card>
               ))
@@ -224,26 +317,41 @@ export default function ProjectDetails() {
         <TabsContent value="members" className="space-y-4">
           <div className="flex justify-between items-center">
             <h3 className="text-lg font-semibold">Team Members</h3>
-            <Button size="sm">
+            <Button size="sm" onClick={() => setShowInviteMember(true)}>
               <Plus className="w-4 h-4 mr-2" />
               Invite Member
             </Button>
           </div>
-          <div className="space-y-2">
+          <div className="space-y-3">
             {members.length === 0 ? (
-              <p className="text-muted-foreground text-center py-8">No members yet</p>
+              <Card className="p-8">
+                <div className="text-center space-y-4">
+                  <Users className="w-12 h-12 text-muted-foreground mx-auto" />
+                  <div>
+                    <p className="text-lg font-medium">No team members yet</p>
+                    <p className="text-muted-foreground">Invite team members to collaborate</p>
+                  </div>
+                  <Button onClick={() => setShowInviteMember(true)}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Invite Member
+                  </Button>
+                </div>
+              </Card>
             ) : (
               members.map((member) => (
                 <Card key={member.id} className="p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                        <Users className="w-4 h-4" />
+                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                        <Users className="w-5 h-5" />
                       </div>
                       <div>
                         <h4 className="font-medium">{member.profiles?.full_name || 'Unknown'}</h4>
-                        <p className="text-sm text-muted-foreground">{member.role}</p>
+                        <p className="text-sm text-muted-foreground capitalize">{member.role}</p>
                       </div>
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      Joined {format(new Date(member.joined_at), "MMM dd, yyyy")}
                     </div>
                   </div>
                 </Card>
@@ -252,6 +360,20 @@ export default function ProjectDetails() {
           </div>
         </TabsContent>
       </Tabs>
+
+      <CreateTaskDialog
+        open={showCreateTask}
+        onOpenChange={setShowCreateTask}
+        projectId={projectId!}
+        onTaskCreated={fetchTasks}
+      />
+
+      <InviteMemberDialog
+        open={showInviteMember}
+        onOpenChange={setShowInviteMember}
+        projectId={projectId!}
+        onMemberAdded={fetchMembers}
+      />
     </div>
   );
 }
