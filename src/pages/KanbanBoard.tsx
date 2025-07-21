@@ -35,7 +35,7 @@ import {
 const columnDefinitions = [
   { id: "todo", title: "To Do" },
   { id: "in_progress", title: "In Progress" },
-  { id: "review", title: "Review" },
+  { id: "in_review", title: "Review" },
   { id: "done", title: "Done" },
 ];
 
@@ -96,11 +96,11 @@ export default function KanbanBoard() {
         .from('tasks')
         .select(`
           *,
-          assignee:assignee_id (
+          assignee:profiles!tasks_assignee_id_fkey (
             full_name,
             avatar_url
           ),
-          project:project_id (
+          projects (
             name
           )
         `)
@@ -115,15 +115,15 @@ export default function KanbanBoard() {
         description: task.description || '',
         status: task.status,
         priority: task.priority,
-        assignee: task.assignee ? {
-          name: task.assignee.full_name || 'Unknown',
-          initials: (task.assignee.full_name || 'U')
+        assignee: task.assignee && Array.isArray(task.assignee) && task.assignee.length > 0 ? {
+          name: task.assignee[0].full_name || 'Unknown',
+          initials: (task.assignee[0].full_name || 'U')
             .split(' ')
             .map(n => n[0])
             .join('')
             .toUpperCase()
             .slice(0, 2),
-          avatar: task.assignee.avatar_url || ''
+          avatar: task.assignee[0].avatar_url || ''
         } : null,
         dueDate: task.due_date ? new Date(task.due_date).toLocaleDateString('en-US', { 
           month: 'short', 
@@ -132,7 +132,7 @@ export default function KanbanBoard() {
         tags: [], // TODO: Implement tags system
         comments: 0, // TODO: Get actual comment count
         attachments: 0, // TODO: Get actual attachment count
-        projectName: task.project?.name
+        projectName: task.projects?.name
       })) || [];
 
       // Group tasks by status into columns
@@ -188,7 +188,7 @@ export default function KanbanBoard() {
       try {
         const { error } = await supabase
           .from('tasks')
-          .update({ status: overColumn.id })
+          .update({ status: overColumn.id as "todo" | "in_progress" | "in_review" | "done" })
           .eq('id', activeId);
 
         if (error) throw error;
@@ -331,7 +331,7 @@ export default function KanbanBoard() {
             title: taskData.title,
             description: taskData.description,
             priority: taskData.priority,
-            status: taskDialog.columnId || 'todo',
+            status: (taskDialog.columnId || 'todo') as "todo" | "in_progress" | "in_review" | "done",
             project_id: projects[0].id,
             reporter_id: user?.id,
             assignee_id: taskData.assignee?.name === 'Unassigned' ? null : null, // TODO: Map assignee properly

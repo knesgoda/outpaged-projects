@@ -65,7 +65,7 @@ export function CommentsSystem({ taskId, onCommentCountChange }: CommentsSystemP
         .from('comments')
         .select(`
           *,
-          profiles:author_id (
+          profiles!inner (
             full_name,
             avatar_url
           )
@@ -124,7 +124,7 @@ export function CommentsSystem({ taskId, onCommentCountChange }: CommentsSystemP
         })
         .select(`
           *,
-          profiles:author_id (
+          profiles!inner (
             full_name,
             avatar_url
           )
