@@ -15,12 +15,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
 interface ProjectDialogProps {
-  isOpen: boolean;
-  onClose: () => void;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
   onSuccess?: (project: any) => void;
 }
 
-export function ProjectDialog({ isOpen, onClose, onSuccess }: ProjectDialogProps) {
+export function ProjectDialog({ open, onOpenChange, onSuccess }: ProjectDialogProps) {
   const { user } = useAuth();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -80,11 +80,11 @@ export function ProjectDialog({ isOpen, onClose, onSuccess }: ProjectDialogProps
       startDate: undefined,
       endDate: undefined,
     });
-    onClose();
+    onOpenChange(false);
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={handleClose}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Create New Project</DialogTitle>

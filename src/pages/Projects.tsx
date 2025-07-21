@@ -5,7 +5,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Plus, MoreHorizontal, FolderOpen, Calendar, Users, CheckSquare2, Loader2 } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Plus, MoreHorizontal, FolderOpen, Calendar, Users, CheckSquare2, Loader2, Settings, Edit, Trash2 } from "lucide-react";
 import { ProjectDialog } from "@/components/projects/ProjectDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -132,17 +133,59 @@ export default function Projects() {
                   <FolderOpen className="w-5 h-5 text-primary" />
                   <CardTitle className="text-lg text-foreground">{project.name}</CardTitle>
                 </div>
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="w-8 h-8"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    // Handle menu action
-                  }}
-                >
-                  <MoreHorizontal className="w-4 h-4" />
-                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="w-8 h-8"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <MoreHorizontal className="w-4 h-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48">
+                    <DropdownMenuItem
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/dashboard/projects/${project.id}`);
+                      }}
+                    >
+                      <FolderOpen className="w-4 h-4 mr-2" />
+                      Open Project
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/dashboard/projects/${project.id}/settings`);
+                      }}
+                    >
+                      <Settings className="w-4 h-4 mr-2" />
+                      Project Settings
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        // Handle edit action
+                        console.log('Edit project:', project.id);
+                      }}
+                    >
+                      <Edit className="w-4 h-4 mr-2" />
+                      Edit Project
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        // Handle delete action
+                        console.log('Delete project:', project.id);
+                      }}
+                      className="text-destructive"
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Delete Project
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
               <CardDescription className="text-sm">
                 {project.description || "No description provided"}
@@ -199,8 +242,8 @@ export default function Projects() {
 
       {/* Project Dialog */}
       <ProjectDialog 
-        isOpen={isProjectDialogOpen}
-        onClose={() => setIsProjectDialogOpen(false)}
+        open={isProjectDialogOpen}
+        onOpenChange={setIsProjectDialogOpen}
         onSuccess={handleProjectSuccess}
       />
     </div>

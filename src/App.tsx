@@ -24,6 +24,7 @@ import TimeAnalytics from "./pages/TimeAnalytics";
 import Reports from "./pages/Reports";
 import ProjectTemplates from "./pages/ProjectTemplates";
 import Settings from "./pages/Settings";
+import ProjectSettings from "./pages/ProjectSettings";
 import Search from "./pages/Search";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
@@ -50,6 +51,7 @@ const App = () => (
               <Route index element={<Dashboard />} />
               <Route path="projects" element={<Projects />} />
               <Route path="projects/:projectId" element={<ProjectDetails />} />
+              <Route path="projects/:projectId/settings" element={<ProjectSettings />} />
               <Route path="profile" element={<Profile />} />
               <Route path="tasks" element={<Tasks />} />
               <Route path="board" element={<KanbanBoard />} />
