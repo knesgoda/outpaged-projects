@@ -500,7 +500,19 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
                 value={formData.status}
                 onValueChange={(value) => setFormData(prev => ({ ...prev, status: value }))}
               >
-                <SelectTrigger className="w-full bg-gradient-to-r from-background to-background/80 border-2 border-primary/20 hover:border-primary/40 transition-all duration-200">
+                <SelectTrigger 
+                  className={`w-full border-2 transition-all duration-200 font-medium ${
+                    formData.status === 'todo' 
+                      ? 'bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300'
+                      : formData.status === 'in_progress'
+                      ? 'bg-blue-100 dark:bg-blue-900/40 border-blue-300 dark:border-blue-600 text-blue-700 dark:text-blue-300'
+                      : formData.status === 'in_review'
+                      ? 'bg-yellow-100 dark:bg-yellow-900/40 border-yellow-300 dark:border-yellow-600 text-yellow-700 dark:text-yellow-300'
+                      : formData.status === 'done'
+                      ? 'bg-green-100 dark:bg-green-900/40 border-green-300 dark:border-green-600 text-green-700 dark:text-green-300'
+                      : 'bg-background border-border'
+                  }`}
+                >
                   <div className="flex items-center gap-3">
                     <div 
                       className="w-3 h-3 rounded-full shadow-sm" 
