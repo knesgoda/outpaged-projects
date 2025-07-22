@@ -21,6 +21,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { QuickActions } from "@/components/dashboard/QuickActions";
+import { TaskManagementDashboard } from "@/components/dashboard/TaskManagementDashboard";
 import { StoryProgressCard } from "@/components/story/StoryProgressCard";
 import { DailyChallengeCard } from "@/components/challenges/DailyChallengeCard";
 import { SkillProgressCard } from "@/components/skills/SkillProgressCard";
@@ -346,7 +347,23 @@ export default function Dashboard() {
             )}
           </CardContent>
         </Card>
-      </div>
+       </div>
+
+       {/* Enhanced Task Management Section */}
+       <div className="space-y-6">
+         <div className="flex items-center justify-between">
+           <h2 className="text-2xl font-semibold">Task Management Overview</h2>
+           <Button
+             variant="outline"
+             size="sm"
+             onClick={() => navigate('/dashboard/kanban')}
+           >
+             Open Kanban Board
+             <ArrowRight className="w-4 h-4 ml-1" />
+           </Button>
+         </div>
+         <TaskManagementDashboard />
+       </div>
 
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

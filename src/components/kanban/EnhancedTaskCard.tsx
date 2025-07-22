@@ -1,4 +1,3 @@
-
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Card, CardContent } from "@/components/ui/card";
@@ -11,57 +10,36 @@ import {
   MessageSquare, 
   Paperclip, 
   Flag,
-  User,
   Clock,
   Eye,
   CheckCircle2,
   AlertCircle,
-  XCircle
+  XCircle,
+  Users,
+  GitBranch
 } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { useTimeTracking } from "@/hooks/useTimeTracking";
 import { useAuth } from "@/hooks/useAuth";
 import { TaskRelationshipIndicator } from "@/components/tasks/TaskRelationshipIndicator";
+import { TaskBlockManager } from "@/components/tasks/TaskBlockManager";
 import { useTaskRelationships } from "@/hooks/useTaskRelationships";
+import { Task } from "@/components/kanban/TaskCard";
 
-export interface Task {
-  id: string;
-  title: string;
-  description?: string;
-  status: string;
-  priority: "low" | "medium" | "high" | "urgent";
-  hierarchy_level: "initiative" | "epic" | "story" | "task" | "subtask";
-  task_type: "story" | "epic" | "initiative" | "task" | "subtask" | "bug" | "feature_request" | "design";
-  parent_id?: string;
-  project_id?: string;
-  swimlane_id?: string;
-  assignees?: Array<{
-    id: string;
-    name: string;
-    avatar?: string;
-    initials: string;
-  }>;
-  dueDate?: string;
-  tags: string[];
-  comments: number;
-  attachments: number;
-  children?: Task[];
-  story_points?: number;
-  blocked?: boolean;
-  blocking_reason?: string;
-}
-
-interface TaskCardProps {
+interface EnhancedTaskCardProps {
   task: Task;
   onEdit?: (task: Task) => void;
   onDelete?: (taskId: string) => void;
   onView?: (task: Task) => void;
+  onUpdate?: () => void;
   compact?: boolean;
+  showMetrics?: boolean;
 }
 
 const priorityColors = {
@@ -98,7 +76,15 @@ const statusIcons = {
   blocked: XCircle,
 };
 
-export function TaskCard({ task, onEdit, onDelete, onView, compact = false }: TaskCardProps) {
+export function EnhancedTaskCard({ 
+  task, 
+  onEdit, 
+  onDelete, 
+  onView, 
+  onUpdate,
+  compact = false,
+  showMetrics = true 
+}: EnhancedTaskCardProps) {
   const { user } = useAuth();
   const { getTotalTimeForTask, formatDuration } = useTimeTracking();
   const { relationships } = useTaskRelationships(task.id);
@@ -130,22 +116,22 @@ export function TaskCard({ task, onEdit, onDelete, onView, compact = false }: Ta
       {...attributes}
       {...listeners}
       onClick={() => onView?.(task)}
-      className={`cursor-pointer hover:shadow-medium transition-all duration-200 bg-card border-border touch-manipulation ${
-        compact ? 'min-h-[80px]' : 'min-h-[120px]'
+      className={`cursor-pointer hover:shadow-medium transition-all duration-300 bg-card border-border touch-manipulation animate-fade-in ${
+        compact ? 'min-h-[100px]' : 'min-h-[140px]'
       } ${
-        isDragging ? "opacity-50 rotate-2 shadow-large scale-105" : "hover:scale-[1.02]"
+        isDragging ? "opacity-50 rotate-1 shadow-large scale-105 animate-scale-in" : "hover:scale-[1.02] hover-scale"
       } ${
-        task.blocked ? "border-destructive/50 bg-destructive/5" : ""
+        task.blocked ? "border-destructive/50 bg-destructive/5 border-l-4 border-l-destructive" : ""
       } ${
-        isOverdue ? "border-destructive border-l-4" : isDueSoon ? "border-warning border-l-4" : ""
+        isOverdue ? "border-destructive border-r-4" : isDueSoon ? "border-warning border-r-4" : ""
       }`}
     >
-      <CardContent className={`${compact ? 'p-2' : 'p-3 sm:p-4'} space-y-${compact ? '2' : '3'}`}>
+      <CardContent className={`${compact ? 'p-3' : 'p-4'} space-y-${compact ? '2' : '3'}`}>
         {/* Header with hierarchy level, task type and priority */}
         <div className="flex items-start justify-between">
           <div className="flex flex-wrap gap-1">
             <Badge className={hierarchyColors[task.hierarchy_level]} variant="secondary">
-              <span className="text-xs">{task.hierarchy_level}</span>
+              <span className="text-xs font-medium">{task.hierarchy_level}</span>
             </Badge>
             <Badge variant="outline" className="text-xs">
               <span className="mr-1">{typeIcons[task.task_type as keyof typeof typeIcons]}</span>
@@ -161,19 +147,13 @@ export function TaskCard({ task, onEdit, onDelete, onView, compact = false }: Ta
             <div className="flex items-center gap-1">
               <StatusIcon className={`w-3 h-3 ${
                 task.status === 'done' ? 'text-success' : 
-                task.status === 'blocked' ? 'text-destructive' :
+                task.status === 'blocked' || task.blocked ? 'text-destructive' :
                 task.status === 'in_progress' ? 'text-primary' : 'text-muted-foreground'
               }`} />
-               {task.blocked && (
-                 <Badge variant="destructive" className="text-xs animate-pulse">
-                   <XCircle className="w-3 h-3 mr-1" />
-                   Blocked
-                 </Badge>
-               )}
             </div>
             <Badge className={priorityColors[task.priority]} variant="secondary">
               <Flag className="w-3 h-3 mr-1" />
-              <span className="text-xs sm:text-sm">{compact ? task.priority.charAt(0).toUpperCase() : task.priority}</span>
+              <span className="text-xs">{compact ? task.priority.charAt(0).toUpperCase() : task.priority}</span>
             </Badge>
             {!compact && (
               <DropdownMenu>
@@ -181,27 +161,31 @@ export function TaskCard({ task, onEdit, onDelete, onView, compact = false }: Ta
                   <Button 
                     variant="ghost" 
                     size="icon" 
-                    className="w-8 h-8 sm:w-6 sm:h-6 opacity-50 hover:opacity-100 touch-manipulation"
+                    className="w-6 h-6 opacity-50 hover:opacity-100 touch-manipulation"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <MoreHorizontal className="w-4 h-4" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent className="z-50" align="end">
+                <DropdownMenuContent className="z-50 bg-background" align="end">
                   <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onView?.(task); }}>
                     <Eye className="w-4 h-4 mr-2" />
                     View Details
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onEdit?.(task); }}>
+                    <MoreHorizontal className="w-4 h-4 mr-2" />
                     Edit Task
                   </DropdownMenuItem>
+                  <DropdownMenuSeparator />
                   <DropdownMenuItem>
+                    <GitBranch className="w-4 h-4 mr-2" />
                     Duplicate
                   </DropdownMenuItem>
                   <DropdownMenuItem 
-                    className="text-destructive"
+                    className="text-destructive focus:text-destructive"
                     onClick={(e) => { e.stopPropagation(); onDelete?.(task.id); }}
                   >
+                    <XCircle className="w-4 h-4 mr-2" />
                     Delete
                   </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -212,15 +196,25 @@ export function TaskCard({ task, onEdit, onDelete, onView, compact = false }: Ta
 
         {/* Title and Description */}
         <div className="space-y-2">
-          <h4 className={`font-medium text-foreground leading-snug ${compact ? 'text-xs' : 'text-sm sm:text-base'}`}>
+          <h4 className={`font-medium text-foreground leading-snug ${compact ? 'text-sm' : 'text-base'}`}>
             {task.title}
           </h4>
           {!compact && task.description && (
-            <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2">
+            <p className="text-sm text-muted-foreground line-clamp-2">
               {task.description}
             </p>
           )}
         </div>
+
+        {/* Blocking Status */}
+        {task.blocked && (
+          <div className="flex items-center gap-2">
+            <TaskBlockManager 
+              task={{...task, blocked: task.blocked || false}} 
+              onUpdate={() => onUpdate?.()} 
+            />
+          </div>
+        )}
 
         {/* Tags */}
         {!compact && task.tags.length > 0 && (
@@ -251,14 +245,14 @@ export function TaskCard({ task, onEdit, onDelete, onView, compact = false }: Ta
 
         {/* Blocking Reason */}
         {task.blocked && task.blocking_reason && !compact && (
-          <div className="text-xs text-destructive bg-destructive/10 p-2 rounded border">
+          <div className="text-xs text-destructive bg-destructive/10 p-2 rounded border animate-fade-in">
             <strong>Blocked:</strong> {task.blocking_reason}
           </div>
         )}
 
         {/* Footer */}
         <div className="flex items-center justify-between pt-2 border-t border-border">
-          <div className="flex items-center gap-2 sm:gap-3 text-muted-foreground flex-wrap">
+          <div className="flex items-center gap-2 text-muted-foreground flex-wrap">
             {task.dueDate && (
               <div className={`flex items-center gap-1 text-xs ${
                 isOverdue ? 'text-destructive font-medium' : isDueSoon ? 'text-warning font-medium' : ''
@@ -267,46 +261,56 @@ export function TaskCard({ task, onEdit, onDelete, onView, compact = false }: Ta
                 <span className={compact ? "text-xs" : "hidden sm:inline"}>
                   {compact ? task.dueDate.split(' ')[0] : task.dueDate}
                 </span>
-                {!compact && (
-                  <span className="sm:hidden">{task.dueDate.split(' ')[0]}</span>
+              </div>
+            )}
+            {showMetrics && (
+              <>
+                {task.comments > 0 && (
+                  <div className="flex items-center gap-1 text-xs">
+                    <MessageSquare className="w-3 h-3" />
+                    {task.comments}
+                  </div>
                 )}
-              </div>
-            )}
-            {task.comments > 0 && (
-              <div className="flex items-center gap-1 text-xs">
-                <MessageSquare className="w-3 h-3" />
-                {task.comments}
-              </div>
-            )}
-            {task.attachments > 0 && (
-              <div className="flex items-center gap-1 text-xs">
-                <Paperclip className="w-3 h-3" />
-                {task.attachments}
-              </div>
-            )}
-            {totalTime > 0 && (
-              <div className="flex items-center gap-1 text-xs">
-                <Clock className="w-3 h-3" />
-                {formatDuration(totalTime)}
-              </div>
+                {task.attachments > 0 && (
+                  <div className="flex items-center gap-1 text-xs">
+                    <Paperclip className="w-3 h-3" />
+                    {task.attachments}
+                  </div>
+                )}
+                {totalTime > 0 && (
+                  <div className="flex items-center gap-1 text-xs">
+                    <Clock className="w-3 h-3" />
+                    {formatDuration(totalTime)}
+                  </div>
+                )}
+                {relationships.length > 0 && (
+                  <div className="flex items-center gap-1 text-xs">
+                    <GitBranch className="w-3 h-3" />
+                    {relationships.length}
+                  </div>
+                )}
+              </>
             )}
           </div>
           
           {task.assignees && task.assignees.length > 0 && (
-            <div className="flex -space-x-2">
-              {task.assignees.slice(0, compact ? 2 : 3).map((assignee, index) => (
-                <Avatar key={assignee.id} className={`${compact ? 'w-5 h-5' : 'w-7 h-7 sm:w-6 sm:h-6'} border-2 border-background`}>
-                  <AvatarImage src={assignee.avatar} alt={assignee.name} />
-                  <AvatarFallback className="text-xs">
-                    {assignee.initials}
-                  </AvatarFallback>
-                </Avatar>
-              ))}
-              {task.assignees.length > (compact ? 2 : 3) && (
-                <div className={`${compact ? 'w-5 h-5' : 'w-7 h-7 sm:w-6 sm:h-6'} rounded-full bg-muted border-2 border-background flex items-center justify-center text-xs font-medium`}>
-                  +{task.assignees.length - (compact ? 2 : 3)}
-                </div>
-              )}
+            <div className="flex items-center gap-1">
+              <Users className="w-3 h-3 text-muted-foreground" />
+              <div className="flex -space-x-1">
+                {task.assignees.slice(0, compact ? 2 : 3).map((assignee) => (
+                  <Avatar key={assignee.id} className={`${compact ? 'w-5 h-5' : 'w-6 h-6'} border-2 border-background`}>
+                    <AvatarImage src={assignee.avatar} alt={assignee.name} />
+                    <AvatarFallback className="text-xs">
+                      {assignee.initials}
+                    </AvatarFallback>
+                  </Avatar>
+                ))}
+                {task.assignees.length > (compact ? 2 : 3) && (
+                  <div className={`${compact ? 'w-5 h-5' : 'w-6 h-6'} rounded-full bg-muted border-2 border-background flex items-center justify-center text-xs font-medium`}>
+                    +{task.assignees.length - (compact ? 2 : 3)}
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>
