@@ -23,8 +23,8 @@ export function TaskCardDialog({
 }: TaskCardDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-0">
-        <DialogHeader className="p-6 pb-0">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
           <div className="flex items-center justify-between">
             <DialogTitle className="text-lg font-semibold">Task Details</DialogTitle>
             <Button
@@ -38,7 +38,7 @@ export function TaskCardDialog({
           </div>
         </DialogHeader>
         
-        <div className="p-6 pt-4">
+        <div className="mt-4">
           <StandardizedTaskCard
             task={task}
             onEdit={onEdit}

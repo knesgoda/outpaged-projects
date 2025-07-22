@@ -1113,7 +1113,7 @@ export function KanbanBoard() {
         </DndContext>
       </div>
 
-      {/* Replace Enhanced Task Dialog with regular task creation dialog */}
+      {/* Task Creation Dialog - for new tasks */}
       {taskDialog.isOpen && !taskDialog.task && (
         <EnhancedTaskDialog
           open={taskDialog.isOpen}
@@ -1128,7 +1128,7 @@ export function KanbanBoard() {
         />
       )}
 
-      {/* Task Detail View Dialog - now using TaskCardDialog */}
+      {/* Task Detail View Dialog - using TaskCardDialog for viewing */}
       {detailViewTask && (
         <TaskCardDialog
           open={true}
@@ -1153,7 +1153,7 @@ export function KanbanBoard() {
         />
       )}
 
-      {/* Edit Task Dialog - still using EnhancedTaskDialog for editing */}
+      {/* Task Edit Dialog - using EnhancedTaskDialog for editing */}
       {taskDialog.isOpen && taskDialog.task && (
         <EnhancedTaskDialog
           open={taskDialog.isOpen}
