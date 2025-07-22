@@ -21,9 +21,7 @@ import {
   Activity
 } from "lucide-react";
 import { TeamMember } from "./TeamDirectory";
-
-// Data will be loaded from Supabase
-const mockMember: TeamMember | null = null;
+import { supabase } from "@/integrations/supabase/client";
 
 const mockProjects: any[] = [];
 const mockRecentActivity: any[] = [];
@@ -33,16 +31,77 @@ export default function TeamMemberProfile() {
   const navigate = useNavigate();
   const [member, setMember] = useState<TeamMember | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // In real app, fetch member data by ID
-    setMember(mockMember);
+    const fetchMemberData = async () => {
+      if (!memberId) return;
+      
+      try {
+        setLoading(true);
+        
+        // Fetch profile data
+        const { data: profile, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('user_id', memberId)
+          .single();
+          
+        if (error) {
+          console.error('Error fetching member profile:', error);
+          return;
+        }
+        
+        if (profile) {
+          // Transform profile data to TeamMember format
+          const memberData: TeamMember = {
+            id: profile.user_id,
+            name: profile.full_name || 'Unknown User',
+            role: profile.role || 'developer',
+            email: 'N/A', // Email not available in profiles table
+            avatar: profile.avatar_url || '',
+            initials: profile.full_name ? profile.full_name.split(' ').map(n => n[0]).join('') : 'U',
+            status: 'active',
+            department: profile.role === 'project_manager' ? 'Management' : 'Development',
+            location: 'N/A',
+            phone: '',
+            joinDate: new Date(profile.created_at).toLocaleDateString(),
+            lastActive: 'Recently',
+            projectsCount: 0,
+            tasksCompleted: 0,
+            bio: '',
+            skills: []
+          };
+          
+          setMember(memberData);
+        }
+      } catch (error) {
+        console.error('Error fetching member data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchMemberData();
   }, [memberId]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p className="text-muted-foreground">Loading member profile...</p>
+      </div>
+    );
+  }
 
   if (!member) {
     return (
       <div className="flex items-center justify-center h-64">
-        <p className="text-muted-foreground">Loading member profile...</p>
+        <div className="text-center">
+          <p className="text-muted-foreground mb-4">Member not found</p>
+          <Button onClick={() => navigate("/dashboard/team")}>
+            Back to Team Directory
+          </Button>
+        </div>
       </div>
     );
   }
@@ -54,7 +113,7 @@ export default function TeamMemberProfile() {
         <Button 
           variant="ghost" 
           size="icon"
-          onClick={() => navigate("/team")}
+          onClick={() => navigate("/dashboard/team")}
         >
           <ArrowLeft className="w-4 h-4" />
         </Button>
