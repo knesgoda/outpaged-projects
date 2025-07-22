@@ -23,8 +23,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { EnhancedKanbanColumn, Column } from "@/components/kanban/EnhancedKanbanColumn";
 import { TaskCard, Task } from "@/components/kanban/TaskCard";
-import { EnhancedTaskDialog } from "@/components/kanban/EnhancedTaskDialog";
 import { TaskCardDialog } from "@/components/kanban/TaskCardDialog";
+import { CreateTaskDialog } from "@/components/tasks/CreateTaskDialog";
 import { BulkOperations } from "@/components/kanban/BulkOperations";
 import { TaskTemplates } from "@/components/kanban/TaskTemplates";
 import { ProjectSelector } from "@/components/kanban/ProjectSelector";
@@ -1115,16 +1115,11 @@ export function KanbanBoard() {
 
       {/* Task Creation Dialog - for new tasks */}
       {taskDialog.isOpen && !taskDialog.task && (
-        <EnhancedTaskDialog
+        <CreateTaskDialog
           open={taskDialog.isOpen}
-          onOpenChange={(open) => setTaskDialog({ isOpen: open })}
-          task={null}
-          projectId={currentProjectId || ""}
-          columnId={taskDialog.columnId}
-          swimlaneId={taskDialog.swimlaneId}
-          onTaskSaved={fetchTasks}
-          availableAssignees={availableAssignees}
-          availableTags={[]}
+          onOpenChange={(open) => !open && setTaskDialog({ isOpen: false, task: null })}
+          projectId={currentProjectId!}
+          onTaskCreated={fetchTasks}
         />
       )}
 
@@ -1153,20 +1148,6 @@ export function KanbanBoard() {
         />
       )}
 
-      {/* Task Edit Dialog - using EnhancedTaskDialog for editing */}
-      {taskDialog.isOpen && taskDialog.task && (
-        <EnhancedTaskDialog
-          open={taskDialog.isOpen}
-          onOpenChange={(open) => setTaskDialog({ isOpen: open })}
-          task={taskDialog.task}
-          projectId={currentProjectId || ""}
-          columnId={taskDialog.columnId}
-          swimlaneId={taskDialog.swimlaneId}
-          onTaskSaved={fetchTasks}
-          availableAssignees={availableAssignees}
-          availableTags={[]}
-        />
-      )}
     </div>
   );
 }
