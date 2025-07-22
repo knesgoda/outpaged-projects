@@ -391,51 +391,6 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
               </h1>
             )}
           </div>
-
-          <div className="flex items-center gap-2 ml-4">
-            {/* Status Button */}
-            <Select
-              value={formData.status}
-              onValueChange={(value) => setFormData(prev => ({ ...prev, status: value }))}
-            >
-              <SelectTrigger className="w-auto bg-background border-input">
-                <div className="flex items-center gap-2">
-                  <div 
-                    className="w-2 h-2 rounded-full" 
-                    style={{ backgroundColor: getStatusColor(formData.status) }}
-                  />
-                  <SelectValue />
-                </div>
-              </SelectTrigger>
-              <SelectContent className="bg-background border-border z-50">
-                <SelectItem value="todo">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-muted" />
-                    To Do
-                  </div>
-                </SelectItem>
-                <SelectItem value="in_progress">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-primary" />
-                    In Progress
-                  </div>
-                </SelectItem>
-                <SelectItem value="in_review">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-warning" />
-                    In Review
-                  </div>
-                </SelectItem>
-                <SelectItem value="done">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-success" />
-                    Done
-                  </div>
-                </SelectItem>
-              </SelectContent>
-            </Select>
-
-          </div>
         </div>
 
         <div className="flex h-[calc(90vh-140px)]">
@@ -538,6 +493,51 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
 
           {/* Right Column - Metadata */}
           <div className="w-80 p-6 border-l border-border bg-muted/20 overflow-y-auto space-y-6">
+            {/* Status */}
+            <div>
+              <h4 className="text-sm font-medium text-muted-foreground mb-2">Status</h4>
+              <Select
+                value={formData.status}
+                onValueChange={(value) => setFormData(prev => ({ ...prev, status: value }))}
+              >
+                <SelectTrigger className="w-full bg-gradient-to-r from-background to-background/80 border-2 border-primary/20 hover:border-primary/40 transition-all duration-200">
+                  <div className="flex items-center gap-3">
+                    <div 
+                      className="w-3 h-3 rounded-full shadow-sm" 
+                      style={{ backgroundColor: getStatusColor(formData.status) }}
+                    />
+                    <SelectValue className="font-medium" />
+                  </div>
+                </SelectTrigger>
+                <SelectContent className="bg-background/95 backdrop-blur-sm border-border shadow-xl z-50">
+                  <SelectItem value="todo" className="hover:bg-muted/60 transition-colors">
+                    <div className="flex items-center gap-3 py-1">
+                      <div className="w-3 h-3 rounded-full bg-gray-400" />
+                      <span className="font-medium">To Do</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="in_progress" className="hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-colors">
+                    <div className="flex items-center gap-3 py-1">
+                      <div className="w-3 h-3 rounded-full bg-blue-500" />
+                      <span className="font-medium">In Progress</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="in_review" className="hover:bg-yellow-50 dark:hover:bg-yellow-950/30 transition-colors">
+                    <div className="flex items-center gap-3 py-1">
+                      <div className="w-3 h-3 rounded-full bg-yellow-500" />
+                      <span className="font-medium">In Review</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="done" className="hover:bg-green-50 dark:hover:bg-green-950/30 transition-colors">
+                    <div className="flex items-center gap-3 py-1">
+                      <div className="w-3 h-3 rounded-full bg-green-500" />
+                      <span className="font-medium">Done</span>
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
             {/* Assignees */}
             <div>
               <h4 className="text-sm font-medium text-muted-foreground mb-2">Assignee</h4>
