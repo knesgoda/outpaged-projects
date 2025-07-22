@@ -50,6 +50,18 @@ interface TaskDialogProps {
   projectId?: string;
 }
 
+// Helper component for metadata rows
+function InfoRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-center justify-between">
+      <span className="text-sm font-medium text-muted-foreground">{label}</span>
+      <div className="flex items-center gap-2">
+        {children}
+      </div>
+    </div>
+  );
+}
+
 export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId }: TaskDialogProps) {
   // Editing states for inline editing
   const [isEditingTitle, setIsEditingTitle] = useState(false);
@@ -812,14 +824,3 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
   );
 }
 
-// Helper component for metadata rows
-function InfoRow({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex items-center justify-between">
-      <span className="text-sm font-medium text-muted-foreground">{label}</span>
-      <div className="flex items-center gap-2">
-        {children}
-      </div>
-    </div>
-  );
-}
