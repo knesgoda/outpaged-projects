@@ -336,8 +336,11 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
         {/* Header with title editing and status button */}
         <div className="flex justify-between items-start px-6 py-4 border-b border-border bg-muted/30">
           <div className="flex-1 min-w-0">
-            <p className="text-sm text-muted-foreground mb-1">
-              {task?.parent_id ? `${task.parent_id} • ${task?.id || 'NEW'}` : (task?.id || 'NEW')}
+            <p className="text-sm text-muted-foreground mb-1 font-mono">
+              {task?.project?.code && task?.ticket_number 
+                ? `${task.project.code}-${task.ticket_number}`
+                : task?.id?.slice(0, 8) || 'NEW'
+              }
             </p>
             
             {isEditingTitle ? (

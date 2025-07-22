@@ -210,7 +210,8 @@ export function KanbanBoard() {
         .select(`
           *,
           projects (
-            name
+            name,
+            code
           )
         `)
         .eq('project_id', currentProjectId)
@@ -269,6 +270,11 @@ export function KanbanBoard() {
           comments: 0, // TODO: Get actual comment count  
           attachments: 0, // TODO: Get actual attachment count
           children: [],
+          project: {
+            name: task.projects?.name,
+            code: task.projects?.code
+          },
+          ticket_number: task.ticket_number,
           projectName: task.projects?.name,
           story_points: task.story_points,
           blocked: task.blocked || false,

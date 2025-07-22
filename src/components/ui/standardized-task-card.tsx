@@ -45,7 +45,9 @@ export interface StandardizedTask {
   blocking_reason?: string;
   project?: {
     name?: string;
+    code?: string;
   } | null;
+  ticket_number?: number;
   created_at?: string;
   updated_at?: string;
 }
@@ -141,47 +143,45 @@ export function StandardizedTaskCard({
       onClick={handleCardClick}
     >
       <CardContent className={compact ? "p-3" : "p-6"}>
-        <div className={`space-y-${compact ? '2' : '4'}`}>
+        <div className={`space-y-${compact ? '2' : '3'}`}>
           {/* Header */}
           <div className="flex items-start justify-between">
-            <div className="space-y-2 flex-1">
-              <h3 className={`font-semibold text-foreground leading-tight ${compact ? 'text-sm' : ''}`}>
+            <div className="space-y-1 flex-1 min-w-0">
+              {/* Task ID */}
+              <div className="flex items-center gap-2">
+                <p className="text-xs text-muted-foreground font-mono">
+                  {task.project?.code && task.ticket_number 
+                    ? `${task.project.code}-${task.ticket_number}`
+                    : task.id?.slice(0, 8) || 'NEW'
+                  }
+                </p>
+                <Badge className={hierarchyColors[task.hierarchy_level]} variant="secondary">
+                  <span className="mr-1">{typeIcons[task.task_type]}</span>
+                  {compact ? task.hierarchy_level.slice(0, 4) : task.hierarchy_level}
+                </Badge>
+              </div>
+              
+              {/* Title */}
+              <h3 className={`font-semibold text-foreground leading-tight line-clamp-2 ${compact ? 'text-sm' : ''}`}>
                 {task.title}
               </h3>
+              
+              {/* Description - only show in non-compact mode */}
               {!compact && task.description && (
-                <p className="text-sm text-muted-foreground line-clamp-2">
-                  {task.description}
+                <p className="text-xs text-muted-foreground line-clamp-1">
+                  {task.description.replace(/<[^>]*>/g, '').slice(0, 60)}...
                 </p>
               )}
             </div>
-            <div className="flex items-center gap-2 ml-4">
-              <div className="flex flex-wrap items-center gap-1">
-                <Badge className={hierarchyColors[task.hierarchy_level]} variant="secondary">
-                  {compact ? task.hierarchy_level.slice(0, 4) : task.hierarchy_level}
-                </Badge>
-                <Badge variant="outline" className={`text-xs ${compact ? 'text-xs' : ''}`}>
-                  <span className="mr-1">{typeIcons[task.task_type]}</span>
-                  {compact ? '' : task.task_type.replace('_', ' ')}
-                </Badge>
-                <Badge className={priorityColors[task.priority]} variant="secondary">
-                  {compact ? task.priority.charAt(0).toUpperCase() : task.priority}
-                </Badge>
-                <Badge className={statusColors[task.status as keyof typeof statusColors] || statusColors.todo} variant="secondary">
-                  {compact ? task.status.replace('_', '').charAt(0).toUpperCase() : task.status.replace('_', ' ')}
-                </Badge>
-                {task.story_points && (
-                  <Badge variant="outline" className="text-xs bg-primary/10 text-primary">
-                    {task.story_points} SP
-                  </Badge>
-                )}
-              </div>
-              
+            
+            {/* Only show dropdown menu, remove extra close button */}
+            <div className="flex items-center gap-1 ml-2 flex-shrink-0">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button 
                     variant="ghost" 
                     size="sm"
-                    className="opacity-0 group-hover:opacity-100 transition-opacity"
+                    className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0"
                     onClick={(e) => e.stopPropagation()}
                   >
                     ⋯
@@ -212,14 +212,35 @@ export function StandardizedTaskCard({
               </DropdownMenu>
             </div>
           </div>
+          
+          {/* Status and Priority Badges Row */}
+          <div className="flex items-center gap-1 flex-wrap">
+            <Badge className={priorityColors[task.priority]} variant="secondary">
+              {compact ? task.priority.charAt(0).toUpperCase() : task.priority}
+            </Badge>
+            <Badge className={statusColors[task.status as keyof typeof statusColors] || statusColors.todo} variant="secondary">
+              {compact ? task.status.replace('_', '').charAt(0).toUpperCase() : task.status.replace('_', ' ')}
+            </Badge>
+            {task.story_points && (
+              <Badge variant="outline" className="text-xs bg-primary/10 text-primary">
+                {task.story_points} SP
+              </Badge>
+            )}
+            {task.blocked && (
+              <Badge variant="destructive" className="text-xs">
+                🚫 Blocked
+              </Badge>
+            )}
+          </div>
 
-          {/* Meta Information */}
-          <div className={`flex items-center justify-between text-sm text-muted-foreground ${compact ? 'text-xs' : ''}`}>
-            <div className="flex items-center gap-4">
+          {/* Bottom Row - Assignees and Meta */}
+          <div className={`flex items-center justify-between text-xs text-muted-foreground ${compact ? 'text-xs' : ''}`}>
+            <div className="flex items-center gap-2 min-w-0 flex-1">
+              {/* Assignees */}
               {task.assignees && task.assignees.length > 0 && (
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1">
                   <div className="flex -space-x-1">
-                    {task.assignees.slice(0, compact ? 2 : 3).map((assignee, index) => (
+                    {task.assignees.slice(0, compact ? 1 : 2).map((assignee, index) => (
                       <Avatar key={assignee.id} className={`${compact ? 'w-4 h-4' : 'w-5 h-5'} border border-background`}>
                         <AvatarImage src={assignee.avatar} />
                         <AvatarFallback className="text-xs">
@@ -227,56 +248,38 @@ export function StandardizedTaskCard({
                         </AvatarFallback>
                       </Avatar>
                     ))}
-                    {task.assignees.length > (compact ? 2 : 3) && (
+                    {task.assignees.length > (compact ? 1 : 2) && (
                       <div className={`${compact ? 'w-4 h-4' : 'w-5 h-5'} rounded-full bg-muted border border-background flex items-center justify-center text-xs`}>
-                        +{task.assignees.length - (compact ? 2 : 3)}
+                        +{task.assignees.length - (compact ? 1 : 2)}
                       </div>
                     )}
                   </div>
-                  {!compact && (
-                    <span>
-                      {task.assignees.length === 1 
-                        ? task.assignees[0].name
-                        : `${task.assignees.length} assignees`
-                      }
-                    </span>
-                  )}
-                </div>
-              )}
-             
-              {!compact && showProject && task.project && task.project.name && (
-                <div className="flex items-center gap-1">
-                  <span>in</span>
-                  <span className="font-medium">{task.project.name}</span>
                 </div>
               )}
 
+              {/* Due Date */}
               {dueDate && (
                 <div className="flex items-center gap-1">
-                  <Calendar className={`${compact ? 'w-2 h-2' : 'w-3 h-3'}`} />
-                  <span>
-                    {compact ? 
-                      new Date(dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) :
-                      `Due ${new Date(dueDate).toLocaleDateString()}`
-                    }
+                  <Calendar className="w-3 h-3" />
+                  <span className="truncate">
+                    {new Date(dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                   </span>
                 </div>
               )}
             </div>
 
-            <div className="flex items-center gap-3">
+            {/* Right side meta */}
+            <div className="flex items-center gap-2 flex-shrink-0">
               <div className="flex items-center gap-1">
-                <MessageSquare className={`${compact ? 'w-2 h-2' : 'w-3 h-3'}`} />
+                <MessageSquare className="w-3 h-3" />
                 <span>{task.comments || 0}</span>
               </div>
-              <div className="flex items-center gap-1">
-                <Paperclip className={`${compact ? 'w-2 h-2' : 'w-3 h-3'}`} />
-                <span>{task.attachments || 0}</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <Clock className={`${compact ? 'w-2 h-2' : 'w-3 h-3'}`} />
-                <span>0h</span>
-              </div>
+              {(task.attachments || 0) > 0 && (
+                <div className="flex items-center gap-1">
+                  <Paperclip className="w-3 h-3" />
+                  <span>{task.attachments}</span>
+                </div>
+              )}
             </div>
           </div>
         </div>

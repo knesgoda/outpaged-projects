@@ -56,8 +56,12 @@ export function CommentsSystemWithMentions({
       const { data, error } = await supabase
         .from('comments')
         .select(`
-          *,
-          author:profiles!author_id (
+          id,
+          content,
+          created_at,
+          author_id,
+          task_id,
+          profiles!comments_author_id_fkey (
             full_name,
             avatar_url
           )
@@ -72,7 +76,7 @@ export function CommentsSystemWithMentions({
 
       const commentsWithProfiles = data?.map(comment => ({
         ...comment,
-        author: (comment as any).author || { full_name: 'Unknown User', avatar_url: null }
+        author: (comment as any).profiles || { full_name: 'Unknown User', avatar_url: null }
       })) || [];
 
       setComments(commentsWithProfiles);
@@ -103,8 +107,12 @@ export function CommentsSystemWithMentions({
           author_id: user.id
         })
         .select(`
-          *,
-          author:profiles!author_id (
+          id,
+          content,
+          created_at,
+          author_id,
+          task_id,
+          profiles!comments_author_id_fkey (
             full_name,
             avatar_url
           )
@@ -116,7 +124,7 @@ export function CommentsSystemWithMentions({
       // Add the new comment to the list
       const newCommentWithProfile = {
         ...data,
-        author: (data as any).author || { 
+        author: (data as any).profiles || { 
           full_name: user.user_metadata?.full_name || 'You', 
           avatar_url: user.user_metadata?.avatar_url 
         }
@@ -167,7 +175,7 @@ export function CommentsSystemWithMentions({
           .from('project_members')
           .select(`
             user_id,
-            profiles!user_id (
+            profiles!project_members_user_id_fkey (
               full_name
             )
           `)
