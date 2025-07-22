@@ -270,7 +270,9 @@ export function KanbanBoard() {
           attachments: 0, // TODO: Get actual attachment count
           children: [],
           projectName: task.projects?.name,
-          story_points: task.story_points
+          story_points: task.story_points,
+          blocked: task.blocked || false,
+          blocking_reason: task.blocking_reason
         };
       }) || [];
 
@@ -468,6 +470,17 @@ export function KanbanBoard() {
     if (overColumn && activeTask.status !== await getStatusFromColumn(overColumn)) {
       try {
         const newStatus = await getStatusFromColumn(overColumn);
+        
+        // Check if task is blocked before allowing status change
+        if (activeTask.blocked && newStatus !== 'todo') {
+          toast({
+            title: "Task is blocked",
+            description: `Cannot move blocked task to ${newStatus}. Please unblock the task first.`,
+            variant: "destructive",
+          });
+          return;
+        }
+
         const { error } = await supabase
           .from('tasks')
           .update({ status: newStatus as "todo" | "in_progress" | "in_review" | "done" })
@@ -588,6 +601,28 @@ export function KanbanBoard() {
     try {
       if (taskDialog.task) {
         // Update existing task
+        // Handle assignees for existing tasks
+        if (taskData.assignees) {
+          // Remove all existing assignees
+          await supabase
+            .from('task_assignees')
+            .delete()
+            .eq('task_id', taskDialog.task.id);
+
+          // Add new assignees
+          if (taskData.assignees.length > 0) {
+            const assigneeInserts = taskData.assignees.map(assignee => ({
+              task_id: taskDialog.task.id,
+              user_id: assignee.id,
+              assigned_by: user?.id
+            }));
+
+            await supabase
+              .from('task_assignees')
+              .insert(assigneeInserts);
+          }
+        }
+
         const { error } = await supabase
           .from('tasks')
           .update({
@@ -596,11 +631,12 @@ export function KanbanBoard() {
             priority: taskData.priority,
             hierarchy_level: (taskData as any).hierarchy_level,
             task_type: (taskData as any).task_type,
-            assignee_id: (taskData as any).assignee_id || null,
             due_date: (taskData as any).due_date || null,
             story_points: (taskData as any).story_points || null,
             status: (taskData as any).status,
             swimlane_id: taskDialog.swimlaneId || null,
+            blocked: (taskData as any).blocked || false,
+            blocking_reason: (taskData as any).blocking_reason || null,
           })
           .eq('id', taskDialog.task.id);
 
@@ -629,6 +665,8 @@ export function KanbanBoard() {
             due_date: (taskData as any).due_date || null,
             story_points: (taskData as any).story_points || null,
             swimlane_id: taskDialog.swimlaneId || null,
+            blocked: false,
+            blocking_reason: null,
           })
           .select()
           .single();

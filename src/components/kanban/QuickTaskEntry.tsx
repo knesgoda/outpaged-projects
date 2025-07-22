@@ -38,18 +38,31 @@ export function QuickTaskEntry({
 
     setLoading(true);
     try {
-      const { error } = await supabase
+      // Get the status mapping for the column
+      const { data: statusMapping } = await supabase
+        .from('task_status_mappings')
+        .select('status_value')
+        .eq('project_id', projectId)
+        .eq('column_id', columnId)
+        .single();
+
+      const status = statusMapping?.status_value || 'todo';
+
+      const { data: newTask, error } = await supabase
         .from('tasks')
         .insert({
           title: title.trim(),
           priority: priority as 'low' | 'medium' | 'high' | 'urgent',
-          status: 'todo',
+          status: status as 'todo' | 'in_progress' | 'in_review' | 'done',
           hierarchy_level: taskType === 'story' ? 'story' : 'task',
           task_type: taskType as any,
           project_id: projectId,
           reporter_id: user.id,
-          swimlane_id: swimlaneId || null
-        });
+          swimlane_id: swimlaneId || null,
+          blocked: false
+        })
+        .select()
+        .single();
 
       if (error) throw error;
 

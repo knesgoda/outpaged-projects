@@ -1121,6 +1121,8 @@ export type Database = {
       tasks: {
         Row: {
           assignee_id: string | null
+          blocked: boolean | null
+          blocking_reason: string | null
           created_at: string
           description: string | null
           due_date: string | null
@@ -1142,6 +1144,8 @@ export type Database = {
         }
         Insert: {
           assignee_id?: string | null
+          blocked?: boolean | null
+          blocking_reason?: string | null
           created_at?: string
           description?: string | null
           due_date?: string | null
@@ -1163,6 +1167,8 @@ export type Database = {
         }
         Update: {
           assignee_id?: string | null
+          blocked?: boolean | null
+          blocking_reason?: string | null
           created_at?: string
           description?: string | null
           due_date?: string | null

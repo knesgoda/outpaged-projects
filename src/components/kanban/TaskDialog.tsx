@@ -64,6 +64,8 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
     dueDate: task?.dueDate ? new Date(task.dueDate) : undefined,
     tags: task?.tags || [],
     attachments: task?.attachments || [],
+    blocked: task?.blocked || false,
+    blocking_reason: task?.blocking_reason || "",
   });
 
   const [teamMembers, setTeamMembers] = useState<any[]>([]);
@@ -98,6 +100,8 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
           dueDate: task.dueDate ? new Date(task.dueDate) : undefined,
           tags: task.tags || [],
           attachments: task.attachments || [],
+          blocked: task.blocked || false,
+          blocking_reason: task.blocking_reason || "",
         });
       }
     }
@@ -142,7 +146,7 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
       return;
     }
 
-    const taskData: Partial<Task> & { assignee_id?: string; due_date?: string; hierarchy_level?: string; task_type?: string; parent_id?: string } = {
+    const taskData: Partial<Task> & { assignee_id?: string; due_date?: string; hierarchy_level?: string; task_type?: string; parent_id?: string; blocked?: boolean; blocking_reason?: string } = {
       ...formData,
       id: task?.id || `task-${Date.now()}`,
       status: formData.status || columnId || task?.status || "todo",
@@ -154,6 +158,8 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
       parent_id: formData.parent_id,
       comments: commentCount,
       attachments: Array.isArray(formData.attachments) ? formData.attachments.length : (task?.attachments || 0),
+      blocked: formData.blocked,
+      blocking_reason: formData.blocked ? formData.blocking_reason : null,
     };
 
     onSave(taskData);
@@ -484,6 +490,38 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
                   </div>
                 )}
               </div>
+            </div>
+
+            {/* Blocked Status */}
+            <div className="space-y-2">
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="blocked"
+                  checked={formData.blocked}
+                  onChange={(e) => setFormData(prev => ({ 
+                    ...prev, 
+                    blocked: e.target.checked,
+                    blocking_reason: e.target.checked ? prev.blocking_reason : ""
+                  }))}
+                  className="w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary focus:ring-2"
+                />
+                <Label htmlFor="blocked" className="text-sm font-medium">
+                  Task is blocked
+                </Label>
+              </div>
+              {formData.blocked && (
+                <div className="space-y-2">
+                  <Label htmlFor="blocking_reason">Blocking Reason</Label>
+                  <Textarea
+                    id="blocking_reason"
+                    value={formData.blocking_reason}
+                    onChange={(e) => setFormData(prev => ({ ...prev, blocking_reason: e.target.value }))}
+                    placeholder="Explain why this task is blocked..."
+                    rows={2}
+                  />
+                </div>
+              )}
             </div>
 
             {/* File Attachments */}

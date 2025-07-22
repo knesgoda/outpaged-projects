@@ -179,7 +179,9 @@ export function TaskTemplates({ projectId, onTaskCreated }: TaskTemplatesProps) 
           task_type: template.task_type as any,
           project_id: projectId,
           reporter_id: user.id,
-          story_points: Math.ceil((template.estimated_hours || 4) / 4) // Convert hours to story points
+          story_points: Math.ceil((template.estimated_hours || 4) / 4), // Convert hours to story points
+          blocked: false,
+          blocking_reason: null,
         });
 
       if (error) throw error;
