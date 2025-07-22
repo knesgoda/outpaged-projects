@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Target, Trophy, Users, Calendar, Plus, Filter } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { DailyChallengeCard } from "@/components/challenges/DailyChallengeCard";
+import { CreateChallengeDialog } from "@/components/challenges/CreateChallengeDialog";
 import { useDailyChallenges } from "@/hooks/useDailyChallenges";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -65,10 +66,7 @@ export default function Challenges() {
             Complete daily challenges and join community competitions
           </p>
         </div>
-        <Button className="bg-gradient-primary hover:opacity-90">
-          <Plus className="w-4 h-4 mr-2" />
-          Create Challenge
-        </Button>
+        <CreateChallengeDialog onChallengeCreated={fetchCommunityChallenges} />
       </div>
 
       {/* Challenge Stats */}
@@ -192,10 +190,12 @@ export default function Challenges() {
               <p className="text-muted-foreground mb-4">
                 Be the first to create a community challenge
               </p>
-              <Button variant="outline">
-                <Plus className="w-4 h-4 mr-2" />
-                Create Challenge
-              </Button>
+              <CreateChallengeDialog onChallengeCreated={fetchCommunityChallenges}>
+                <Button variant="outline">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Create Challenge
+                </Button>
+              </CreateChallengeDialog>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

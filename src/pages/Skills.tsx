@@ -8,11 +8,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TrendingUp, Award, Target, Star, Plus, Trophy } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { SkillProgressCard } from "@/components/skills/SkillProgressCard";
+import { AddSkillDialog } from "@/components/skills/AddSkillDialog";
 import { useSkillDevelopment } from "@/hooks/useSkillDevelopment";
 
 export default function Skills() {
   const { toast } = useToast();
-  const { skills, loading, addExperience, addMilestone } = useSkillDevelopment();
+  const { skills, loading, addExperience, addMilestone, refetch } = useSkillDevelopment();
 
   const totalExperience = skills.reduce((sum, skill) => sum + skill.experience_points, 0);
   const averageLevel = skills.length > 0 ? skills.reduce((sum, skill) => sum + skill.current_level, 0) / skills.length : 0;
@@ -54,10 +55,7 @@ export default function Skills() {
             Track your progress and develop your professional skills
           </p>
         </div>
-        <Button className="bg-gradient-primary hover:opacity-90">
-          <Plus className="w-4 h-4 mr-2" />
-          Add Skill
-        </Button>
+        <AddSkillDialog onSkillAdded={refetch} />
       </div>
 
       {/* Skills Overview */}
@@ -121,10 +119,12 @@ export default function Skills() {
               <p className="text-muted-foreground mb-4">
                 Start tracking your skills to see your professional development
               </p>
-              <Button variant="outline">
-                <Plus className="w-4 h-4 mr-2" />
-                Add Your First Skill
-              </Button>
+              <AddSkillDialog onSkillAdded={refetch}>
+                <Button variant="outline">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Your First Skill
+                </Button>
+              </AddSkillDialog>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -144,10 +144,12 @@ export default function Skills() {
                 <p className="text-muted-foreground mb-4">
                   Start tracking {category.name.toLowerCase()} skills to see your progress
                 </p>
-                <Button variant="outline">
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add {category.name} Skill
-                </Button>
+                <AddSkillDialog onSkillAdded={refetch}>
+                  <Button variant="outline">
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add {category.name} Skill
+                  </Button>
+                </AddSkillDialog>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

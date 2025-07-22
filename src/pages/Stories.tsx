@@ -8,6 +8,7 @@ import { BookOpen, Plus, Search, Filter, Star } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { StoryProgressCard } from "@/components/story/StoryProgressCard";
+import { StoryReader } from "@/components/story/StoryReader";
 import { useStoryProgression } from "@/hooks/useStoryProgression";
 
 export default function Stories() {
@@ -71,12 +72,15 @@ export default function Stories() {
     return matchesSearch && matchesTheme;
   });
 
+  const [selectedStory, setSelectedStory] = useState<string | null>(null);
+
   const handleContinueStory = (narrativeId: string) => {
-    // Navigate to story reading interface (to be implemented)
-    toast({
-      title: "Story Navigation",
-      description: "Story reading interface coming soon!",
-    });
+    setSelectedStory(narrativeId);
+  };
+
+  const handleCloseStory = () => {
+    setSelectedStory(null);
+    fetchStoriesData(); // Refresh to update progress
   };
 
   if (loading) {
@@ -84,6 +88,16 @@ export default function Stories() {
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
       </div>
+    );
+  }
+
+  // Show story reader if a story is selected
+  if (selectedStory) {
+    return (
+      <StoryReader
+        narrativeId={selectedStory}
+        onClose={handleCloseStory}
+      />
     );
   }
 
