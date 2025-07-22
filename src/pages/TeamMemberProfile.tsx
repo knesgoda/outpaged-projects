@@ -54,18 +54,27 @@ export default function TeamMemberProfile() {
         
         if (profile) {
           // Transform profile data to TeamMember format
+          const getInitials = (name: string) => {
+            if (!name) return 'U';
+            return name.split(' ')
+              .filter(n => n.length > 0)
+              .map(n => n[0].toUpperCase())
+              .join('')
+              .slice(0, 2);
+          };
+
           const memberData: TeamMember = {
             id: profile.user_id,
             name: profile.full_name || 'Unknown User',
             role: profile.role || 'developer',
             email: 'N/A', // Email not available in profiles table
             avatar: profile.avatar_url || '',
-            initials: profile.full_name ? profile.full_name.split(' ').map(n => n[0]).join('') : 'U',
+            initials: getInitials(profile.full_name || ''),
             status: 'active',
             department: profile.role === 'project_manager' ? 'Management' : 'Development',
             location: 'N/A',
             phone: '',
-            joinDate: new Date(profile.created_at).toLocaleDateString(),
+            joinDate: profile.created_at ? new Date(profile.created_at).toLocaleDateString() : 'Unknown',
             lastActive: 'Recently',
             projectsCount: 0,
             tasksCompleted: 0,
