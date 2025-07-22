@@ -333,17 +333,17 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
               <div className="space-y-2">
                 <Label>Story Points</Label>
                 <Select
-                  value={formData.story_points?.toString() || ""}
+                  value={formData.story_points?.toString() || "none"}
                   onValueChange={(value) => setFormData(prev => ({ 
                     ...prev, 
-                    story_points: value ? parseInt(value) : null
+                    story_points: value === "none" ? null : parseInt(value)
                   }))}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select points..." />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">No points</SelectItem>
+                    <SelectItem value="none">No points</SelectItem>
                     <SelectItem value="1">1</SelectItem>
                     <SelectItem value="2">2</SelectItem>
                     <SelectItem value="3">3</SelectItem>
