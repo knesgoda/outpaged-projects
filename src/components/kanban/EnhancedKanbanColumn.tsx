@@ -40,6 +40,8 @@ interface EnhancedKanbanColumnProps {
   onShowQuickAdd?: (data: { columnId: string; swimlaneId?: string } | null) => void;
   onQuickTaskCreated?: () => void;
   swimlaneId?: string;
+  projectId?: string;
+  availableAssignees?: Array<{ id: string; name: string }>;
 }
 
 export function EnhancedKanbanColumn({ 
@@ -57,7 +59,9 @@ export function EnhancedKanbanColumn({
   showQuickAdd,
   onShowQuickAdd,
   onQuickTaskCreated,
-  swimlaneId
+  swimlaneId,
+  projectId = "",
+  availableAssignees = []
 }: EnhancedKanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: column.id,
@@ -215,9 +219,10 @@ export function EnhancedKanbanColumn({
             {/* Quick Add Entry */}
             {isShowingQuickAdd && (
               <QuickTaskEntry
-                projectId="current-project" // This should be passed down
+                projectId={projectId}
                 columnId={column.id}
                 swimlaneId={swimlaneId}
+                availableAssignees={availableAssignees}
                 onTaskCreated={() => {
                   onQuickTaskCreated?.();
                   onShowQuickAdd?.(null);

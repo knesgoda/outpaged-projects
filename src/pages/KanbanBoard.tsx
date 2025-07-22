@@ -286,10 +286,29 @@ export function KanbanBoard() {
       const newColumns = kanbanColumns.map(col => {
         // Find the status mapping for this column
         const mapping = statusMappings?.find(m => m.column_id === col.id);
-        const targetStatus = mapping?.status_value || col.name.toLowerCase().replace(' ', '_');
+        const targetStatus = mapping?.status_value || col.name.toLowerCase().replace(/ /g, '_');
         
         const columnTasks = tasksWithDetails.filter(task => {
-          return task.status === targetStatus;
+          // Handle both custom status mappings and standard statuses
+          if (mapping) {
+            return task.status === targetStatus;
+          } else {
+            // Fallback to standard status mapping if no custom mapping exists
+            const standardMapping = {
+              'to do': 'todo',
+              'todo': 'todo',
+              'in progress': 'in_progress',
+              'doing': 'in_progress',
+              'review': 'in_review',
+              'in review': 'in_review',
+              'testing': 'in_review',
+              'done': 'done',
+              'complete': 'done',
+              'completed': 'done'
+            };
+            const expectedStatus = standardMapping[col.name.toLowerCase()] || targetStatus;
+            return task.status === expectedStatus;
+          }
         });
 
         return {
@@ -872,8 +891,8 @@ export function KanbanBoard() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      {/* Project Title Header - Move to top */}
+      <div className="border-b border-border pb-4">
         <div className="flex items-center gap-4">
           <Button
             variant="ghost"
@@ -883,16 +902,20 @@ export function KanbanBoard() {
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Projects
           </Button>
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
-              {selectedProject.name}
-            </h1>
-            <p className="text-muted-foreground text-sm sm:text-base">
-              Kanban Board - Drag and drop tasks to manage your workflow
-            </p>
-          </div>
         </div>
-        <div className="flex flex-col sm:flex-row gap-2">
+        <div className="mt-4">
+          <h1 className="text-3xl font-bold text-foreground">
+            {selectedProject.name}
+          </h1>
+          <p className="text-muted-foreground text-sm mt-1">
+            Kanban Board - Drag and drop tasks to manage your workflow
+          </p>
+        </div>
+      </div>
+
+      {/* Controls Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">{/* This div content continues below */}
+        <div className="flex items-center gap-4">
           <div className="flex gap-2">
             <Button 
               variant={viewMode === 'standard' ? 'default' : 'outline'} 
@@ -996,6 +1019,8 @@ export function KanbanBoard() {
                         onShowQuickAdd={setShowQuickAdd}
                         onQuickTaskCreated={fetchTasks}
                         swimlaneId={swimlane.id}
+                        projectId={currentProjectId || ""}
+                        availableAssignees={availableAssignees}
                       />
                     ))}
                   </div>
@@ -1027,6 +1052,8 @@ export function KanbanBoard() {
                       showQuickAdd={showQuickAdd}
                       onShowQuickAdd={setShowQuickAdd}
                       onQuickTaskCreated={fetchTasks}
+                      projectId={currentProjectId || ""}
+                      availableAssignees={availableAssignees}
                     />
                   ))}
                 </div>
@@ -1055,6 +1082,8 @@ export function KanbanBoard() {
                     showQuickAdd={showQuickAdd}
                     onShowQuickAdd={setShowQuickAdd}
                     onQuickTaskCreated={fetchTasks}
+                    projectId={currentProjectId || ""}
+                    availableAssignees={availableAssignees}
                   />
                 ))}
               </div>

@@ -16,6 +16,7 @@ interface QuickTaskEntryProps {
   swimlaneId?: string;
   onTaskCreated: () => void;
   onCancel: () => void;
+  availableAssignees?: Array<{ id: string; name: string }>;
 }
 
 export function QuickTaskEntry({ 
@@ -23,11 +24,13 @@ export function QuickTaskEntry({
   columnId, 
   swimlaneId, 
   onTaskCreated, 
-  onCancel 
+  onCancel,
+  availableAssignees = []
 }: QuickTaskEntryProps) {
   const [title, setTitle] = useState("");
   const [priority, setPriority] = useState("medium");
   const [taskType, setTaskType] = useState("task");
+  const [assigneeId, setAssigneeId] = useState("");
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
@@ -66,12 +69,24 @@ export function QuickTaskEntry({
 
       if (error) throw error;
 
+      // Add assignee if selected
+      if (assigneeId && newTask) {
+        await supabase
+          .from('task_assignees')
+          .insert({
+            task_id: newTask.id,
+            user_id: assigneeId,
+            assigned_by: user.id
+          });
+      }
+
       toast({
         title: "Success",
         description: "Task created successfully",
       });
 
       setTitle("");
+      setAssigneeId("");
       onTaskCreated();
     } catch (error) {
       console.error('Error creating task:', error);
@@ -133,6 +148,22 @@ export function QuickTaskEntry({
                 <SelectItem value="urgent">Urgent</SelectItem>
               </SelectContent>
             </Select>
+            
+            {availableAssignees.length > 0 && (
+              <Select value={assigneeId} onValueChange={setAssigneeId}>
+                <SelectTrigger className="w-32">
+                  <SelectValue placeholder="Assignee" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Unassigned</SelectItem>
+                  {availableAssignees.map((assignee) => (
+                    <SelectItem key={assignee.id} value={assignee.id}>
+                      {assignee.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
             
             <Badge className={priorityColors[priority as keyof typeof priorityColors]} variant="secondary">
               <AlertCircle className="w-3 h-3 mr-1" />
