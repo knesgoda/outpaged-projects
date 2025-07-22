@@ -56,15 +56,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signUp = async (email: string, password: string, fullName?: string) => {
+    // Security: Validate input parameters
+    if (!email || !password) {
+      return { error: new Error('Email and password are required') };
+    }
+    
+    if (password.length < 8) {
+      return { error: new Error('Password must be at least 8 characters long') };
+    }
+
     const redirectUrl = `${window.location.origin}/`;
     
     const { error } = await supabase.auth.signUp({
-      email,
+      email: email.toLowerCase().trim(), // Normalize email
       password,
       options: {
         emailRedirectTo: redirectUrl,
         data: {
-          full_name: fullName,
+          full_name: fullName?.trim(),
         },
       },
     });

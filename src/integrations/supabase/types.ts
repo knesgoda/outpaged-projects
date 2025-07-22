@@ -14,6 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_audit_log: {
+        Row: {
+          action: string
+          admin_user_id: string
+          created_at: string
+          id: string
+          new_values: Json | null
+          old_values: Json | null
+          target_record_id: string | null
+          target_table: string | null
+          target_user_id: string | null
+        }
+        Insert: {
+          action: string
+          admin_user_id: string
+          created_at?: string
+          id?: string
+          new_values?: Json | null
+          old_values?: Json | null
+          target_record_id?: string | null
+          target_table?: string | null
+          target_user_id?: string | null
+        }
+        Update: {
+          action?: string
+          admin_user_id?: string
+          created_at?: string
+          id?: string
+          new_values?: Json | null
+          old_values?: Json | null
+          target_record_id?: string | null
+          target_table?: string | null
+          target_user_id?: string | null
+        }
+        Relationships: []
+      }
       comments: {
         Row: {
           author_id: string
@@ -747,6 +783,10 @@ export type Database = {
         Args: {
           task_hierarchy: Database["public"]["Enums"]["task_hierarchy_level"]
         }
+        Returns: boolean
+      }
+      verify_admin_action: {
+        Args: { action_type: string }
         Returns: boolean
       }
     }
