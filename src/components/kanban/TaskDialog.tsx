@@ -435,14 +435,6 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
               </SelectContent>
             </Select>
 
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onClose}
-              className="text-muted-foreground hover:text-foreground"
-            >
-              <X className="h-4 w-4" />
-            </Button>
           </div>
         </div>
 
