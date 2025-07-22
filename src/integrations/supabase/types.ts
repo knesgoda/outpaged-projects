@@ -640,6 +640,65 @@ export type Database = {
         }
         Relationships: []
       }
+      roadmap_milestones: {
+        Row: {
+          created_at: string
+          description: string | null
+          end_date: string | null
+          id: string
+          position_x: number | null
+          position_y: number | null
+          priority: string
+          progress: number | null
+          project_id: string
+          start_date: string | null
+          status: string
+          team_assigned: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          end_date?: string | null
+          id?: string
+          position_x?: number | null
+          position_y?: number | null
+          priority?: string
+          progress?: number | null
+          project_id: string
+          start_date?: string | null
+          status?: string
+          team_assigned?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          end_date?: string | null
+          id?: string
+          position_x?: number | null
+          position_y?: number | null
+          priority?: string
+          progress?: number | null
+          project_id?: string
+          start_date?: string | null
+          status?: string
+          team_assigned?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "roadmap_milestones_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       skill_development: {
         Row: {
           created_at: string

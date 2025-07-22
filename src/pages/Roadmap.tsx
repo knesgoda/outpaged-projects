@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import {
   ReactFlow,
   MiniMap,
@@ -29,7 +29,8 @@ import {
   TrendingUp,
   AlertTriangle,
   CheckCircle,
-  Clock
+  Clock,
+  FolderOpen
 } from "lucide-react";
 import {
   Select,
@@ -38,185 +39,178 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
+
+interface Project {
+  id: string;
+  name: string;
+  description?: string;
+  status: string;
+}
+
+interface Milestone {
+  id: string;
+  project_id: string;
+  title: string;
+  description?: string;
+  status: 'planned' | 'in_progress' | 'completed' | 'at_risk';
+  priority: 'low' | 'medium' | 'high' | 'critical';
+  start_date?: string;
+  end_date?: string;
+  progress: number;
+  team_assigned?: string;
+  position_x: number;
+  position_y: number;
+}
 
 const nodeTypes = {
   milestone: MilestoneNode,
   timeline: TimelineNode,
 };
 
-const initialNodes: Node[] = [
-  // Timeline nodes (quarters)
-  {
-    id: 'q1-2025',
-    type: 'timeline',
-    position: { x: 100, y: 50 },
-    data: { quarter: 'Q1', year: '2025', milestones: 3 },
-    draggable: false,
-  },
-  {
-    id: 'q2-2025',
-    type: 'timeline', 
-    position: { x: 500, y: 50 },
-    data: { quarter: 'Q2', year: '2025', milestones: 4 },
-    draggable: false,
-  },
-  {
-    id: 'q3-2025',
-    type: 'timeline',
-    position: { x: 900, y: 50 },
-    data: { quarter: 'Q3', year: '2025', milestones: 2 },
-    draggable: false,
-  },
-  {
-    id: 'q4-2025',
-    type: 'timeline',
-    position: { x: 1300, y: 50 },
-    data: { quarter: 'Q4', year: '2025', milestones: 3 },
-    draggable: false,
-  },
-
-  // Milestone nodes
-  {
-    id: 'milestone-1',
-    type: 'milestone',
-    position: { x: 50, y: 200 },
-    data: {
-      title: 'User Authentication System',
-      description: 'Complete OAuth integration and security improvements for user login and registration flows',
-      status: 'in_progress',
-      startDate: 'Jan 15',
-      endDate: 'Feb 28',
-      progress: 65,
-      team: 'Security Team',
-      priority: 'high',
-    },
-  },
-  {
-    id: 'milestone-2',
-    type: 'milestone',
-    position: { x: 200, y: 350 },
-    data: {
-      title: 'Mobile App Launch',
-      description: 'Release native mobile applications for iOS and Android platforms with core functionality',
-      status: 'planned',
-      startDate: 'Feb 1',
-      endDate: 'Mar 31',
-      progress: 15,
-      team: 'Mobile Team',
-      priority: 'critical',
-    },
-  },
-  {
-    id: 'milestone-3',
-    type: 'milestone',
-    position: { x: 450, y: 200 },
-    data: {
-      title: 'Analytics Dashboard',
-      description: 'Advanced analytics and reporting dashboard with real-time data visualization',
-      status: 'planned',
-      startDate: 'Apr 1',
-      endDate: 'May 15',
-      progress: 0,
-      team: 'Data Team',
-      priority: 'medium',
-    },
-  },
-  {
-    id: 'milestone-4',
-    type: 'milestone',
-    position: { x: 600, y: 350 },
-    data: {
-      title: 'API v2.0 Release',
-      description: 'Major API overhaul with improved performance, GraphQL support, and better documentation',
-      status: 'planned',
-      startDate: 'May 1',
-      endDate: 'Jun 30',
-      progress: 0,
-      team: 'Backend Team',
-      priority: 'high',
-    },
-  },
-  {
-    id: 'milestone-5',
-    type: 'milestone',
-    position: { x: 850, y: 200 },
-    data: {
-      title: 'AI/ML Integration',
-      description: 'Integrate machine learning models for intelligent recommendations and automation',
-      status: 'planned',
-      startDate: 'Jul 1',
-      endDate: 'Sep 15',
-      progress: 0,
-      team: 'AI Team',
-      priority: 'medium',
-    },
-  },
-  {
-    id: 'milestone-6',
-    type: 'milestone',
-    position: { x: 1250, y: 200 },
-    data: {
-      title: 'Enterprise Features',
-      description: 'Advanced enterprise features including SSO, audit logs, and compliance tools',
-      status: 'planned',
-      startDate: 'Oct 1',
-      endDate: 'Dec 15',
-      progress: 0,
-      team: 'Enterprise Team',
-      priority: 'low',
-    },
-  },
-];
-
-const initialEdges: Edge[] = [
-  {
-    id: 'e1-2',
-    source: 'milestone-1',
-    target: 'milestone-2',
-    type: 'smoothstep',
-    markerEnd: { type: MarkerType.ArrowClosed },
-    style: { stroke: '#6366f1' },
-  },
-  {
-    id: 'e2-3',
-    source: 'milestone-2',
-    target: 'milestone-3',
-    type: 'smoothstep',
-    markerEnd: { type: MarkerType.ArrowClosed },
-    style: { stroke: '#6366f1' },
-  },
-  {
-    id: 'e3-4',
-    source: 'milestone-3',
-    target: 'milestone-4',
-    type: 'smoothstep',
-    markerEnd: { type: MarkerType.ArrowClosed },
-    style: { stroke: '#6366f1' },
-  },
-  {
-    id: 'e4-5',
-    source: 'milestone-4',
-    target: 'milestone-5',
-    type: 'smoothstep',
-    markerEnd: { type: MarkerType.ArrowClosed },
-    style: { stroke: '#6366f1' },
-  },
-  {
-    id: 'e5-6',
-    source: 'milestone-5',
-    target: 'milestone-6',
-    type: 'smoothstep',
-    markerEnd: { type: MarkerType.ArrowClosed },
-    style: { stroke: '#6366f1' },
-  },
-];
-
 export default function Roadmap() {
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [nodes, setNodes, onNodesChange] = useNodesState([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterTeam, setFilterTeam] = useState("all");
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [selectedProject, setSelectedProject] = useState<string>("");
+  const [milestones, setMilestones] = useState<Milestone[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (user) {
+      fetchProjects();
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (selectedProject) {
+      fetchMilestones();
+    }
+  }, [selectedProject]);
+
+  const fetchProjects = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('projects')
+        .select('id, name, description, status')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setProjects(data || []);
+      
+      // Auto-select first project if available
+      if (data && data.length > 0) {
+        setSelectedProject(data[0].id);
+      }
+    } catch (error) {
+      console.error('Error fetching projects:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load projects",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchMilestones = async () => {
+    if (!selectedProject) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('roadmap_milestones')
+        .select('*')
+        .eq('project_id', selectedProject)
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+      setMilestones((data || []) as Milestone[]);
+      
+      // Convert milestones to nodes
+      const milestoneNodes: Node[] = (data || []).map((milestone, index) => ({
+        id: milestone.id,
+        type: 'milestone',
+        position: { 
+          x: milestone.position_x || (200 + (index % 4) * 300), 
+          y: milestone.position_y || (200 + Math.floor(index / 4) * 200)
+        },
+        data: {
+          title: milestone.title,
+          description: milestone.description || '',
+          status: milestone.status,
+          startDate: milestone.start_date ? new Date(milestone.start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '',
+          endDate: milestone.end_date ? new Date(milestone.end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '',
+          progress: milestone.progress,
+          team: milestone.team_assigned || 'Unassigned',
+          priority: milestone.priority,
+        },
+      }));
+
+      // Add timeline nodes for quarters
+      const timelineNodes: Node[] = [
+        {
+          id: 'q1-2025',
+          type: 'timeline',
+          position: { x: 100, y: 50 },
+          data: { quarter: 'Q1', year: '2025', milestones: milestoneNodes.length },
+          draggable: false,
+        },
+        {
+          id: 'q2-2025',
+          type: 'timeline', 
+          position: { x: 500, y: 50 },
+          data: { quarter: 'Q2', year: '2025', milestones: 0 },
+          draggable: false,
+        },
+        {
+          id: 'q3-2025',
+          type: 'timeline',
+          position: { x: 900, y: 50 },
+          data: { quarter: 'Q3', year: '2025', milestones: 0 },
+          draggable: false,
+        },
+        {
+          id: 'q4-2025',
+          type: 'timeline',
+          position: { x: 1300, y: 50 },
+          data: { quarter: 'Q4', year: '2025', milestones: 0 },
+          draggable: false,
+        },
+      ];
+
+      setNodes([...timelineNodes, ...milestoneNodes]);
+      
+      // Create basic connections between consecutive milestones
+      const milestoneEdges: Edge[] = [];
+      for (let i = 0; i < milestoneNodes.length - 1; i++) {
+        milestoneEdges.push({
+          id: `e${i}-${i+1}`,
+          source: milestoneNodes[i].id,
+          target: milestoneNodes[i + 1].id,
+          type: 'smoothstep',
+          markerEnd: { type: MarkerType.ArrowClosed },
+          style: { stroke: '#6366f1' },
+        });
+      }
+      setEdges(milestoneEdges);
+      
+    } catch (error) {
+      console.error('Error fetching milestones:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load roadmap milestones",
+        variant: "destructive",
+      });
+    }
+  };
 
   const onConnect = useCallback(
     (params: Connection) => setEdges((eds) => addEdge(params, eds)),
@@ -228,15 +222,25 @@ export default function Roadmap() {
   const inProgressCount = milestoneNodes.filter(node => node.data.status === 'in_progress').length;
   const completedCount = milestoneNodes.filter(node => node.data.status === 'completed').length;
   const atRiskCount = milestoneNodes.filter(node => node.data.status === 'at_risk').length;
-  const avgProgress = milestoneNodes.reduce((sum, node) => {
-    const progress = typeof node.data.progress === 'number' ? node.data.progress : 0;
-    return sum + progress;
-  }, 0) / milestoneNodes.length;
+  const avgProgress = milestoneNodes.length > 0 
+    ? milestoneNodes.reduce((sum, node) => {
+        const progress = typeof node.data.progress === 'number' ? node.data.progress : 0;
+        return sum + progress;
+      }, 0) / milestoneNodes.length 
+    : 0;
 
   const handleExportRoadmap = () => {
     // In a real app, this would generate a PDF or image export
     console.log('Exporting roadmap...');
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -256,6 +260,25 @@ export default function Roadmap() {
             Add Milestone
           </Button>
         </div>
+      </div>
+
+      {/* Project Selector */}
+      <div className="flex items-center gap-2">
+        <Select value={selectedProject} onValueChange={setSelectedProject}>
+          <SelectTrigger className="w-64">
+            <SelectValue placeholder="Select a project" />
+          </SelectTrigger>
+          <SelectContent>
+            {projects.map((project) => (
+              <SelectItem key={project.id} value={project.id}>
+                <div className="flex items-center gap-2">
+                  <FolderOpen className="w-4 h-4" />
+                  {project.name}
+                </div>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Stats Cards */}
@@ -359,36 +382,54 @@ export default function Roadmap() {
       </div>
 
       {/* Roadmap Visualization */}
-      <Card className="h-[700px]">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Calendar className="w-5 h-5" />
-            Product Roadmap Timeline
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="h-[600px] p-0">
-          <ReactFlow
-            nodes={nodes}
-            edges={edges}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
-            onConnect={onConnect}
-            nodeTypes={nodeTypes}
-            fitView
-            attributionPosition="bottom-left"
-            className="bg-muted/20"
-          >
-            <Controls className="!bottom-4 !left-4" />
-            <MiniMap 
-              className="!bottom-4 !right-4" 
-              zoomable 
-              pannable
-              nodeStrokeWidth={2}
-            />
-            <Background color="#94a3b8" gap={16} />
-          </ReactFlow>
-        </CardContent>
-      </Card>
+      {milestones.length === 0 ? (
+        <Card className="h-[400px]">
+          <CardContent className="flex items-center justify-center h-full">
+            <div className="text-center">
+              <Target className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
+              <h3 className="text-lg font-medium mb-2">No Milestones Yet</h3>
+              <p className="text-muted-foreground mb-4">
+                Get started by creating your first roadmap milestone
+              </p>
+              <Button className="bg-gradient-primary hover:opacity-90">
+                <Plus className="w-4 h-4 mr-2" />
+                Create First Milestone
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card className="h-[700px]">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Calendar className="w-5 h-5" />
+              Product Roadmap Timeline
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="h-[600px] p-0">
+            <ReactFlow
+              nodes={nodes}
+              edges={edges}
+              onNodesChange={onNodesChange}
+              onEdgesChange={onEdgesChange}
+              onConnect={onConnect}
+              nodeTypes={nodeTypes}
+              fitView
+              attributionPosition="bottom-left"
+              className="bg-muted/20"
+            >
+              <Controls className="!bottom-4 !left-4" />
+              <MiniMap 
+                className="!bottom-4 !right-4" 
+                zoomable 
+                pannable
+                nodeStrokeWidth={2}
+              />
+              <Background color="#94a3b8" gap={16} />
+            </ReactFlow>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Legend */}
       <Card>
