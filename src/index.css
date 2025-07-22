@@ -230,5 +230,29 @@ All colors MUST be HSL.
       border: 1px solid #ccc !important;
       background: white !important;
     }
+    }
+  }
+
+  /* Comment mention highlighting */
+  .mention-highlight {
+    background: hsl(var(--primary) / 0.1);
+    color: hsl(var(--primary));
+    font-weight: 500;
+    padding: 0 2px;
+    border-radius: 3px;
+  }
+  
+  .rich-text-content p {
+    margin: 0.5em 0;
+  }
+  
+  .rich-text-content ul, .rich-text-content ol {
+    margin: 0.5em 0;
+    padding-left: 1.5em;
+  }
+  
+  .rich-text-content a {
+    color: hsl(var(--primary));
+    text-decoration: underline;
   }
 }
