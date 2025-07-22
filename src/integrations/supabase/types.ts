@@ -606,6 +606,7 @@ export type Database = {
       }
       projects: {
         Row: {
+          code: string | null
           created_at: string
           description: string | null
           end_date: string | null
@@ -617,6 +618,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          code?: string | null
           created_at?: string
           description?: string | null
           end_date?: string | null
@@ -628,6 +630,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          code?: string | null
           created_at?: string
           description?: string | null
           end_date?: string | null
@@ -1198,6 +1201,7 @@ export type Database = {
           story_points: number | null
           swimlane_id: string | null
           task_type: Database["public"]["Enums"]["task_type"] | null
+          ticket_number: number | null
           title: string
           updated_at: string
         }
@@ -1221,6 +1225,7 @@ export type Database = {
           story_points?: number | null
           swimlane_id?: string | null
           task_type?: Database["public"]["Enums"]["task_type"] | null
+          ticket_number?: number | null
           title: string
           updated_at?: string
         }
@@ -1244,6 +1249,7 @@ export type Database = {
           story_points?: number | null
           swimlane_id?: string | null
           task_type?: Database["public"]["Enums"]["task_type"] | null
+          ticket_number?: number | null
           title?: string
           updated_at?: string
         }
@@ -1634,6 +1640,10 @@ export type Database = {
       can_delete_default_project: {
         Args: { project_id: string }
         Returns: boolean
+      }
+      get_next_ticket_number: {
+        Args: { project_id_param: string }
+        Returns: number
       }
       get_task_children: {
         Args: { task_id: string }
