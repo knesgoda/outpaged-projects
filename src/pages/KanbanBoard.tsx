@@ -23,8 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { EnhancedKanbanColumn, Column } from "@/components/kanban/EnhancedKanbanColumn";
 import { TaskCard, Task } from "@/components/kanban/TaskCard";
-import { TaskCardDialog } from "@/components/kanban/TaskCardDialog";
-import { CreateTaskDialog } from "@/components/tasks/CreateTaskDialog";
+import { TaskDialog } from "@/components/kanban/TaskDialog";
 import { BulkOperations } from "@/components/kanban/BulkOperations";
 import { TaskTemplates } from "@/components/kanban/TaskTemplates";
 import { ProjectSelector } from "@/components/kanban/ProjectSelector";
@@ -582,7 +581,7 @@ export function KanbanBoard() {
   };
 
   const handleViewTask = (task: Task) => {
-    setDetailViewTask(task);
+    setTaskDialog({ isOpen: true, task });
   };
 
   const handleDeleteTask = async (taskId: string) => {
@@ -1113,41 +1112,15 @@ export function KanbanBoard() {
         </DndContext>
       </div>
 
-      {/* Task Creation Dialog - for new tasks */}
-      {taskDialog.isOpen && !taskDialog.task && (
-        <CreateTaskDialog
-          open={taskDialog.isOpen}
-          onOpenChange={(open) => !open && setTaskDialog({ isOpen: false, task: null })}
-          projectId={currentProjectId!}
-          onTaskCreated={fetchTasks}
-        />
-      )}
-
-      {/* Task Detail View Dialog - using TaskCardDialog for viewing */}
-      {detailViewTask && (
-        <TaskCardDialog
-          open={true}
-          onOpenChange={(open) => !open && setDetailViewTask(null)}
-          task={detailViewTask}
-          onEdit={(task) => {
-            setDetailViewTask(null);
-            setTaskDialog({ isOpen: true, task: task as Task });
-          }}
-          onDelete={(taskId) => {
-            setDetailViewTask(null);
-            handleDeleteTask(taskId);
-          }}
-          onCreateSubTask={(task) => {
-            setDetailViewTask(null);
-            setTaskDialog({ 
-              isOpen: true, 
-              columnId: columns[0]?.id,
-              task: null
-            });
-          }}
-        />
-      )}
-
+      {/* Single Task Dialog - handles both creating and editing tasks */}
+      <TaskDialog
+        task={taskDialog.task}
+        isOpen={taskDialog.isOpen}
+        onClose={() => setTaskDialog({ isOpen: false })}
+        onSave={handleSaveTask}
+        columnId={taskDialog.columnId}
+        projectId={currentProjectId || undefined}
+      />
     </div>
   );
 }
