@@ -17,11 +17,14 @@ export type Database = {
       achievements: {
         Row: {
           badge_image_url: string | null
+          category: string | null
           created_at: string
           description: string
+          difficulty_level: number | null
           icon: string
           id: string
           is_active: boolean | null
+          is_secret: boolean | null
           name: string
           requirements: Json
           reward_points: number | null
@@ -29,11 +32,14 @@ export type Database = {
         }
         Insert: {
           badge_image_url?: string | null
+          category?: string | null
           created_at?: string
           description: string
+          difficulty_level?: number | null
           icon: string
           id?: string
           is_active?: boolean | null
+          is_secret?: boolean | null
           name: string
           requirements: Json
           reward_points?: number | null
@@ -41,11 +47,14 @@ export type Database = {
         }
         Update: {
           badge_image_url?: string | null
+          category?: string | null
           created_at?: string
           description?: string
+          difficulty_level?: number | null
           icon?: string
           id?: string
           is_active?: boolean | null
+          is_secret?: boolean | null
           name?: string
           requirements?: Json
           reward_points?: number | null
@@ -94,10 +103,15 @@ export type Database = {
           avatar_url: string | null
           created_at: string
           description: string
+          expertise_areas: string[] | null
           id: string
+          interaction_style: Json | null
           is_active: boolean | null
           name: string
           personality: Json
+          personality_type:
+            | Database["public"]["Enums"]["ai_helper_personality"]
+            | null
           specialties: string[] | null
           system_prompt: string
           usage_count: number | null
@@ -106,10 +120,15 @@ export type Database = {
           avatar_url?: string | null
           created_at?: string
           description: string
+          expertise_areas?: string[] | null
           id?: string
+          interaction_style?: Json | null
           is_active?: boolean | null
           name: string
           personality?: Json
+          personality_type?:
+            | Database["public"]["Enums"]["ai_helper_personality"]
+            | null
           specialties?: string[] | null
           system_prompt: string
           usage_count?: number | null
@@ -118,10 +137,15 @@ export type Database = {
           avatar_url?: string | null
           created_at?: string
           description?: string
+          expertise_areas?: string[] | null
           id?: string
+          interaction_style?: Json | null
           is_active?: boolean | null
           name?: string
           personality?: Json
+          personality_type?:
+            | Database["public"]["Enums"]["ai_helper_personality"]
+            | null
           specialties?: string[] | null
           system_prompt?: string
           usage_count?: number | null
@@ -210,12 +234,15 @@ export type Database = {
       }
       community_challenges: {
         Row: {
+          badge_reward: string | null
           challenge_type: string
           created_at: string
           created_by: string
           current_participants: number | null
           description: string
+          difficulty_level: number | null
           end_date: string
+          experience_reward: number | null
           id: string
           is_active: boolean | null
           max_participants: number | null
@@ -225,12 +252,15 @@ export type Database = {
           title: string
         }
         Insert: {
+          badge_reward?: string | null
           challenge_type: string
           created_at?: string
           created_by: string
           current_participants?: number | null
           description: string
+          difficulty_level?: number | null
           end_date: string
+          experience_reward?: number | null
           id?: string
           is_active?: boolean | null
           max_participants?: number | null
@@ -240,12 +270,15 @@ export type Database = {
           title: string
         }
         Update: {
+          badge_reward?: string | null
           challenge_type?: string
           created_at?: string
           created_by?: string
           current_participants?: number | null
           description?: string
+          difficulty_level?: number | null
           end_date?: string
+          experience_reward?: number | null
           id?: string
           is_active?: boolean | null
           max_participants?: number | null
@@ -302,6 +335,51 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      daily_challenges: {
+        Row: {
+          active_date: string
+          challenge_type: Database["public"]["Enums"]["challenge_type"]
+          created_at: string
+          created_by: string
+          description: string
+          difficulty_level: number | null
+          expires_at: string
+          id: string
+          is_active: boolean | null
+          requirements: Json
+          rewards: Json | null
+          title: string
+        }
+        Insert: {
+          active_date?: string
+          challenge_type: Database["public"]["Enums"]["challenge_type"]
+          created_at?: string
+          created_by: string
+          description: string
+          difficulty_level?: number | null
+          expires_at?: string
+          id?: string
+          is_active?: boolean | null
+          requirements: Json
+          rewards?: Json | null
+          title: string
+        }
+        Update: {
+          active_date?: string
+          challenge_type?: Database["public"]["Enums"]["challenge_type"]
+          created_at?: string
+          created_by?: string
+          description?: string
+          difficulty_level?: number | null
+          expires_at?: string
+          id?: string
+          is_active?: boolean | null
+          requirements?: Json
+          rewards?: Json | null
+          title?: string
+        }
+        Relationships: []
       }
       kanban_columns: {
         Row: {
@@ -382,8 +460,10 @@ export type Database = {
       }
       leaderboards: {
         Row: {
+          category: string | null
           created_at: string
           description: string | null
+          filters: Json | null
           id: string
           is_active: boolean | null
           metric: string
@@ -393,8 +473,10 @@ export type Database = {
           type: string
         }
         Insert: {
+          category?: string | null
           created_at?: string
           description?: string | null
+          filters?: Json | null
           id?: string
           is_active?: boolean | null
           metric: string
@@ -404,8 +486,10 @@ export type Database = {
           type: string
         }
         Update: {
+          category?: string | null
           created_at?: string
           description?: string | null
+          filters?: Json | null
           id?: string
           is_active?: boolean | null
           metric?: string
@@ -556,6 +640,39 @@ export type Database = {
         }
         Relationships: []
       }
+      skill_development: {
+        Row: {
+          created_at: string
+          current_level: number | null
+          experience_points: number | null
+          id: string
+          last_activity_at: string
+          milestones_achieved: string[] | null
+          skill_name: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          current_level?: number | null
+          experience_points?: number | null
+          id?: string
+          last_activity_at?: string
+          milestones_achieved?: string[] | null
+          skill_name: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          current_level?: number | null
+          experience_points?: number | null
+          id?: string
+          last_activity_at?: string
+          milestones_achieved?: string[] | null
+          skill_name?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       sprints: {
         Row: {
           created_at: string
@@ -606,9 +723,12 @@ export type Database = {
           completion_percentage: number | null
           content: string
           created_at: string
+          estimated_duration_minutes: number | null
+          experience_reward: number | null
           id: string
           is_unlocked: boolean | null
           narrative_id: string
+          prerequisite_chapters: string[] | null
           rewards: Json | null
           title: string
           unlock_requirements: Json | null
@@ -618,9 +738,12 @@ export type Database = {
           completion_percentage?: number | null
           content: string
           created_at?: string
+          estimated_duration_minutes?: number | null
+          experience_reward?: number | null
           id?: string
           is_unlocked?: boolean | null
           narrative_id: string
+          prerequisite_chapters?: string[] | null
           rewards?: Json | null
           title: string
           unlock_requirements?: Json | null
@@ -630,9 +753,12 @@ export type Database = {
           completion_percentage?: number | null
           content?: string
           created_at?: string
+          estimated_duration_minutes?: number | null
+          experience_reward?: number | null
           id?: string
           is_unlocked?: boolean | null
           narrative_id?: string
+          prerequisite_chapters?: string[] | null
           rewards?: Json | null
           title?: string
           unlock_requirements?: Json | null
@@ -650,9 +776,12 @@ export type Database = {
       story_narratives: {
         Row: {
           character_profiles: Json | null
+          completion_percentage: number | null
           created_at: string
           current_chapter: number | null
           description: string | null
+          difficulty_level: number | null
+          estimated_completion_time: number | null
           id: string
           narrative_arc: Json
           project_id: string
@@ -664,9 +793,12 @@ export type Database = {
         }
         Insert: {
           character_profiles?: Json | null
+          completion_percentage?: number | null
           created_at?: string
           current_chapter?: number | null
           description?: string | null
+          difficulty_level?: number | null
+          estimated_completion_time?: number | null
           id?: string
           narrative_arc?: Json
           project_id: string
@@ -678,9 +810,12 @@ export type Database = {
         }
         Update: {
           character_profiles?: Json | null
+          completion_percentage?: number | null
           created_at?: string
           current_chapter?: number | null
           description?: string | null
+          difficulty_level?: number | null
+          estimated_completion_time?: number | null
           id?: string
           narrative_arc?: Json
           project_id?: string
@@ -703,6 +838,66 @@ export type Database = {
             columns: ["theme_id"]
             isOneToOne: false
             referencedRelation: "story_themes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      story_progression: {
+        Row: {
+          chapters_completed: string[] | null
+          choices_made: Json | null
+          completed_at: string | null
+          completion_percentage: number | null
+          current_chapter_id: string | null
+          custom_variables: Json | null
+          id: string
+          is_completed: boolean | null
+          last_activity_at: string
+          narrative_id: string
+          started_at: string
+          user_id: string
+        }
+        Insert: {
+          chapters_completed?: string[] | null
+          choices_made?: Json | null
+          completed_at?: string | null
+          completion_percentage?: number | null
+          current_chapter_id?: string | null
+          custom_variables?: Json | null
+          id?: string
+          is_completed?: boolean | null
+          last_activity_at?: string
+          narrative_id: string
+          started_at?: string
+          user_id: string
+        }
+        Update: {
+          chapters_completed?: string[] | null
+          choices_made?: Json | null
+          completed_at?: string | null
+          completion_percentage?: number | null
+          current_chapter_id?: string | null
+          custom_variables?: Json | null
+          id?: string
+          is_completed?: boolean | null
+          last_activity_at?: string
+          narrative_id?: string
+          started_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "story_progression_current_chapter_id_fkey"
+            columns: ["current_chapter_id"]
+            isOneToOne: false
+            referencedRelation: "story_chapters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "story_progression_narrative_id_fkey"
+            columns: ["narrative_id"]
+            isOneToOne: false
+            referencedRelation: "story_narratives"
             referencedColumns: ["id"]
           },
         ]
@@ -749,9 +944,12 @@ export type Database = {
       story_themes: {
         Row: {
           background_image_url: string | null
+          category: Database["public"]["Enums"]["story_theme_category"] | null
           color_scheme: Json | null
           created_at: string
           description: string | null
+          difficulty_level: number | null
+          estimated_duration_days: number | null
           icon: string | null
           id: string
           is_active: boolean | null
@@ -760,9 +958,12 @@ export type Database = {
         }
         Insert: {
           background_image_url?: string | null
+          category?: Database["public"]["Enums"]["story_theme_category"] | null
           color_scheme?: Json | null
           created_at?: string
           description?: string | null
+          difficulty_level?: number | null
+          estimated_duration_days?: number | null
           icon?: string | null
           id?: string
           is_active?: boolean | null
@@ -771,9 +972,12 @@ export type Database = {
         }
         Update: {
           background_image_url?: string | null
+          category?: Database["public"]["Enums"]["story_theme_category"] | null
           color_scheme?: Json | null
           created_at?: string
           description?: string | null
+          difficulty_level?: number | null
+          estimated_duration_days?: number | null
           icon?: string | null
           id?: string
           is_active?: boolean | null
@@ -1194,6 +1398,44 @@ export type Database = {
           },
         ]
       }
+      user_daily_completions: {
+        Row: {
+          challenge_id: string
+          completed_at: string
+          completion_data: Json | null
+          experience_earned: number | null
+          id: string
+          points_earned: number | null
+          user_id: string
+        }
+        Insert: {
+          challenge_id: string
+          completed_at?: string
+          completion_data?: Json | null
+          experience_earned?: number | null
+          id?: string
+          points_earned?: number | null
+          user_id: string
+        }
+        Update: {
+          challenge_id?: string
+          completed_at?: string
+          completion_data?: Json | null
+          experience_earned?: number | null
+          id?: string
+          points_earned?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_daily_completions_challenge_id_fkey"
+            columns: ["challenge_id"]
+            isOneToOne: false
+            referencedRelation: "daily_challenges"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_notification_preferences: {
         Row: {
           created_at: string
@@ -1245,11 +1487,15 @@ export type Database = {
       user_progression: {
         Row: {
           achievements: Json | null
+          active_challenges: string[] | null
           created_at: string
+          current_narrative_id: string | null
           experience_points: number | null
           id: string
           last_activity_date: string | null
           level: number | null
+          preferred_themes: string[] | null
+          skill_points: Json | null
           story_progress: Json | null
           streak_days: number | null
           total_tasks_completed: number | null
@@ -1258,11 +1504,15 @@ export type Database = {
         }
         Insert: {
           achievements?: Json | null
+          active_challenges?: string[] | null
           created_at?: string
+          current_narrative_id?: string | null
           experience_points?: number | null
           id?: string
           last_activity_date?: string | null
           level?: number | null
+          preferred_themes?: string[] | null
+          skill_points?: Json | null
           story_progress?: Json | null
           streak_days?: number | null
           total_tasks_completed?: number | null
@@ -1271,18 +1521,30 @@ export type Database = {
         }
         Update: {
           achievements?: Json | null
+          active_challenges?: string[] | null
           created_at?: string
+          current_narrative_id?: string | null
           experience_points?: number | null
           id?: string
           last_activity_date?: string | null
           level?: number | null
+          preferred_themes?: string[] | null
+          skill_points?: Json | null
           story_progress?: Json | null
           streak_days?: number | null
           total_tasks_completed?: number | null
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "user_progression_current_narrative_id_fkey"
+            columns: ["current_narrative_id"]
+            isOneToOne: false
+            referencedRelation: "story_narratives"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
@@ -1376,6 +1638,26 @@ export type Database = {
       }
     }
     Enums: {
+      achievement_type:
+        | "milestone"
+        | "streak"
+        | "completion"
+        | "collaboration"
+        | "leadership"
+        | "innovation"
+      ai_helper_personality:
+        | "mentor"
+        | "cheerleader"
+        | "analyst"
+        | "creative"
+        | "technical"
+      challenge_type:
+        | "sprint"
+        | "milestone"
+        | "collaboration"
+        | "innovation"
+        | "completion"
+      leaderboard_type: "global" | "project" | "team" | "challenge"
       project_status:
         | "planning"
         | "active"
@@ -1383,6 +1665,14 @@ export type Database = {
         | "completed"
         | "cancelled"
       sprint_status: "planning" | "active" | "completed"
+      story_theme_category:
+        | "fantasy"
+        | "sci_fi"
+        | "adventure"
+        | "mystery"
+        | "corporate"
+        | "space"
+        | "medieval"
       task_hierarchy_level: "initiative" | "epic" | "story" | "task" | "subtask"
       task_priority: "low" | "medium" | "high" | "urgent"
       task_relationship_type:
@@ -1535,6 +1825,29 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      achievement_type: [
+        "milestone",
+        "streak",
+        "completion",
+        "collaboration",
+        "leadership",
+        "innovation",
+      ],
+      ai_helper_personality: [
+        "mentor",
+        "cheerleader",
+        "analyst",
+        "creative",
+        "technical",
+      ],
+      challenge_type: [
+        "sprint",
+        "milestone",
+        "collaboration",
+        "innovation",
+        "completion",
+      ],
+      leaderboard_type: ["global", "project", "team", "challenge"],
       project_status: [
         "planning",
         "active",
@@ -1543,6 +1856,15 @@ export const Constants = {
         "cancelled",
       ],
       sprint_status: ["planning", "active", "completed"],
+      story_theme_category: [
+        "fantasy",
+        "sci_fi",
+        "adventure",
+        "mystery",
+        "corporate",
+        "space",
+        "medieval",
+      ],
       task_hierarchy_level: ["initiative", "epic", "story", "task", "subtask"],
       task_priority: ["low", "medium", "high", "urgent"],
       task_relationship_type: [
