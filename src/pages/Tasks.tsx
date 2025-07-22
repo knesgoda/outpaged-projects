@@ -32,7 +32,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { TaskDialog } from "@/components/kanban/TaskDialog";
-import { Task as TaskCardType } from "@/components/kanban/TaskCard";
+import { StandardizedTaskCard, StandardizedTask } from "@/components/ui/standardized-task-card";
 
 interface TaskType {
   id: string;
@@ -549,140 +549,16 @@ export default function Tasks() {
       ) : (
         <div className="space-y-4">
           {filteredTasks.map((task) => (
-            <Card 
-              key={task.id} 
-              className="hover:shadow-medium transition-shadow cursor-pointer group"
-              onClick={() => handleTaskClick(task)}
-            >
-              <CardContent className="p-6">
-                <div className="space-y-4">
-                  {/* Header */}
-                  <div className="flex items-start justify-between">
-                    <div className="space-y-2 flex-1">
-                      <h3 className="font-semibold text-foreground leading-tight">
-                        {task.title}
-                      </h3>
-                      {task.description && (
-                        <p className="text-sm text-muted-foreground line-clamp-2">
-                          {task.description}
-                        </p>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2 ml-4">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Badge className={hierarchyColors[task.hierarchy_level]} variant="secondary">
-                          {task.hierarchy_level}
-                        </Badge>
-                        <Badge variant="outline" className="text-xs">
-                          <span className="mr-1">{typeIcons[task.task_type]}</span>
-                          {task.task_type.replace('_', ' ')}
-                        </Badge>
-                        <Badge className={priorityColors[task.priority]} variant="secondary">
-                          {task.priority}
-                        </Badge>
-                        <Badge className={statusColors[task.status]} variant="secondary">
-                          {task.status.replace('_', ' ')}
-                        </Badge>
-                      </div>
-                      
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button 
-                            variant="ghost" 
-                            size="sm"
-                            className="opacity-0 group-hover:opacity-100 transition-opacity"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            ⋯
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={(e) => handleEditTask(e, task)}>
-                            <Edit className="w-4 h-4 mr-2" />
-                            Edit Task
-                          </DropdownMenuItem>
-                          {(task.hierarchy_level === 'epic' || task.hierarchy_level === 'initiative' || task.hierarchy_level === 'story') && (
-                            <DropdownMenuItem onClick={(e) => {
-                              e.stopPropagation();
-                              handleCreateSubTask(task);
-                            }}>
-                              <Plus className="w-4 h-4 mr-2" />
-                              Create Sub-task
-                            </DropdownMenuItem>
-                          )}
-                          <DropdownMenuItem 
-                            className="text-destructive"
-                            onClick={(e) => handleDeleteTask(e, task.id)}
-                          >
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </div>
-
-                  {/* Meta Information */}
-                  <div className="flex items-center justify-between text-sm text-muted-foreground">
-                    <div className="flex items-center gap-4">
-                       {(task as any).assignees && (task as any).assignees.length > 0 && (
-                         <div className="flex items-center gap-2">
-                           <div className="flex -space-x-1">
-                             {(task as any).assignees.slice(0, 3).map((assignee: any, index: number) => (
-                               <Avatar key={assignee.id} className="w-5 h-5 border border-background">
-                                 <AvatarImage src={assignee.avatar} />
-                                 <AvatarFallback className="text-xs">
-                                   {assignee.initials}
-                                 </AvatarFallback>
-                               </Avatar>
-                             ))}
-                             {(task as any).assignees.length > 3 && (
-                               <div className="w-5 h-5 rounded-full bg-muted border border-background flex items-center justify-center text-xs">
-                                 +{(task as any).assignees.length - 3}
-                               </div>
-                             )}
-                           </div>
-                           <span>
-                             {(task as any).assignees.length === 1 
-                               ? (task as any).assignees[0].name
-                               : `${(task as any).assignees.length} assignees`
-                             }
-                           </span>
-                         </div>
-                       )}
-                      
-                      {task.project && task.project.name && (
-                        <div className="flex items-center gap-1">
-                          <span>in</span>
-                          <span className="font-medium">{task.project.name}</span>
-                        </div>
-                      )}
-
-                      {task.due_date && (
-                        <div className="flex items-center gap-1">
-                          <Calendar className="w-3 h-3" />
-                          <span>Due {new Date(task.due_date).toLocaleDateString()}</span>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center gap-1">
-                        <MessageSquare className="w-3 h-3" />
-                        <span>0</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Paperclip className="w-3 h-3" />
-                        <span>0</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
-                        <span>0h</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <StandardizedTaskCard
+              key={task.id}
+              task={task as StandardizedTask}
+              onClick={handleTaskClick}
+              onEdit={(task) => handleEditTask({} as React.MouseEvent, task as TaskType)}
+              onDelete={(taskId) => handleDeleteTask({} as React.MouseEvent, taskId)}
+              onCreateSubTask={(task) => handleCreateSubTask(task as TaskType)}
+              showProject={true}
+              interactive={false}
+            />
           ))}
         </div>
       )}

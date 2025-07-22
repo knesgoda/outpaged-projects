@@ -143,7 +143,7 @@ export function KanbanBoard() {
         .from('project_members')
         .select(`
           user_id,
-          profiles (
+          profiles!project_members_user_id_fkey (
             full_name,
             avatar_url
           )
