@@ -14,6 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      achievements: {
+        Row: {
+          badge_image_url: string | null
+          created_at: string
+          description: string
+          icon: string
+          id: string
+          is_active: boolean | null
+          name: string
+          requirements: Json
+          reward_points: number | null
+          type: string
+        }
+        Insert: {
+          badge_image_url?: string | null
+          created_at?: string
+          description: string
+          icon: string
+          id?: string
+          is_active?: boolean | null
+          name: string
+          requirements: Json
+          reward_points?: number | null
+          type: string
+        }
+        Update: {
+          badge_image_url?: string | null
+          created_at?: string
+          description?: string
+          icon?: string
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          requirements?: Json
+          reward_points?: number | null
+          type?: string
+        }
+        Relationships: []
+      }
       admin_audit_log: {
         Row: {
           action: string
@@ -49,6 +88,83 @@ export type Database = {
           target_user_id?: string | null
         }
         Relationships: []
+      }
+      ai_helpers: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          description: string
+          id: string
+          is_active: boolean | null
+          name: string
+          personality: Json
+          specialties: string[] | null
+          system_prompt: string
+          usage_count: number | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          description: string
+          id?: string
+          is_active?: boolean | null
+          name: string
+          personality?: Json
+          specialties?: string[] | null
+          system_prompt: string
+          usage_count?: number | null
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          description?: string
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          personality?: Json
+          specialties?: string[] | null
+          system_prompt?: string
+          usage_count?: number | null
+        }
+        Relationships: []
+      }
+      challenge_participants: {
+        Row: {
+          challenge_id: string
+          completed: boolean | null
+          completed_at: string | null
+          id: string
+          joined_at: string
+          progress: Json | null
+          user_id: string
+        }
+        Insert: {
+          challenge_id: string
+          completed?: boolean | null
+          completed_at?: string | null
+          id?: string
+          joined_at?: string
+          progress?: Json | null
+          user_id: string
+        }
+        Update: {
+          challenge_id?: string
+          completed?: boolean | null
+          completed_at?: string | null
+          id?: string
+          joined_at?: string
+          progress?: Json | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "challenge_participants_challenge_id_fkey"
+            columns: ["challenge_id"]
+            isOneToOne: false
+            referencedRelation: "community_challenges"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       comments: {
         Row: {
@@ -92,6 +208,101 @@ export type Database = {
           },
         ]
       }
+      community_challenges: {
+        Row: {
+          challenge_type: string
+          created_at: string
+          created_by: string
+          current_participants: number | null
+          description: string
+          end_date: string
+          id: string
+          is_active: boolean | null
+          max_participants: number | null
+          requirements: Json
+          rewards: Json | null
+          start_date: string
+          title: string
+        }
+        Insert: {
+          challenge_type: string
+          created_at?: string
+          created_by: string
+          current_participants?: number | null
+          description: string
+          end_date: string
+          id?: string
+          is_active?: boolean | null
+          max_participants?: number | null
+          requirements: Json
+          rewards?: Json | null
+          start_date: string
+          title: string
+        }
+        Update: {
+          challenge_type?: string
+          created_at?: string
+          created_by?: string
+          current_participants?: number | null
+          description?: string
+          end_date?: string
+          id?: string
+          is_active?: boolean | null
+          max_participants?: number | null
+          requirements?: Json
+          rewards?: Json | null
+          start_date?: string
+          title?: string
+        }
+        Relationships: []
+      }
+      custom_story_views: {
+        Row: {
+          configuration: Json
+          created_at: string
+          id: string
+          is_default: boolean | null
+          layout_data: Json | null
+          project_id: string
+          updated_at: string
+          user_id: string
+          view_name: string
+          view_type: string
+        }
+        Insert: {
+          configuration?: Json
+          created_at?: string
+          id?: string
+          is_default?: boolean | null
+          layout_data?: Json | null
+          project_id: string
+          updated_at?: string
+          user_id: string
+          view_name: string
+          view_type: string
+        }
+        Update: {
+          configuration?: Json
+          created_at?: string
+          id?: string
+          is_default?: boolean | null
+          layout_data?: Json | null
+          project_id?: string
+          updated_at?: string
+          user_id?: string
+          view_name?: string
+          view_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "custom_story_views_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       kanban_columns: {
         Row: {
           color: string | null
@@ -125,6 +336,83 @@ export type Database = {
           project_id?: string
           updated_at?: string
           wip_limit?: number | null
+        }
+        Relationships: []
+      }
+      leaderboard_entries: {
+        Row: {
+          id: string
+          leaderboard_id: string
+          period_end: string
+          period_start: string
+          rank: number | null
+          score: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          leaderboard_id: string
+          period_end: string
+          period_start: string
+          rank?: number | null
+          score?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          leaderboard_id?: string
+          period_end?: string
+          period_start?: string
+          rank?: number | null
+          score?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leaderboard_entries_leaderboard_id_fkey"
+            columns: ["leaderboard_id"]
+            isOneToOne: false
+            referencedRelation: "leaderboards"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      leaderboards: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean | null
+          metric: string
+          name: string
+          reference_id: string | null
+          time_period: string
+          type: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          metric: string
+          name: string
+          reference_id?: string | null
+          time_period: string
+          type: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          metric?: string
+          name?: string
+          reference_id?: string | null
+          time_period?: string
+          type?: string
         }
         Relationships: []
       }
@@ -311,6 +599,188 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      story_chapters: {
+        Row: {
+          chapter_number: number
+          completion_percentage: number | null
+          content: string
+          created_at: string
+          id: string
+          is_unlocked: boolean | null
+          narrative_id: string
+          rewards: Json | null
+          title: string
+          unlock_requirements: Json | null
+        }
+        Insert: {
+          chapter_number: number
+          completion_percentage?: number | null
+          content: string
+          created_at?: string
+          id?: string
+          is_unlocked?: boolean | null
+          narrative_id: string
+          rewards?: Json | null
+          title: string
+          unlock_requirements?: Json | null
+        }
+        Update: {
+          chapter_number?: number
+          completion_percentage?: number | null
+          content?: string
+          created_at?: string
+          id?: string
+          is_unlocked?: boolean | null
+          narrative_id?: string
+          rewards?: Json | null
+          title?: string
+          unlock_requirements?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "story_chapters_narrative_id_fkey"
+            columns: ["narrative_id"]
+            isOneToOne: false
+            referencedRelation: "story_narratives"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      story_narratives: {
+        Row: {
+          character_profiles: Json | null
+          created_at: string
+          current_chapter: number | null
+          description: string | null
+          id: string
+          narrative_arc: Json
+          project_id: string
+          story_elements: Json | null
+          theme_id: string | null
+          title: string
+          total_chapters: number | null
+          updated_at: string
+        }
+        Insert: {
+          character_profiles?: Json | null
+          created_at?: string
+          current_chapter?: number | null
+          description?: string | null
+          id?: string
+          narrative_arc?: Json
+          project_id: string
+          story_elements?: Json | null
+          theme_id?: string | null
+          title: string
+          total_chapters?: number | null
+          updated_at?: string
+        }
+        Update: {
+          character_profiles?: Json | null
+          created_at?: string
+          current_chapter?: number | null
+          description?: string | null
+          id?: string
+          narrative_arc?: Json
+          project_id?: string
+          story_elements?: Json | null
+          theme_id?: string | null
+          title?: string
+          total_chapters?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "story_narratives_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "story_narratives_theme_id_fkey"
+            columns: ["theme_id"]
+            isOneToOne: false
+            referencedRelation: "story_themes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      story_templates: {
+        Row: {
+          category: string
+          created_at: string
+          created_by: string | null
+          description: string
+          id: string
+          is_premium: boolean | null
+          name: string
+          preview_image_url: string | null
+          template_data: Json
+          usage_count: number | null
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          created_by?: string | null
+          description: string
+          id?: string
+          is_premium?: boolean | null
+          name: string
+          preview_image_url?: string | null
+          template_data: Json
+          usage_count?: number | null
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          id?: string
+          is_premium?: boolean | null
+          name?: string
+          preview_image_url?: string | null
+          template_data?: Json
+          usage_count?: number | null
+        }
+        Relationships: []
+      }
+      story_themes: {
+        Row: {
+          background_image_url: string | null
+          color_scheme: Json | null
+          created_at: string
+          description: string | null
+          icon: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          background_image_url?: string | null
+          color_scheme?: Json | null
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          background_image_url?: string | null
+          color_scheme?: Json | null
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       swimlanes: {
         Row: {
@@ -651,6 +1121,79 @@ export type Database = {
           },
         ]
       }
+      user_achievements: {
+        Row: {
+          achievement_id: string
+          earned_at: string
+          id: string
+          progress_data: Json | null
+          user_id: string
+        }
+        Insert: {
+          achievement_id: string
+          earned_at?: string
+          id?: string
+          progress_data?: Json | null
+          user_id: string
+        }
+        Update: {
+          achievement_id?: string
+          earned_at?: string
+          id?: string
+          progress_data?: Json | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_achievements_achievement_id_fkey"
+            columns: ["achievement_id"]
+            isOneToOne: false
+            referencedRelation: "achievements"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_ai_interactions: {
+        Row: {
+          ai_helper_id: string
+          content: string
+          context_data: Json | null
+          created_at: string
+          id: string
+          message_type: string
+          session_id: string
+          user_id: string
+        }
+        Insert: {
+          ai_helper_id: string
+          content: string
+          context_data?: Json | null
+          created_at?: string
+          id?: string
+          message_type: string
+          session_id: string
+          user_id: string
+        }
+        Update: {
+          ai_helper_id?: string
+          content?: string
+          context_data?: Json | null
+          created_at?: string
+          id?: string
+          message_type?: string
+          session_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_ai_interactions_ai_helper_id_fkey"
+            columns: ["ai_helper_id"]
+            isOneToOne: false
+            referencedRelation: "ai_helpers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_notification_preferences: {
         Row: {
           created_at: string
@@ -694,6 +1237,48 @@ export type Database = {
           push_mentions?: boolean
           push_project_updates?: boolean
           push_task_updates?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_progression: {
+        Row: {
+          achievements: Json | null
+          created_at: string
+          experience_points: number | null
+          id: string
+          last_activity_date: string | null
+          level: number | null
+          story_progress: Json | null
+          streak_days: number | null
+          total_tasks_completed: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          achievements?: Json | null
+          created_at?: string
+          experience_points?: number | null
+          id?: string
+          last_activity_date?: string | null
+          level?: number | null
+          story_progress?: Json | null
+          streak_days?: number | null
+          total_tasks_completed?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          achievements?: Json | null
+          created_at?: string
+          experience_points?: number | null
+          id?: string
+          last_activity_date?: string | null
+          level?: number | null
+          story_progress?: Json | null
+          streak_days?: number | null
+          total_tasks_completed?: number | null
           updated_at?: string
           user_id?: string
         }

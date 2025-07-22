@@ -91,8 +91,9 @@ export function usePerformanceMonitoring() {
       const fidObserver = new PerformanceObserver((list) => {
         const entries = list.getEntries();
         entries.forEach((entry) => {
-          if (entry.processingStart && entry.startTime) {
-            const fid = entry.processingStart - entry.startTime;
+          const eventEntry = entry as any;
+          if (eventEntry.processingStart && entry.startTime) {
+            const fid = eventEntry.processingStart - entry.startTime;
             setVitals(prev => ({ ...prev, fid }));
           }
         });

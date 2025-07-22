@@ -18,13 +18,7 @@ export const mockUser: User = {
   new_email: '',
   invited_at: new Date().toISOString(),
   action_link: '',
-  email_change: '',
-  phone_change: '',
-  phone_change_sent_at: new Date().toISOString(),
   confirmed_at: new Date().toISOString(),
-  email_change_confirm_status: 0,
-  phone_change_confirm_status: 0,
-  banned_until: new Date().toISOString(),
   identities: [],
   factors: [],
   role: 'authenticated'

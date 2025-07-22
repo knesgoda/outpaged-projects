@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Keyboard, Command, Option, Shift } from 'lucide-react';
+import { Keyboard } from 'lucide-react';
 
 interface Shortcut {
   key: string;
