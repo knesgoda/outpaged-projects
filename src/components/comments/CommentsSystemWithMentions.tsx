@@ -57,7 +57,7 @@ export function CommentsSystemWithMentions({
         .from('comments')
         .select(`
           *,
-          author:profiles!comments_author_id_fkey (
+          author:profiles!author_id (
             full_name,
             avatar_url
           )
@@ -104,7 +104,7 @@ export function CommentsSystemWithMentions({
         })
         .select(`
           *,
-          author:profiles!comments_author_id_fkey (
+          author:profiles!author_id (
             full_name,
             avatar_url
           )
@@ -167,7 +167,7 @@ export function CommentsSystemWithMentions({
           .from('project_members')
           .select(`
             user_id,
-            profiles!project_members_user_id_fkey (
+            profiles!user_id (
               full_name
             )
           `)
