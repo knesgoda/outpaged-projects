@@ -263,54 +263,60 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-background border border-border">
+        <DialogHeader className="border-b border-border pb-4">
+          <DialogTitle className="text-xl font-semibold text-foreground">
             {task ? "Edit Task" : "Create New Task"}
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-muted-foreground">
             {task ? "Update task details and settings" : "Add a new task to your project"}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 pt-6">
           {/* Left Column - Task Details */}
           <div className="space-y-6">
             {/* Title */}
-            <div className="space-y-2">
-              <Label htmlFor="title">Title *</Label>
+            <div className="space-y-3">
+              <Label htmlFor="title" className="text-sm font-medium text-foreground">
+                Title <span className="text-destructive">*</span>
+              </Label>
               <Input
                 id="title"
                 value={formData.title}
                 onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
                 placeholder="Enter task title..."
+                className="bg-background border-input"
               />
             </div>
 
             {/* Description */}
-            <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
+            <div className="space-y-3">
+              <Label htmlFor="description" className="text-sm font-medium text-foreground">Description</Label>
               <Textarea
                 id="description"
                 value={formData.description}
                 onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                 placeholder="Describe the task..."
                 rows={4}
+                className="bg-background border-input resize-none"
               />
             </div>
 
             {/* Smart Task Type Selector */}
-            <SmartTaskTypeSelector
-              value={formData.smartTaskType}
-              onChange={(value) => setFormData(prev => ({ ...prev, smartTaskType: value }))}
-              label="What type of work is this?"
-              placeholder="Choose the type of work..."
-            />
+            <div className="space-y-3">
+              <SmartTaskTypeSelector
+                value={formData.smartTaskType}
+                onChange={(value) => setFormData(prev => ({ ...prev, smartTaskType: value }))}
+                label="What type of work is this?"
+                placeholder="Choose the type of work..."
+              />
+            </div>
 
             {/* Priority, Story Points, and Status Row */}
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Priority</Label>
+              <div className="space-y-3">
+                <Label className="text-sm font-medium text-foreground">Priority</Label>
                 <Select
                   value={formData.priority}
                   onValueChange={(value) => setFormData(prev => ({ 
@@ -318,10 +324,10 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
                     priority: value as Task["priority"] 
                   }))}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="bg-background border-input">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-background border-border z-50">
                     <SelectItem value="low">Low</SelectItem>
                     <SelectItem value="medium">Medium</SelectItem>
                     <SelectItem value="high">High</SelectItem>
@@ -330,8 +336,8 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
                 </Select>
               </div>
 
-              <div className="space-y-2">
-                <Label>Story Points</Label>
+              <div className="space-y-3">
+                <Label className="text-sm font-medium text-foreground">Story Points</Label>
                 <Select
                   value={formData.story_points?.toString() || "none"}
                   onValueChange={(value) => setFormData(prev => ({ 
@@ -339,10 +345,10 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
                     story_points: value === "none" ? null : parseInt(value)
                   }))}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="bg-background border-input">
                     <SelectValue placeholder="Select points..." />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-background border-border z-50">
                     <SelectItem value="none">No points</SelectItem>
                     <SelectItem value="1">1</SelectItem>
                     <SelectItem value="2">2</SelectItem>
@@ -358,8 +364,8 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
 
             {/* Status Selection for editing tasks */}
             {task && (
-              <div className="space-y-2">
-                <Label>Status</Label>
+              <div className="space-y-3">
+                <Label className="text-sm font-medium text-foreground">Status</Label>
                 <Select
                   value={task.status}
                   onValueChange={(value) => setFormData(prev => ({ 
@@ -367,10 +373,10 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
                     status: value 
                   }))}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="bg-background border-input">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-background border-border z-50">
                     <SelectItem value="todo">To Do</SelectItem>
                     <SelectItem value="in_progress">In Progress</SelectItem>
                     <SelectItem value="in_review">Review</SelectItem>
@@ -383,13 +389,13 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
             {/* Assignee Row */}
             <div className="grid grid-cols-1 gap-4">
 
-              <div className="space-y-2">
-                <Label>Assignees</Label>
-                <div className="space-y-2">
+              <div className="space-y-3">
+                <Label className="text-sm font-medium text-foreground">Assignees</Label>
+                <div className="space-y-3">
                   {formData.assignees.length > 0 && (
                     <div className="flex flex-wrap gap-2">
                       {formData.assignees.map((assignee) => (
-                        <Badge key={assignee.id} variant="secondary" className="flex items-center gap-2">
+                        <Badge key={assignee.id} variant="secondary" className="flex items-center gap-2 bg-muted">
                           <Avatar className="w-4 h-4">
                             <AvatarImage src={assignee.avatar} />
                             <AvatarFallback className="text-xs">
@@ -434,10 +440,10 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
                       }
                     }}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="bg-background border-input">
                       <SelectValue placeholder="Add assignee..." />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="bg-background border-border z-50">
                       {teamMembers
                         .filter(member => !formData.assignees.find(a => a.id === member.id))
                         .map((member) => (
@@ -460,14 +466,14 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
             </div>
 
             {/* Due Date */}
-            <div className="space-y-2">
-              <Label>Due Date</Label>
+            <div className="space-y-3">
+              <Label className="text-sm font-medium text-foreground">Due Date</Label>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button
                     variant="outline"
                     className={cn(
-                      "w-full justify-start text-left font-normal",
+                      "w-full justify-start text-left font-normal bg-background border-input",
                       !formData.dueDate && "text-muted-foreground"
                     )}
                   >
@@ -475,29 +481,31 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
                     {formData.dueDate ? format(formData.dueDate, "PPP") : "Pick a date"}
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
+                <PopoverContent className="w-auto p-0 bg-background border-border" align="start">
                   <Calendar
                     mode="single"
                     selected={formData.dueDate}
                     onSelect={(date) => setFormData(prev => ({ ...prev, dueDate: date }))}
                     initialFocus
+                    className="bg-background"
                   />
                 </PopoverContent>
               </Popover>
             </div>
 
             {/* Tags */}
-            <div className="space-y-2">
-              <Label>Tags</Label>
-              <div className="space-y-2">
+            <div className="space-y-3">
+              <Label className="text-sm font-medium text-foreground">Tags</Label>
+              <div className="space-y-3">
                 <div className="flex gap-2">
                   <Input
                     value={newTag}
                     onChange={(e) => setNewTag(e.target.value)}
                     placeholder="Add a tag..."
                     onKeyPress={(e) => e.key === "Enter" && addTag()}
+                    className="bg-background border-input"
                   />
-                  <Button type="button" variant="outline" onClick={addTag}>
+                  <Button type="button" variant="outline" onClick={addTag} className="bg-background border-input">
                     Add
                   </Button>
                 </div>
