@@ -33,7 +33,7 @@ import { useFileUpload } from "@/hooks/useFileUpload";
 import { useToast } from "@/hooks/use-toast";
 import { TimeTracker } from "@/components/time-tracking/TimeTracker";
 import { TimeEntriesList } from "@/components/time-tracking/TimeEntriesList";
-import { CommentsSystem } from "@/components/comments/CommentsSystem";
+import { CommentsSystemWithMentions } from "@/components/comments/CommentsSystemWithMentions";
 import { TaskRelationshipsDialog } from "@/components/tasks/TaskRelationshipsDialog";
 import { TaskRelationshipIndicator } from "@/components/tasks/TaskRelationshipIndicator";
 import { useTaskRelationships } from "@/hooks/useTaskRelationships";
@@ -525,9 +525,9 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
             {task?.id && (
               <section>
                 <h3 className="text-lg font-medium text-foreground mb-3">Comments</h3>
-                <CommentsSystem 
+                <CommentsSystemWithMentions 
                   taskId={task.id} 
-                  onCommentCountChange={setCommentCount}
+                  projectId={projectId}
                 />
               </section>
             )}
