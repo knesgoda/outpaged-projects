@@ -22,6 +22,8 @@ import {
 } from "lucide-react";
 import { TeamMember } from "./TeamDirectory";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/components/ui/use-toast";
 
 const mockProjects: any[] = [];
 const mockRecentActivity: any[] = [];
@@ -29,6 +31,8 @@ const mockRecentActivity: any[] = [];
 export default function TeamMemberProfile() {
   const { memberId } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const { toast } = useToast();
   const [member, setMember] = useState<TeamMember | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -94,6 +98,35 @@ export default function TeamMemberProfile() {
     fetchMemberData();
   }, [memberId]);
 
+  const handleMessage = () => {
+    if (!member) return;
+    
+    // For now, show a toast with the action
+    toast({
+      title: "Message Feature",
+      description: `Starting a conversation with ${member.name}`,
+    });
+    
+    // TODO: Implement actual messaging functionality
+    // This could navigate to a messaging interface or open a chat dialog
+  };
+
+  const handleEditProfile = () => {
+    if (!member) return;
+    
+    // For now, show a toast with the action
+    toast({
+      title: "Edit Profile",
+      description: "Profile editing functionality coming soon",
+    });
+    
+    // TODO: Implement actual profile editing functionality
+    // This could navigate to an edit form or open an edit dialog
+  };
+
+  // Check if the current user is viewing their own profile
+  const isOwnProfile = user?.id === memberId;
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -131,14 +164,18 @@ export default function TeamMemberProfile() {
           <p className="text-muted-foreground">View and manage team member details</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline">
-            <MessageSquare className="w-4 h-4 mr-2" />
-            Message
-          </Button>
-          <Button className="bg-gradient-primary hover:opacity-90">
-            <Edit className="w-4 h-4 mr-2" />
-            Edit Profile
-          </Button>
+          {!isOwnProfile && (
+            <Button variant="outline" onClick={handleMessage}>
+              <MessageSquare className="w-4 h-4 mr-2" />
+              Message
+            </Button>
+          )}
+          {isOwnProfile && (
+            <Button className="bg-gradient-primary hover:opacity-90" onClick={handleEditProfile}>
+              <Edit className="w-4 h-4 mr-2" />
+              Edit Profile
+            </Button>
+          )}
         </div>
       </div>
 
