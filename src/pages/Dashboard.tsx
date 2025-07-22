@@ -7,14 +7,9 @@ import {
   CheckSquare, 
   Users, 
   Calendar, 
-  TrendingUp, 
   Clock,
   ArrowRight,
-  Plus,
-  BookOpen,
-  Trophy,
-  Target,
-  Zap
+  Plus
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
@@ -22,18 +17,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { QuickActions } from "@/components/dashboard/QuickActions";
 import { TaskManagementDashboard } from "@/components/dashboard/TaskManagementDashboard";
-import { StoryProgressCard } from "@/components/story/StoryProgressCard";
-import { DailyChallengeCard } from "@/components/challenges/DailyChallengeCard";
-import { SkillProgressCard } from "@/components/skills/SkillProgressCard";
-import { useDailyChallenges } from "@/hooks/useDailyChallenges";
-import { useSkillDevelopment } from "@/hooks/useSkillDevelopment";
 
 export default function Dashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { challenges, loading: challengesLoading } = useDailyChallenges();
-  const { skills, loading: skillsLoading } = useSkillDevelopment();
   
   const [stats, setStats] = useState({
     projects: 0,
@@ -43,7 +31,6 @@ export default function Dashboard() {
   });
   const [recentProjects, setRecentProjects] = useState<any[]>([]);
   const [recentTasks, setRecentTasks] = useState<any[]>([]);
-  const [storyNarratives, setStoryNarratives] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -77,14 +64,6 @@ export default function Dashboard() {
 
       if (tasksError) throw tasksError;
 
-      // Fetch story narratives
-      const { data: narratives, error: narrativesError } = await supabase
-        .from('story_narratives')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(3);
-
-      if (narrativesError) throw narrativesError;
 
       // Calculate stats
       const activeProjects = projects?.filter(p => p.status === 'active').length || 0;
@@ -99,7 +78,6 @@ export default function Dashboard() {
 
       setRecentProjects(projects?.slice(0, 3) || []);
       setRecentTasks(tasks?.slice(0, 5) || []);
-      setStoryNarratives(narratives || []);
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
       toast({
@@ -211,143 +189,6 @@ export default function Dashboard() {
         ))}
       </div>
 
-      {/* Gamification Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Daily Challenges */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <Target className="w-5 h-5" />
-                Daily Challenges
-              </CardTitle>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => navigate('/dashboard/challenges')}
-              >
-                View All
-                <ArrowRight className="w-4 h-4 ml-1" />
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {challengesLoading ? (
-              <div className="animate-pulse space-y-3">
-                <div className="h-4 bg-muted rounded w-3/4"></div>
-                <div className="h-4 bg-muted rounded w-1/2"></div>
-              </div>
-            ) : challenges.length > 0 ? (
-              <div className="space-y-3">
-                {challenges.slice(0, 2).map((challenge) => (
-                  <div key={challenge.id} className="p-3 border rounded-lg">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="font-medium text-sm">{challenge.title}</p>
-                        <p className="text-xs text-muted-foreground">{challenge.difficulty_level} stars</p>
-                      </div>
-                      <Badge variant="outline" className="text-xs">
-                        {challenge.rewards?.points || 0} pts
-                      </Badge>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">No active challenges</p>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Skill Development */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="w-5 h-5" />
-                Skills Progress
-              </CardTitle>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => navigate('/dashboard/skills')}
-              >
-                View All
-                <ArrowRight className="w-4 h-4 ml-1" />
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {skillsLoading ? (
-              <div className="animate-pulse space-y-3">
-                <div className="h-4 bg-muted rounded w-3/4"></div>
-                <div className="h-4 bg-muted rounded w-1/2"></div>
-              </div>
-            ) : skills.length > 0 ? (
-              <div className="space-y-3">
-                {skills.slice(0, 2).map((skill) => (
-                  <div key={skill.id} className="p-3 border rounded-lg">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="font-medium text-sm capitalize">{skill.skill_name}</p>
-                        <p className="text-xs text-muted-foreground">Level {skill.current_level}</p>
-                      </div>
-                      <Badge variant="secondary" className="text-xs">
-                        {skill.experience_points} XP
-                      </Badge>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">No skills tracked yet</p>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Story Progress */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <BookOpen className="w-5 h-5" />
-                Story Progress
-              </CardTitle>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => navigate('/dashboard/stories')}
-              >
-                View All
-                <ArrowRight className="w-4 h-4 ml-1" />
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {storyNarratives.length > 0 ? (
-              <div className="space-y-3">
-                {storyNarratives.slice(0, 2).map((narrative) => (
-                  <div key={narrative.id} className="p-3 border rounded-lg">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="font-medium text-sm">{narrative.title}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {narrative.completion_percentage}% complete
-                        </p>
-                      </div>
-                      <Badge variant="outline" className="text-xs">
-                        Chapter {narrative.current_chapter}
-                      </Badge>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">No stories started</p>
-            )}
-          </CardContent>
-        </Card>
-       </div>
 
        {/* Enhanced Task Management Section */}
        <div className="space-y-6">
@@ -356,7 +197,7 @@ export default function Dashboard() {
            <Button
              variant="outline"
              size="sm"
-             onClick={() => navigate('/dashboard/kanban')}
+             onClick={() => navigate('/dashboard/board')}
            >
              Open Kanban Board
              <ArrowRight className="w-4 h-4 ml-1" />

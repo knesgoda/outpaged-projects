@@ -27,11 +27,11 @@ import { TaskCard, Task } from "@/components/kanban/TaskCard";
 import { EnhancedTaskDialog } from "@/components/kanban/EnhancedTaskDialog";
 import { BulkOperations } from "@/components/kanban/BulkOperations";
 import { TaskTemplates } from "@/components/kanban/TaskTemplates";
-import { TaskMetrics } from "@/components/kanban/TaskMetrics";
 import { ProjectSelector } from "@/components/kanban/ProjectSelector";
 import { KanbanFiltersComponent, KanbanFilters } from "@/components/kanban/KanbanFilters";
 import { BoardSettings } from "@/components/kanban/BoardSettings";
-import { Plus, ArrowLeft, Settings, Layers } from "lucide-react";
+import { StatsPanel } from "@/components/kanban/StatsPanel";
+import { Plus, ArrowLeft, Settings, Layers, BarChart3 } from "lucide-react";
 
 interface KanbanColumnData {
   id: string;
@@ -286,28 +286,37 @@ export function KanbanBoard() {
       const newColumns = kanbanColumns.map(col => {
         // Find the status mapping for this column
         const mapping = statusMappings?.find(m => m.column_id === col.id);
-        const targetStatus = mapping?.status_value || col.name.toLowerCase().replace(/ /g, '_');
         
         const columnTasks = tasksWithDetails.filter(task => {
           // Handle both custom status mappings and standard statuses
           if (mapping) {
-            return task.status === targetStatus;
+            const targetStatus = mapping.status_value;
+            // Create a comprehensive mapping for status matching
+            const statusMappings = {
+              'to_do': ['todo', 'to_do'],
+              'todo': ['todo', 'to_do'],
+              'in_progress': ['in_progress', 'doing'],
+              'blocked': ['blocked'],
+              'review': ['in_review', 'review', 'testing'],
+              'in_review': ['in_review', 'review', 'testing'],
+              'done': ['done', 'complete', 'completed']
+            };
+            
+            const validStatuses = statusMappings[targetStatus] || [targetStatus];
+            return validStatuses.includes(task.status);
           } else {
             // Fallback to standard status mapping if no custom mapping exists
             const standardMapping = {
-              'to do': 'todo',
-              'todo': 'todo',
-              'in progress': 'in_progress',
-              'doing': 'in_progress',
-              'review': 'in_review',
-              'in review': 'in_review',
-              'testing': 'in_review',
-              'done': 'done',
-              'complete': 'done',
-              'completed': 'done'
+              'to do': ['todo', 'to_do'],
+              'todo': ['todo', 'to_do'],
+              'in progress': ['in_progress', 'doing'],
+              'blocked': ['blocked'],
+              'review': ['in_review', 'review', 'testing'],
+              'in review': ['in_review', 'review', 'testing'],
+              'done': ['done', 'complete', 'completed']
             };
-            const expectedStatus = standardMapping[col.name.toLowerCase()] || targetStatus;
-            return task.status === expectedStatus;
+            const validStatuses = standardMapping[col.name.toLowerCase()] || [col.name.toLowerCase().replace(/ /g, '_')];
+            return validStatuses.includes(task.status);
           }
         });
 
@@ -942,6 +951,13 @@ export function KanbanBoard() {
           </Button>
           <TaskTemplates projectId={currentProjectId!} onTaskCreated={fetchTasks} />
           <BoardSettings projectId={currentProjectId!} onUpdate={fetchTasks} />
+          <StatsPanel tasks={filteredColumns.flatMap(col => col.tasks)}>
+            <Button variant="outline" className="w-full sm:w-auto">
+              <BarChart3 className="w-4 h-4 mr-2" />
+              <span className="hidden sm:inline">Statistics</span>
+              <span className="sm:hidden">Stats</span>
+            </Button>
+          </StatsPanel>
           <Button variant="outline" onClick={addNewColumn} className="w-full sm:w-auto">
             <Plus className="w-4 h-4 mr-2" />
             <span className="hidden sm:inline">Add Column</span>
@@ -958,8 +974,6 @@ export function KanbanBoard() {
         </div>
       </div>
 
-      {/* Task Metrics */}
-      <TaskMetrics tasks={filteredColumns.flatMap(col => col.tasks)} />
 
       {/* Enhanced Filters */}
       <KanbanFiltersComponent

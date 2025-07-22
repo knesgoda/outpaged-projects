@@ -28,11 +28,7 @@ import {
   Clock, 
   Target, 
   Bell, 
-  Building2,
-  BookOpen,
-  Trophy,
-  TrendingUp,
-  Zap
+  Building2
 } from "lucide-react";
 
 interface NavItem {
@@ -117,32 +113,6 @@ const navigationItems = [
   }
 ];
 
-const gamificationItems = [
-  {
-    title: "Stories",
-    url: "/dashboard/stories",
-    icon: BookOpen,
-    description: "Interactive project narratives"
-  },
-  {
-    title: "Challenges",
-    url: "/dashboard/challenges",
-    icon: Zap,
-    description: "Daily and community challenges"
-  },
-  {
-    title: "Skills",
-    url: "/dashboard/skills",
-    icon: TrendingUp,
-    description: "Track your skill development"
-  },
-  {
-    title: "Leaderboards",
-    url: "/dashboard/leaderboards",
-    icon: Trophy,
-    description: "See how you rank"
-  }
-];
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { user } = useAuth();
@@ -195,21 +165,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           </SidebarMenu>
         </SidebarGroup>
 
-        <SidebarGroup>
-          <SidebarGroupLabel>Gamification</SidebarGroupLabel>
-          <SidebarMenu>
-            {gamificationItems.map((item) => (
-              <SidebarMenuItem key={item.title}>
-                <SidebarMenuButton asChild tooltip={item.description}>
-                  <Link to={item.url}>
-                    <item.icon />
-                    <span>{item.title}</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            ))}
-          </SidebarMenu>
-        </SidebarGroup>
 
         {enterpriseItems.length > 0 && (
           <SidebarGroup>
