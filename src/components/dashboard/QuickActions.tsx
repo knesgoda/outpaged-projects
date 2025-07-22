@@ -1,7 +1,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, FolderOpen, CheckSquare, Users, Calendar, Search, Settings } from "lucide-react";
+import { Plus, FolderOpen, CheckSquare, Users, Calendar, Search, Settings, BookOpen, Zap, TrendingUp, Trophy } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 export function QuickActions() {
@@ -23,6 +23,34 @@ export function QuickActions() {
       color: "bg-success"
     },
     {
+      title: "View Stories",
+      description: "Explore project narratives",
+      icon: BookOpen,
+      action: () => navigate('/dashboard/stories'),
+      color: "bg-purple-500"
+    },
+    {
+      title: "Challenges",
+      description: "Complete daily challenges",
+      icon: Zap,
+      action: () => navigate('/dashboard/challenges'),
+      color: "bg-orange-500"
+    },
+    {
+      title: "Skills",
+      description: "Track your development",
+      icon: TrendingUp,
+      action: () => navigate('/dashboard/skills'),
+      color: "bg-blue-500"
+    },
+    {
+      title: "Leaderboards",
+      description: "See your ranking",
+      icon: Trophy,
+      action: () => navigate('/dashboard/leaderboards'),
+      color: "bg-yellow-500"
+    },
+    {
       title: "View Team",
       description: "Manage team members",
       icon: Users,
@@ -30,18 +58,18 @@ export function QuickActions() {
       color: "bg-accent"
     },
     {
-      title: "Search",
-      description: "Find projects and tasks",
-      icon: Search,
-      action: () => navigate('/dashboard/search'),
-      color: "bg-warning"
-    },
-    {
       title: "Sprint Planning",
       description: "Plan your sprints",
       icon: Calendar,
       action: () => navigate('/dashboard/sprints'),
       color: "bg-primary"
+    },
+    {
+      title: "Search",
+      description: "Find projects and tasks",
+      icon: Search,
+      action: () => navigate('/dashboard/search'),
+      color: "bg-warning"
     },
     {
       title: "Settings",
@@ -61,7 +89,7 @@ export function QuickActions() {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 gap-3">
           {actions.map((action) => (
             <Button
               key={action.title}

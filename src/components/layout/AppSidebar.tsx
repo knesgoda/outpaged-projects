@@ -1,3 +1,4 @@
+
 import React from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
@@ -14,7 +15,25 @@ import {
   SidebarGroup,
   SidebarGroupLabel,
 } from "@/components/ui/sidebar";
-import { Home, Folder, CheckSquare, Calendar, Users, BarChart3, Settings, Search, FileText, Clock, Target, Bell, Menu, ChevronDown, Building2 } from "lucide-react";
+import { 
+  Home, 
+  Folder, 
+  CheckSquare, 
+  Calendar, 
+  Users, 
+  BarChart3, 
+  Settings, 
+  Search, 
+  FileText, 
+  Clock, 
+  Target, 
+  Bell, 
+  Building2,
+  BookOpen,
+  Trophy,
+  TrendingUp,
+  Zap
+} from "lucide-react";
 
 interface NavItem {
   title: string;
@@ -98,18 +117,36 @@ const navigationItems = [
   }
 ];
 
+const gamificationItems = [
+  {
+    title: "Stories",
+    url: "/dashboard/stories",
+    icon: BookOpen,
+    description: "Interactive project narratives"
+  },
+  {
+    title: "Challenges",
+    url: "/dashboard/challenges",
+    icon: Zap,
+    description: "Daily and community challenges"
+  },
+  {
+    title: "Skills",
+    url: "/dashboard/skills",
+    icon: TrendingUp,
+    description: "Track your skill development"
+  },
+  {
+    title: "Leaderboards",
+    url: "/dashboard/leaderboards",
+    icon: Trophy,
+    description: "See how you rank"
+  }
+];
+
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { user } = useAuth();
   const { isAdmin } = useIsAdmin();
-  const [expandedGroups, setExpandedGroups] = React.useState<string[]>(['main']);
-
-  const toggleGroup = (groupId: string) => {
-    setExpandedGroups(prev => 
-      prev.includes(groupId) 
-        ? prev.filter(id => id !== groupId)
-        : [...prev, groupId]
-    );
-  };
 
   // Add enterprise navigation for admins
   const enterpriseItems = isAdmin ? [
@@ -146,6 +183,22 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           <SidebarGroupLabel>Navigation</SidebarGroupLabel>
           <SidebarMenu>
             {navigationItems.map((item) => (
+              <SidebarMenuItem key={item.title}>
+                <SidebarMenuButton asChild tooltip={item.description}>
+                  <Link to={item.url}>
+                    <item.icon />
+                    <span>{item.title}</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            ))}
+          </SidebarMenu>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel>Gamification</SidebarGroupLabel>
+          <SidebarMenu>
+            {gamificationItems.map((item) => (
               <SidebarMenuItem key={item.title}>
                 <SidebarMenuButton asChild tooltip={item.description}>
                   <Link to={item.url}>

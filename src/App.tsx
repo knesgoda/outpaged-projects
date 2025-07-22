@@ -31,6 +31,10 @@ import ProjectTemplates from "./pages/ProjectTemplates";
 import Settings from "./pages/Settings";
 import ProjectSettings from "./pages/ProjectSettings";
 import Search from "./pages/Search";
+import Stories from "./pages/Stories";
+import Challenges from "./pages/Challenges";
+import Skills from "./pages/Skills";
+import Leaderboards from "./pages/Leaderboards";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
@@ -90,6 +94,10 @@ const App = () => (
                   <Route path="team" element={<TeamDirectory />} />
                   <Route path="team/:memberId" element={<TeamMemberProfile />} />
                   <Route path="enterprise" element={<EnterpriseControlPanel />} />
+                  <Route path="stories" element={<Stories />} />
+                  <Route path="challenges" element={<Challenges />} />
+                  <Route path="skills" element={<Skills />} />
+                  <Route path="leaderboards" element={<Leaderboards />} />
                 </Route>
                 
                 {/* Default route - redirect based on auth status */}
