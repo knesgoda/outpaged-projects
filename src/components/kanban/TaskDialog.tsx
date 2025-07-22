@@ -1,10 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, KeyboardEvent } from "react";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,8 +24,9 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { FileUpload, UploadedFile } from "@/components/ui/file-upload";
 import { SmartTaskTypeSelector, SMART_TASK_TYPE_OPTIONS } from "@/components/tasks/SmartTaskTypeSelector";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { Task } from "./TaskCard";
-import { CalendarIcon, X, User, Tag, MessageSquare, Paperclip, GitBranch } from "lucide-react";
+import { CalendarIcon, X, User, Tag, MessageSquare, Paperclip, GitBranch, Check, XCircle } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useFileUpload } from "@/hooks/useFileUpload";
@@ -53,6 +51,11 @@ interface TaskDialogProps {
 }
 
 export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId }: TaskDialogProps) {
+  // Editing states for inline editing
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [isEditingDescription, setIsEditingDescription] = useState(false);
+  const titleInputRef = useRef<HTMLInputElement>(null);
+  
   const [formData, setFormData] = useState({
     title: task?.title || "",
     description: task?.description || "",
@@ -68,6 +71,10 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
     blocking_reason: task?.blocking_reason || "",
     story_points: task?.story_points || null,
   });
+
+  // Temporary editing states
+  const [editedTitle, setEditedTitle] = useState(task?.title || "");
+  const [editedDescription, setEditedDescription] = useState(task?.description || "");
 
   const [teamMembers, setTeamMembers] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -261,308 +268,229 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
     }));
   };
 
+  // Inline editing handlers for title
+  const cancelTitle = () => {
+    setEditedTitle(task?.title || "");
+    setIsEditingTitle(false);
+  };
+
+  const saveTitle = () => {
+    if (editedTitle.trim() && editedTitle !== task?.title) {
+      setFormData(prev => ({ ...prev, title: editedTitle.trim() }));
+    }
+    setIsEditingTitle(false);
+  };
+
+  const onTitleKey = (e: KeyboardEvent) => {
+    if (e.key === 'Enter') saveTitle();
+    if (e.key === 'Escape') cancelTitle();
+  };
+
+  // Inline editing handlers for description
+  const cancelDescription = () => {
+    setEditedDescription(task?.description || "");
+    setIsEditingDescription(false);
+  };
+
+  const saveDescription = () => {
+    if (editedDescription !== task?.description) {
+      setFormData(prev => ({ ...prev, description: editedDescription }));
+    }
+    setIsEditingDescription(false);
+  };
+
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case 'urgent': return 'hsl(var(--destructive))';
+      case 'high': return 'hsl(var(--destructive) / 0.8)';
+      case 'medium': return 'hsl(var(--warning))';
+      case 'low': return 'hsl(var(--success))';
+      default: return 'hsl(var(--muted))';
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'done': return 'hsl(var(--success))';
+      case 'in_progress': return 'hsl(var(--primary))';
+      case 'in_review': return 'hsl(var(--warning))';
+      default: return 'hsl(var(--muted))';
+    }
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-background border border-border">
-        <DialogHeader className="border-b border-border pb-4">
-          <DialogTitle className="text-xl font-semibold text-foreground">
-            {task ? "Edit Task" : "Create New Task"}
-          </DialogTitle>
-          <DialogDescription className="text-muted-foreground">
-            {task ? "Update task details and settings" : "Add a new task to your project"}
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden bg-card border border-border p-0">
+        {/* Header with title editing and status button */}
+        <div className="flex justify-between items-start px-6 py-4 border-b border-border bg-muted/30">
+          <div className="flex-1 min-w-0">
+            <p className="text-sm text-muted-foreground mb-1">
+              {task?.parent_id ? `${task.parent_id} • ${task?.id || 'NEW'}` : (task?.id || 'NEW')}
+            </p>
+            
+            {isEditingTitle ? (
+              <div className="flex items-center gap-2">
+                <Input
+                  ref={titleInputRef}
+                  value={editedTitle}
+                  onChange={(e) => setEditedTitle(e.target.value)}
+                  onKeyDown={onTitleKey}
+                  className="text-xl font-semibold bg-background border-input"
+                  autoFocus
+                />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={saveTitle}
+                  className="p-1 h-auto text-primary"
+                >
+                  <Check className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={cancelTitle}
+                  className="p-1 h-auto text-muted-foreground"
+                >
+                  <XCircle className="h-4 w-4" />
+                </Button>
+              </div>
+            ) : (
+              <h1
+                onClick={() => {
+                  setEditedTitle(formData.title);
+                  setIsEditingTitle(true);
+                  setTimeout(() => titleInputRef.current?.focus(), 0);
+                }}
+                className="text-xl font-semibold text-foreground hover:bg-accent/50 rounded px-2 py-1 -mx-2 cursor-text"
+              >
+                {formData.title || "Untitled Task"}
+              </h1>
+            )}
+          </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 pt-6">
-          {/* Left Column - Task Details */}
-          <div className="space-y-6">
-            {/* Title */}
-            <div className="space-y-3">
-              <Label htmlFor="title" className="text-sm font-medium text-foreground">
-                Title <span className="text-destructive">*</span>
-              </Label>
-              <Input
-                id="title"
-                value={formData.title}
-                onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-                placeholder="Enter task title..."
-                className="bg-background border-input"
-              />
-            </div>
+          <div className="flex items-center gap-2 ml-4">
+            {/* Status Button */}
+            <Select
+              value={formData.status}
+              onValueChange={(value) => setFormData(prev => ({ ...prev, status: value }))}
+            >
+              <SelectTrigger className="w-auto bg-background border-input">
+                <div className="flex items-center gap-2">
+                  <div 
+                    className="w-2 h-2 rounded-full" 
+                    style={{ backgroundColor: getStatusColor(formData.status) }}
+                  />
+                  <SelectValue />
+                </div>
+              </SelectTrigger>
+              <SelectContent className="bg-background border-border z-50">
+                <SelectItem value="todo">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-muted" />
+                    To Do
+                  </div>
+                </SelectItem>
+                <SelectItem value="in_progress">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-primary" />
+                    In Progress
+                  </div>
+                </SelectItem>
+                <SelectItem value="in_review">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-warning" />
+                    In Review
+                  </div>
+                </SelectItem>
+                <SelectItem value="done">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-success" />
+                    Done
+                  </div>
+                </SelectItem>
+              </SelectContent>
+            </Select>
 
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onClose}
+              className="text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+
+        <div className="flex h-[calc(90vh-140px)]">
+          {/* Left Column - Main Content */}
+          <div className="flex-1 p-6 space-y-6 overflow-y-auto">
             {/* Description */}
-            <div className="space-y-3">
-              <Label htmlFor="description" className="text-sm font-medium text-foreground">Description</Label>
-              <Textarea
-                id="description"
-                value={formData.description}
-                onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                placeholder="Describe the task..."
-                rows={4}
-                className="bg-background border-input resize-none"
-              />
-            </div>
+            <section>
+              <h3 className="text-lg font-medium text-foreground mb-3">Description</h3>
+              
+              {isEditingDescription ? (
+                <div className="space-y-3">
+                  <RichTextEditor
+                    value={editedDescription}
+                    onChange={setEditedDescription}
+                    placeholder="Describe the task..."
+                    className="bg-background border-input"
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={saveDescription}
+                      size="sm"
+                      className="bg-primary text-primary-foreground hover:bg-primary/90"
+                    >
+                      Save
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={cancelDescription}
+                      size="sm"
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div
+                  onClick={() => {
+                    setEditedDescription(formData.description);
+                    setIsEditingDescription(true);
+                  }}
+                  className="min-h-[100px] p-4 bg-muted/30 border border-input rounded-md cursor-text hover:bg-muted/50 transition-colors"
+                >
+                  {formData.description ? (
+                    <RichTextEditor
+                      value={formData.description}
+                      onChange={() => {}}
+                      readOnly
+                      theme="bubble"
+                      className="pointer-events-none"
+                    />
+                  ) : (
+                    <p className="text-muted-foreground">Click to add a description...</p>
+                  )}
+                </div>
+              )}
+            </section>
 
-            {/* Smart Task Type Selector */}
-            <div className="space-y-3">
+            {/* Task Type */}
+            <section>
               <SmartTaskTypeSelector
                 value={formData.smartTaskType}
                 onChange={(value) => setFormData(prev => ({ ...prev, smartTaskType: value }))}
                 label="What type of work is this?"
                 placeholder="Choose the type of work..."
               />
-            </div>
-
-            {/* Priority, Story Points, and Status Row */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-3">
-                <Label className="text-sm font-medium text-foreground">Priority</Label>
-                <Select
-                  value={formData.priority}
-                  onValueChange={(value) => setFormData(prev => ({ 
-                    ...prev, 
-                    priority: value as Task["priority"] 
-                  }))}
-                >
-                  <SelectTrigger className="bg-background border-input">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="bg-background border-border z-50">
-                    <SelectItem value="low">Low</SelectItem>
-                    <SelectItem value="medium">Medium</SelectItem>
-                    <SelectItem value="high">High</SelectItem>
-                    <SelectItem value="urgent">Urgent</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-3">
-                <Label className="text-sm font-medium text-foreground">Story Points</Label>
-                <Select
-                  value={formData.story_points?.toString() || "none"}
-                  onValueChange={(value) => setFormData(prev => ({ 
-                    ...prev, 
-                    story_points: value === "none" ? null : parseInt(value)
-                  }))}
-                >
-                  <SelectTrigger className="bg-background border-input">
-                    <SelectValue placeholder="Select points..." />
-                  </SelectTrigger>
-                  <SelectContent className="bg-background border-border z-50">
-                    <SelectItem value="none">No points</SelectItem>
-                    <SelectItem value="1">1</SelectItem>
-                    <SelectItem value="2">2</SelectItem>
-                    <SelectItem value="3">3</SelectItem>
-                    <SelectItem value="5">5</SelectItem>
-                    <SelectItem value="8">8</SelectItem>
-                    <SelectItem value="13">13</SelectItem>
-                    <SelectItem value="21">21</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            {/* Status Selection for editing tasks */}
-            {task && (
-              <div className="space-y-3">
-                <Label className="text-sm font-medium text-foreground">Status</Label>
-                <Select
-                  value={task.status}
-                  onValueChange={(value) => setFormData(prev => ({ 
-                    ...prev, 
-                    status: value 
-                  }))}
-                >
-                  <SelectTrigger className="bg-background border-input">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="bg-background border-border z-50">
-                    <SelectItem value="todo">To Do</SelectItem>
-                    <SelectItem value="in_progress">In Progress</SelectItem>
-                    <SelectItem value="in_review">Review</SelectItem>
-                    <SelectItem value="done">Done</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
-            {/* Assignee Row */}
-            <div className="grid grid-cols-1 gap-4">
-
-              <div className="space-y-3">
-                <Label className="text-sm font-medium text-foreground">Assignees</Label>
-                <div className="space-y-3">
-                  {formData.assignees.length > 0 && (
-                    <div className="flex flex-wrap gap-2">
-                      {formData.assignees.map((assignee) => (
-                        <Badge key={assignee.id} variant="secondary" className="flex items-center gap-2 bg-muted">
-                          <Avatar className="w-4 h-4">
-                            <AvatarImage src={assignee.avatar} />
-                            <AvatarFallback className="text-xs">
-                              {assignee.initials}
-                            </AvatarFallback>
-                          </Avatar>
-                          <span>{assignee.name}</span>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="h-4 w-4 p-0 hover:bg-destructive hover:text-destructive-foreground"
-                            onClick={() => {
-                              setFormData(prev => ({
-                                ...prev,
-                                assignees: prev.assignees.filter(a => a.id !== assignee.id)
-                              }));
-                            }}
-                          >
-                            ×
-                          </Button>
-                        </Badge>
-                      ))}
-                    </div>
-                  )}
-                  <Select
-                    value=""
-                    onValueChange={(value) => {
-                      if (value !== "unassigned") {
-                        const member = teamMembers.find(m => m.id === value);
-                        if (member && !formData.assignees.find(a => a.id === member.id)) {
-                          setFormData(prev => ({ 
-                            ...prev, 
-                            assignees: [...prev.assignees, {
-                              id: member.id,
-                              name: member.name,
-                              initials: member.initials,
-                              avatar: member.avatar
-                            }]
-                          }));
-                        }
-                      }
-                    }}
-                  >
-                    <SelectTrigger className="bg-background border-input">
-                      <SelectValue placeholder="Add assignee..." />
-                    </SelectTrigger>
-                    <SelectContent className="bg-background border-border z-50">
-                      {teamMembers
-                        .filter(member => !formData.assignees.find(a => a.id === member.id))
-                        .map((member) => (
-                        <SelectItem key={member.id} value={member.id}>
-                          <div className="flex items-center gap-2">
-                            <Avatar className="w-5 h-5">
-                              <AvatarImage src={member.avatar} />
-                              <AvatarFallback className="text-xs">
-                                {member.initials}
-                              </AvatarFallback>
-                            </Avatar>
-                            <span>{member.name}</span>
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </div>
-
-            {/* Due Date */}
-            <div className="space-y-3">
-              <Label className="text-sm font-medium text-foreground">Due Date</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "w-full justify-start text-left font-normal bg-background border-input",
-                      !formData.dueDate && "text-muted-foreground"
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {formData.dueDate ? format(formData.dueDate, "PPP") : "Pick a date"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0 bg-background border-border" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={formData.dueDate}
-                    onSelect={(date) => setFormData(prev => ({ ...prev, dueDate: date }))}
-                    initialFocus
-                    className="bg-background"
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-
-            {/* Tags */}
-            <div className="space-y-3">
-              <Label className="text-sm font-medium text-foreground">Tags</Label>
-              <div className="space-y-3">
-                <div className="flex gap-2">
-                  <Input
-                    value={newTag}
-                    onChange={(e) => setNewTag(e.target.value)}
-                    placeholder="Add a tag..."
-                    onKeyPress={(e) => e.key === "Enter" && addTag()}
-                    className="bg-background border-input"
-                  />
-                  <Button type="button" variant="outline" onClick={addTag} className="bg-background border-input">
-                    Add
-                  </Button>
-                </div>
-                {formData.tags.length > 0 && (
-                  <div className="flex flex-wrap gap-1">
-                    {formData.tags.map((tag) => (
-                      <Badge key={tag} variant="secondary">
-                        {tag}
-                        <button
-                          type="button"
-                          onClick={() => removeTag(tag)}
-                          className="ml-1 hover:text-destructive"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                      </Badge>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Blocked Status */}
-            <div className="space-y-2">
-              <div className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  id="blocked"
-                  checked={formData.blocked}
-                  onChange={(e) => setFormData(prev => ({ 
-                    ...prev, 
-                    blocked: e.target.checked,
-                    blocking_reason: e.target.checked ? prev.blocking_reason : ""
-                  }))}
-                  className="w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary focus:ring-2"
-                />
-                <Label htmlFor="blocked" className="text-sm font-medium">
-                  Task is blocked
-                </Label>
-              </div>
-              {formData.blocked && (
-                <div className="space-y-2">
-                  <Label htmlFor="blocking_reason">Blocking Reason</Label>
-                  <Textarea
-                    id="blocking_reason"
-                    value={formData.blocking_reason}
-                    onChange={(e) => setFormData(prev => ({ ...prev, blocking_reason: e.target.value }))}
-                    placeholder="Explain why this task is blocked..."
-                    rows={2}
-                  />
-                </div>
-              )}
-            </div>
+            </section>
 
             {/* File Attachments */}
-            <div className="space-y-2">
-              <Label>Attachments</Label>
+            <section>
+              <h3 className="text-lg font-medium text-foreground mb-3">Attachments</h3>
               <div className="space-y-4">
                 <FileUpload 
                   onFileUpload={handleFileUpload}
@@ -585,33 +513,233 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
                   </div>
                 )}
               </div>
-            </div>
+            </section>
+
+            {/* Comments */}
+            {task?.id && (
+              <section>
+                <h3 className="text-lg font-medium text-foreground mb-3">Comments</h3>
+                <CommentsSystem 
+                  taskId={task.id} 
+                  onCommentCountChange={setCommentCount}
+                />
+              </section>
+            )}
           </div>
 
-          {/* Right Column - Comments, Time Tracking, etc. */}
-          <div className="space-y-6">
-            {/* Time Tracking */}
-            {task?.id && (
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold">Time Tracking</h3>
-                <div className="grid grid-cols-1 gap-4">
-                  <TimeTracker taskId={task.id} taskTitle={task.title} />
-                  <TimeEntriesList taskId={task.id} />
-                </div>
+          {/* Right Column - Metadata */}
+          <div className="w-80 p-6 border-l border-border bg-muted/20 overflow-y-auto space-y-6">
+            {/* Assignees */}
+            <div>
+              <h4 className="text-sm font-medium text-muted-foreground mb-2">Assignee</h4>
+              <div className="space-y-3">
+                {formData.assignees.length > 0 && (
+                  <div className="space-y-2">
+                    {formData.assignees.map((assignee) => (
+                      <div key={assignee.id} className="flex items-center gap-3">
+                        <Avatar className="w-8 h-8">
+                          <AvatarImage src={assignee.avatar} />
+                          <AvatarFallback className="text-xs">
+                            {assignee.initials}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="text-foreground flex-1">{assignee.name}</span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setFormData(prev => ({
+                              ...prev,
+                              assignees: prev.assignees.filter(a => a.id !== assignee.id)
+                            }));
+                          }}
+                          className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <Select
+                  value=""
+                  onValueChange={(value) => {
+                    const member = teamMembers.find(m => m.id === value);
+                    if (member && !formData.assignees.find(a => a.id === member.id)) {
+                      setFormData(prev => ({ 
+                        ...prev, 
+                        assignees: [...prev.assignees, {
+                          id: member.id,
+                          name: member.name,
+                          initials: member.initials,
+                          avatar: member.avatar
+                        }]
+                      }));
+                    }
+                  }}
+                >
+                  <SelectTrigger className="bg-background border-input text-sm">
+                    <SelectValue placeholder="Add assignee..." />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background border-border z-50">
+                    {teamMembers
+                      .filter(member => !formData.assignees.find(a => a.id === member.id))
+                      .map((member) => (
+                      <SelectItem key={member.id} value={member.id}>
+                        <div className="flex items-center gap-2">
+                          <Avatar className="w-5 h-5">
+                            <AvatarImage src={member.avatar} />
+                            <AvatarFallback className="text-xs">
+                              {member.initials}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span>{member.name}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-            )}
+            </div>
 
-            {/* Task Relationships */}
-            {task?.id && projectId && (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold">Relationships</h3>
+            {/* Story Points */}
+            <InfoRow label="Story Points">
+              <Select
+                value={formData.story_points?.toString() || "none"}
+                onValueChange={(value) => setFormData(prev => ({ 
+                  ...prev, 
+                  story_points: value === "none" ? null : parseInt(value)
+                }))}
+              >
+                <SelectTrigger className="w-20 h-8 text-sm bg-background border-input">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-background border-border z-50">
+                  <SelectItem value="none">-</SelectItem>
+                  <SelectItem value="1">1</SelectItem>
+                  <SelectItem value="2">2</SelectItem>
+                  <SelectItem value="3">3</SelectItem>
+                  <SelectItem value="5">5</SelectItem>
+                  <SelectItem value="8">8</SelectItem>
+                  <SelectItem value="13">13</SelectItem>
+                  <SelectItem value="21">21</SelectItem>
+                </SelectContent>
+              </Select>
+            </InfoRow>
+
+            {/* Priority */}
+            <InfoRow label="Priority">
+              <Select
+                value={formData.priority}
+                onValueChange={(value) => setFormData(prev => ({ 
+                  ...prev, 
+                  priority: value as Task["priority"] 
+                }))}
+              >
+                <SelectTrigger className="w-24 h-8 text-sm bg-background border-input">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-background border-border z-50">
+                  <SelectItem value="low">Low</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="high">High</SelectItem>
+                  <SelectItem value="urgent">Urgent</SelectItem>
+                </SelectContent>
+              </Select>
+            </InfoRow>
+
+            {/* Due Date */}
+            <InfoRow label="Due Date">
+              <Popover>
+                <PopoverTrigger asChild>
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => setShowRelationships(true)}
+                    className={cn(
+                      "h-8 text-sm font-normal bg-background border-input",
+                      !formData.dueDate && "text-muted-foreground"
+                    )}
                   >
-                    <GitBranch className="w-4 h-4 mr-2" />
+                    <CalendarIcon className="mr-1 h-3 w-3" />
+                    {formData.dueDate ? format(formData.dueDate, "MMM dd") : "Set date"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0 bg-background border-border" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={formData.dueDate}
+                    onSelect={(date) => setFormData(prev => ({ ...prev, dueDate: date }))}
+                    initialFocus
+                    className="bg-background pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
+            </InfoRow>
+
+            {/* Labels */}
+            <div>
+              <h4 className="text-sm font-medium text-muted-foreground mb-2">Labels</h4>
+              <div className="space-y-2">
+                <div className="flex gap-1">
+                  <Input
+                    value={newTag}
+                    onChange={(e) => setNewTag(e.target.value)}
+                    placeholder="Add label..."
+                    onKeyPress={(e) => e.key === "Enter" && addTag()}
+                    className="flex-1 h-8 text-sm bg-background border-input"
+                  />
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    size="sm"
+                    onClick={addTag} 
+                    className="h-8 px-2 text-sm bg-background border-input"
+                  >
+                    Add
+                  </Button>
+                </div>
+                {formData.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-1">
+                    {formData.tags.map((tag) => (
+                      <Badge key={tag} variant="secondary" className="text-xs">
+                        {tag}
+                        <button
+                          type="button"
+                          onClick={() => removeTag(tag)}
+                          className="ml-1 hover:text-destructive"
+                        >
+                          <X className="w-2 h-2" />
+                        </button>
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Time Tracking */}
+            {task?.id && (
+              <section>
+                <h4 className="text-sm font-medium text-muted-foreground mb-2">Time Tracking</h4>
+                <div className="space-y-3">
+                  <TimeTracker taskId={task.id} taskTitle={task.title} />
+                  <TimeEntriesList taskId={task.id} />
+                </div>
+              </section>
+            )}
+
+            {/* Relationships */}
+            {task?.id && projectId && (
+              <section>
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-sm font-medium text-muted-foreground">Relationships</h4>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowRelationships(true)}
+                    className="h-6 px-2 text-xs"
+                  >
+                    <GitBranch className="w-3 h-3 mr-1" />
                     Manage
                   </Button>
                 </div>
@@ -620,48 +748,47 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
                   <TaskRelationshipIndicator
                     relationships={relationships}
                     taskId={task.id}
+                    compact
                   />
                 ) : (
-                  <p className="text-sm text-muted-foreground">
-                    No relationships defined for this task.
+                  <p className="text-xs text-muted-foreground">
+                    No relationships defined
                   </p>
                 )}
-              </div>
+              </section>
             )}
 
-            {/* Comments */}
-            {task?.id && (
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold">Comments</h3>
-                <CommentsSystem 
-                  taskId={task.id} 
-                  onCommentCountChange={setCommentCount}
-                />
-              </div>
-            )}
-
-            {/* Task Stats (if editing) */}
+            {/* Task Stats */}
             {task && (
-              <div className="flex items-center gap-4 text-sm text-muted-foreground border-t pt-4">
-                <div className="flex items-center gap-1">
-                  <MessageSquare className="w-4 h-4" />
-                  {commentCount} comments
+              <div className="flex flex-col gap-2 text-xs text-muted-foreground border-t pt-4">
+                <div className="flex items-center justify-between">
+                  <span className="flex items-center gap-1">
+                    <MessageSquare className="w-3 h-3" />
+                    Comments
+                  </span>
+                  <span>{commentCount}</span>
                 </div>
-                <div className="flex items-center gap-1">
-                  <Paperclip className="w-4 h-4" />
-                  {Array.isArray(formData.attachments) ? formData.attachments.length : 0} attachments
+                <div className="flex items-center justify-between">
+                  <span className="flex items-center gap-1">
+                    <Paperclip className="w-3 h-3" />
+                    Attachments
+                  </span>
+                  <span>{Array.isArray(formData.attachments) ? formData.attachments.length : 0}</span>
                 </div>
-                <div className="flex items-center gap-1">
-                  <GitBranch className="w-4 h-4" />
-                  {relationships.length} relationships
+                <div className="flex items-center justify-between">
+                  <span className="flex items-center gap-1">
+                    <GitBranch className="w-3 h-3" />
+                    Relationships
+                  </span>
+                  <span>{relationships.length}</span>
                 </div>
               </div>
             )}
           </div>
         </div>
 
-        {/* Actions */}
-        <div className="flex justify-end gap-2 pt-4 border-t">
+        {/* Footer Actions */}
+        <div className="flex justify-end gap-2 px-6 py-4 border-t border-border bg-muted/30">
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
@@ -682,5 +809,17 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
         />
       )}
     </Dialog>
+  );
+}
+
+// Helper component for metadata rows
+function InfoRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-center justify-between">
+      <span className="text-sm font-medium text-muted-foreground">{label}</span>
+      <div className="flex items-center gap-2">
+        {children}
+      </div>
+    </div>
   );
 }
