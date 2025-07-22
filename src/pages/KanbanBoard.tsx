@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useRealtime } from "@/hooks/useRealtime";
 import { useToast } from "@/hooks/use-toast";
@@ -25,6 +24,7 @@ import { Badge } from "@/components/ui/badge";
 import { EnhancedKanbanColumn, Column } from "@/components/kanban/EnhancedKanbanColumn";
 import { TaskCard, Task } from "@/components/kanban/TaskCard";
 import { EnhancedTaskDialog } from "@/components/kanban/EnhancedTaskDialog";
+import { TaskCardDialog } from "@/components/kanban/TaskCardDialog";
 import { BulkOperations } from "@/components/kanban/BulkOperations";
 import { TaskTemplates } from "@/components/kanban/TaskTemplates";
 import { ProjectSelector } from "@/components/kanban/ProjectSelector";
@@ -582,7 +582,7 @@ export function KanbanBoard() {
   };
 
   const handleViewTask = (task: Task) => {
-    setTaskDialog({ isOpen: true, task });
+    setDetailViewTask(task);
   };
 
   const handleDeleteTask = async (taskId: string) => {
@@ -924,7 +924,7 @@ export function KanbanBoard() {
       </div>
 
       {/* Controls Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">{/* This div content continues below */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <div className="flex gap-2">
             <Button 
@@ -974,7 +974,6 @@ export function KanbanBoard() {
           </Button>
         </div>
       </div>
-
 
       {/* Enhanced Filters */}
       <KanbanFiltersComponent
@@ -1114,26 +1113,55 @@ export function KanbanBoard() {
         </DndContext>
       </div>
 
-      {/* Enhanced Task Dialog */}
-      <EnhancedTaskDialog
-        open={taskDialog.isOpen}
-        onOpenChange={(open) => setTaskDialog({ isOpen: open })}
-        task={taskDialog.task}
-        projectId={currentProjectId || ""}
-        columnId={taskDialog.columnId}
-        swimlaneId={taskDialog.swimlaneId}
-        onTaskSaved={fetchTasks}
-        availableAssignees={availableAssignees}
-        availableTags={[]}
-      />
-
-      {/* Task Detail View Dialog */}
-      {detailViewTask && (
+      {/* Replace Enhanced Task Dialog with regular task creation dialog */}
+      {taskDialog.isOpen && !taskDialog.task && (
         <EnhancedTaskDialog
+          open={taskDialog.isOpen}
+          onOpenChange={(open) => setTaskDialog({ isOpen: open })}
+          task={null}
+          projectId={currentProjectId || ""}
+          columnId={taskDialog.columnId}
+          swimlaneId={taskDialog.swimlaneId}
+          onTaskSaved={fetchTasks}
+          availableAssignees={availableAssignees}
+          availableTags={[]}
+        />
+      )}
+
+      {/* Task Detail View Dialog - now using TaskCardDialog */}
+      {detailViewTask && (
+        <TaskCardDialog
           open={true}
           onOpenChange={(open) => !open && setDetailViewTask(null)}
           task={detailViewTask}
+          onEdit={(task) => {
+            setDetailViewTask(null);
+            setTaskDialog({ isOpen: true, task: task as Task });
+          }}
+          onDelete={(taskId) => {
+            setDetailViewTask(null);
+            handleDeleteTask(taskId);
+          }}
+          onCreateSubTask={(task) => {
+            setDetailViewTask(null);
+            setTaskDialog({ 
+              isOpen: true, 
+              columnId: columns[0]?.id,
+              task: null
+            });
+          }}
+        />
+      )}
+
+      {/* Edit Task Dialog - still using EnhancedTaskDialog for editing */}
+      {taskDialog.isOpen && taskDialog.task && (
+        <EnhancedTaskDialog
+          open={taskDialog.isOpen}
+          onOpenChange={(open) => setTaskDialog({ isOpen: open })}
+          task={taskDialog.task}
           projectId={currentProjectId || ""}
+          columnId={taskDialog.columnId}
+          swimlaneId={taskDialog.swimlaneId}
           onTaskSaved={fetchTasks}
           availableAssignees={availableAssignees}
           availableTags={[]}
