@@ -581,7 +581,7 @@ export function KanbanBoard() {
   };
 
   const handleViewTask = (task: Task) => {
-    setDetailViewTask(task);
+    setTaskDialog({ isOpen: true, task });
   };
 
   const handleDeleteTask = async (taskId: string) => {
