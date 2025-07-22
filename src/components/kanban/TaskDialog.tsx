@@ -448,7 +448,7 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
                     value={editedDescription}
                     onChange={setEditedDescription}
                     placeholder="Describe the task..."
-                    className="bg-background border-input"
+                    className="min-h-[200px]"
                   />
                   <div className="flex gap-2">
                     <Button
@@ -473,18 +473,12 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
                     setEditedDescription(formData.description);
                     setIsEditingDescription(true);
                   }}
-                  className="min-h-[100px] p-4 bg-muted/30 border border-input rounded-md cursor-text hover:bg-muted/50 transition-colors"
+                  className="min-h-[100px] p-4 bg-muted/30 border border-dashed border-input rounded-md cursor-text hover:bg-muted/50 hover:border-primary/50 transition-colors"
                 >
                   {formData.description ? (
-                    <RichTextEditor
-                      value={formData.description}
-                      onChange={() => {}}
-                      readOnly
-                      theme="bubble"
-                      className="pointer-events-none"
-                    />
+                    <div className="prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: formData.description }} />
                   ) : (
-                    <p className="text-muted-foreground">Click to add a description...</p>
+                    <p className="text-muted-foreground italic">Click to add a description...</p>
                   )}
                 </div>
               )}
