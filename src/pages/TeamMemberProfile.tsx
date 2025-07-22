@@ -24,6 +24,7 @@ import { TeamMember } from "./TeamDirectory";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/components/ui/use-toast";
+import { EditProfileDialog } from "@/components/team/EditProfileDialog";
 
 const mockProjects: any[] = [];
 const mockRecentActivity: any[] = [];
@@ -36,6 +37,7 @@ export default function TeamMemberProfile() {
   const [member, setMember] = useState<TeamMember | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [showEditDialog, setShowEditDialog] = useState(false);
 
   useEffect(() => {
     const fetchMemberData = async () => {
@@ -113,15 +115,36 @@ export default function TeamMemberProfile() {
 
   const handleEditProfile = () => {
     if (!member) return;
+    setShowEditDialog(true);
+  };
+
+  const handleProfileUpdate = (updatedProfile: any) => {
+    if (!member) return;
     
-    // For now, show a toast with the action
+    // Update the member data with the new profile information
+    const updatedMember: TeamMember = {
+      ...member,
+      name: updatedProfile.full_name || member.name,
+      role: updatedProfile.role || member.role,
+      avatar: updatedProfile.avatar_url || member.avatar,
+      initials: getInitials(updatedProfile.full_name || member.name),
+    };
+    
+    setMember(updatedMember);
+    
     toast({
-      title: "Edit Profile",
-      description: "Profile editing functionality coming soon",
+      title: "Profile Updated",
+      description: "Profile information has been successfully updated.",
     });
-    
-    // TODO: Implement actual profile editing functionality
-    // This could navigate to an edit form or open an edit dialog
+  };
+
+  const getInitials = (name: string) => {
+    if (!name) return 'U';
+    return name.split(' ')
+      .filter(n => n.length > 0)
+      .map(n => n[0].toUpperCase())
+      .join('')
+      .slice(0, 2);
   };
 
   // Check if the current user is viewing their own profile
@@ -461,6 +484,21 @@ export default function TeamMemberProfile() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Edit Profile Dialog */}
+      {member && isOwnProfile && (
+        <EditProfileDialog
+          open={showEditDialog}
+          onOpenChange={setShowEditDialog}
+          profile={{
+            user_id: member.id,
+            full_name: member.name,
+            avatar_url: member.avatar,
+            role: member.role,
+          }}
+          onProfileUpdate={handleProfileUpdate}
+        />
+      )}
     </div>
   );
 }
