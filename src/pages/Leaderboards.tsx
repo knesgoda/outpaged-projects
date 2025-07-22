@@ -16,7 +16,7 @@ interface LeaderboardEntry {
   user_id: string;
   profiles?: {
     full_name: string;
-  };
+  } | null;
 }
 
 export default function Leaderboards() {
@@ -69,20 +69,38 @@ export default function Leaderboards() {
   const fetchLeaderboardEntries = async (leaderboardId: string) => {
     try {
       setEntriesLoading(true);
-      const { data, error } = await supabase
+      // Fetch leaderboard entries
+      const { data: entriesData, error: entriesError } = await supabase
         .from('leaderboard_entries')
-        .select(`
-          *,
-          profiles:user_id (
-            full_name
-          )
-        `)
+        .select('*')
         .eq('leaderboard_id', leaderboardId)
         .order('rank', { ascending: true })
         .limit(50);
 
-      if (error) throw error;
-      setEntries(data || []);
+      if (entriesError) throw entriesError;
+
+      // Fetch user profiles for the entries
+      const userIds = entriesData?.map(entry => entry.user_id) || [];
+      let profilesData: any[] = [];
+      
+      if (userIds.length > 0) {
+        const { data: profiles, error: profilesError } = await supabase
+          .from('profiles')
+          .select('user_id, full_name')
+          .in('user_id', userIds);
+
+        if (!profilesError) {
+          profilesData = profiles || [];
+        }
+      }
+
+      // Combine entries with profiles
+      const entriesWithProfiles = entriesData?.map(entry => ({
+        ...entry,
+        profiles: profilesData.find(profile => profile.user_id === entry.user_id) || null
+      })) || [];
+
+      setEntries(entriesWithProfiles);
     } catch (error) {
       console.error('Error fetching leaderboard entries:', error);
       toast({
