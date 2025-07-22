@@ -66,6 +66,7 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
     attachments: task?.attachments || [],
     blocked: task?.blocked || false,
     blocking_reason: task?.blocking_reason || "",
+    story_points: task?.story_points || null,
   });
 
   const [teamMembers, setTeamMembers] = useState<any[]>([]);
@@ -102,6 +103,7 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
           attachments: task.attachments || [],
           blocked: task.blocked || false,
           blocking_reason: task.blocking_reason || "",
+          story_points: task.story_points || null,
         });
       }
     }
@@ -146,7 +148,7 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
       return;
     }
 
-    const taskData: Partial<Task> & { assignee_id?: string; due_date?: string; hierarchy_level?: string; task_type?: string; parent_id?: string; blocked?: boolean; blocking_reason?: string } = {
+    const taskData: Partial<Task> & { assignee_id?: string; due_date?: string; hierarchy_level?: string; task_type?: string; parent_id?: string; blocked?: boolean; blocking_reason?: string; story_points?: number | null } = {
       ...formData,
       id: task?.id || `task-${Date.now()}`,
       status: formData.status || columnId || task?.status || "todo",
@@ -160,6 +162,7 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
       attachments: Array.isArray(formData.attachments) ? formData.attachments.length : (task?.attachments || 0),
       blocked: formData.blocked,
       blocking_reason: formData.blocked ? formData.blocking_reason : null,
+      story_points: formData.story_points,
     };
 
     onSave(taskData);
@@ -304,7 +307,7 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
               placeholder="Choose the type of work..."
             />
 
-            {/* Priority, Status and Assignee Row */}
+            {/* Priority, Story Points, and Status Row */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Priority</Label>
@@ -327,30 +330,55 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
                 </Select>
               </div>
 
-              {/* Status Selection for editing tasks */}
-              {task && (
-                <div className="space-y-2">
-                  <Label>Status</Label>
-                  <Select
-                    value={task.status}
-                    onValueChange={(value) => setFormData(prev => ({ 
-                      ...prev, 
-                      status: value 
-                    }))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="todo">To Do</SelectItem>
-                      <SelectItem value="in_progress">In Progress</SelectItem>
-                      <SelectItem value="in_review">Review</SelectItem>
-                      <SelectItem value="done">Done</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
+              <div className="space-y-2">
+                <Label>Story Points</Label>
+                <Select
+                  value={formData.story_points?.toString() || ""}
+                  onValueChange={(value) => setFormData(prev => ({ 
+                    ...prev, 
+                    story_points: value ? parseInt(value) : null
+                  }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select points..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">No points</SelectItem>
+                    <SelectItem value="1">1</SelectItem>
+                    <SelectItem value="2">2</SelectItem>
+                    <SelectItem value="3">3</SelectItem>
+                    <SelectItem value="5">5</SelectItem>
+                    <SelectItem value="8">8</SelectItem>
+                    <SelectItem value="13">13</SelectItem>
+                    <SelectItem value="21">21</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
+
+            {/* Status Selection for editing tasks */}
+            {task && (
+              <div className="space-y-2">
+                <Label>Status</Label>
+                <Select
+                  value={task.status}
+                  onValueChange={(value) => setFormData(prev => ({ 
+                    ...prev, 
+                    status: value 
+                  }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todo">To Do</SelectItem>
+                    <SelectItem value="in_progress">In Progress</SelectItem>
+                    <SelectItem value="in_review">Review</SelectItem>
+                    <SelectItem value="done">Done</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             {/* Assignee Row */}
             <div className="grid grid-cols-1 gap-4">
