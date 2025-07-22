@@ -107,6 +107,7 @@ export function StandardizedTaskCard({
   showProject = true,
   interactive = false
 }: StandardizedTaskCardProps) {
+  console.log("StandardizedTaskCard rendering with task:", task.title);
   const dueDate = task.dueDate || task.due_date;
 
   const handleCardClick = () => {

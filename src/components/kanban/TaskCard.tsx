@@ -18,6 +18,7 @@ interface TaskCardProps {
 }
 
 export function TaskCard({ task, onEdit, onDelete, onView, compact }: TaskCardProps) {
+  console.log("TaskCard rendering with task:", task.title);
   const { user } = useAuth();
   const { relationships } = useTaskRelationships(task.id);
   const { startTimer, runningEntry } = useTimeTracking();
