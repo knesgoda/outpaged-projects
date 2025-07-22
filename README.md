@@ -1,73 +1,277 @@
-# Welcome to your Lovable project
 
-## Project info
+# OutPaged Project Management - Enterprise Edition
 
-**URL**: https://lovable.dev/projects/1abc95eb-f587-46fe-be9f-1ccbc136d532
+A comprehensive, enterprise-ready project management application built with React, TypeScript, and Supabase.
 
-## How can I edit this code?
+## 🚀 Features
 
-There are several ways of editing your application.
+### Core Features
+- **Project Management**: Create, organize, and track projects
+- **Task Management**: Comprehensive task tracking with Kanban boards
+- **Team Collaboration**: User management and team directory
+- **Time Tracking**: Built-in time tracking and analytics
+- **Real-time Updates**: Live collaboration with real-time updates
+- **Advanced Search**: Global search across all content
 
-**Use Lovable**
+### Enterprise Features
+- **Analytics Dashboard**: Comprehensive system analytics and monitoring
+- **Security Framework**: Enterprise-grade security with audit logging
+- **Accessibility**: WCAG 2.1 AA compliant with full keyboard navigation
+- **Performance Monitoring**: Real-time performance metrics and optimization
+- **Data Export**: Multiple format exports (JSON, CSV, Excel, PDF)
+- **Webhook Integration**: Real-time webhook notifications
+- **API Documentation**: Complete REST API with interactive documentation
+- **Command Palette**: Quick access to all features (Cmd/Ctrl + K)
+- **Keyboard Shortcuts**: Full keyboard navigation support
+- **Compliance**: GDPR and SOC 2 compliance features
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/1abc95eb-f587-46fe-be9f-1ccbc136d532) and start prompting.
+## 🏗️ Architecture
 
-Changes made via Lovable will be committed automatically to this repo.
+### Frontend Stack
+- **React 18** with TypeScript
+- **Vite** for fast development and building
+- **Tailwind CSS** for styling
+- **React Router** for navigation
+- **React Query** for data fetching and caching
+- **Recharts** for data visualization
+- **Lucide React** for icons
 
-**Use your preferred IDE**
+### Backend & Database
+- **Supabase** for backend services
+- **PostgreSQL** database with Row Level Security
+- **Real-time subscriptions** for live updates
+- **Authentication** with JWT tokens
+- **File storage** for attachments
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+### Testing & Quality
+- **Jest** and **React Testing Library** for unit testing
+- **TypeScript** for type safety
+- **ESLint** for code quality
+- **Performance monitoring** with Web Vitals
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+## 🛠️ Getting Started
 
-Follow these steps:
+### Prerequisites
+- Node.js 18+ 
+- npm or yarn
+- Supabase account
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+### Installation
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+1. **Clone the repository**
+   ```bash
+   git clone <repository-url>
+   cd outpaged-project-management
+   ```
 
-# Step 3: Install the necessary dependencies.
-npm i
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+3. **Environment Setup**
+   - The application is pre-configured with Supabase
+   - Authentication is set up for @outpaged.com email addresses
+   - Admin users: kevin@outpaged.com, carlos@outpaged.com
+
+4. **Start development server**
+   ```bash
+   npm run dev
+   ```
+
+5. **Open your browser**
+   Navigate to `http://localhost:5173`
+
+### Building for Production
+
+```bash
+npm run build
 ```
 
-**Edit a file directly in GitHub**
+The built files will be in the `dist` directory.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## 🔧 Configuration
 
-**Use GitHub Codespaces**
+### Authentication
+- Email/password authentication via Supabase
+- Row Level Security (RLS) for data protection
+- Admin privileges for specific email addresses
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+### Performance
+- Service Worker for caching
+- Code splitting and lazy loading
+- Image optimization
+- CDN support for static assets
 
-## What technologies are used for this project?
+### Accessibility
+- WCAG 2.1 AA compliance
+- Screen reader support
+- High contrast mode
+- Keyboard navigation
+- Reduced motion support
 
-This project is built with:
+## 🎯 Usage
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+### Basic Usage
+1. **Sign up** with an @outpaged.com email address
+2. **Create a project** from the dashboard
+3. **Add tasks** and assign them to team members
+4. **Use the Kanban board** for visual task management
+5. **Track time** on tasks for productivity insights
 
-## How can I deploy this project?
+### Advanced Features
+- **Command Palette**: Press `Cmd/Ctrl + K` for quick access
+- **Keyboard Shortcuts**: Press `Cmd/Ctrl + /` to view all shortcuts
+- **Enterprise Control**: Admins can access enterprise features
+- **Data Export**: Export your data in multiple formats
+- **Webhooks**: Set up integrations with external services
+- **API**: Use the REST API for custom integrations
 
-Simply open [Lovable](https://lovable.dev/projects/1abc95eb-f587-46fe-be9f-1ccbc136d532) and click on Share -> Publish.
+## 🔍 API Documentation
 
-## Can I connect a custom domain to my Lovable project?
+The application includes comprehensive API documentation accessible at `/dashboard/enterprise` (admin only). Features include:
 
-Yes, you can!
+- Interactive API explorer
+- Code examples in multiple languages
+- Authentication guide
+- Webhook documentation
+- Rate limiting information
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+## 🛡️ Security
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+### Security Features
+- End-to-end encryption for sensitive data
+- Audit logging for all user actions
+- Multi-factor authentication support
+- Session management with automatic logout
+- CSRF protection
+- SQL injection prevention via parameterized queries
+
+### Compliance
+- **GDPR**: Right to be forgotten, data portability, consent management
+- **SOC 2**: Security controls, availability monitoring, audit trails
+- **Data Retention**: Configurable data retention policies
+- **Privacy**: No third-party tracking, privacy-first design
+
+## 🔧 Development
+
+### Project Structure
+```
+src/
+├── components/          # Reusable UI components
+│   ├── ui/             # Base UI components (shadcn/ui)
+│   ├── security/       # Security-related components
+│   ├── accessibility/  # Accessibility components
+│   ├── advanced-ux/    # Advanced UX features
+│   ├── integrations/   # Integration components
+│   ├── monitoring/     # Analytics and monitoring
+│   └── enterprise/     # Enterprise features
+├── hooks/              # Custom React hooks
+├── pages/              # Page components
+├── lib/                # Utility functions and configurations
+└── integrations/       # External service integrations
+```
+
+### Testing
+```bash
+# Run tests
+npm test
+
+# Run tests with coverage
+npm run test:coverage
+
+# Run tests in watch mode
+npm run test:watch
+```
+
+### Code Quality
+```bash
+# Lint code
+npm run lint
+
+# Format code
+npm run format
+
+# Type check
+npm run type-check
+```
+
+## 📊 Performance
+
+### Optimization Features
+- **Code splitting** for reduced bundle size
+- **Lazy loading** for better initial load times
+- **Service Worker** for offline functionality
+- **CDN integration** for faster asset delivery
+- **Database query optimization** with proper indexing
+- **Real-time performance monitoring**
+
+### Performance Metrics
+- **First Contentful Paint (FCP)**: < 1.5s
+- **Largest Contentful Paint (LCP)**: < 2.5s
+- **First Input Delay (FID)**: < 100ms
+- **Cumulative Layout Shift (CLS)**: < 0.1
+
+## 🌍 Accessibility
+
+### Accessibility Features
+- **Screen reader support** with proper ARIA labels
+- **Keyboard navigation** for all interactive elements
+- **High contrast mode** for better visibility
+- **Reduced motion** respect for user preferences
+- **Font size adjustment** for better readability
+- **Focus management** for complex interactions
+
+### WCAG 2.1 AA Compliance
+- Color contrast ratios meet minimum requirements
+- All interactive elements are keyboard accessible
+- Alternative text for all images
+- Semantic HTML structure
+- Form labels and error messages
+
+## 🚀 Deployment
+
+### Deployment Options
+1. **Lovable Platform**: Deploy directly from the editor
+2. **Vercel**: Connect your GitHub repository
+3. **Netlify**: Deploy from Git with automatic builds
+4. **Custom Server**: Build and deploy to your own infrastructure
+
+### Environment Variables
+- Supabase configuration is pre-configured
+- No additional environment variables required for basic functionality
+- Optional: Configure custom domain and SSL
+
+## 🤝 Contributing
+
+We welcome contributions! Please see our contributing guidelines for more information.
+
+### Development Workflow
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests if applicable
+5. Ensure all tests pass
+6. Submit a pull request
+
+## 📄 License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## 🆘 Support
+
+For support and questions:
+- Check the documentation in the app (`/dashboard/enterprise`)
+- Review the API documentation
+- Contact the development team
+
+## 🎉 Acknowledgments
+
+- Built with [Lovable](https://lovable.dev)
+- UI components from [shadcn/ui](https://ui.shadcn.com)
+- Icons from [Lucide](https://lucide.dev)
+- Backend powered by [Supabase](https://supabase.com)
+
+---
+
+**OutPaged Project Management** - Streamlining project management for modern teams with enterprise-grade features and accessibility.

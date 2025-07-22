@@ -1,127 +1,198 @@
-
-import { useState } from "react";
-import { NavLink, useLocation } from "react-router-dom";
-import {
-  LayoutDashboard,
-  FolderKanban,
-  CheckSquare,
-  Calendar,
-  Users,
-  Target,
-  Zap,
-  Map,
-  Bell,
-  BarChart3,
-  FileText,
-  Layout,
-  Search,
-  Settings,
-  HelpCircle,
-  Layers,
-} from "lucide-react";
-
+import React from "react";
+import { Link } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
+import { useIsAdmin } from "@/hooks/useIsAdmin";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   Sidebar,
   SidebarContent,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
+  SidebarFooter,
+  SidebarHeader,
   SidebarMenu,
-  SidebarMenuButton,
   SidebarMenuItem,
-  useSidebar,
+  SidebarMenuButton,
+  SidebarGroup,
+  SidebarGroupLabel,
 } from "@/components/ui/sidebar";
+import { Home, Folder, CheckSquare, Calendar, Users, BarChart3, Settings, Search, FileText, Clock, Target, Bell, Menu, ChevronDown, Building2 } from "lucide-react";
+
+interface NavItem {
+  title: string;
+  url: string;
+  icon: React.ComponentType;
+  description: string;
+}
 
 const navigationItems = [
-  { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
-  { title: "Projects", url: "/dashboard/projects", icon: FolderKanban },
-  { title: "Tasks", url: "/dashboard/tasks", icon: CheckSquare },
-  { title: "Kanban Board", url: "/dashboard/board", icon: Calendar },
-  { title: "Backlog", url: "/dashboard/backlog", icon: Target },
-  { title: "Sprint Planning", url: "/dashboard/sprints", icon: Zap },
-  { title: "Roadmap", url: "/dashboard/roadmap", icon: Map },
-  { title: "Time Analytics", url: "/dashboard/analytics", icon: BarChart3 },
-  { title: "Reports", url: "/dashboard/reports", icon: FileText },
-  { title: "Templates", url: "/dashboard/templates", icon: Layout },
-  { title: "Search", url: "/dashboard/search", icon: Search },
-  { title: "Notifications", url: "/dashboard/notifications", icon: Bell },
-  { title: "Team", url: "/dashboard/team", icon: Users },
+  {
+    title: "Dashboard",
+    url: "/dashboard",
+    icon: Home,
+    description: "Overview and quick access"
+  },
+  {
+    title: "Projects",
+    url: "/dashboard/projects", 
+    icon: Folder,
+    description: "Manage your projects"
+  },
+  {
+    title: "Tasks",
+    url: "/dashboard/tasks",
+    icon: CheckSquare,
+    description: "View and manage tasks"
+  },
+  {
+    title: "Kanban Board",
+    url: "/dashboard/board",
+    icon: Calendar,
+    description: "Visual task management"
+  },
+  {
+    title: "Team",
+    url: "/dashboard/team",
+    icon: Users,
+    description: "Team directory and collaboration"
+  },
+  {
+    title: "Reports",
+    url: "/dashboard/reports",
+    icon: BarChart3,
+    description: "Analytics and insights"
+  },
+  {
+    title: "Time Tracking",
+    url: "/dashboard/analytics",
+    icon: Clock,
+    description: "Track time and productivity"
+  },
+  {
+    title: "Roadmap",
+    url: "/dashboard/roadmap",
+    icon: Target,
+    description: "Project roadmaps and planning"
+  },
+  {
+    title: "Templates",
+    url: "/dashboard/templates",
+    icon: FileText,
+    description: "Project templates"
+  },
+  {
+    title: "Notifications",
+    url: "/dashboard/notifications",
+    icon: Bell,
+    description: "Updates and alerts"
+  },
+  {
+    title: "Search",
+    url: "/dashboard/search",
+    icon: Search,
+    description: "Find anything quickly"
+  },
+  {
+    title: "Settings",
+    url: "/dashboard/settings",
+    icon: Settings,
+    description: "Configure your preferences"
+  }
 ];
 
-const bottomItems = [
-  { title: "Settings", url: "/dashboard/settings", icon: Settings },
-  { title: "Help", url: "/help", icon: HelpCircle },
-];
+export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+  const { user } = useAuth();
+  const { isAdmin } = useIsAdmin();
+  const [expandedGroups, setExpandedGroups] = React.useState<string[]>(['main']);
 
-export function AppSidebar() {
-  const { state } = useSidebar();
-  const location = useLocation();
-  const currentPath = location.pathname;
-  const collapsed = state === "collapsed";
+  const toggleGroup = (groupId: string) => {
+    setExpandedGroups(prev => 
+      prev.includes(groupId) 
+        ? prev.filter(id => id !== groupId)
+        : [...prev, groupId]
+    );
+  };
 
-  const isActive = (path: string) => currentPath === path;
-  const getNavClass = ({ isActive }: { isActive: boolean }) =>
-    isActive 
-      ? "bg-primary text-primary-foreground font-medium" 
-      : "hover:bg-muted/50 text-muted-foreground hover:text-foreground";
+  // Add enterprise navigation for admins
+  const enterpriseItems = isAdmin ? [
+    {
+      title: "Enterprise Control",
+      url: "/dashboard/enterprise",
+      icon: Building2,
+      description: "Enterprise management and analytics"
+    }
+  ] : [];
 
   return (
-    <Sidebar className={collapsed ? "w-14" : "w-64"} collapsible="icon">
+    <Sidebar collapsible="icon" {...props}>
+      <SidebarHeader>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton size="lg" asChild>
+              <Link to="/dashboard">
+                <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+                  <Building2 className="size-4" />
+                </div>
+                <div className="grid flex-1 text-left text-sm leading-tight">
+                  <span className="truncate font-semibold">OutPaged</span>
+                  <span className="truncate text-xs">Project Management</span>
+                </div>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarHeader>
+      
       <SidebarContent>
-        {/* Logo/Brand */}
-        <div className="p-4 border-b border-border">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-primary rounded-xl flex items-center justify-center shadow-glow">
-              <Layers className="w-5 h-5 text-white" />
-            </div>
-            {!collapsed && (
-              <div>
-                <h2 className="font-bold text-lg text-foreground">OutPaged</h2>
-                <p className="text-xs text-muted-foreground">Project Management</p>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Main Navigation */}
         <SidebarGroup>
-          <SidebarGroupLabel>Main</SidebarGroupLabel>
-          <SidebarGroupContent>
+          <SidebarGroupLabel>Navigation</SidebarGroupLabel>
+          <SidebarMenu>
+            {navigationItems.map((item) => (
+              <SidebarMenuItem key={item.title}>
+                <SidebarMenuButton asChild tooltip={item.description}>
+                  <Link to={item.url}>
+                    <item.icon />
+                    <span>{item.title}</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            ))}
+          </SidebarMenu>
+        </SidebarGroup>
+
+        {enterpriseItems.length > 0 && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Enterprise</SidebarGroupLabel>
             <SidebarMenu>
-              {navigationItems.map((item) => (
+              {enterpriseItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
-                    <NavLink to={item.url} className={getNavClass}>
-                      <item.icon className="w-4 h-4" />
-                      {!collapsed && <span>{item.title}</span>}
-                    </NavLink>
+                  <SidebarMenuButton asChild tooltip={item.description}>
+                    <Link to={item.url}>
+                      <item.icon />
+                      <span>{item.title}</span>
+                    </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        {/* Bottom Navigation */}
-        <div className="mt-auto">
-          <SidebarGroup>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {bottomItems.map((item) => (
-                  <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton asChild>
-                      <NavLink to={item.url} className={getNavClass}>
-                        <item.icon className="w-4 h-4" />
-                        {!collapsed && <span>{item.title}</span>}
-                      </NavLink>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
-              </SidebarMenu>
-            </SidebarGroupContent>
           </SidebarGroup>
-        </div>
+        )}
       </SidebarContent>
+      
+      <SidebarFooter>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton asChild tooltip={user?.email || 'User Profile'}>
+              <Link to="/dashboard/profile">
+                <Avatar className="h-6 w-6">
+                  <AvatarFallback>
+                    {user?.email?.charAt(0).toUpperCase() || 'U'}
+                  </AvatarFallback>
+                </Avatar>
+                <span className="truncate">{user?.email || 'User'}</span>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarFooter>
     </Sidebar>
   );
 }
