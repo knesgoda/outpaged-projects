@@ -61,7 +61,7 @@ export function CommentsSystemWithMentions({
           created_at,
           author_id,
           task_id,
-          profiles!comments_author_id_fkey (
+          profiles!author_id (
             full_name,
             avatar_url
           )
@@ -112,7 +112,7 @@ export function CommentsSystemWithMentions({
           created_at,
           author_id,
           task_id,
-          profiles!comments_author_id_fkey (
+          profiles!author_id (
             full_name,
             avatar_url
           )
@@ -124,7 +124,7 @@ export function CommentsSystemWithMentions({
       // Add the new comment to the list
       const newCommentWithProfile = {
         ...data,
-        author: (data as any).profiles || { 
+        author: (data as any).profiles || {
           full_name: user.user_metadata?.full_name || 'You', 
           avatar_url: user.user_metadata?.avatar_url 
         }
@@ -175,7 +175,7 @@ export function CommentsSystemWithMentions({
           .from('project_members')
           .select(`
             user_id,
-            profiles!project_members_user_id_fkey (
+            profiles!user_id (
               full_name
             )
           `)

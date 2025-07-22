@@ -2,6 +2,8 @@ import { useState, useEffect, useRef, KeyboardEvent } from "react";
 import {
   Dialog,
   DialogContent,
+  DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -333,6 +335,12 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden bg-card border border-border p-0">
+        <DialogTitle className="sr-only">
+          {task ? `Edit Task: ${formData.title}` : 'Create New Task'}
+        </DialogTitle>
+        <DialogDescription className="sr-only">
+          {task ? 'Edit task details, assignees, and manage comments' : 'Create a new task with details and assignees'}
+        </DialogDescription>
         {/* Header with title editing and status button */}
         <div className="flex justify-between items-start px-6 py-4 border-b border-border bg-muted/30">
           <div className="flex-1 min-w-0">
