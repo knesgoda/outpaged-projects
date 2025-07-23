@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { validatePasswordStrength } from '@/lib/security';
 
 interface AuthContextType {
   user: User | null;
@@ -56,13 +57,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signUp = async (email: string, password: string, fullName?: string) => {
-    // Security: Validate input parameters
+    // Security: Validate input parameters with enhanced security
     if (!email || !password) {
       return { error: new Error('Email and password are required') };
     }
     
-    if (password.length < 8) {
-      return { error: new Error('Password must be at least 8 characters long') };
+    // Enhanced password validation
+    const passwordValidation = validatePasswordStrength(password);
+    if (!passwordValidation.isValid) {
+      return { error: new Error(passwordValidation.errors.join(', ')) };
+    }
+    
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return { error: new Error('Please enter a valid email address') };
     }
 
     const redirectUrl = `${window.location.origin}/`;
