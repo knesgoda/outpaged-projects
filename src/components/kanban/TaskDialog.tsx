@@ -27,6 +27,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { FileUpload, UploadedFile } from "@/components/ui/file-upload";
 import { SmartTaskTypeSelector, SMART_TASK_TYPE_OPTIONS } from "@/components/tasks/SmartTaskTypeSelector";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
+import { SafeHtml } from "@/components/ui/safe-html";
 import { Task } from "./TaskCard";
 import { CalendarIcon, X, User, Tag, MessageSquare, Paperclip, GitBranch, Check, XCircle } from "lucide-react";
 import { format } from "date-fns";
@@ -434,7 +435,11 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
                   className="min-h-[100px] p-4 bg-muted/30 border border-dashed border-input rounded-md cursor-text hover:bg-muted/50 hover:border-primary/50 transition-colors"
                 >
                   {formData.description ? (
-                    <div className="prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: formData.description }} />
+                    <SafeHtml 
+                      html={formData.description}
+                      className="prose prose-sm max-w-none"
+                      allowedTags={['p', 'br', 'strong', 'em', 'u', 'ol', 'ul', 'li', 'h1', 'h2', 'h3']}
+                    />
                   ) : (
                     <p className="text-muted-foreground italic">Click to add a description...</p>
                   )}

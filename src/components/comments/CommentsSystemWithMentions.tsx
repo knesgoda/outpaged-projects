@@ -7,6 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
+import { SafeHtml } from "@/components/ui/safe-html";
+import { validateAndSanitizeInput } from "@/lib/security";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -267,15 +269,16 @@ export function CommentsSystemWithMentions({
     // Highlight @mentions in the content
     const mentionPattern = /@([^@<\s]+(?:\s[^@<\s]+)*)/g;
     
-    // Create a safe HTML renderer for rich text content with mentions highlighted
+    // Create safe content with mentions highlighted using a more secure approach
     const processedContent = content.replace(mentionPattern, (match, name) => {
       return `<span class="mention-highlight">${match}</span>`;
     });
     
     return (
-      <div 
+      <SafeHtml 
+        html={processedContent}
         className="text-sm text-foreground break-words rich-text-content"
-        dangerouslySetInnerHTML={{ __html: processedContent }}
+        allowedTags={['span', 'p', 'br', 'strong', 'em']}
       />
     );
   };

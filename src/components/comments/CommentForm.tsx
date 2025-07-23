@@ -4,6 +4,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Send, X, AtSign } from "lucide-react";
+import { validateAndSanitizeInput } from "@/lib/security";
 
 interface CommentFormProps {
   onSubmit: (content: string, parentId?: string) => void;
@@ -34,9 +35,15 @@ export function CommentForm({
 
   const handleSubmit = () => {
     if (content.trim()) {
-      onSubmit(content.trim(), parentId);
-      setContent("");
-      setIsFocused(false);
+      try {
+        const sanitizedContent = validateAndSanitizeInput(content.trim(), 5000);
+        onSubmit(sanitizedContent, parentId);
+        setContent("");
+        setIsFocused(false);
+      } catch (error) {
+        console.error('Comment validation failed:', error);
+        // In a real app, show user-friendly error message
+      }
     }
   };
 
