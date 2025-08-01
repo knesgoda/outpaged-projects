@@ -597,6 +597,7 @@ export type Database = {
           role: Database["public"]["Enums"]["team_role"] | null
           updated_at: string
           user_id: string
+          username: string | null
         }
         Insert: {
           avatar_url?: string | null
@@ -607,6 +608,7 @@ export type Database = {
           role?: Database["public"]["Enums"]["team_role"] | null
           updated_at?: string
           user_id: string
+          username?: string | null
         }
         Update: {
           avatar_url?: string | null
@@ -617,6 +619,7 @@ export type Database = {
           role?: Database["public"]["Enums"]["team_role"] | null
           updated_at?: string
           user_id?: string
+          username?: string | null
         }
         Relationships: []
       }
@@ -1793,6 +1796,10 @@ export type Database = {
       can_delete_default_project: {
         Args: { project_id: string }
         Returns: boolean
+      }
+      generate_username: {
+        Args: { full_name_param: string }
+        Returns: string
       }
       get_next_ticket_number: {
         Args: { project_id_param: string }

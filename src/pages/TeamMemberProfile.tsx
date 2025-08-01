@@ -30,7 +30,7 @@ const mockProjects: any[] = [];
 const mockRecentActivity: any[] = [];
 
 export default function TeamMemberProfile() {
-  const { memberId } = useParams();
+  const { username } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
@@ -41,16 +41,16 @@ export default function TeamMemberProfile() {
 
   useEffect(() => {
     const fetchMemberData = async () => {
-      if (!memberId) return;
+      if (!username) return;
       
       try {
         setLoading(true);
         
-        // Fetch profile data
+        // Fetch profile data by username
         const { data: profile, error } = await supabase
           .from('profiles')
           .select('*')
-          .eq('user_id', memberId)
+          .eq('username', username)
           .single();
           
         if (error) {
@@ -71,6 +71,7 @@ export default function TeamMemberProfile() {
 
           const memberData: TeamMember = {
             id: profile.user_id,
+            username: profile.username || 'user',
             name: profile.full_name || 'Unknown User',
             role: profile.role || 'developer',
             email: 'N/A', // Email not available in profiles table
@@ -98,7 +99,7 @@ export default function TeamMemberProfile() {
     };
     
     fetchMemberData();
-  }, [memberId]);
+  }, [username]);
 
   const handleMessage = () => {
     if (!member) return;
@@ -148,7 +149,7 @@ export default function TeamMemberProfile() {
   };
 
   // Check if the current user is viewing their own profile
-  const isOwnProfile = user?.id === memberId;
+  const isOwnProfile = user?.id === member?.id;
 
   if (loading) {
     return (

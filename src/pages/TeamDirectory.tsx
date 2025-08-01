@@ -25,6 +25,7 @@ import { useTeamMembers } from "@/hooks/useTeamMembers";
 
 export interface TeamMember {
   id: string;
+  username: string;
   name: string;
   email: string;
   role: string;

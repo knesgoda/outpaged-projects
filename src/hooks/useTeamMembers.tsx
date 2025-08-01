@@ -21,6 +21,7 @@ export function useTeamMembers() {
           full_name,
           role,
           avatar_url,
+          username,
           created_at
         `);
 
@@ -41,6 +42,7 @@ export function useTeamMembers() {
 
           return {
             id: profile.user_id,
+            username: profile.username || 'user',
             name: profile.full_name || 'Unknown',
             email: '', // We'll need to get this from auth if needed
             role: profile.role || 'developer',
