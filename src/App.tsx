@@ -20,8 +20,7 @@ import Profile from "./pages/Profile";
 import Tasks from "./pages/Tasks";
 import KanbanBoard from "./pages/KanbanBoard";
 import TeamDirectory from "./pages/TeamDirectory";
-import TeamMemberProfile from "./pages/TeamMemberProfile";
-import { TeamMemberRedirect } from "./components/team/TeamMemberRedirect";
+import { TeamMemberHandler } from "./components/team/TeamMemberHandler";
 import Backlog from "./pages/Backlog";
 import SprintPlanning from "./pages/SprintPlanning";
 import Roadmap from "./pages/Roadmap";
@@ -89,8 +88,7 @@ const App = () => (
                   <Route path="search" element={<Search />} />
                   <Route path="settings" element={<Settings />} />
                   <Route path="team" element={<TeamDirectory />} />
-                  <Route path="team/:username" element={<TeamMemberProfile />} />
-                  <Route path="team-legacy/:memberId" element={<TeamMemberRedirect />} />
+                  <Route path="team/:identifier" element={<TeamMemberHandler />} />
                   <Route path="enterprise" element={<EnterpriseControlPanel />} />
                 </Route>
                 

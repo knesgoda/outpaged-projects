@@ -30,7 +30,7 @@ const mockProjects: any[] = [];
 const mockRecentActivity: any[] = [];
 
 export default function TeamMemberProfile() {
-  const { username } = useParams();
+  const { identifier } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
@@ -41,16 +41,16 @@ export default function TeamMemberProfile() {
 
   useEffect(() => {
     const fetchMemberData = async () => {
-      if (!username) return;
+      if (!identifier) return;
       
       try {
         setLoading(true);
         
-        // Fetch profile data by username
+        // Fetch profile data by username (identifier is username here)
         const { data: profile, error } = await supabase
           .from('profiles')
           .select('*')
-          .eq('username', username)
+          .eq('username', identifier)
           .single();
           
         if (error) {
@@ -99,7 +99,7 @@ export default function TeamMemberProfile() {
     };
     
     fetchMemberData();
-  }, [username]);
+  }, [identifier]);
 
   const handleMessage = () => {
     if (!member) return;
