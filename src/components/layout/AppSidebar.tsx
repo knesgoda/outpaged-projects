@@ -28,7 +28,8 @@ import {
   Clock, 
   Target, 
   Bell, 
-  Building2
+  Building2,
+  Headphones
 } from "lucide-react";
 
 interface NavItem {
@@ -68,6 +69,12 @@ const navigationItems = [
     url: "/dashboard/team",
     icon: Users,
     description: "Team directory and collaboration"
+  },
+  {
+    title: "Support Tickets",
+    url: "/dashboard/tickets",
+    icon: Headphones,
+    description: "Customer support and ticketing"
   },
   {
     title: "Reports",

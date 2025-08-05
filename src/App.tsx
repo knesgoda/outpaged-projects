@@ -22,6 +22,7 @@ import KanbanBoard from "./pages/KanbanBoard";
 import TeamDirectory from "./pages/TeamDirectory";
 import { TeamMemberHandler } from "./components/team/TeamMemberHandler";
 import Backlog from "./pages/Backlog";
+import Tickets from "./pages/Tickets";
 import SprintPlanning from "./pages/SprintPlanning";
 import Roadmap from "./pages/Roadmap";
 import Notifications from "./pages/Notifications";
@@ -89,6 +90,7 @@ const App = () => (
                   <Route path="settings" element={<Settings />} />
                   <Route path="team" element={<TeamDirectory />} />
                   <Route path="team/:identifier" element={<TeamMemberHandler />} />
+                  <Route path="tickets" element={<Tickets />} />
                   <Route path="enterprise" element={<EnterpriseControlPanel />} />
                 </Route>
                 
