@@ -1,0 +1,2 @@
+-- Add RESEND_API_KEY secret
+-- This will be configured via the Supabase dashboard
