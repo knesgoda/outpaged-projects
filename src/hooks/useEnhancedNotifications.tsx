@@ -93,11 +93,84 @@ export function useEnhancedNotifications() {
     }
   };
 
+  // Send task assignment email notification
+  const sendTaskAssignmentEmail = async (taskId: string, assigneeId: string, projectId: string) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase.functions.invoke('send-task-assignment-notification', {
+        body: {
+          taskId,
+          assigneeId,
+          assignedBy: user.id,
+          projectId,
+        },
+      });
+
+      if (error) {
+        console.error('Error sending task assignment email:', error);
+      }
+    } catch (error) {
+      console.error('Error invoking task assignment email function:', error);
+    }
+  };
+
+  // Send invitation email notification
+  const sendInvitationEmail = async (email: string, projectId: string, role?: string) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase.functions.invoke('send-invitation-notification', {
+        body: {
+          email,
+          projectId,
+          invitedBy: user.id,
+          role,
+        },
+      });
+
+      if (error) {
+        console.error('Error sending invitation email:', error);
+      }
+    } catch (error) {
+      console.error('Error invoking invitation email function:', error);
+    }
+  };
+
+  // Send task update email notification
+  const sendTaskUpdateEmail = async (
+    taskId: string,
+    updateType: 'status_change' | 'comment_added' | 'due_date_changed' | 'priority_changed',
+    details: { oldValue?: string; newValue?: string; comment?: string }
+  ) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase.functions.invoke('send-task-update-notification', {
+        body: {
+          taskId,
+          updatedBy: user.id,
+          updateType,
+          details,
+        },
+      });
+
+      if (error) {
+        console.error('Error sending task update email:', error);
+      }
+    } catch (error) {
+      console.error('Error invoking task update email function:', error);
+    }
+  };
+
   return {
     notifications: [...realtimeNotifications, ...notifications],
     unreadCount,
     markAsRead,
     markAllAsRead,
     triggerNotification,
+    sendTaskAssignmentEmail,
+    sendInvitationEmail,
+    sendTaskUpdateEmail,
   };
 }
