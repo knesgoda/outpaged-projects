@@ -30,9 +30,28 @@ export function CreateTaskDialog({ open, onOpenChange, projectId, onTaskCreated 
   const { toast } = useToast();
   const { user } = useAuth();
 
+  // Don't render dialog if user is not authenticated
+  if (!user) {
+    return null;
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) return;
+    
+    if (!user) {
+      toast({
+        title: "Authentication Error",
+        description: "You must be logged in to create tasks",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    console.log('Creating task with:', {
+      user: user.id,
+      projectId,
+      formData
+    });
 
     setLoading(true);
     try {
@@ -74,9 +93,15 @@ export function CreateTaskDialog({ open, onOpenChange, projectId, onTaskCreated 
       onOpenChange(false);
     } catch (error) {
       console.error('Error creating task:', error);
+      console.error('Error details:', {
+        error,
+        user: user?.id,
+        projectId,
+        formData
+      });
       toast({
         title: "Error",
-        description: "Failed to create task",
+        description: `Failed to create task: ${error instanceof Error ? error.message : 'Unknown error'}`,
         variant: "destructive",
       });
     } finally {
