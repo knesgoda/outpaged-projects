@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -35,30 +35,18 @@ export function CreateTaskDialog({ open, onOpenChange, projectId, onTaskCreated 
     return null;
   }
 
-  const getNextTicketNumber = async () => {
-    console.log("Fetching next ticket number for project:", projectId);
-    const { data, error } = await supabase.rpc('get_next_ticket_number', { project_id_param: projectId });
-    if (error) {
-      console.warn("Failed to prefetch next ticket number, trigger should handle it:", error);
-      return null;
-    }
-    console.log("Next ticket number:", data);
-    return data as number | null;
-  };
-
-  const insertTask = async (ticketNumber?: number | null) => {
-    // Get the selected smart task type option
+  // Insert task and let the DB trigger assign ticket_number atomically
+  const insertTask = async () => {
     const selectedOption = SMART_TASK_TYPE_OPTIONS.find(option => option.id === formData.smartTaskType);
     if (!selectedOption) {
       throw new Error("Invalid task type selected");
     }
 
-    console.log("Inserting task:", {
+    console.log("Inserting task (DB will assign ticket_number):", {
       title: formData.title,
       projectId,
       status: formData.status,
-      priority: formData.priority,
-      ticketNumber
+      priority: formData.priority
     });
 
     return await supabase
@@ -72,8 +60,6 @@ export function CreateTaskDialog({ open, onOpenChange, projectId, onTaskCreated 
         task_type: selectedOption.task_type,
         project_id: projectId,
         reporter_id: user!.id,
-        // Only include ticket_number if we fetched one; otherwise let the trigger assign it
-        ...(ticketNumber ? { ticket_number: ticketNumber } : {})
       })
       .select()
       .single();
@@ -99,22 +85,16 @@ export function CreateTaskDialog({ open, onOpenChange, projectId, onTaskCreated 
 
     setLoading(true);
     try {
-      // Prefetch the next ticket number to avoid 23505 conflicts
-      const nextNumber = await getNextTicketNumber();
+      // Single attempt: rely entirely on DB trigger for ticket_number
+      const { data, error } = await insertTask();
 
-      // First attempt
-      const { data, error } = await insertTask(nextNumber ?? undefined);
-
-      if (error) {
-        // Handle duplicate ticket_number gracefully with one retry
-        if ((error as any).code === '23505') {
-          console.warn("Duplicate ticket number detected (23505). Retrying with fresh number...");
-          const freshNumber = await getNextTicketNumber();
-          const retry = await insertTask(freshNumber ?? undefined);
-          if (retry.error) throw retry.error;
-        } else {
-          throw error;
-        }
+      // In rare cases of a conflict, retry once
+      if (error && (error as any).code === '23505') {
+        console.warn("Conflict detected (23505). Retrying insert to let trigger assign a fresh number...");
+        const retry = await insertTask();
+        if (retry.error) throw retry.error;
+      } else if (error) {
+        throw error;
       }
 
       toast({
@@ -155,15 +135,13 @@ export function CreateTaskDialog({ open, onOpenChange, projectId, onTaskCreated 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent aria-describedby="create-task-description">
+      <DialogContent>
         <DialogHeader>
           <DialogTitle>Create New Task</DialogTitle>
+          <DialogDescription id="create-task-description">
+            Fill in the task details and choose priority and status, then create the task.
+          </DialogDescription>
         </DialogHeader>
-
-        {/* A11y description to satisfy DialogContent requirement */}
-        <p id="create-task-description" className="sr-only">
-          Fill in the task details and choose priority and status, then create the task.
-        </p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
