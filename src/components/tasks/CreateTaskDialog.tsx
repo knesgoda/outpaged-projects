@@ -35,9 +35,53 @@ export function CreateTaskDialog({ open, onOpenChange, projectId, onTaskCreated 
     return null;
   }
 
+  const getNextTicketNumber = async () => {
+    console.log("Fetching next ticket number for project:", projectId);
+    const { data, error } = await supabase.rpc('get_next_ticket_number', { project_id_param: projectId });
+    if (error) {
+      console.warn("Failed to prefetch next ticket number, trigger should handle it:", error);
+      return null;
+    }
+    console.log("Next ticket number:", data);
+    return data as number | null;
+  };
+
+  const insertTask = async (ticketNumber?: number | null) => {
+    // Get the selected smart task type option
+    const selectedOption = SMART_TASK_TYPE_OPTIONS.find(option => option.id === formData.smartTaskType);
+    if (!selectedOption) {
+      throw new Error("Invalid task type selected");
+    }
+
+    console.log("Inserting task:", {
+      title: formData.title,
+      projectId,
+      status: formData.status,
+      priority: formData.priority,
+      ticketNumber
+    });
+
+    return await supabase
+      .from('tasks')
+      .insert({
+        title: formData.title,
+        description: formData.description,
+        priority: formData.priority as 'low' | 'medium' | 'high' | 'urgent',
+        status: formData.status as 'todo' | 'in_progress' | 'in_review' | 'done',
+        hierarchy_level: selectedOption.hierarchy_level,
+        task_type: selectedOption.task_type,
+        project_id: projectId,
+        reporter_id: user!.id,
+        // Only include ticket_number if we fetched one; otherwise let the trigger assign it
+        ...(ticketNumber ? { ticket_number: ticketNumber } : {})
+      })
+      .select()
+      .single();
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!user) {
       toast({
         title: "Authentication Error",
@@ -55,26 +99,23 @@ export function CreateTaskDialog({ open, onOpenChange, projectId, onTaskCreated 
 
     setLoading(true);
     try {
-      // Get the selected smart task type option
-      const selectedOption = SMART_TASK_TYPE_OPTIONS.find(option => option.id === formData.smartTaskType);
-      if (!selectedOption) {
-        throw new Error("Invalid task type selected");
+      // Prefetch the next ticket number to avoid 23505 conflicts
+      const nextNumber = await getNextTicketNumber();
+
+      // First attempt
+      const { data, error } = await insertTask(nextNumber ?? undefined);
+
+      if (error) {
+        // Handle duplicate ticket_number gracefully with one retry
+        if ((error as any).code === '23505') {
+          console.warn("Duplicate ticket number detected (23505). Retrying with fresh number...");
+          const freshNumber = await getNextTicketNumber();
+          const retry = await insertTask(freshNumber ?? undefined);
+          if (retry.error) throw retry.error;
+        } else {
+          throw error;
+        }
       }
-
-      const { error } = await supabase
-        .from('tasks')
-        .insert({
-          title: formData.title,
-          description: formData.description,
-          priority: formData.priority as 'low' | 'medium' | 'high' | 'urgent',
-          status: formData.status as 'todo' | 'in_progress' | 'in_review' | 'done',
-          hierarchy_level: selectedOption.hierarchy_level,
-          task_type: selectedOption.task_type,
-          project_id: projectId,
-          reporter_id: user.id
-        });
-
-      if (error) throw error;
 
       toast({
         title: "Success",
@@ -91,7 +132,7 @@ export function CreateTaskDialog({ open, onOpenChange, projectId, onTaskCreated 
       
       onTaskCreated();
       onOpenChange(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating task:', error);
       console.error('Error details:', {
         error,
@@ -99,9 +140,12 @@ export function CreateTaskDialog({ open, onOpenChange, projectId, onTaskCreated 
         projectId,
         formData
       });
+      const message =
+        error?.message ||
+        (typeof error === 'string' ? error : 'Unknown error');
       toast({
         title: "Error",
-        description: `Failed to create task: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        description: `Failed to create task: ${message}`,
         variant: "destructive",
       });
     } finally {
@@ -111,10 +155,16 @@ export function CreateTaskDialog({ open, onOpenChange, projectId, onTaskCreated 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent aria-describedby="create-task-description">
         <DialogHeader>
           <DialogTitle>Create New Task</DialogTitle>
         </DialogHeader>
+
+        {/* A11y description to satisfy DialogContent requirement */}
+        <p id="create-task-description" className="sr-only">
+          Fill in the task details and choose priority and status, then create the task.
+        </p>
+
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="title">Title *</Label>
