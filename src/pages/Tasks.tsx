@@ -580,7 +580,7 @@ export default function Tasks() {
         }}
         onSave={handleSaveTask}
         columnId="todo"
-        projectId={tasks[0]?.project_id}
+        projectId={selectedTask?.project_id ?? tasks[0]?.project_id}
       />
 
       {/* Delete Confirmation Dialog */}

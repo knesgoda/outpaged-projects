@@ -43,6 +43,7 @@ import { useTaskRelationships } from "@/hooks/useTaskRelationships";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useTaskAssignees } from "@/hooks/useTaskAssignees";
+import { useProjectMembers } from "@/hooks/useProjectMembers";
 
 interface TaskDialogProps {
   task?: Task | null;
@@ -91,8 +92,7 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
   const [editedTitle, setEditedTitle] = useState(task?.title || "");
   const [editedDescription, setEditedDescription] = useState(task?.description || "");
 
-  const [teamMembers, setTeamMembers] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
+  const { members: projectMembers, loading: membersLoading } = useProjectMembers(projectId);
   const [newTag, setNewTag] = useState("");
   const [commentCount, setCommentCount] = useState(0);
   const [showRelationships, setShowRelationships] = useState(false);
@@ -100,11 +100,23 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
   const { toast } = useToast();
   const { user } = useAuth();
   const { relationships } = useTaskRelationships(task?.id);
-  const { assignees: currentAssignees, updateAssignees } = useTaskAssignees(task?.id);
+  const { assignees: currentAssignees, addAssignee, removeAssignee, fetchAssignees, loading: assigneesLoading } = useTaskAssignees(task?.id);
+
+  const [savingAssignee, setSavingAssignee] = useState<string | null>(null);
+  const [savingStoryPoints, setSavingStoryPoints] = useState(false);
+
+  useEffect(() => {
+    if (task?.id) {
+      setFormData(prev => ({
+        ...prev,
+        assignees: currentAssignees.map(a => ({ id: a.id, name: a.name, avatar: a.avatar, initials: a.initials }))
+      }));
+    }
+  }, [currentAssignees, task?.id]);
 
   useEffect(() => {
     if (isOpen) {
-      fetchTeamMembers();
+      
       if (task) {
         // Find the smart task type based on hierarchy_level and task_type
         const smartTaskType = SMART_TASK_TYPE_OPTIONS.find(option => 
@@ -131,32 +143,6 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
     }
   }, [isOpen, task]);
 
-  const fetchTeamMembers = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('user_id, full_name, avatar_url')
-        .limit(20);
-
-      if (error) throw error;
-
-      const members = data?.map(profile => ({
-        id: profile.user_id,
-        name: profile.full_name || 'Unknown User',
-        initials: (profile.full_name || 'U')
-          .split(' ')
-          .map(n => n[0])
-          .join('')
-          .toUpperCase()
-          .slice(0, 2),
-        avatar: profile.avatar_url
-      })) || [];
-
-      setTeamMembers(members);
-    } catch (error) {
-      console.error('Error fetching team members:', error);
-    }
-  };
 
   const handleSave = () => {
     // Get the selected smart task type option
@@ -557,7 +543,7 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
 
             {/* Assignees */}
             <div>
-              <h4 className="text-sm font-medium text-muted-foreground mb-2">Assignee</h4>
+              <h4 className="text-sm font-medium text-muted-foreground mb-2">Assignee {savingAssignee && <span className="ml-2 text-xs text-muted-foreground">Saving...</span>}</h4>
               <div className="space-y-3">
                 {formData.assignees.length > 0 && (
                   <div className="space-y-2">
@@ -573,11 +559,16 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => {
-                            setFormData(prev => ({
-                              ...prev,
-                              assignees: prev.assignees.filter(a => a.id !== assignee.id)
-                            }));
+                          disabled={!!savingAssignee}
+                          onClick={async () => {
+                            if (!task?.id) return;
+                            try {
+                              setSavingAssignee(assignee.id);
+                              await removeAssignee(assignee.id);
+                              await fetchAssignees();
+                            } finally {
+                              setSavingAssignee(null);
+                            }
                           }}
                           className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
                         >
@@ -589,18 +580,16 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
                 )}
                 <Select
                   value=""
-                  onValueChange={(value) => {
-                    const member = teamMembers.find(m => m.id === value);
-                    if (member && !formData.assignees.find(a => a.id === member.id)) {
-                      setFormData(prev => ({ 
-                        ...prev, 
-                        assignees: [...prev.assignees, {
-                          id: member.id,
-                          name: member.name,
-                          initials: member.initials,
-                          avatar: member.avatar
-                        }]
-                      }));
+                  onValueChange={async (value) => {
+                    if (!task?.id) return;
+                    const member = projectMembers.find(m => m.user_id === value);
+                    if (!member) return;
+                    try {
+                      setSavingAssignee(value);
+                      await addAssignee(value);
+                      await fetchAssignees();
+                    } finally {
+                      setSavingAssignee(null);
                     }
                   }}
                 >
@@ -608,18 +597,18 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
                     <SelectValue placeholder="Add assignee..." />
                   </SelectTrigger>
                   <SelectContent className="bg-background border-border z-50">
-                    {teamMembers
-                      .filter(member => !formData.assignees.find(a => a.id === member.id))
+                    {projectMembers
+                      .filter(member => !formData.assignees.find(a => a.id === member.user_id))
                       .map((member) => (
-                      <SelectItem key={member.id} value={member.id}>
+                      <SelectItem key={member.user_id} value={member.user_id}>
                         <div className="flex items-center gap-2">
                           <Avatar className="w-5 h-5">
-                            <AvatarImage src={member.avatar} />
+                            <AvatarImage src={member.avatar_url || undefined} />
                             <AvatarFallback className="text-xs">
                               {member.initials}
                             </AvatarFallback>
                           </Avatar>
-                          <span>{member.name}</span>
+                          <span>{member.full_name}</span>
                         </div>
                       </SelectItem>
                     ))}
@@ -632,10 +621,27 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
             <InfoRow label="Story Points">
               <Select
                 value={formData.story_points?.toString() || "none"}
-                onValueChange={(value) => setFormData(prev => ({ 
-                  ...prev, 
-                  story_points: value === "none" ? null : parseInt(value)
-                }))}
+                onValueChange={async (value) => {
+                  const newValue = value === "none" ? null : parseInt(value);
+                  const prev = formData.story_points;
+                  setFormData(prevState => ({ ...prevState, story_points: newValue }));
+                  if (task?.id) {
+                    try {
+                      setSavingStoryPoints(true);
+                      const { error } = await supabase
+                        .from('tasks')
+                        .update({ story_points: newValue })
+                        .eq('id', task.id);
+                      if (error) throw error;
+                      toast({ title: 'Saved', description: 'Story points updated' });
+                    } catch (err: any) {
+                      setFormData(prevState => ({ ...prevState, story_points: prev }));
+                      toast({ title: 'Error', description: 'Failed to update story points', variant: 'destructive' });
+                    } finally {
+                      setSavingStoryPoints(false);
+                    }
+                  }
+                }}
               >
                 <SelectTrigger className="w-20 h-8 text-sm bg-background border-input">
                   <SelectValue />
