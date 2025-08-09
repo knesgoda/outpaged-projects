@@ -232,19 +232,24 @@ export default function Tasks() {
   const handleSaveTask = async (taskData: Partial<TaskType>) => {
     try {
       if (selectedTask) {
-        // Update existing task
+        // Update existing task with all fields
+        const updateData = {
+          title: taskData.title,
+          description: taskData.description,
+          priority: taskData.priority,
+          status: taskData.status,
+          hierarchy_level: (taskData as any).hierarchy_level,
+          task_type: (taskData as any).task_type,
+          due_date: (taskData as any).due_date,
+          parent_id: (taskData as any).parent_id,
+          blocked: (taskData as any).blocked || false,
+          blocking_reason: (taskData as any).blocking_reason,
+          story_points: (taskData as any).story_points,
+        };
+
         const { error } = await supabase
           .from('tasks')
-          .update({
-            title: taskData.title,
-            description: taskData.description,
-            priority: taskData.priority,
-            status: taskData.status,
-            hierarchy_level: (taskData as any).hierarchy_level,
-            task_type: (taskData as any).task_type,
-            due_date: (taskData as any).due_date,
-            parent_id: (taskData as any).parent_id,
-          })
+          .update(updateData)
           .eq('id', selectedTask.id);
 
         if (error) throw error;
@@ -275,6 +280,11 @@ export default function Tasks() {
           title: "Success",
           description: "Task updated successfully",
         });
+        
+        // Refresh the tasks list to show updated data
+        fetchTasks();
+        setIsTaskDialogOpen(false);
+        setSelectedTask(null);
       } else {
         // Create new task (existing logic)
         const { data: projects, error: projectError } = await supabase
