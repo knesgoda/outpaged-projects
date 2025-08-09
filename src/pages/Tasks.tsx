@@ -185,12 +185,12 @@ export default function Tasks() {
     }
   }, [user]);
 
-  const handleTaskClick = (task: TaskType) => {
+  const handleTaskClick = (task: any) => {
     setSelectedTask(task);
     setIsTaskDialogOpen(true);
   };
 
-  const handleEditTask = (e: React.MouseEvent, task: TaskType) => {
+  const handleEditTask = (e: React.MouseEvent, task: any) => {
     e.stopPropagation();
     setSelectedTask(task);
     setIsTaskDialogOpen(true);
@@ -229,10 +229,9 @@ export default function Tasks() {
     }
   };
 
-  const handleSaveTask = async (taskData: Partial<TaskType>) => {
+  const handleSaveTask = async (taskData: any) => {
     try {
       if (selectedTask) {
-        // Update existing task with all fields
         const updateData = {
           title: taskData.title,
           description: taskData.description,
@@ -247,32 +246,32 @@ export default function Tasks() {
           story_points: (taskData as any).story_points,
         };
 
-        const { error } = await supabase
-          .from('tasks')
-          .update(updateData)
-          .eq('id', selectedTask.id);
+        console.log("[Tasks] Updating task", selectedTask.id, updateData);
+        const { error } = await supabase.from("tasks").update(updateData).eq("id", selectedTask.id);
+        if (error) {
+          console.error("[Tasks] Task update error:", error);
+          throw error;
+        }
 
-        if (error) throw error;
-
-        // Update assignees if provided
         if (taskData.assignees) {
-          // Remove existing assignees
-          await supabase
-            .from('task_assignees')
-            .delete()
-            .eq('task_id', selectedTask.id);
+          console.log("[Tasks] Updating assignees for task", selectedTask.id, taskData.assignees);
+          const { error: delErr } = await supabase.from("task_assignees").delete().eq("task_id", selectedTask.id);
+          if (delErr) {
+            console.error("[Tasks] Failed to remove existing assignees:", delErr);
+            throw delErr;
+          }
 
-          // Add new assignees
           if (taskData.assignees.length > 0) {
-            const assigneeInserts = taskData.assignees.map(assignee => ({
+            const assigneeInserts = taskData.assignees.map((assignee: any) => ({
               task_id: selectedTask.id,
               user_id: assignee.id,
-              assigned_by: user?.id
+              assigned_by: user?.id,
             }));
-
-            await supabase
-              .from('task_assignees')
-              .insert(assigneeInserts);
+            const { error: insErr } = await supabase.from("task_assignees").insert(assigneeInserts);
+            if (insErr) {
+              console.error("[Tasks] Failed to add assignees:", insErr);
+              throw insErr;
+            }
           }
         }
 
@@ -280,13 +279,11 @@ export default function Tasks() {
           title: "Success",
           description: "Task updated successfully",
         });
-        
-        // Refresh the tasks list to show updated data
+
         fetchTasks();
         setIsTaskDialogOpen(false);
         setSelectedTask(null);
       } else {
-        // Create new task (existing logic)
         const { data: projects, error: projectError } = await supabase
           .from('projects')
           .select('id')
@@ -352,17 +349,17 @@ export default function Tasks() {
       setIsTaskDialogOpen(false);
       setSelectedTask(null);
       fetchTasks();
-    } catch (error) {
-      console.error('Error saving task:', error);
+    } catch (error: any) {
+      console.error("[Tasks] Error saving task:", error);
       toast({
         title: "Error",
-        description: selectedTask ? "Failed to update task" : "Failed to create task",
+        description: `Failed to ${selectedTask ? "update" : "create"} task: ${error?.message || "Unknown error"}`,
         variant: "destructive",
       });
     }
   };
 
-  const handleCreateSubTask = (parentTask: TaskType) => {
+  const handleCreateSubTask = (parentTask: any) => {
     setSelectedTask({
       ...parentTask,
       id: '', // Clear ID to indicate this is a new task
@@ -389,7 +386,7 @@ export default function Tasks() {
     }
   };
 
-  const filteredTasks = tasks.filter(task => {
+  const filteredTasks = tasks.filter((task) => {
     const matchesSearch = task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          task.description?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = statusFilter === "all" || task.status === statusFilter;
