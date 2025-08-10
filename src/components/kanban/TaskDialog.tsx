@@ -43,7 +43,14 @@ import { useTaskRelationships } from "@/hooks/useTaskRelationships";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useTaskAssignees } from "@/hooks/useTaskAssignees";
-import { useProjectMembers } from "@/hooks/useProjectMembers";
+import { useProjectMembersView } from "@/hooks/useProjectMembersView";
+
+function getInitials(name?: string | null) {
+  if (!name) return "U";
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
+  return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+}
 
 interface TaskDialogProps {
   task?: Task | null;
@@ -92,7 +99,7 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
   const [editedTitle, setEditedTitle] = useState(task?.title || "");
   const [editedDescription, setEditedDescription] = useState(task?.description || "");
 
-  const { members: projectMembers, loading: membersLoading } = useProjectMembers(projectId);
+  const { members: projectMembers, isLoading: membersLoading } = useProjectMembersView(projectId);
   const [newTag, setNewTag] = useState("");
   const [commentCount, setCommentCount] = useState(0);
   const [showRelationships, setShowRelationships] = useState(false);
@@ -380,7 +387,7 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
           </div>
         </div>
 
-        <div className="flex h-[calc(90vh-140px)]">
+        <div className="flex flex-col md:flex-row h-[calc(90vh-140px)]">
           {/* Left Column - Main Content */}
           <div className="flex-1 p-6 space-y-6 overflow-y-auto">
             {/* Description */}
@@ -483,7 +490,7 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
           </div>
 
           {/* Right Column - Metadata */}
-          <div className="w-80 p-6 border-l border-border bg-muted/20 overflow-y-auto space-y-6">
+          <div className="w-full md:w-80 p-6 border-t md:border-t-0 md:border-l border-border bg-muted/20 overflow-y-auto space-y-6">
             {/* Status */}
             <div>
               <h4 className="text-sm font-medium text-muted-foreground mb-2">Status</h4>
@@ -605,7 +612,7 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
                           <Avatar className="w-5 h-5">
                             <AvatarImage src={member.avatar_url || undefined} />
                             <AvatarFallback className="text-xs">
-                              {member.initials}
+                              {getInitials(member.full_name)}
                             </AvatarFallback>
                           </Avatar>
                           <span>{member.full_name}</span>

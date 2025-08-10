@@ -21,7 +21,7 @@ export function useNotifications() {
   const queryClient = useQueryClient();
 
   const { data: notifications = [], isLoading } = useQuery({
-    queryKey: ['notifications'],
+    queryKey: ['notifications', user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('notifications')
@@ -44,35 +44,38 @@ export function useNotifications() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      queryClient.invalidateQueries({ queryKey: ['notifications', user?.id] });
     },
   });
 
   const markAllAsReadMutation = useMutation({
     mutationFn: async () => {
+      if (!user) throw new Error('Not authenticated');
       const { error } = await supabase
         .from('notifications')
         .update({ read: true })
+        .eq('user_id', user.id)
         .eq('read', false);
       
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      queryClient.invalidateQueries({ queryKey: ['notifications', user?.id] });
     },
   });
 
   // Real-time updates for notifications
   useRealtime({
     table: 'notifications',
+    filter: user ? `user_id=eq.${user.id}` : undefined,
     onInsert: () => {
-      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      queryClient.invalidateQueries({ queryKey: ['notifications', user?.id] });
     },
     onUpdate: () => {
-      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      queryClient.invalidateQueries({ queryKey: ['notifications', user?.id] });
     },
     onDelete: () => {
-      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      queryClient.invalidateQueries({ queryKey: ['notifications', user?.id] });
     },
   });
 
