@@ -2094,6 +2094,7 @@ export type Database = {
         | "innovation"
         | "completion"
       leaderboard_type: "global" | "project" | "team" | "challenge"
+      notification_type: "info" | "success" | "warning" | "error"
       project_status:
         | "planning"
         | "active"
@@ -2291,6 +2292,7 @@ export const Constants = {
         "completion",
       ],
       leaderboard_type: ["global", "project", "team", "challenge"],
+      notification_type: ["info", "success", "warning", "error"],
       project_status: [
         "planning",
         "active",
