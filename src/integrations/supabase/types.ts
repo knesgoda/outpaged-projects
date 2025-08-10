@@ -1955,6 +1955,23 @@ export type Database = {
       }
     }
     Views: {
+      project_members_with_profiles: {
+        Row: {
+          avatar_url: string | null
+          full_name: string | null
+          project_id: string | null
+          user_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_members_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       task_assignees_with_profiles: {
         Row: {
           assigned_at: string | null

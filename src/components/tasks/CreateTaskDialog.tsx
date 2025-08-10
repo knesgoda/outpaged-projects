@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -10,7 +9,7 @@ import { SmartTaskTypeSelector, SMART_TASK_TYPE_OPTIONS } from "./SmartTaskTypeS
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import AssigneeMultiSelect from "./AssigneeMultiSelect";
+import AssigneeProjectMemberSelect from "./AssigneeProjectMemberSelect";
 import RelationshipPicker from "./RelationshipPicker";
 
 interface CreateTaskDialogProps {
@@ -289,7 +288,7 @@ export function CreateTaskDialog({ open, onOpenChange, projectId, onTaskCreated 
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <AssigneeMultiSelect
+            <AssigneeProjectMemberSelect
               projectId={projectId}
               value={assigneeIds}
               onChange={setAssigneeIds}
