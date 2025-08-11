@@ -44,6 +44,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useTaskAssignees } from "@/hooks/useTaskAssignees";
 import { useProjectMembersView } from "@/hooks/useProjectMembersView";
+import AssigneeCompanySelect from "@/components/tasks/AssigneeCompanySelect";
+import { useIsAdmin } from "@/hooks/useIsAdmin";
 
 function getInitials(name?: string | null) {
   if (!name) return "U";
@@ -109,8 +111,66 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
   const { relationships } = useTaskRelationships(task?.id);
   const { assignees: currentAssignees, addAssignee, removeAssignee, fetchAssignees, loading: assigneesLoading } = useTaskAssignees(task?.id);
 
-  const [savingAssignee, setSavingAssignee] = useState<string | null>(null);
-  const [savingStoryPoints, setSavingStoryPoints] = useState(false);
+const [savingAssignee, setSavingAssignee] = useState<string | null>(null);
+const [savingStoryPoints, setSavingStoryPoints] = useState(false);
+const { isAdmin } = useIsAdmin();
+const [projectOwnerId, setProjectOwnerId] = useState<string | null>(null);
+
+useEffect(() => {
+  const fetchOwner = async () => {
+    if (!projectId) return;
+    const { data, error } = await supabase
+      .from('projects')
+      .select('owner_id')
+      .eq('id', projectId)
+      .maybeSingle();
+    if (!error) setProjectOwnerId(data?.owner_id || null);
+  };
+  fetchOwner();
+}, [projectId]);
+
+const canManageMembers = !!user && (isAdmin || projectOwnerId === user.id);
+
+const addUserToProject = async (userIdToAdd: string) => {
+  if (!projectId) return;
+  const { error } = await supabase.from('project_members').insert({
+    project_id: projectId,
+    user_id: userIdToAdd,
+  });
+  if (error) {
+    toast({ title: 'Could not add to project', description: error.message, variant: 'destructive' });
+  } else {
+    toast({ title: 'Added to project', description: 'User can now access this project.' });
+  }
+};
+
+const handleAddAssignee = async (userIdToAdd: string) => {
+  if (!task?.id) return;
+  try {
+    setSavingAssignee(userIdToAdd);
+    await addAssignee(userIdToAdd);
+    await fetchAssignees();
+
+    // If not a project member, optionally add
+    const isMember = projectMembers.some((m) => m.user_id === userIdToAdd);
+    if (!isMember) {
+      if (canManageMembers) {
+        toast({
+          title: 'Assigned outside project',
+          description: 'They may not see this task. Adding them to the project...',
+        });
+        await addUserToProject(userIdToAdd);
+      } else {
+        toast({
+          title: 'Assigned outside project',
+          description: 'They might not see this task until a project owner adds them to the project.',
+        });
+      }
+    }
+  } finally {
+    setSavingAssignee(null);
+  }
+};
 
   useEffect(() => {
     if (task?.id) {
@@ -585,42 +645,12 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
                     ))}
                   </div>
                 )}
-                <Select
-                  value=""
-                  onValueChange={async (value) => {
-                    if (!task?.id) return;
-                    const member = projectMembers.find(m => m.user_id === value);
-                    if (!member) return;
-                    try {
-                      setSavingAssignee(value);
-                      await addAssignee(value);
-                      await fetchAssignees();
-                    } finally {
-                      setSavingAssignee(null);
-                    }
-                  }}
-                >
-                  <SelectTrigger className="bg-background border-input text-sm">
-                    <SelectValue placeholder="Add assignee..." />
-                  </SelectTrigger>
-                  <SelectContent className="bg-background border-border z-50">
-                    {projectMembers
-                      .filter(member => !formData.assignees.find(a => a.id === member.user_id))
-                      .map((member) => (
-                      <SelectItem key={member.user_id} value={member.user_id}>
-                        <div className="flex items-center gap-2">
-                          <Avatar className="w-5 h-5">
-                            <AvatarImage src={member.avatar_url || undefined} />
-                            <AvatarFallback className="text-xs">
-                              {getInitials(member.full_name)}
-                            </AvatarFallback>
-                          </Avatar>
-                          <span>{member.full_name}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <AssigneeCompanySelect
+                  value={formData.assignees.map((a: any) => a.id)}
+                  onChange={() => { /* not used in adder mode */ }}
+                  suggestProjectId={projectId}
+                  onSelectOne={handleAddAssignee}
+                />
               </div>
             </div>
 

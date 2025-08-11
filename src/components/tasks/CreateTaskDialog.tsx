@@ -9,7 +9,7 @@ import { SmartTaskTypeSelector, SMART_TASK_TYPE_OPTIONS } from "./SmartTaskTypeS
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import AssigneeProjectMemberSelect from "./AssigneeProjectMemberSelect";
+import AssigneeCompanySelect from "./AssigneeCompanySelect";
 import RelationshipPicker from "./RelationshipPicker";
 
 interface CreateTaskDialogProps {
@@ -288,12 +288,13 @@ export function CreateTaskDialog({ open, onOpenChange, projectId, onTaskCreated 
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <AssigneeProjectMemberSelect
-              projectId={projectId}
+            <AssigneeCompanySelect
+              suggestProjectId={projectId}
               value={assigneeIds}
               onChange={setAssigneeIds}
               label="Assign to"
             />
+
 
             <div className="space-y-2">
               <Label htmlFor="story_points">Story points</Label>
