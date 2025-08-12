@@ -62,6 +62,29 @@ export function useTaskAssignees(taskId?: string) {
 
       if (error) throw error;
 
+      // Notify assignee via edge function (email + in-app)
+      try {
+        const { data: taskData, error: taskErr } = await supabase
+          .from('tasks')
+          .select('project_id')
+          .eq('id', taskId)
+          .single();
+        if (taskErr) {
+          console.warn('Could not fetch task project_id for notification:', taskErr);
+        } else {
+          await supabase.functions.invoke('send-task-assignment-notification', {
+            body: {
+              taskId,
+              assigneeId: userId,
+              projectId: taskData?.project_id,
+              assignerId: user.id,
+            },
+          });
+        }
+      } catch (notifyError) {
+        console.warn('Assignment notification error:', notifyError);
+      }
+
       await fetchAssignees();
       
       toast({
