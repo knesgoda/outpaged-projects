@@ -81,6 +81,10 @@ export function useTaskAssignees(taskId?: string) {
   const removeAssignee = async (userId: string) => {
     if (!taskId) return;
 
+    // Optimistic update
+    const previous = assignees;
+    setAssignees(prev => prev.filter(a => a.id !== userId));
+
     try {
       const { error } = await supabase
         .from('task_assignees')
@@ -98,9 +102,11 @@ export function useTaskAssignees(taskId?: string) {
       });
     } catch (error: any) {
       console.error('Error removing assignee:', error);
+      // Revert optimistic update
+      setAssignees(previous);
       toast({
         title: "Error",
-        description: "Failed to remove assignee",
+        description: `Failed to remove assignee${error?.message ? `: ${error.message}` : ''}`,
         variant: "destructive",
       });
     }

@@ -109,9 +109,10 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
   const { toast } = useToast();
   const { user } = useAuth();
   const { relationships } = useTaskRelationships(task?.id);
-  const { assignees: currentAssignees, addAssignee, removeAssignee, fetchAssignees, loading: assigneesLoading } = useTaskAssignees(task?.id);
+  const { assignees: currentAssignees, addAssignee, removeAssignee, fetchAssignees, updateAssignees, loading: assigneesLoading } = useTaskAssignees(task?.id);
 
 const [savingAssignee, setSavingAssignee] = useState<string | null>(null);
+const [clearingAll, setClearingAll] = useState(false);
 const [savingStoryPoints, setSavingStoryPoints] = useState(false);
 const { isAdmin } = useIsAdmin();
 const [projectOwnerId, setProjectOwnerId] = useState<string | null>(null);
@@ -610,7 +611,29 @@ const handleAddAssignee = async (userIdToAdd: string) => {
 
             {/* Assignees */}
             <div>
-              <h4 className="text-sm font-medium text-muted-foreground mb-2">Assignee {savingAssignee && <span className="ml-2 text-xs text-muted-foreground">Saving...</span>}</h4>
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="text-sm font-medium text-muted-foreground">Assignees</h4>
+                {formData.assignees.length > 1 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={clearingAll || !!savingAssignee}
+                    onClick={async () => {
+                      if (!task?.id) return;
+                      try {
+                        setClearingAll(true);
+                        await updateAssignees([]);
+                        await fetchAssignees();
+                        toast({ title: "Cleared", description: "All assignees removed" });
+                      } finally {
+                        setClearingAll(false);
+                      }
+                    }}
+                  >
+                    Remove all
+                  </Button>
+                )}
+              </div>
               <div className="space-y-3">
                 {formData.assignees.length > 0 && (
                   <div className="space-y-2">
@@ -625,8 +648,9 @@ const handleAddAssignee = async (userIdToAdd: string) => {
                         <span className="text-foreground flex-1">{assignee.name}</span>
                         <Button
                           variant="ghost"
-                          size="sm"
-                          disabled={!!savingAssignee}
+                          size="icon"
+                          aria-label={`Remove ${assignee.name}`}
+                          disabled={savingAssignee === assignee.id}
                           onClick={async () => {
                             if (!task?.id) return;
                             try {
@@ -637,9 +661,9 @@ const handleAddAssignee = async (userIdToAdd: string) => {
                               setSavingAssignee(null);
                             }
                           }}
-                          className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
+                          className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
                         >
-                          <X className="h-3 w-3" />
+                          <X className="h-4 w-4" />
                         </Button>
                       </div>
                     ))}
