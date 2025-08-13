@@ -12,6 +12,7 @@ import {
   DragStartEvent,
   DragOverlay,
   PointerSensor,
+  TouchSensor,
   useSensor,
   useSensors,
   closestCorners,
@@ -379,7 +380,13 @@ export function KanbanBoard() {
       activationConstraint: {
         distance: 8,
       },
-    })
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 200,
+        tolerance: 8,
+      },
+    }),
   );
 
   const handleDragStart = (event: DragStartEvent) => {
@@ -999,7 +1006,7 @@ export function KanbanBoard() {
       />
 
       {/* Kanban Board */}
-      <div className="overflow-x-auto pb-6">
+      <div className="overflow-x-auto pb-6 snap-x snap-mandatory">
         <DndContext
           sensors={sensors}
           collisionDetection={closestCorners}

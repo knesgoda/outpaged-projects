@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef, KeyboardEvent } from "react";
 import {
-  Dialog,
-  DialogContent,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
+  ResponsiveDialog as Dialog,
+  ResponsiveDialogContent as DialogContent,
+  ResponsiveDialogTitle as DialogTitle,
+  ResponsiveDialogDescription as DialogDescription,
+} from "@/components/ui/responsive-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -389,7 +389,7 @@ const handleAddAssignee = async (userIdToAdd: string) => {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden bg-card border border-border p-0">
+      <DialogContent className="max-w-5xl md:max-h-[90vh] h-[90svh] overflow-hidden bg-card border border-border p-0">
         <DialogTitle className="sr-only">
           {task ? `Edit Task: ${formData.title}` : 'Create New Task'}
         </DialogTitle>
@@ -881,13 +881,15 @@ const handleAddAssignee = async (userIdToAdd: string) => {
         </div>
 
         {/* Footer Actions */}
-        <div className="flex justify-end gap-2 px-6 py-4 border-t border-border bg-muted/30">
-          <Button variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button onClick={handleSave} disabled={!formData.title.trim()}>
-            {task ? "Update Task" : "Create Task"}
-          </Button>
+        <div className="px-6 py-3 border-t border-border bg-muted/30 md:bg-muted/30 md:static md:py-4 md:px-6 sticky bottom-0 left-0 right-0 backdrop-blur supports-[backdrop-filter]:bg-muted/50">
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button onClick={handleSave} disabled={!formData.title.trim()}>
+              {task ? "Update Task" : "Create Task"}
+            </Button>
+          </div>
         </div>
       </DialogContent>
 

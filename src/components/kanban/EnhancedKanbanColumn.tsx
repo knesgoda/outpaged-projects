@@ -136,7 +136,7 @@ export function EnhancedKanbanColumn({
     <div 
       ref={isDraggable ? setSortableRef : undefined}
       style={style}
-      className={`flex-shrink-0 w-80 ${isDragging ? 'opacity-50' : ''}`}
+      className={`flex-shrink-0 w-[85vw] sm:w-80 snap-start ${isDragging ? 'opacity-50' : ''}`}
     >
       <Card className={`h-fit transition-colors ${
         isOver ? "ring-2 ring-primary/50 bg-primary/5" : ""
@@ -171,7 +171,7 @@ export function EnhancedKanbanColumn({
               <Button
                 variant="ghost"
                 size="icon"
-                className="w-6 h-6"
+                className="w-10 h-10 sm:w-6 sm:h-6"
                 onClick={() => onShowQuickAdd?.({ columnId: column.id, swimlaneId })}
                 title="Quick add task"
               >
@@ -180,14 +180,14 @@ export function EnhancedKanbanColumn({
               <Button
                 variant="ghost"
                 size="icon"
-                className="w-6 h-6"
+                className="w-10 h-10 sm:w-6 sm:h-6"
                 onClick={() => onAddTask?.(column.id)}
               >
                 <Plus className="w-4 h-4" />
               </Button>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="w-6 h-6">
+                  <Button variant="ghost" size="icon" className="w-10 h-10 sm:w-6 sm:h-6">
                     <MoreHorizontal className="w-4 h-4" />
                   </Button>
                 </DropdownMenuTrigger>

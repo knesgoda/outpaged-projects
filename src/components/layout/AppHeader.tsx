@@ -31,6 +31,7 @@ import {
   Monitor
 } from "lucide-react";
 import { useTheme } from "next-themes";
+import { SidebarTrigger } from "@/components/ui/sidebar";
 
 export function AppHeader() {
   const navigate = useNavigate();
@@ -73,6 +74,7 @@ export function AppHeader() {
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between px-4">
         <div className="flex items-center gap-6">
+          <SidebarTrigger className="md:hidden mr-2" />
           {/* Logo */}
           <div 
             className="flex items-center gap-2 cursor-pointer" 
