@@ -120,7 +120,7 @@ export default function Tasks() {
         .from('tasks')
         .select(`
           *,
-          project:projects(name)
+          projects(name, code)
         `)
         .order('created_at', { ascending: false });
 
