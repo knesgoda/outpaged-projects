@@ -32,6 +32,7 @@ import ProjectTemplates from "./pages/ProjectTemplates";
 import Settings from "./pages/Settings";
 import ProjectSettings from "./pages/ProjectSettings";
 import Search from "./pages/Search";
+import Automation from "./pages/Automation";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
@@ -86,6 +87,7 @@ const App = () => (
                   <Route path="analytics" element={<TimeAnalytics />} />
                   <Route path="reports" element={<Reports />} />
                   <Route path="templates" element={<ProjectTemplates />} />
+                  <Route path="automation" element={<Automation />} />
                   <Route path="search" element={<Search />} />
                   <Route path="settings" element={<Settings />} />
                   <Route path="team" element={<TeamDirectory />} />

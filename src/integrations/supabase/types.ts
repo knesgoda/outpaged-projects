@@ -179,6 +179,171 @@ export type Database = {
         }
         Relationships: []
       }
+      automation_actions: {
+        Row: {
+          action_config: Json
+          action_type: Database["public"]["Enums"]["automation_action_type"]
+          created_at: string
+          execution_order: number
+          id: string
+          rule_id: string
+        }
+        Insert: {
+          action_config?: Json
+          action_type: Database["public"]["Enums"]["automation_action_type"]
+          created_at?: string
+          execution_order?: number
+          id?: string
+          rule_id: string
+        }
+        Update: {
+          action_config?: Json
+          action_type?: Database["public"]["Enums"]["automation_action_type"]
+          created_at?: string
+          execution_order?: number
+          id?: string
+          rule_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "automation_actions_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "automation_rules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      automation_executions: {
+        Row: {
+          actions_executed: Json
+          error_message: string | null
+          executed_at: string
+          id: string
+          rule_id: string
+          success: boolean
+          task_id: string | null
+          trigger_data: Json
+          triggered_by: string | null
+        }
+        Insert: {
+          actions_executed?: Json
+          error_message?: string | null
+          executed_at?: string
+          id?: string
+          rule_id: string
+          success?: boolean
+          task_id?: string | null
+          trigger_data?: Json
+          triggered_by?: string | null
+        }
+        Update: {
+          actions_executed?: Json
+          error_message?: string | null
+          executed_at?: string
+          id?: string
+          rule_id?: string
+          success?: boolean
+          task_id?: string | null
+          trigger_data?: Json
+          triggered_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "automation_executions_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "automation_rules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "automation_executions_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      automation_rules: {
+        Row: {
+          created_at: string
+          created_by: string
+          description: string | null
+          execution_count: number
+          id: string
+          is_active: boolean
+          last_executed_at: string | null
+          name: string
+          project_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          description?: string | null
+          execution_count?: number
+          id?: string
+          is_active?: boolean
+          last_executed_at?: string | null
+          name: string
+          project_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          execution_count?: number
+          id?: string
+          is_active?: boolean
+          last_executed_at?: string | null
+          name?: string
+          project_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "automation_rules_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      automation_triggers: {
+        Row: {
+          conditions: Json
+          created_at: string
+          id: string
+          rule_id: string
+          trigger_type: Database["public"]["Enums"]["automation_trigger_type"]
+        }
+        Insert: {
+          conditions?: Json
+          created_at?: string
+          id?: string
+          rule_id: string
+          trigger_type: Database["public"]["Enums"]["automation_trigger_type"]
+        }
+        Update: {
+          conditions?: Json
+          created_at?: string
+          id?: string
+          rule_id?: string
+          trigger_type?: Database["public"]["Enums"]["automation_trigger_type"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "automation_triggers_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "automation_rules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       challenge_participants: {
         Row: {
           challenge_id: string
@@ -315,6 +480,56 @@ export type Database = {
           title?: string
         }
         Relationships: []
+      }
+      custom_fields: {
+        Row: {
+          created_at: string
+          created_by: string
+          default_value: Json | null
+          field_type: Database["public"]["Enums"]["custom_field_type"]
+          id: string
+          is_required: boolean
+          name: string
+          options: Json | null
+          position: number
+          project_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          default_value?: Json | null
+          field_type: Database["public"]["Enums"]["custom_field_type"]
+          id?: string
+          is_required?: boolean
+          name: string
+          options?: Json | null
+          position?: number
+          project_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          default_value?: Json | null
+          field_type?: Database["public"]["Enums"]["custom_field_type"]
+          id?: string
+          is_required?: boolean
+          name?: string
+          options?: Json | null
+          position?: number
+          project_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "custom_fields_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       custom_story_views: {
         Row: {
@@ -1228,6 +1443,48 @@ export type Database = {
         }
         Relationships: []
       }
+      task_custom_fields: {
+        Row: {
+          created_at: string
+          custom_field_id: string
+          id: string
+          task_id: string
+          updated_at: string
+          value: Json
+        }
+        Insert: {
+          created_at?: string
+          custom_field_id: string
+          id?: string
+          task_id: string
+          updated_at?: string
+          value: Json
+        }
+        Update: {
+          created_at?: string
+          custom_field_id?: string
+          id?: string
+          task_id?: string
+          updated_at?: string
+          value?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_custom_fields_custom_field_id_fkey"
+            columns: ["custom_field_id"]
+            isOneToOne: false
+            referencedRelation: "custom_fields"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_custom_fields_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       task_relationships: {
         Row: {
           created_at: string
@@ -1994,6 +2251,14 @@ export type Database = {
         Args: { project_id: string }
         Returns: boolean
       }
+      execute_automation_rule: {
+        Args: {
+          rule_id_param: string
+          task_id_param: string
+          trigger_data_param?: Json
+        }
+        Returns: boolean
+      }
       generate_username: {
         Args: { full_name_param: string }
         Returns: string
@@ -2087,12 +2352,46 @@ export type Database = {
         | "analyst"
         | "creative"
         | "technical"
+      automation_action_type:
+        | "assign_user"
+        | "change_status"
+        | "update_field"
+        | "send_notification"
+        | "create_subtask"
+        | "add_comment"
+        | "set_due_date"
+        | "move_to_project"
+      automation_condition_operator:
+        | "equals"
+        | "not_equals"
+        | "contains"
+        | "greater_than"
+        | "less_than"
+        | "is_empty"
+        | "is_not_empty"
+      automation_trigger_type:
+        | "status_change"
+        | "assignment_change"
+        | "due_date_approaching"
+        | "field_update"
+        | "task_created"
+        | "comment_added"
+        | "time_logged"
       challenge_type:
         | "sprint"
         | "milestone"
         | "collaboration"
         | "innovation"
         | "completion"
+      custom_field_type:
+        | "text"
+        | "number"
+        | "select"
+        | "multi_select"
+        | "date"
+        | "boolean"
+        | "user"
+        | "url"
       leaderboard_type: "global" | "project" | "team" | "challenge"
       notification_type: "info" | "success" | "warning" | "error"
       project_status:
@@ -2284,12 +2583,50 @@ export const Constants = {
         "creative",
         "technical",
       ],
+      automation_action_type: [
+        "assign_user",
+        "change_status",
+        "update_field",
+        "send_notification",
+        "create_subtask",
+        "add_comment",
+        "set_due_date",
+        "move_to_project",
+      ],
+      automation_condition_operator: [
+        "equals",
+        "not_equals",
+        "contains",
+        "greater_than",
+        "less_than",
+        "is_empty",
+        "is_not_empty",
+      ],
+      automation_trigger_type: [
+        "status_change",
+        "assignment_change",
+        "due_date_approaching",
+        "field_update",
+        "task_created",
+        "comment_added",
+        "time_logged",
+      ],
       challenge_type: [
         "sprint",
         "milestone",
         "collaboration",
         "innovation",
         "completion",
+      ],
+      custom_field_type: [
+        "text",
+        "number",
+        "select",
+        "multi_select",
+        "date",
+        "boolean",
+        "user",
+        "url",
       ],
       leaderboard_type: ["global", "project", "team", "challenge"],
       notification_type: ["info", "success", "warning", "error"],
