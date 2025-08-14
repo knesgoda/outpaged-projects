@@ -142,6 +142,11 @@ type Toast = Omit<ToasterToast, "id">
 function toast({ ...props }: Toast) {
   const id = genId()
 
+  // Enhanced error handling for development
+  if (props.variant === "destructive" && props.description && process.env.NODE_ENV === 'development') {
+    console.error("Toast Error Details:", props.description);
+  }
+
   const update = (props: ToasterToast) =>
     dispatch({
       type: "UPDATE_TOAST",
