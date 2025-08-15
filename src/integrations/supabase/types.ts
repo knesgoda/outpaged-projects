@@ -7,7 +7,7 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instanciate createClient with right options
+  // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "12.2.3 (519615d)"
@@ -2270,37 +2270,37 @@ export type Database = {
       get_task_children: {
         Args: { task_id: string }
         Returns: {
-          id: string
-          title: string
           hierarchy_level: Database["public"]["Enums"]["task_hierarchy_level"]
-          task_type: Database["public"]["Enums"]["task_type"]
-          status: Database["public"]["Enums"]["task_status"]
+          id: string
           priority: Database["public"]["Enums"]["task_priority"]
+          status: Database["public"]["Enums"]["task_status"]
+          task_type: Database["public"]["Enums"]["task_type"]
+          title: string
         }[]
       }
       get_task_hierarchy_path: {
         Args: { task_id: string }
         Returns: {
+          depth: number
+          hierarchy_level: Database["public"]["Enums"]["task_hierarchy_level"]
           id: string
           title: string
-          hierarchy_level: Database["public"]["Enums"]["task_hierarchy_level"]
-          depth: number
         }[]
       }
       get_task_relationships: {
         Args: { task_id_param: string }
         Returns: {
-          id: string
-          source_task_id: string
-          target_task_id: string
-          relationship_type: Database["public"]["Enums"]["task_relationship_type"]
           created_at: string
           created_by: string
+          id: string
           notes: string
-          source_task_title: string
-          target_task_title: string
+          relationship_type: Database["public"]["Enums"]["task_relationship_type"]
+          source_task_id: string
           source_task_status: Database["public"]["Enums"]["task_status"]
+          source_task_title: string
+          target_task_id: string
           target_task_status: Database["public"]["Enums"]["task_status"]
+          target_task_title: string
         }[]
       }
       get_team_member_stats: {
