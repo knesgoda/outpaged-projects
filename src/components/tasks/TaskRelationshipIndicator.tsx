@@ -6,9 +6,10 @@ import { useTaskRelationships } from "@/hooks/useTaskRelationships";
 interface TaskRelationshipIndicatorProps {
   taskId: string;
   showCount?: boolean;
+  compact?: boolean;
 }
 
-export const TaskRelationshipIndicator = ({ taskId, showCount = true }: TaskRelationshipIndicatorProps) => {
+export const TaskRelationshipIndicator = ({ taskId, showCount = true, compact = false }: TaskRelationshipIndicatorProps) => {
   const { relationships, loading } = useTaskRelationships(taskId);
 
   if (loading || relationships.length === 0) {

@@ -62,7 +62,6 @@ export function TaskCard({ task, onEdit, onDelete, onView, compact }: TaskCardPr
         {relationships.length > 0 && (
           <div className="absolute top-2 left-2">
             <TaskRelationshipIndicator 
-              relationships={relationships} 
               taskId={task.id}
               compact={compact}
             />

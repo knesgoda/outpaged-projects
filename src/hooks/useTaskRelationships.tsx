@@ -7,8 +7,7 @@ export type TaskRelationshipType =
   | "blocks"
   | "depends_on"
   | "relates_to"
-  | "duplicates"
-  | "parent_child";
+  | "duplicates";
 
 interface TaskRelationship {
   id: string;
@@ -59,11 +58,12 @@ export const useTaskRelationships = (taskId?: string) => {
 
   const createRelationship = async (relationshipData: CreateRelationshipData) => {
     try {
+      const user = await supabase.auth.getUser();
       const { error } = await supabase
         .from("task_relationships")
         .insert({
           ...relationshipData,
-          created_by: (await supabase.auth.getUser()).data.user?.id,
+          created_by: user.data.user?.id
         });
 
       if (error) throw error;

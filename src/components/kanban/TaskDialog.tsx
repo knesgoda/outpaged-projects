@@ -839,7 +839,6 @@ const handleAddAssignee = async (userIdToAdd: string) => {
                 
                 {relationships.length > 0 ? (
                   <TaskRelationshipIndicator
-                    relationships={relationships}
                     taskId={task.id}
                     compact
                   />
@@ -896,12 +895,11 @@ const handleAddAssignee = async (userIdToAdd: string) => {
       {/* Task Relationships Dialog */}
       {task?.id && projectId && (
         <TaskRelationshipsDialog
-          isOpen={showRelationships}
-          onClose={() => setShowRelationships(false)}
           taskId={task.id}
           taskTitle={task.title}
-          projectId={projectId}
-        />
+        >
+          <div /> {/* Empty trigger as it's controlled by state */}
+        </TaskRelationshipsDialog>
       )}
     </Dialog>
   );

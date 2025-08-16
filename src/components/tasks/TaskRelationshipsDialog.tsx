@@ -59,8 +59,6 @@ export const TaskRelationshipsDialog = ({ taskId, taskTitle, children }: TaskRel
         return "Relates To";
       case "duplicates":
         return "Duplicates";
-      case "parent_child":
-        return "Parent/Child";
       default:
         return type;
     }
@@ -76,8 +74,6 @@ export const TaskRelationshipsDialog = ({ taskId, taskTitle, children }: TaskRel
         return "secondary";
       case "duplicates":
         return "outline";
-      case "parent_child":
-        return "default";
       default:
         return "secondary";
     }
@@ -181,7 +177,7 @@ export const TaskRelationshipsDialog = ({ taskId, taskTitle, children }: TaskRel
                         <SelectItem value="depends_on">Depends On</SelectItem>
                         <SelectItem value="relates_to">Relates To</SelectItem>
                         <SelectItem value="duplicates">Duplicates</SelectItem>
-                        <SelectItem value="parent_child">Parent/Child</SelectItem>
+                        
                       </SelectContent>
                     </Select>
                   </div>

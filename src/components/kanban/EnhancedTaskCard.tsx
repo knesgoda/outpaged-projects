@@ -236,7 +236,6 @@ export function EnhancedTaskCard({
         {!compact && relationships.length > 0 && (
           <div className="flex flex-wrap gap-1">
             <TaskRelationshipIndicator
-              relationships={relationships}
               taskId={task.id}
               compact={true}
             />
