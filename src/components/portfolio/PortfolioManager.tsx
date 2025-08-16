@@ -48,39 +48,8 @@ export const PortfolioManager = () => {
   const fetchPortfolios = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from("project_portfolios")
-        .select(`
-          *,
-          portfolio_projects(
-            project_id,
-            projects(
-              id,
-              name,
-              status,
-              tasks(count)
-            )
-          )
-        `)
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-
-      const portfoliosWithStats = data.map(portfolio => {
-        const projects = portfolio.portfolio_projects || [];
-        const totalTasks = projects.reduce((sum, pp) => {
-          return sum + (pp.projects?.tasks?.length || 0);
-        }, 0);
-        
-        return {
-          ...portfolio,
-          project_count: projects.length,
-          total_tasks: totalTasks,
-          completed_tasks: 0, // Would need additional query for done tasks
-        };
-      });
-
-      setPortfolios(portfoliosWithStats);
+      // For now, just return empty until the migration is applied
+      setPortfolios([]);
     } catch (error: any) {
       console.error("Error fetching portfolios:", error);
       toast({
@@ -97,24 +66,14 @@ export const PortfolioManager = () => {
     if (!newPortfolio.name.trim()) return;
 
     try {
-      const { error } = await supabase
-        .from("project_portfolios")
-        .insert({
-          name: newPortfolio.name,
-          description: newPortfolio.description,
-          owner_id: (await supabase.auth.getUser()).data.user?.id,
-        });
-
-      if (error) throw error;
-
+      // For now, just show success message until the migration is applied
       toast({
-        title: "Success",
-        description: "Portfolio created successfully",
+        title: "Info",
+        description: "Portfolio feature will be available after database migration",
       });
 
       setNewPortfolio({ name: "", description: "" });
       setIsCreating(false);
-      fetchPortfolios();
     } catch (error: any) {
       console.error("Error creating portfolio:", error);
       toast({
@@ -207,74 +166,17 @@ export const PortfolioManager = () => {
         </Dialog>
       </div>
 
-      {portfolios.length === 0 ? (
-        <Card className="p-8 text-center">
-          <FolderOpen className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-          <h3 className="text-lg font-medium mb-2">No Portfolios</h3>
-          <p className="text-muted-foreground mb-4">
-            Create your first portfolio to group and manage related projects.
-          </p>
-          <Button onClick={() => setIsCreating(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Create Portfolio
-          </Button>
-        </Card>
-      ) : (
-        <div className="grid gap-4">
-          {portfolios.map((portfolio) => (
-            <Card key={portfolio.id} className="p-6">
-              <div className="flex items-start justify-between mb-4">
-                <div>
-                  <h3 className="text-lg font-semibold">{portfolio.name}</h3>
-                  {portfolio.description && (
-                    <p className="text-muted-foreground mt-1">{portfolio.description}</p>
-                  )}
-                </div>
-                <Badge variant="outline">
-                  {portfolio.project_count} Projects
-                </Badge>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                <div className="flex items-center gap-2">
-                  <BarChart3 className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm">
-                    {portfolio.total_tasks} Total Tasks
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm">
-                    {getPortfolioProgress(portfolio)}% Complete
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-muted-foreground">
-                    Created {new Date(portfolio.created_at).toLocaleDateString()}
-                  </span>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span>Portfolio Progress</span>
-                  <span>{getPortfolioProgress(portfolio)}%</span>
-                </div>
-                <Progress value={getPortfolioProgress(portfolio)} className="h-2" />
-              </div>
-
-              <div className="flex gap-2 mt-4">
-                <Button variant="outline" size="sm">
-                  View Projects
-                </Button>
-                <Button variant="outline" size="sm">
-                  Analytics
-                </Button>
-              </div>
-            </Card>
-          ))}
-        </div>
-      )}
+      <Card className="p-8 text-center">
+        <FolderOpen className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+        <h3 className="text-lg font-medium mb-2">Portfolio Feature Coming Soon</h3>
+        <p className="text-muted-foreground mb-4">
+          Portfolio management will be available after the database migration is applied.
+        </p>
+        <Button onClick={() => setIsCreating(true)}>
+          <Plus className="h-4 w-4 mr-2" />
+          Preview Create Portfolio
+        </Button>
+      </Card>
     </div>
   );
 };
