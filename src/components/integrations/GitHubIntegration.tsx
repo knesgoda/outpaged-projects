@@ -279,10 +279,8 @@ export function GitHubIntegration() {
                     >
                       Create Task
                     </Button>
-                    <Button variant="ghost" size="sm" asChild>
-                      <a href={commit.url} target="_blank" rel="noopener noreferrer">
-                        <ExternalLink className="w-4 h-4" />
-                      </a>
+                    <Button variant="ghost" size="sm" onClick={() => window.open(commit.url, '_blank')}>
+                      <ExternalLink className="w-4 h-4" />
                     </Button>
                   </div>
                 </div>
