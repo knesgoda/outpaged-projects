@@ -85,6 +85,7 @@ const App = () => (
                   <Route path="roadmap" element={<Roadmap />} />
                   <Route path="notifications" element={<Notifications />} />
                   <Route path="analytics" element={<TimeAnalytics />} />
+                  <Route path="advanced-analytics" element={<Analytics />} />
                   <Route path="reports" element={<Reports />} />
                   <Route path="templates" element={<ProjectTemplates />} />
                   <Route path="automation" element={<Automation />} />

@@ -83,10 +83,16 @@ const navigationItems = [
     description: "Analytics and insights"
   },
   {
-    title: "Time Tracking",
+    title: "Time Analytics",
     url: "/dashboard/analytics",
     icon: Clock,
     description: "Track time and productivity"
+  },
+  {
+    title: "Advanced Analytics",
+    url: "/dashboard/advanced-analytics",
+    icon: BarChart3,
+    description: "Advanced analytics and reporting"
   },
   {
     title: "Roadmap",
