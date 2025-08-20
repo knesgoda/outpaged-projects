@@ -211,15 +211,16 @@ export function CreateTaskDialog({ open, onOpenChange, projectId, onTaskCreated 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
+      <DialogContent className="max-h-[90vh] overflow-hidden flex flex-col">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle>Create New Task</DialogTitle>
           <DialogDescription id="create-task-description">
             Fill in the details, assign teammates, add story points, and optionally link to another ticket.
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="flex-1 overflow-y-auto pr-2">
+          <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="title">Title *</Label>
             <Input
@@ -328,6 +329,7 @@ export function CreateTaskDialog({ open, onOpenChange, projectId, onTaskCreated 
             </Button>
           </div>
         </form>
+        </div>
       </DialogContent>
     </Dialog>
   );
