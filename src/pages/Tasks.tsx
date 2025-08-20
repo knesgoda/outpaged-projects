@@ -66,6 +66,7 @@ interface TaskType {
   }>;
   project?: {
     name?: string;
+    code?: string;
   } | null;
 }
 
@@ -160,6 +161,7 @@ export default function Tasks() {
         return {
           ...task,
           assignees: taskAssignees,
+          project: task.projects, // Map the joined project data correctly
           tags: [],
           comments: 0,
           attachments: 0
