@@ -49,6 +49,7 @@ interface TaskType {
   created_at: string;
   updated_at: string;
   project_id: string;
+  ticket_number?: number;
   // Additional properties required by TaskDialog
   tags: string[];
   comments: number;
@@ -121,7 +122,7 @@ export default function Tasks() {
         .from('tasks')
         .select(`
           *,
-          projects(name, code)
+          projects!inner(name, code)
         `)
         .order('created_at', { ascending: false });
 
