@@ -33,6 +33,7 @@ import Settings from "./pages/Settings";
 import ProjectSettings from "./pages/ProjectSettings";
 import Search from "./pages/Search";
 import Automation from "./pages/Automation";
+import Analytics from "./pages/Analytics";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
