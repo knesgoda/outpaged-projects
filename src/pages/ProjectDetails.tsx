@@ -9,6 +9,7 @@ import { ArrowLeft, Calendar, Users, CheckSquare2, Settings, Plus } from "lucide
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { useProjectNavigation } from "@/hooks/useProjectNavigation";
 import { format } from "date-fns";
 import { CreateTaskDialog } from "@/components/tasks/CreateTaskDialog";
 import { InviteMemberDialog } from "@/components/team/InviteMemberDialog";
@@ -19,6 +20,7 @@ export default function ProjectDetails({ overrideProjectId }: { overrideProjectI
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
+  const { navigateToProjectSettings } = useProjectNavigation();
   const [project, setProject] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [tasks, setTasks] = useState<any[]>([]);
@@ -217,7 +219,7 @@ export default function ProjectDetails({ overrideProjectId }: { overrideProjectI
         <Button 
           variant="outline" 
           size="sm"
-          onClick={() => navigate(`/dashboard/projects/${projectId}/settings`)}
+          onClick={() => navigateToProjectSettings(project)}
         >
           <Settings className="w-4 h-4 mr-2" />
           Settings

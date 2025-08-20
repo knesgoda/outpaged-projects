@@ -127,7 +127,10 @@ export function ProjectDialog({ open, onOpenChange, onSuccess }: ProjectDialogPr
             <Input
               id="code"
               value={formData.code}
-              onChange={(e) => setFormData(prev => ({ ...prev, code: e.target.value.toUpperCase() }))}
+              onChange={(e) => {
+                const newCode = e.target.value.toUpperCase();
+                setFormData(prev => ({ ...prev, code: newCode }));
+              }}
               placeholder="IRP, PROJ, DEV..."
               maxLength={10}
             />

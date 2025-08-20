@@ -10,6 +10,8 @@ import { ArrowLeft, Save, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { useProjectNavigation } from "@/hooks/useProjectNavigation";
+import { validateUniqueProjectCode } from "@/lib/validation";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
 export default function ProjectSettings({ overrideProjectId }: { overrideProjectId?: string }) {
@@ -18,10 +20,12 @@ export default function ProjectSettings({ overrideProjectId }: { overrideProject
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
+  const { navigateToProject } = useProjectNavigation();
   const [project, setProject] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [codeValidation, setCodeValidation] = useState<{ isValid: boolean; message: string }>({ isValid: true, message: "" });
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -66,8 +70,37 @@ export default function ProjectSettings({ overrideProjectId }: { overrideProject
     }
   };
 
+  const validateCode = async (code: string) => {
+    if (!code.trim()) {
+      setCodeValidation({ isValid: true, message: "" });
+      return;
+    }
+
+    if (!/^[A-Z0-9-]{2,10}$/.test(code)) {
+      setCodeValidation({ isValid: false, message: "Code must be 2-10 uppercase letters, numbers, or hyphens" });
+      return;
+    }
+
+    const isUnique = await validateUniqueProjectCode(code, projectId);
+    if (!isUnique) {
+      setCodeValidation({ isValid: false, message: "This code is already in use" });
+    } else {
+      setCodeValidation({ isValid: true, message: "Code is available" });
+    }
+  };
+
   const handleSave = async () => {
     if (!project || !user) return;
+
+    // Validate code before saving
+    if (formData.code && !codeValidation.isValid) {
+      toast({
+        title: "Invalid Code",
+        description: "Please fix the project code before saving.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     setSaving(true);
     try {
@@ -136,11 +169,11 @@ export default function ProjectSettings({ overrideProjectId }: { overrideProject
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => navigate(`/dashboard/projects/${projectId}`)}
-          >
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => project && navigateToProject(project)}
+        >
             <ArrowLeft className="w-4 h-4" />
           </Button>
           <div>
@@ -156,11 +189,11 @@ export default function ProjectSettings({ overrideProjectId }: { overrideProject
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => navigate(`/dashboard/projects/${projectId}`)}
-        >
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => navigateToProject(project)}
+          >
           <ArrowLeft className="w-4 h-4" />
         </Button>
         <div>
@@ -206,14 +239,24 @@ export default function ProjectSettings({ overrideProjectId }: { overrideProject
                 <Input
                   id="code"
                   value={formData.code}
-                  onChange={(e) => setFormData(prev => ({ ...prev, code: e.target.value.toUpperCase() }))}
+                  onChange={(e) => {
+                    const newCode = e.target.value.toUpperCase();
+                    setFormData(prev => ({ ...prev, code: newCode }));
+                    validateCode(newCode);
+                  }}
                   placeholder="IRP, PROJ, DEV..."
                   maxLength={10}
+                  className={!codeValidation.isValid ? "border-destructive" : ""}
                 />
                 <p className="text-sm text-muted-foreground">
                   2-10 uppercase letters/numbers. Used for task numbering ({formData.code || 'CODE'}-1, {formData.code || 'CODE'}-2) and URLs.
                 </p>
-                {formData.code && (
+                {codeValidation.message && (
+                  <p className={`text-sm ${codeValidation.isValid ? 'text-green-600' : 'text-destructive'}`}>
+                    {codeValidation.message}
+                  </p>
+                )}
+                {formData.code && codeValidation.isValid && (
                   <p className="text-sm text-blue-600">
                     URL will be: /projects/{formData.code.toLowerCase()}
                   </p>

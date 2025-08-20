@@ -82,6 +82,8 @@ const App = () => (
                   <Route path="projects/:projectId/settings" element={<ProjectSettingsResolver />} />
                   <Route path="projects/code/:code" element={<ProjectDetailsResolver />} />
                   <Route path="projects/code/:code/settings" element={<ProjectSettingsResolver />} />
+                  <Route path="projects/code/:code/tasks/:taskNumber" element={<div>Task View - Coming Soon</div>} />
+                  <Route path="projects/:projectId/tasks/:taskNumber" element={<div>Task View - Coming Soon</div>} />
                   <Route path="profile" element={<Profile />} />
                   <Route path="tasks" element={<Tasks />} />
                   <Route path="board" element={<KanbanBoard />} />

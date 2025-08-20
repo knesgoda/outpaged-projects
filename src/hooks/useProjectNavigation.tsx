@@ -37,11 +37,18 @@ export function useProjectNavigation() {
       : `/dashboard/projects/${project.id}/settings`;
   };
 
+  const getTaskUrl = (project: ProjectNavigationData, taskNumber: number) => {
+    return project.code 
+      ? `/dashboard/projects/code/${project.code.toLowerCase()}/tasks/${taskNumber}`
+      : `/dashboard/projects/${project.id}/tasks/${taskNumber}`;
+  };
+
   return {
     navigateToProject,
     navigateToProjectSettings,
     getProjectUrl,
     getProjectSettingsUrl,
+    getTaskUrl,
   };
 }
 

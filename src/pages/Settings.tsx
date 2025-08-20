@@ -12,6 +12,7 @@ import { Separator } from '@/components/ui/separator';
 import { FileUpload } from '@/components/ui/file-upload';
 import { ExportDialog } from '@/components/import-export/ExportDialog';
 import { ImportDialog } from '@/components/import-export/ImportDialog';
+import { ProjectCodeGenerator } from '@/components/admin/ProjectCodeGenerator';
 import { 
   User, 
   Bell, 
@@ -24,17 +25,20 @@ import {
   Save,
   Settings as SettingsIcon,
   BookOpen,
-  RotateCcw
+  RotateCcw,
+  Code
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useOnboarding } from '@/hooks/useOnboarding';
 import { useToast } from '@/hooks/use-toast';
+import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { supabase } from '@/integrations/supabase/client';
 
 export default function Settings() {
   const { user } = useAuth();
   const { restartOnboarding } = useOnboarding();
   const { toast } = useToast();
+  const { isAdmin } = useIsAdmin();
   const [isLoading, setIsLoading] = useState(false);
   const [exportDialog, setExportDialog] = useState(false);
   const [importDialog, setImportDialog] = useState(false);
@@ -309,6 +313,24 @@ export default function Settings() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Admin Tools - Only show for admins */}
+        {isAdmin && (
+          <Card className="lg:col-span-3">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Shield className="h-5 w-5" />
+                Admin Tools
+              </CardTitle>
+              <CardDescription>
+                Administrative tools and system management features
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ProjectCodeGenerator />
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* Help & Onboarding Section */}
