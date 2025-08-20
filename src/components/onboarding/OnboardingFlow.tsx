@@ -318,8 +318,8 @@ export function OnboardingFlow() {
 
   return (
     <Dialog open={isOnboardingActive} onOpenChange={() => {}}>
-      <DialogContent className="max-w-2xl md:max-h-[90vh] h-[90svh]">
-        <DialogHeader>
+      <DialogContent className="max-w-2xl md:max-h-[90vh] h-[90svh] overflow-hidden flex flex-col">
+        <DialogHeader className="flex-shrink-0">
           <div className="flex items-center justify-between">
             <DialogTitle className="flex items-center gap-3">
               <Badge 
@@ -344,7 +344,7 @@ export function OnboardingFlow() {
         </DialogHeader>
 
         {/* Progress Bar */}
-        <div className="space-y-2">
+        <div className="space-y-2 flex-shrink-0">
           <div className="flex justify-between text-sm text-muted-foreground">
             <span>Progress</span>
             <span>{getProgress()}%</span>
@@ -352,17 +352,17 @@ export function OnboardingFlow() {
           <Progress value={getProgress()} className="w-full" />
         </div>
 
-        <Separator />
+        <Separator className="flex-shrink-0" />
 
         {/* Step Content */}
-        <div className="py-4">
+        <div className="py-4 flex-1 overflow-y-auto pr-2">
           {renderStepContent()}
         </div>
 
-        <Separator />
+        <Separator className="flex-shrink-0" />
 
         {/* Navigation */}
-        <div className="flex justify-between items-center">
+        <div className="flex justify-between items-center flex-shrink-0">
           <Button
             variant="outline"
             onClick={skipOnboarding}

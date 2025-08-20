@@ -389,7 +389,7 @@ const handleAddAssignee = async (userIdToAdd: string) => {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-5xl md:max-h-[90vh] h-[90svh] overflow-hidden bg-card border border-border p-0">
+      <DialogContent className="max-w-5xl md:max-h-[90vh] h-[90svh] overflow-hidden bg-card border border-border p-0 flex flex-col">
         <DialogTitle className="sr-only">
           {task ? `Edit Task: ${formData.title}` : 'Create New Task'}
         </DialogTitle>
@@ -448,9 +448,9 @@ const handleAddAssignee = async (userIdToAdd: string) => {
           </div>
         </div>
 
-        <div className="flex flex-col md:flex-row h-[calc(90vh-140px)]">
+        <div className="flex flex-col md:flex-row flex-1 min-h-0">
           {/* Left Column - Main Content */}
-          <div className="flex-1 p-6 space-y-6 overflow-y-auto">
+          <div className="flex-1 p-6 space-y-6 overflow-y-auto pr-2">
             {/* Description */}
             <section>
               <h3 className="text-lg font-medium text-foreground mb-3">Description</h3>

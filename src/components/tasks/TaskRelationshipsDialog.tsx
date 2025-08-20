@@ -84,7 +84,7 @@ export const TaskRelationshipsDialog = ({ taskId, taskTitle, children }: TaskRel
       <DialogTrigger asChild>
         {children}
       </DialogTrigger>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <GitBranch className="h-5 w-5" />
@@ -92,7 +92,7 @@ export const TaskRelationshipsDialog = ({ taskId, taskTitle, children }: TaskRel
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="space-y-4 flex-1 overflow-y-auto pr-2">
           {/* Existing Relationships */}
           <div>
             <h3 className="text-sm font-medium mb-3">Current Relationships</h3>
