@@ -13,6 +13,8 @@ import { AuthRedirect } from "./components/AuthRedirect";
 import { CommandPalette } from "./components/advanced-ux/CommandPalette";
 import { KeyboardShortcuts } from "./components/advanced-ux/KeyboardShortcuts";
 import { EnterpriseControlPanel } from "./components/enterprise/EnterpriseControlPanel";
+import { ProjectDetailsResolver } from "./components/projects/ProjectDetailsResolver";
+import { ProjectSettingsResolver } from "./components/projects/ProjectSettingsResolver";
 import Dashboard from "./pages/Dashboard";
 import Projects from "./pages/Projects";
 import ProjectDetails from "./pages/ProjectDetails";
@@ -76,8 +78,10 @@ const App = () => (
                 }>
                   <Route index element={<Dashboard />} />
                   <Route path="projects" element={<Projects />} />
-                  <Route path="projects/:projectId" element={<ProjectDetails />} />
-                  <Route path="projects/:projectId/settings" element={<ProjectSettings />} />
+                  <Route path="projects/:projectId" element={<ProjectDetailsResolver />} />
+                  <Route path="projects/:projectId/settings" element={<ProjectSettingsResolver />} />
+                  <Route path="projects/code/:code" element={<ProjectDetailsResolver />} />
+                  <Route path="projects/code/:code/settings" element={<ProjectSettingsResolver />} />
                   <Route path="profile" element={<Profile />} />
                   <Route path="tasks" element={<Tasks />} />
                   <Route path="board" element={<KanbanBoard />} />

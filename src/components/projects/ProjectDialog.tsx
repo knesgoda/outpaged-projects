@@ -27,6 +27,7 @@ export function ProjectDialog({ open, onOpenChange, onSuccess }: ProjectDialogPr
   const [formData, setFormData] = useState({
     name: "",
     description: "",
+    code: "",
     status: "planning" as "planning" | "active" | "completed" | "on_hold",
     startDate: undefined as Date | undefined,
     endDate: undefined as Date | undefined,
@@ -43,6 +44,7 @@ export function ProjectDialog({ open, onOpenChange, onSuccess }: ProjectDialogPr
         .insert({
           name: formData.name,
           description: formData.description || null,
+          code: formData.code || null,
           status: formData.status,
           start_date: formData.startDate ? formData.startDate.toISOString().split('T')[0] : null,
           end_date: formData.endDate ? formData.endDate.toISOString().split('T')[0] : null,
@@ -76,6 +78,7 @@ export function ProjectDialog({ open, onOpenChange, onSuccess }: ProjectDialogPr
     setFormData({
       name: "",
       description: "",
+      code: "",
       status: "planning",
       startDate: undefined,
       endDate: undefined,
@@ -116,6 +119,21 @@ export function ProjectDialog({ open, onOpenChange, onSuccess }: ProjectDialogPr
               placeholder="Describe the project..."
               rows={3}
             />
+          </div>
+
+          {/* Project Code */}
+          <div className="space-y-2">
+            <Label htmlFor="code">Project Code/Abbreviation (Optional)</Label>
+            <Input
+              id="code"
+              value={formData.code}
+              onChange={(e) => setFormData(prev => ({ ...prev, code: e.target.value.toUpperCase() }))}
+              placeholder="IRP, PROJ, DEV..."
+              maxLength={10}
+            />
+            <p className="text-sm text-muted-foreground">
+              For task numbering ({formData.code || 'CODE'}-1) and custom URLs
+            </p>
           </div>
 
           {/* Status */}

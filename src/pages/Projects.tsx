@@ -11,12 +11,14 @@ import { ProjectDialog } from "@/components/projects/ProjectDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { useProjectNavigation } from "@/hooks/useProjectNavigation";
 import { format } from "date-fns";
 
 export default function Projects() {
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { navigateToProject, navigateToProjectSettings } = useProjectNavigation();
   const [isProjectDialogOpen, setIsProjectDialogOpen] = useState(false);
   const [projects, setProjects] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -54,8 +56,8 @@ export default function Projects() {
     fetchProjects(); // Refresh the projects list
   };
 
-  const handleProjectClick = (projectId: string) => {
-    navigate(`/dashboard/projects/${projectId}`);
+  const handleProjectClick = (project: any) => {
+    navigateToProject(project);
   };
 
   const getStatusVariant = (status: string) => {
@@ -125,7 +127,7 @@ export default function Projects() {
           <Card 
             key={project.id} 
             className="hover:shadow-soft transition-all cursor-pointer"
-            onClick={() => handleProjectClick(project.id)}
+            onClick={() => handleProjectClick(project)}
           >
             <CardHeader>
               <div className="flex items-start justify-between">
@@ -148,7 +150,7 @@ export default function Projects() {
                     <DropdownMenuItem
                       onClick={(e) => {
                         e.stopPropagation();
-                        navigate(`/dashboard/projects/${project.id}`);
+                        navigateToProject(project);
                       }}
                     >
                       <FolderOpen className="w-4 h-4 mr-2" />
@@ -157,7 +159,7 @@ export default function Projects() {
                     <DropdownMenuItem
                       onClick={(e) => {
                         e.stopPropagation();
-                        navigate(`/dashboard/projects/${project.id}/settings`);
+                        navigateToProjectSettings(project);
                       }}
                     >
                       <Settings className="w-4 h-4 mr-2" />

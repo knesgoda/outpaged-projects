@@ -13,8 +13,9 @@ import { format } from "date-fns";
 import { CreateTaskDialog } from "@/components/tasks/CreateTaskDialog";
 import { InviteMemberDialog } from "@/components/team/InviteMemberDialog";
 
-export default function ProjectDetails() {
-  const { projectId } = useParams();
+export default function ProjectDetails({ overrideProjectId }: { overrideProjectId?: string }) {
+  const { projectId: paramsProjectId } = useParams();
+  const projectId = overrideProjectId || paramsProjectId;
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();

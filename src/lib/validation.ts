@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { validatePasswordStrength } from './security';
+import { supabase } from '@/integrations/supabase/client';
 
 // Base validation schemas
 export const emailSchema = z
@@ -171,11 +172,22 @@ export async function validateUniqueEmail(email: string): Promise<boolean> {
 }
 
 export async function validateUniqueProjectCode(code: string, projectId?: string): Promise<boolean> {
-  // In a real app, this would check against the database
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      // Simulate database check
-      resolve(true);
-    }, 100);
-  });
+  try {
+    const { data, error } = await supabase
+      .from('projects')
+      .select('id')
+      .eq('code', code.toUpperCase())
+      .neq('id', projectId || '')
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error validating project code:', error);
+      return false;
+    }
+
+    return !data; // Return true if no existing project found
+  } catch (error) {
+    console.error('Error validating project code:', error);
+    return false;
+  }
 }

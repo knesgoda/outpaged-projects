@@ -12,8 +12,9 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
-export default function ProjectSettings() {
-  const { projectId } = useParams();
+export default function ProjectSettings({ overrideProjectId }: { overrideProjectId?: string }) {
+  const { projectId: paramsProjectId } = useParams();
+  const projectId = overrideProjectId || paramsProjectId;
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
@@ -24,6 +25,7 @@ export default function ProjectSettings() {
   const [formData, setFormData] = useState({
     name: "",
     description: "",
+    code: "",
     status: "planning" as "planning" | "active" | "completed" | "on_hold" | "cancelled",
   });
 
@@ -48,6 +50,7 @@ export default function ProjectSettings() {
       setFormData({
         name: data.name || "",
         description: data.description || "",
+        code: data.code || "",
         status: data.status || "planning",
       });
     } catch (error) {
@@ -73,6 +76,7 @@ export default function ProjectSettings() {
         .update({
           name: formData.name,
           description: formData.description || null,
+          code: formData.code || null,
           status: formData.status,
         })
         .eq('id', projectId);
@@ -195,6 +199,25 @@ export default function ProjectSettings() {
                   placeholder="Describe the project..."
                   rows={3}
                 />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="code">Project Code/Abbreviation</Label>
+                <Input
+                  id="code"
+                  value={formData.code}
+                  onChange={(e) => setFormData(prev => ({ ...prev, code: e.target.value.toUpperCase() }))}
+                  placeholder="IRP, PROJ, DEV..."
+                  maxLength={10}
+                />
+                <p className="text-sm text-muted-foreground">
+                  2-10 uppercase letters/numbers. Used for task numbering ({formData.code || 'CODE'}-1, {formData.code || 'CODE'}-2) and URLs.
+                </p>
+                {formData.code && (
+                  <p className="text-sm text-blue-600">
+                    URL will be: /projects/{formData.code.toLowerCase()}
+                  </p>
+                )}
               </div>
 
               <div className="space-y-2">
