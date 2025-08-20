@@ -81,8 +81,8 @@ export const TaskRelationshipsDialog = ({ taskId, taskTitle, children }: TaskRel
 
   return (
     <Dialog>
-      <DialogTrigger asChild>
-        {children}
+      <DialogTrigger asChild={React.isValidElement(children)}>
+        {React.isValidElement(children) ? children : <Button variant="outline">View Relationships</Button>}
       </DialogTrigger>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
