@@ -103,7 +103,7 @@ export function SmartTaskTypeSelector({ value, onChange, label = "Task Type", pl
             )}
           </SelectValue>
         </SelectTrigger>
-        <SelectContent>
+        <SelectContent className="z-[60]">
           {SMART_TASK_TYPE_OPTIONS.map((option) => (
             <SelectItem key={option.id} value={option.id}>
               <div className="flex items-center gap-3 py-1">

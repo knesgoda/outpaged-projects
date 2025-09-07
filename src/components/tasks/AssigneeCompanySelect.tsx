@@ -88,7 +88,7 @@ const AssigneeCompanySelect: React.FC<AssigneeCompanySelectProps> = ({
             )}
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="p-0 w-80 bg-background border-border shadow-xl z-50">
+        <PopoverContent className="p-0 w-80 bg-background border-border shadow-xl z-[60]">
           <Command shouldFilter={false} className="bg-background">
             <CommandInput
               placeholder="Search by name or username..."

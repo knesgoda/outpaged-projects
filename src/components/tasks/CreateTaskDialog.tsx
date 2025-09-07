@@ -211,7 +211,7 @@ export function CreateTaskDialog({ open, onOpenChange, projectId, onTaskCreated 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-hidden flex flex-col">
+      <DialogContent className="max-h-[90vh] overflow-hidden flex flex-col z-[50]">
         <DialogHeader className="flex-shrink-0">
           <DialogTitle>Create New Task</DialogTitle>
           <DialogDescription id="create-task-description">
@@ -260,12 +260,12 @@ export function CreateTaskDialog({ open, onOpenChange, projectId, onTaskCreated 
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="low">Low</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
-                  <SelectItem value="urgent">Urgent</SelectItem>
-                </SelectContent>
+                 <SelectContent className="z-[60]">
+                   <SelectItem value="low">Low</SelectItem>
+                   <SelectItem value="medium">Medium</SelectItem>
+                   <SelectItem value="high">High</SelectItem>
+                   <SelectItem value="urgent">Urgent</SelectItem>
+                 </SelectContent>
               </Select>
             </div>
 
@@ -278,12 +278,12 @@ export function CreateTaskDialog({ open, onOpenChange, projectId, onTaskCreated 
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todo">Todo</SelectItem>
-                  <SelectItem value="in_progress">In Progress</SelectItem>
-                  <SelectItem value="in_review">Review</SelectItem>
-                  <SelectItem value="done">Done</SelectItem>
-                </SelectContent>
+                 <SelectContent className="z-[60]">
+                   <SelectItem value="todo">Todo</SelectItem>
+                   <SelectItem value="in_progress">In Progress</SelectItem>
+                   <SelectItem value="in_review">Review</SelectItem>
+                   <SelectItem value="done">Done</SelectItem>
+                 </SelectContent>
               </Select>
             </div>
           </div>

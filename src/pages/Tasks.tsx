@@ -32,6 +32,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { TaskDialog } from "@/components/kanban/TaskDialog";
+import { CreateTaskDialog } from "@/components/tasks/CreateTaskDialog";
 import { StandardizedTaskCard, StandardizedTask } from "@/components/ui/standardized-task-card";
 
 interface TaskType {
@@ -110,8 +111,10 @@ export default function Tasks() {
   const [hierarchyFilter, setHierarchyFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<TaskType | null>(null);
   const [taskToDelete, setTaskToDelete] = useState<string | null>(null);
+  const [defaultProjectId, setDefaultProjectId] = useState<string | null>(null);
 
   const fetchTasks = async () => {
     if (!user) return;
@@ -185,8 +188,41 @@ export default function Tasks() {
   useEffect(() => {
     if (user) {
       fetchTasks();
+      fetchDefaultProject();
     }
   }, [user]);
+
+  const fetchDefaultProject = async () => {
+    if (!user) return;
+    
+    try {
+      // First, try to get projects owned by the user
+      const { data: ownedProjects } = await supabase
+        .from('projects')
+        .select('id')
+        .eq('owner_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (ownedProjects && ownedProjects.length > 0) {
+        setDefaultProjectId(ownedProjects[0].id);
+        return;
+      }
+
+      // If no owned projects, get projects where user is a member
+      const { data: memberProjects } = await supabase
+        .from('project_members')
+        .select('project_id')
+        .eq('user_id', user.id)
+        .limit(1);
+
+      if (memberProjects && memberProjects.length > 0) {
+        setDefaultProjectId(memberProjects[0].project_id);
+      }
+    } catch (error) {
+      console.log('No default project found');
+    }
+  };
 
   const handleTaskClick = (task: any) => {
     setSelectedTask(task);
@@ -439,8 +475,15 @@ export default function Tasks() {
         <Button 
           className="bg-gradient-primary hover:opacity-90"
           onClick={() => {
-            setSelectedTask(null);
-            setIsTaskDialogOpen(true);
+            if (!defaultProjectId) {
+              toast({
+                title: "No Project Available",
+                description: "Please create a project first before creating tasks.",
+                variant: "destructive",
+              });
+              return;
+            }
+            setIsCreateDialogOpen(true);
           }}
         >
           <Plus className="w-4 h-4 mr-2" />
@@ -585,6 +628,18 @@ export default function Tasks() {
         columnId="todo"
         projectId={selectedTask?.project_id ?? tasks[0]?.project_id}
       />
+
+      {defaultProjectId && (
+        <CreateTaskDialog
+          open={isCreateDialogOpen}
+          onOpenChange={setIsCreateDialogOpen}
+          projectId={defaultProjectId}
+          onTaskCreated={() => {
+            setIsCreateDialogOpen(false);
+            fetchTasks();
+          }}
+        />
+      )}
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={!!taskToDelete} onOpenChange={() => setTaskToDelete(null)}>

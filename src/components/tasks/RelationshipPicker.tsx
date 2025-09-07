@@ -63,7 +63,7 @@ export default function RelationshipPicker({
           <SelectTrigger>
             <SelectValue placeholder="Choose relationship type" />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="z-[60]">
             <SelectItem value="relates_to">Relates to</SelectItem>
             <SelectItem value="blocks">Blocks</SelectItem>
             <SelectItem value="depends_on">Depends on</SelectItem>
@@ -87,7 +87,7 @@ export default function RelationshipPicker({
           <SelectTrigger>
             <SelectValue placeholder="Select a task..." />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="z-[60]">
             {tasks.map((t) => (
               <SelectItem key={t.id} value={t.id}>
                 {t.title} ({t.status})

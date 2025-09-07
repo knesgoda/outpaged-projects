@@ -69,7 +69,7 @@ export default function AssigneeProjectMemberSelect({ projectId, value, onChange
             </div>
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="p-0 w-80" align="start">
+        <PopoverContent className="p-0 w-80 z-[60]" align="start">
           <Command>
             <CommandInput placeholder="Search members..." />
             <CommandEmpty>

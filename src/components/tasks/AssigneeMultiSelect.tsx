@@ -60,7 +60,7 @@ export default function AssigneeMultiSelect({
             <ChevronDown className="h-4 w-4 opacity-60" />
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-80 max-h-72 overflow-auto" align="start">
+        <PopoverContent className="w-80 max-h-72 overflow-auto z-[60]" align="start">
           <div className="space-y-2">
             {loading ? (
               <div className="text-sm text-muted-foreground">Loading members...</div>
