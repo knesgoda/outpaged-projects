@@ -15,6 +15,8 @@ import { KeyboardShortcuts } from "./components/advanced-ux/KeyboardShortcuts";
 import { EnterpriseControlPanel } from "./components/enterprise/EnterpriseControlPanel";
 import { ProjectDetailsResolver } from "./components/projects/ProjectDetailsResolver";
 import { ProjectSettingsResolver } from "./components/projects/ProjectSettingsResolver";
+import { ErrorBoundary } from "./components/ui/error-boundary";
+import TaskView from "./pages/TaskView";
 import Dashboard from "./pages/Dashboard";
 import Projects from "./pages/Projects";
 import ProjectDetails from "./pages/ProjectDetails";
@@ -60,30 +62,31 @@ const App = () => (
     <AuthProvider>
       <SecurityProvider>
         <AccessibilityProvider>
-          <TooltipProvider>
-            <Toaster />
-            <Sonner />
-            <BrowserRouter>
-              <CommandPalette />
-              <KeyboardShortcuts />
-              <Routes>
-                {/* Public routes */}
-                <Route path="/auth" element={<Auth />} />
-                
-                {/* Protected routes with layout */}
-                <Route path="/dashboard" element={
-                  <ProtectedRoute>
-                    <AppLayout />
-                  </ProtectedRoute>
-                }>
+          <ErrorBoundary>
+            <TooltipProvider>
+              <Toaster />
+              <Sonner />
+              <BrowserRouter>
+                <CommandPalette />
+                <KeyboardShortcuts />
+                <Routes>
+                  {/* Public routes */}
+                  <Route path="/auth" element={<Auth />} />
+                  
+                  {/* Protected routes with layout */}
+                  <Route path="/dashboard" element={
+                    <ProtectedRoute>
+                      <AppLayout />
+                    </ProtectedRoute>
+                  }>
                   <Route index element={<Dashboard />} />
                   <Route path="projects" element={<Projects />} />
                   <Route path="projects/:projectId" element={<ProjectDetailsResolver />} />
                   <Route path="projects/:projectId/settings" element={<ProjectSettingsResolver />} />
                   <Route path="projects/code/:code" element={<ProjectDetailsResolver />} />
                   <Route path="projects/code/:code/settings" element={<ProjectSettingsResolver />} />
-                  <Route path="projects/code/:code/tasks/:taskNumber" element={<div>Task View - Coming Soon</div>} />
-                  <Route path="projects/:projectId/tasks/:taskNumber" element={<div>Task View - Coming Soon</div>} />
+                  <Route path="projects/code/:code/tasks/:taskNumber" element={<TaskView />} />
+                  <Route path="projects/:projectId/tasks/:taskNumber" element={<TaskView />} />
                   <Route path="profile" element={<Profile />} />
                   <Route path="tasks" element={<Tasks />} />
                   <Route path="board" element={<KanbanBoard />} />
@@ -108,13 +111,14 @@ const App = () => (
                 
                 {/* Catch-all route */}
                 <Route path="*" element={<NotFound />} />
-              </Routes>
-            </BrowserRouter>
-          </TooltipProvider>
-        </AccessibilityProvider>
-      </SecurityProvider>
-    </AuthProvider>
-  </QueryClientProvider>
-);
+                  </Routes>
+                </BrowserRouter>
+              </TooltipProvider>
+            </ErrorBoundary>
+          </AccessibilityProvider>
+        </SecurityProvider>
+      </AuthProvider>
+    </QueryClientProvider>
+  );
 
 export default App;
