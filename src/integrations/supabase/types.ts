@@ -2323,6 +2323,15 @@ export type Database = {
         Args: { email: string }
         Returns: boolean
       }
+      log_security_event: {
+        Args: {
+          event_type: string
+          metadata?: Json
+          resource_id?: string
+          resource_type: string
+        }
+        Returns: undefined
+      }
       migrate_existing_assignees: {
         Args: Record<PropertyKey, never>
         Returns: undefined

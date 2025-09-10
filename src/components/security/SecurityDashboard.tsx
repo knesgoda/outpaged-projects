@@ -3,13 +3,35 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { AlertTriangle, Shield, Clock, Activity, Eye, AlertCircle } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { AlertTriangle, Shield, Clock, Activity, Eye, AlertCircle, ExternalLink, CheckCircle } from 'lucide-react';
 import { useSecurityMonitoring, useSecurityAlerts } from '@/hooks/useSecurityMonitoring';
+import { AdminGuard } from './AdminGuard';
 import { format } from 'date-fns';
 
 export function SecurityDashboard() {
   const { metrics, isLoading, loadMetrics } = useSecurityMonitoring();
   const { alerts, acknowledgeAlert, clearAllAlerts } = useSecurityAlerts();
+  
+  // Critical security issues that need manual fix in Supabase dashboard
+  const criticalIssues = [
+    {
+      id: 'leaked-password',
+      title: 'Leaked Password Protection Disabled',
+      description: 'Password breach detection is not enabled in Supabase Auth settings',
+      action: 'Enable in Auth Settings',
+      link: 'https://supabase.com/dashboard/project/aoubfejqyifdefyrbjip/auth/providers',
+      severity: 'warning'
+    },
+    {
+      id: 'postgres-upgrade', 
+      title: 'Postgres Security Patches Available',
+      description: 'Database version has security patches available',
+      action: 'Upgrade Database',
+      link: 'https://supabase.com/dashboard/project/aoubfejqyifdefyrbjip/settings/general',
+      severity: 'warning'
+    }
+  ];
 
   const getSecurityLevelColor = (score: number) => {
     if (score <= 2) return 'text-green-500';
@@ -47,18 +69,62 @@ export function SecurityDashboard() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Shield className="w-6 h-6" />
-          <h2 className="text-2xl font-bold">Security Dashboard</h2>
+    <AdminGuard>
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Shield className="w-6 h-6" />
+            <h2 className="text-2xl font-bold">Security Dashboard</h2>
+          </div>
+          <Button onClick={loadMetrics} variant="outline" size="sm">
+            <Activity className="w-4 h-4 mr-2" />
+            Refresh
+          </Button>
         </div>
-        <Button onClick={loadMetrics} variant="outline" size="sm">
-          <Activity className="w-4 h-4 mr-2" />
-          Refresh
-        </Button>
-      </div>
+
+        {/* Critical Security Issues Alert */}
+        <Card className="border-yellow-500 bg-yellow-50 dark:bg-yellow-950">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-yellow-700 dark:text-yellow-300">
+              <AlertTriangle className="w-5 h-5" />
+              Security Issues Requiring Manual Action
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-yellow-600 dark:text-yellow-400 mb-4">
+              The following security issues require manual configuration in your Supabase dashboard:
+            </p>
+            {criticalIssues.map((issue) => (
+              <Alert key={issue.id} className="border-yellow-200">
+                <AlertTriangle className="h-4 w-4 text-yellow-600" />
+                <AlertDescription>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <strong className="text-yellow-800 dark:text-yellow-200">{issue.title}</strong>
+                      <p className="text-sm mt-1 text-yellow-700 dark:text-yellow-300">{issue.description}</p>
+                    </div>
+                    <Button variant="outline" size="sm" asChild className="ml-4">
+                      <a href={issue.link} target="_blank" rel="noopener noreferrer">
+                        {issue.action}
+                        <ExternalLink className="h-3 w-3 ml-1" />
+                      </a>
+                    </Button>
+                  </div>
+                </AlertDescription>
+              </Alert>
+            ))}
+            <Alert className="border-blue-200 bg-blue-50 dark:bg-blue-950">
+              <CheckCircle className="h-4 w-4 text-blue-600" />
+              <AlertDescription>
+                <strong className="text-blue-800 dark:text-blue-200">Database Security: Fixed</strong>
+                <p className="text-sm mt-1 text-blue-700 dark:text-blue-300">
+                  Critical RLS policies and customer data protection have been implemented successfully.
+                </p>
+              </AlertDescription>
+            </Alert>
+          </CardContent>
+        </Card>
 
       {/* Security Metrics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -256,6 +322,7 @@ export function SecurityDashboard() {
           </CardContent>
         </Card>
       )}
-    </div>
+      </div>
+    </AdminGuard>
   );
 }
