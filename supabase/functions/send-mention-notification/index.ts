@@ -33,15 +33,33 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log("Processing mention notifications for:", { mentions, taskId, commentId, mentionedBy });
 
-    // Get mentioned users' details
-    const { data: users, error: usersError } = await supabase
+    // Get mentioned users' details using Auth Admin API to bypass RLS
+    const { data: { users }, error: usersError } = await supabase.auth.admin.listUsers();
+    
+    if (usersError) {
+      console.error("Error fetching users from Auth API:", usersError);
+      throw usersError;
+    }
+
+    // Filter to only mentioned users and get their profiles
+    const mentionedUsers = users.filter(user => mentions.includes(user.id));
+    
+    if (mentionedUsers.length === 0) {
+      console.log("No valid mentioned users found");
+      return new Response(JSON.stringify({ success: true, message: "No valid users to notify" }), {
+        status: 200,
+        headers: { "Content-Type": "application/json", ...corsHeaders }
+      });
+    }
+
+    // Get profile details for display names using service role
+    const { data: profiles, error: profilesError } = await supabase
       .from('profiles')
-      .select('user_id, full_name, email:users!inner(email)')
+      .select('user_id, full_name')
       .in('user_id', mentions);
 
-    if (usersError) {
-      console.error("Error fetching user details:", usersError);
-      throw usersError;
+    if (profilesError) {
+      console.error("Error fetching profiles:", profilesError);
     }
 
     // Get task details
@@ -56,21 +74,43 @@ const handler = async (req: Request): Promise<Response> => {
       throw taskError;
     }
 
+    // Create in-app notifications using service role to bypass RLS  
+    const notifications = mentionedUsers.map(user => {
+      const profile = profiles?.find(p => p.user_id === user.id);
+      return {
+        user_id: user.id,
+        title: "You were mentioned in a comment",
+        message: `${mentionedBy} mentioned you in a comment on task: ${task.title}`,
+        type: 'info',
+        related_task_id: taskId,
+        created_at: new Date().toISOString()
+      };
+    });
+
+    const { error: notificationError } = await supabase
+      .from('notifications')
+      .insert(notifications);
+
+    if (notificationError) {
+      console.error("Error creating notifications:", notificationError);
+    }
+
     // Send emails to mentioned users
-    const emailPromises = users.map(async (user: any) => {
-      const userEmail = user.email?.email;
-      if (!userEmail) {
-        console.log(`No email found for user ${user.user_id}`);
+    const emailPromises = mentionedUsers.map(async (user) => {
+      if (!user.email) {
+        console.log(`No email found for user ${user.id}`);
         return;
       }
 
+      const profile = profiles?.find(p => p.user_id === user.id);
+      const userName = profile?.full_name || user.email.split('@')[0];
       const projectName = task.projects?.name || 'Unknown Project';
       const taskTitle = task.title || 'Untitled Task';
 
       try {
         const emailResponse = await resend.emails.send({
           from: "TaskFlow <notifications@resend.dev>",
-          to: [userEmail],
+          to: [user.email],
           subject: `You were mentioned in a comment - ${taskTitle}`,
           html: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -78,7 +118,7 @@ const handler = async (req: Request): Promise<Response> => {
               
               <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
                 <p style="margin: 0; font-size: 16px; color: #555;">
-                  <strong>${mentionedBy}</strong> mentioned you in a comment on:
+                  Hi ${userName}, <strong>${mentionedBy}</strong> mentioned you in a comment on:
                 </p>
                 <h3 style="margin: 10px 0; color: #333;">${taskTitle}</h3>
                 <p style="margin: 0; color: #777;">in project <strong>${projectName}</strong></p>
@@ -99,10 +139,10 @@ const handler = async (req: Request): Promise<Response> => {
           `,
         });
 
-        console.log(`Email sent successfully to ${userEmail}:`, emailResponse);
+        console.log(`Email sent successfully to ${user.email}:`, emailResponse);
         return emailResponse;
       } catch (emailError) {
-        console.error(`Error sending email to ${userEmail}:`, emailError);
+        console.error(`Error sending email to ${user.email}:`, emailError);
         throw emailError;
       }
     });
@@ -114,7 +154,8 @@ const handler = async (req: Request): Promise<Response> => {
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: `Notifications sent to ${mentions.length} users` 
+        message: `Notifications sent to ${mentionedUsers.length} users`,
+        notified_users: mentionedUsers.length
       }),
       {
         status: 200,

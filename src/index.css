@@ -232,13 +232,20 @@ All colors MUST be HSL.
     }
   }
 
-  /* Comment mention highlighting */
+  /* Mention highlighting */
   .mention-highlight {
-    background: hsl(var(--primary) / 0.1);
-    color: hsl(var(--primary));
+    background: hsl(220 14.3% 95.9%);
+    color: hsl(220.9 39.3% 11%);
+    border: 1px solid hsl(220 13% 91%);
+    border-radius: 0.25rem;
+    padding: 0.125rem 0.25rem;
     font-weight: 500;
-    padding: 0 2px;
-    border-radius: 3px;
+  }
+
+  .dark .mention-highlight {
+    background: hsl(220 13% 18%);
+    color: hsl(220 14.3% 95.9%);
+    border: 1px solid hsl(220 13% 25%);
   }
   
   .rich-text-content p {
@@ -254,4 +261,5 @@ All colors MUST be HSL.
     color: hsl(var(--primary));
     text-decoration: underline;
   }
+
 }

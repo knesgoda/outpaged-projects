@@ -6,7 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { RichTextEditor } from "@/components/ui/rich-text-editor";
+import { RichTextEditorWithMentions } from "@/components/ui/rich-text-editor-with-mentions";
 import { SafeHtml } from "@/components/ui/safe-html";
 import { validateAndSanitizeInput } from "@/lib/security";
 import { supabase } from "@/integrations/supabase/client";
@@ -377,10 +377,11 @@ export function CommentsSystemWithMentions({
 
       {/* Add Comment with WYSIWYG */}
       <div className="space-y-3">
-        <RichTextEditor
+        <RichTextEditorWithMentions
           value={newComment}
           onChange={setNewComment}
           placeholder="Add a comment... Use @ to mention team members"
+          projectId={projectId}
           className="min-h-[100px]"
           modules={{
             toolbar: [
