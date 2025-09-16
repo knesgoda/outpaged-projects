@@ -29,7 +29,8 @@ import {
   Target, 
   Bell, 
   Building2,
-  Headphones
+  Headphones,
+  Shield
 } from "lucide-react";
 
 interface NavItem {
@@ -138,6 +139,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       url: "/dashboard/enterprise",
       icon: Building2,
       description: "Enterprise management and analytics"
+    },
+    {
+      title: "Security Dashboard",
+      url: "/dashboard/security",
+      icon: Shield,
+      description: "Security monitoring and configuration"
     }
   ] : [];
 

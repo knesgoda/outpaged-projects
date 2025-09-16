@@ -13,6 +13,8 @@ import { AuthRedirect } from "./components/AuthRedirect";
 import { CommandPalette } from "./components/advanced-ux/CommandPalette";
 import { KeyboardShortcuts } from "./components/advanced-ux/KeyboardShortcuts";
 import { EnterpriseControlPanel } from "./components/enterprise/EnterpriseControlPanel";
+import { AdminGuard } from "./components/security/AdminGuard";
+import { SecurityDashboard } from "./components/security/SecurityDashboard";
 import { ProjectDetailsResolver } from "./components/projects/ProjectDetailsResolver";
 import { ProjectSettingsResolver } from "./components/projects/ProjectSettingsResolver";
 import { ErrorBoundary } from "./components/ui/error-boundary";
@@ -103,7 +105,16 @@ const App = () => (
                   <Route path="team" element={<TeamDirectory />} />
                   <Route path="team/:identifier" element={<TeamMemberHandler />} />
                   <Route path="tickets" element={<Tickets />} />
-                  <Route path="enterprise" element={<EnterpriseControlPanel />} />
+                  <Route path="security" element={
+                    <AdminGuard>
+                      <SecurityDashboard />
+                    </AdminGuard>
+                  } />
+                  <Route path="enterprise" element={
+                    <AdminGuard>
+                      <EnterpriseControlPanel />
+                    </AdminGuard>
+                  } />
                 </Route>
                 
                 {/* Default route - redirect based on auth status */}
