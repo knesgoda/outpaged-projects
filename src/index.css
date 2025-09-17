@@ -252,6 +252,25 @@ All colors MUST be HSL.
     margin: 0.5em 0;
   }
   
+  /* Mobile-specific comment styles */
+  @media (max-width: 768px) {
+    .comment-avatar {
+      @apply w-6 h-6 text-xs;
+    }
+    
+    .comment-content {
+      @apply text-sm;
+    }
+    
+    .comment-actions {
+      @apply text-xs;
+    }
+    
+    .comment-wrapper {
+      @apply gap-2;
+    }
+  }
+  
   .rich-text-content ul, .rich-text-content ol {
     margin: 0.5em 0;
     padding-left: 1.5em;

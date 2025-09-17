@@ -6,7 +6,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { RichTextEditorWithMentions } from "@/components/ui/rich-text-editor-with-mentions";
+import { AdaptiveRichTextEditor } from "@/components/ui/adaptive-rich-text-editor";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { SafeHtml } from "@/components/ui/safe-html";
 import { validateAndSanitizeInput } from "@/lib/security";
 import { supabase } from "@/integrations/supabase/client";
@@ -40,6 +41,7 @@ export function CommentsSystemWithMentions({
 }: CommentsSystemWithMentionsProps) {
   const { user } = useAuth();
   const { toast } = useToast();
+  const isMobile = useIsMobile();
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState("");
   const [loading, setLoading] = useState(true);
@@ -322,18 +324,18 @@ export function CommentsSystemWithMentions({
   return (
     <div className="space-y-4">
       {/* Comments List */}
-      <ScrollArea className="max-h-64">
-        <div className="space-y-4">
+      <ScrollArea className={`${isMobile ? 'max-h-48' : 'max-h-64'}`}>
+        <div className={`space-y-4 ${isMobile ? 'px-2' : ''}`}>
           {comments.length === 0 ? (
             <p className="text-muted-foreground text-center py-4">
               No comments yet. Be the first to comment!
             </p>
           ) : (
             comments.map((comment) => (
-              <div key={comment.id} className="flex gap-3">
-                <Avatar className="w-8 h-8">
+              <div key={comment.id} className={`flex gap-3 ${isMobile ? 'gap-2' : 'gap-3'}`}>
+                <Avatar className={`${isMobile ? 'w-6 h-6' : 'w-8 h-8'} flex-shrink-0`}>
                   <AvatarImage src={comment.author?.avatar_url} />
-                  <AvatarFallback>
+                  <AvatarFallback className={isMobile ? 'text-xs' : ''}>
                     {comment.author?.full_name
                       ?.split(' ')
                       .map(n => n[0])
@@ -342,13 +344,13 @@ export function CommentsSystemWithMentions({
                       .slice(0, 2) || 'U'}
                   </AvatarFallback>
                 </Avatar>
-                <div className="flex-1 space-y-1">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-sm">
+                <div className="flex-1 space-y-1 min-w-0">
+                  <div className={`flex items-center justify-between ${isMobile ? 'flex-wrap gap-1' : ''}`}>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className={`font-medium ${isMobile ? 'text-sm' : 'text-sm'} truncate`}>
                         {comment.author?.full_name || 'Unknown User'}
                       </span>
-                      <span className="text-xs text-muted-foreground">
+                      <span className={`${isMobile ? 'text-xs' : 'text-xs'} text-muted-foreground flex-shrink-0`}>
                         {formatDistanceToNow(new Date(comment.created_at), { 
                           addSuffix: true 
                         })}
@@ -359,13 +361,15 @@ export function CommentsSystemWithMentions({
                         variant="ghost"
                         size="sm"
                         onClick={() => handleDeleteComment(comment.id)}
-                        className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
+                        className={`${isMobile ? 'h-8 w-8 p-0' : 'h-6 w-6 p-0'} text-muted-foreground hover:text-destructive flex-shrink-0`}
                       >
-                        <Trash2 className="w-3 h-3" />
+                        <Trash2 className={`${isMobile ? 'w-4 h-4' : 'w-3 h-3'}`} />
                       </Button>
                     )}
                   </div>
-                  {renderCommentContent(comment.content)}
+                  <div className={isMobile ? 'text-sm' : ''}>
+                    {renderCommentContent(comment.content)}
+                  </div>
                 </div>
               </div>
             ))
@@ -375,31 +379,24 @@ export function CommentsSystemWithMentions({
 
       {comments.length > 0 && <Separator />}
 
-      {/* Add Comment with WYSIWYG */}
-      <div className="space-y-3">
-        <RichTextEditorWithMentions
+      {/* Add Comment with Adaptive Editor */}
+      <div className={`space-y-3 ${isMobile ? 'space-y-2' : ''}`}>
+        <AdaptiveRichTextEditor
           value={newComment}
           onChange={setNewComment}
           placeholder="Add a comment... Use @ to mention team members"
           projectId={projectId}
-          className="min-h-[100px]"
-          modules={{
-            toolbar: [
-              ['bold', 'italic', 'underline'],
-              [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-              ['link'],
-              ['clean']
-            ],
-          }}
+          className={`${isMobile ? 'min-h-[80px]' : 'min-h-[100px]'}`}
         />
-        <div className="flex justify-between items-center">
-          <p className="text-xs text-muted-foreground">
+        <div className={`flex ${isMobile ? 'flex-col gap-2' : 'justify-between items-center'}`}>
+          <p className={`${isMobile ? 'text-xs order-2' : 'text-xs'} text-muted-foreground`}>
             Tip: Use @ to mention team members and notify them
           </p>
           <Button
             onClick={handleSubmitComment}
             disabled={!newComment.trim() || submitting}
-            size="sm"
+            size={isMobile ? 'default' : 'sm'}
+            className={isMobile ? 'w-full order-1' : ''}
           >
             <Send className="w-4 h-4 mr-2" />
             {submitting ? "Posting..." : "Post"}

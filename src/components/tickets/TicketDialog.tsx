@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { formatDistanceToNow } from "date-fns";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  ResponsiveDialog as Dialog,
+  ResponsiveDialogContent as DialogContent,
+  ResponsiveDialogHeader as DialogHeader,
+  ResponsiveDialogTitle as DialogTitle,
+} from "@/components/ui/responsive-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -168,7 +168,7 @@ export function TicketDialog({ ticketId, open, onOpenChange }: TicketDialogProps
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl h-[90svh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <span className="font-mono">#{ticket.ticket_number}</span>
@@ -176,9 +176,9 @@ export function TicketDialog({ ticketId, open, onOpenChange }: TicketDialogProps
           </DialogTitle>
         </DialogHeader>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 overflow-hidden p-6">
           {/* Main Content */}
-          <div className="lg:col-span-2 space-y-6">
+          <div className="lg:col-span-2 space-y-6 overflow-y-auto pr-2">
             {/* Ticket Description */}
             <Card>
               <CardHeader>
@@ -320,7 +320,7 @@ export function TicketDialog({ ticketId, open, onOpenChange }: TicketDialogProps
           </div>
 
           {/* Sidebar */}
-          <div className="space-y-6">
+          <div className="space-y-6 overflow-y-auto">
             {/* Customer Info */}
             <Card>
               <CardHeader>
