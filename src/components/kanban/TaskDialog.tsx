@@ -450,7 +450,8 @@ const handleAddAssignee = async (userIdToAdd: string) => {
 
         <div className="flex flex-col md:flex-row flex-1 min-h-0">
           {/* Left Column - Main Content */}
-          <div className="flex-1 p-6 space-y-6 overflow-y-auto pr-2">
+          <div className="flex-1 flex flex-col min-h-0">
+            <div className="p-6 space-y-6 overflow-y-auto flex-1 pr-2">
             {/* Description */}
             <section>
               <h3 className="text-lg font-medium text-foreground mb-3">Description</h3>
@@ -538,15 +539,18 @@ const handleAddAssignee = async (userIdToAdd: string) => {
               </div>
             </section>
 
-            {/* Comments */}
+            {/* Comments - Always at bottom, full width */}
             {task?.id && (
-              <section>
-                <h3 className="text-lg font-medium text-foreground mb-3">Comments</h3>
-                <CommentsSystemWithMentions 
-                  taskId={task.id} 
-                  projectId={projectId}
-                />
-              </section>
+              <div className="border-t border-border bg-background">
+                <div className="p-6">
+                  <h3 className="text-lg font-medium text-foreground mb-3">Comments</h3>
+                  <CommentsSystemWithMentions 
+                    taskId={task.id} 
+                    projectId={projectId}
+                    onCommentCountChange={setCommentCount}
+                  />
+                </div>
+              </div>
             )}
           </div>
 
@@ -877,6 +881,7 @@ const handleAddAssignee = async (userIdToAdd: string) => {
               </div>
             )}
           </div>
+        </div>
         </div>
 
         {/* Footer Actions */}
