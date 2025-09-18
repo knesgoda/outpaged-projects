@@ -25,10 +25,15 @@ export function MentionAutocomplete({
     member.full_name.toLowerCase().includes(search.toLowerCase())
   );
 
-  // Close when trigger changes (user continues typing)
+  // Open/close based on trigger and sync search with query after '@'
   useEffect(() => {
-    if (!trigger.includes('@')) {
+    const match = trigger.match(/@([^@\s]*)$/);
+    if (match) {
+      setOpen(true);
+      setSearch(match[1]);
+    } else {
       setOpen(false);
+      setSearch("");
     }
   }, [trigger]);
 

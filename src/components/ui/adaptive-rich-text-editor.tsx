@@ -1,6 +1,6 @@
 import React from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { RichTextEditor } from "@/components/ui/rich-text-editor";
+import { RichTextEditorWithMentions } from "@/components/ui/rich-text-editor-with-mentions";
 import { MentionInput } from "@/components/mentions/MentionInput";
 
 interface AdaptiveRichTextEditorProps {
@@ -35,14 +35,15 @@ export function AdaptiveRichTextEditor({
     );
   }
 
-  // Use full RichTextEditor for desktop
+  // Use full RichTextEditor with mentions for desktop
   return (
-    <RichTextEditor
+    <RichTextEditorWithMentions
       value={value}
       onChange={onChange}
       placeholder={placeholder}
       className={className}
       modules={modules}
+      projectId={projectId}
     />
   );
 }
