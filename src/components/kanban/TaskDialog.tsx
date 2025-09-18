@@ -46,6 +46,8 @@ import { useTaskAssignees } from "@/hooks/useTaskAssignees";
 import { useProjectMembersView } from "@/hooks/useProjectMembersView";
 import AssigneeCompanySelect from "@/components/tasks/AssigneeCompanySelect";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 function getInitials(name?: string | null) {
   if (!name) return "U";
@@ -66,7 +68,7 @@ interface TaskDialogProps {
 // Helper component for metadata rows
 function InfoRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="flex items-center justify-between">
+    <div className="flex items-center justify-between py-2">
       <span className="text-sm font-medium text-muted-foreground">{label}</span>
       <div className="flex items-center gap-2">
         {children}
@@ -76,6 +78,8 @@ function InfoRow({ label, children }: { label: string; children: React.ReactNode
 }
 
 export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId }: TaskDialogProps) {
+  const isMobile = useIsMobile();
+  
   // Editing states for inline editing
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [isEditingDescription, setIsEditingDescription] = useState(false);
@@ -111,67 +115,67 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
   const { relationships } = useTaskRelationships(task?.id);
   const { assignees: currentAssignees, addAssignee, removeAssignee, fetchAssignees, updateAssignees, loading: assigneesLoading } = useTaskAssignees(task?.id);
 
-const [savingAssignee, setSavingAssignee] = useState<string | null>(null);
-const [clearingAll, setClearingAll] = useState(false);
-const [savingStoryPoints, setSavingStoryPoints] = useState(false);
-const { isAdmin } = useIsAdmin();
-const [projectOwnerId, setProjectOwnerId] = useState<string | null>(null);
+  const [savingAssignee, setSavingAssignee] = useState<string | null>(null);
+  const [clearingAll, setClearingAll] = useState(false);
+  const [savingStoryPoints, setSavingStoryPoints] = useState(false);
+  const { isAdmin } = useIsAdmin();
+  const [projectOwnerId, setProjectOwnerId] = useState<string | null>(null);
 
-useEffect(() => {
-  const fetchOwner = async () => {
+  useEffect(() => {
+    const fetchOwner = async () => {
+      if (!projectId) return;
+      const { data, error } = await supabase
+        .from('projects')
+        .select('owner_id')
+        .eq('id', projectId)
+        .maybeSingle();
+      if (!error) setProjectOwnerId(data?.owner_id || null);
+    };
+    fetchOwner();
+  }, [projectId]);
+
+  const canManageMembers = !!user && (isAdmin || projectOwnerId === user.id);
+
+  const addUserToProject = async (userIdToAdd: string) => {
     if (!projectId) return;
-    const { data, error } = await supabase
-      .from('projects')
-      .select('owner_id')
-      .eq('id', projectId)
-      .maybeSingle();
-    if (!error) setProjectOwnerId(data?.owner_id || null);
-  };
-  fetchOwner();
-}, [projectId]);
-
-const canManageMembers = !!user && (isAdmin || projectOwnerId === user.id);
-
-const addUserToProject = async (userIdToAdd: string) => {
-  if (!projectId) return;
-  const { error } = await supabase.from('project_members').insert({
-    project_id: projectId,
-    user_id: userIdToAdd,
-  });
-  if (error) {
-    toast({ title: 'Could not add to project', description: error.message, variant: 'destructive' });
-  } else {
-    toast({ title: 'Added to project', description: 'User can now access this project.' });
-  }
-};
-
-const handleAddAssignee = async (userIdToAdd: string) => {
-  if (!task?.id) return;
-  try {
-    setSavingAssignee(userIdToAdd);
-    await addAssignee(userIdToAdd);
-    await fetchAssignees();
-
-    // If not a project member, optionally add
-    const isMember = projectMembers.some((m) => m.user_id === userIdToAdd);
-    if (!isMember) {
-      if (canManageMembers) {
-        toast({
-          title: 'Assigned outside project',
-          description: 'They may not see this task. Adding them to the project...',
-        });
-        await addUserToProject(userIdToAdd);
-      } else {
-        toast({
-          title: 'Assigned outside project',
-          description: 'They might not see this task until a project owner adds them to the project.',
-        });
-      }
+    const { error } = await supabase.from('project_members').insert({
+      project_id: projectId,
+      user_id: userIdToAdd,
+    });
+    if (error) {
+      toast({ title: 'Could not add to project', description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: 'Added to project', description: 'User can now access this project.' });
     }
-  } finally {
-    setSavingAssignee(null);
-  }
-};
+  };
+
+  const handleAddAssignee = async (userIdToAdd: string) => {
+    if (!task?.id) return;
+    try {
+      setSavingAssignee(userIdToAdd);
+      await addAssignee(userIdToAdd);
+      await fetchAssignees();
+
+      // If not a project member, optionally add
+      const isMember = projectMembers.some((m) => m.user_id === userIdToAdd);
+      if (!isMember) {
+        if (canManageMembers) {
+          toast({
+            title: 'Assigned outside project',
+            description: 'They may not see this task. Adding them to the project...',
+          });
+          await addUserToProject(userIdToAdd);
+        } else {
+          toast({
+            title: 'Assigned outside project',
+            description: 'They might not see this task until a project owner adds them to the project.',
+          });
+        }
+      }
+    } finally {
+      setSavingAssignee(null);
+    }
+  };
 
   useEffect(() => {
     if (task?.id) {
@@ -184,7 +188,6 @@ const handleAddAssignee = async (userIdToAdd: string) => {
 
   useEffect(() => {
     if (isOpen) {
-      
       if (task) {
         // Find the smart task type based on hierarchy_level and task_type
         const smartTaskType = SMART_TASK_TYPE_OPTIONS.find(option => 
@@ -210,7 +213,6 @@ const handleAddAssignee = async (userIdToAdd: string) => {
       }
     }
   }, [isOpen, task]);
-
 
   const handleSave = () => {
     // Get the selected smart task type option
@@ -389,15 +391,19 @@ const handleAddAssignee = async (userIdToAdd: string) => {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-5xl md:max-h-[90vh] h-[90svh] overflow-hidden bg-card border border-border p-0 flex flex-col">
+      <DialogContent className={cn(
+        "max-w-5xl h-[90svh] overflow-hidden bg-card border border-border p-0 flex flex-col",
+        isMobile ? "w-full" : "md:max-h-[90vh]"
+      )}>
         <DialogTitle className="sr-only">
           {task ? `Edit Task: ${formData.title}` : 'Create New Task'}
         </DialogTitle>
         <DialogDescription className="sr-only">
           {task ? 'Edit task details, assignees, and manage comments' : 'Create a new task with details and assignees'}
         </DialogDescription>
-        {/* Header with title editing and status button */}
-        <div className="flex justify-between items-start px-6 py-4 border-b border-border bg-muted/30">
+
+        {/* Header - Fixed */}
+        <div className="flex justify-between items-start px-4 md:px-6 py-4 border-b border-border bg-muted/30 shrink-0">
           <div className="flex-1 min-w-0">
             <p className="text-sm text-muted-foreground mb-1 font-mono">
               {task?.project?.code && task?.ticket_number 
@@ -413,14 +419,14 @@ const handleAddAssignee = async (userIdToAdd: string) => {
                   value={editedTitle}
                   onChange={(e) => setEditedTitle(e.target.value)}
                   onKeyDown={onTitleKey}
-                  className="text-xl font-semibold bg-background border-input"
+                  className="text-lg md:text-xl font-semibold bg-background border-input"
                   autoFocus
                 />
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={saveTitle}
-                  className="p-1 h-auto text-primary"
+                  className="p-1 h-auto text-primary shrink-0"
                 >
                   <Check className="h-4 w-4" />
                 </Button>
@@ -428,7 +434,7 @@ const handleAddAssignee = async (userIdToAdd: string) => {
                   variant="ghost"
                   size="sm"
                   onClick={cancelTitle}
-                  className="p-1 h-auto text-muted-foreground"
+                  className="p-1 h-auto text-muted-foreground shrink-0"
                 >
                   <XCircle className="h-4 w-4" />
                 </Button>
@@ -440,7 +446,7 @@ const handleAddAssignee = async (userIdToAdd: string) => {
                   setIsEditingTitle(true);
                   setTimeout(() => titleInputRef.current?.focus(), 0);
                 }}
-                className="text-xl font-semibold text-foreground hover:bg-accent/50 rounded px-2 py-1 -mx-2 cursor-text"
+                className="text-lg md:text-xl font-semibold text-foreground hover:bg-accent/50 rounded px-2 py-1 -mx-2 cursor-text line-clamp-2"
               >
                 {formData.title || "Untitled Task"}
               </h1>
@@ -448,465 +454,419 @@ const handleAddAssignee = async (userIdToAdd: string) => {
           </div>
         </div>
 
-        <div className="flex flex-col md:flex-row flex-1 min-h-0">
-          {/* Left Column - Main Content */}
-          <div className="flex-1 flex flex-col min-h-0">
-            <div className="p-6 space-y-6 overflow-y-auto flex-1 pr-2">
-            {/* Description */}
-            <section>
-              <h3 className="text-lg font-medium text-foreground mb-3">Description</h3>
-              
-              {isEditingDescription ? (
-                <div className="space-y-3">
-                  <RichTextEditor
-                    value={editedDescription}
-                    onChange={setEditedDescription}
-                    placeholder="Describe the task..."
-                    className="min-h-[200px]"
-                  />
-                  <div className="flex gap-2">
-                    <Button
-                      onClick={saveDescription}
-                      size="sm"
-                      className="bg-primary text-primary-foreground hover:bg-primary/90"
-                    >
-                      Save
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={cancelDescription}
-                      size="sm"
-                    >
-                      Cancel
-                    </Button>
+        {/* Main Content - Single Scroll Container */}
+        <ScrollArea className="flex-1 min-h-0">
+          <div className="p-4 md:p-6 space-y-6">
+            {/* Mobile: Single column layout */}
+            {isMobile ? (
+              <div className="space-y-6">
+                {/* Task Info Section */}
+                <section className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-sm font-medium text-muted-foreground">Status</Label>
+                      <Select value={formData.status} onValueChange={(value) => setFormData(prev => ({ ...prev, status: value }))}>
+                        <SelectTrigger className="mt-1">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="todo">To Do</SelectItem>
+                          <SelectItem value="in_progress">In Progress</SelectItem>
+                          <SelectItem value="in_review">In Review</SelectItem>
+                          <SelectItem value="done">Done</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium text-muted-foreground">Priority</Label>
+                      <Select value={formData.priority} onValueChange={(value) => setFormData(prev => ({ ...prev, priority: value as "low" | "medium" | "high" | "urgent" }))}>
+                        <SelectTrigger className="mt-1">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="low">Low</SelectItem>
+                          <SelectItem value="medium">Medium</SelectItem>
+                          <SelectItem value="high">High</SelectItem>
+                          <SelectItem value="urgent">Urgent</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
-                </div>
-              ) : (
-                <div
-                  onClick={() => {
-                    setEditedDescription(formData.description);
-                    setIsEditingDescription(true);
-                  }}
-                  className="min-h-[100px] p-4 bg-muted/30 border border-dashed border-input rounded-md cursor-text hover:bg-muted/50 hover:border-primary/50 transition-colors"
-                >
-                  {formData.description ? (
-                    <SafeHtml 
-                      html={formData.description}
-                      className="prose prose-sm max-w-none"
-                      allowedTags={['p', 'br', 'strong', 'em', 'u', 'ol', 'ul', 'li', 'h1', 'h2', 'h3']}
+
+                  {/* Assignees */}
+                  <div>
+                    <Label className="text-sm font-medium text-muted-foreground mb-2 block">Assignees</Label>
+                    <AssigneeCompanySelect
+                      value={currentAssignees.map(a => a.id)}
+                      onChange={(ids) => {}} // Not used, using onSelectOne instead
+                      onSelectOne={handleAddAssignee}
+                      suggestProjectId={projectId}
                     />
-                  ) : (
-                    <p className="text-muted-foreground italic">Click to add a description...</p>
-                  )}
-                </div>
-              )}
-            </section>
-
-            {/* Task Type */}
-            <section>
-              <SmartTaskTypeSelector
-                value={formData.smartTaskType}
-                onChange={(value) => setFormData(prev => ({ ...prev, smartTaskType: value }))}
-                label="What type of work is this?"
-                placeholder="Choose the type of work..."
-              />
-            </section>
-
-            {/* File Attachments */}
-            <section>
-              <h3 className="text-lg font-medium text-foreground mb-3">Attachments</h3>
-              <div className="space-y-4">
-                <FileUpload 
-                  onFileUpload={handleFileUpload}
-                  disabled={isUploading}
-                  accept="*/*"
-                  maxSizeMB={10}
-                />
-                
-                {Array.isArray(formData.attachments) && formData.attachments.length > 0 && (
-                  <div className="space-y-2">
-                    {formData.attachments.map((attachment: any) => (
-                      <UploadedFile
-                        key={attachment.id}
-                        fileName={attachment.name}
-                        fileSize={attachment.size}
-                        onRemove={() => handleFileRemove(attachment.id)}
-                        onDownload={() => window.open(attachment.url, '_blank')}
-                      />
-                    ))}
+                    {currentAssignees.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {currentAssignees.map((assignee) => (
+                          <div key={assignee.id} className="flex items-center gap-2 bg-accent/50 rounded-full px-2 py-1">
+                            <Avatar className="h-5 w-5">
+                              <AvatarImage src={assignee.avatar || ""} />
+                              <AvatarFallback className="text-xs">
+                                {getInitials(assignee.name)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <span className="text-sm">{assignee.name}</span>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-4 w-4 p-0 hover:bg-destructive/20"
+                              onClick={() => removeAssignee(assignee.id)}
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-            </section>
 
-            {/* Comments - Always at bottom, full width */}
-            {task?.id && (
-              <div className="border-t border-border bg-background">
-                <div className="p-6">
-                  <h3 className="text-lg font-medium text-foreground mb-3">Comments</h3>
-                  <CommentsSystemWithMentions 
-                    taskId={task.id} 
-                    projectId={projectId}
-                    onCommentCountChange={setCommentCount}
-                  />
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Right Column - Metadata */}
-          <div className="w-full md:w-80 p-6 border-t md:border-t-0 md:border-l border-border bg-muted/20 overflow-y-auto space-y-6">
-            {/* Status */}
-            <div>
-              <h4 className="text-sm font-medium text-muted-foreground mb-2">Status</h4>
-              <Select
-                value={formData.status}
-                onValueChange={(value) => setFormData(prev => ({ ...prev, status: value }))}
-              >
-                <SelectTrigger 
-                  className={`w-full border-2 transition-all duration-200 font-medium ${
-                    formData.status === 'todo' 
-                      ? 'bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300'
-                      : formData.status === 'in_progress'
-                      ? 'bg-blue-100 dark:bg-blue-900/40 border-blue-300 dark:border-blue-600 text-blue-700 dark:text-blue-300'
-                      : formData.status === 'in_review'
-                      ? 'bg-yellow-100 dark:bg-yellow-900/40 border-yellow-300 dark:border-yellow-600 text-yellow-700 dark:text-yellow-300'
-                      : formData.status === 'done'
-                      ? 'bg-green-100 dark:bg-green-900/40 border-green-300 dark:border-green-600 text-green-700 dark:text-green-300'
-                      : 'bg-background border-border'
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div 
-                      className="w-3 h-3 rounded-full shadow-sm" 
-                      style={{ backgroundColor: getStatusColor(formData.status) }}
-                    />
-                    <SelectValue className="font-medium" />
-                  </div>
-                </SelectTrigger>
-                <SelectContent className="bg-background/95 backdrop-blur-sm border-border shadow-xl z-50">
-                  <SelectItem value="todo" className="hover:bg-muted/60 transition-colors">
-                    <div className="flex items-center gap-3 py-1">
-                      <div className="w-3 h-3 rounded-full bg-gray-400" />
-                      <span className="font-medium">To Do</span>
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="in_progress" className="hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-colors">
-                    <div className="flex items-center gap-3 py-1">
-                      <div className="w-3 h-3 rounded-full bg-blue-500" />
-                      <span className="font-medium">In Progress</span>
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="in_review" className="hover:bg-yellow-50 dark:hover:bg-yellow-950/30 transition-colors">
-                    <div className="flex items-center gap-3 py-1">
-                      <div className="w-3 h-3 rounded-full bg-yellow-500" />
-                      <span className="font-medium">In Review</span>
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="done" className="hover:bg-green-50 dark:hover:bg-green-950/30 transition-colors">
-                    <div className="flex items-center gap-3 py-1">
-                      <div className="w-3 h-3 rounded-full bg-green-500" />
-                      <span className="font-medium">Done</span>
-                    </div>
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Assignees */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <h4 className="text-sm font-medium text-muted-foreground">Assignees</h4>
-                {formData.assignees.length > 1 && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={clearingAll || !!savingAssignee}
-                    onClick={async () => {
-                      if (!task?.id) return;
-                      try {
-                        setClearingAll(true);
-                        await updateAssignees([]);
-                        await fetchAssignees();
-                        toast({ title: "Cleared", description: "All assignees removed" });
-                      } finally {
-                        setClearingAll(false);
-                      }
-                    }}
-                  >
-                    Remove all
-                  </Button>
-                )}
-              </div>
-              <div className="space-y-3">
-                {formData.assignees.length > 0 && (
-                  <div className="space-y-2">
-                    {formData.assignees.map((assignee) => (
-                      <div key={assignee.id} className="flex items-center gap-3">
-                        <Avatar className="w-8 h-8">
-                          <AvatarImage src={assignee.avatar} />
-                          <AvatarFallback className="text-xs">
-                            {assignee.initials}
-                          </AvatarFallback>
-                        </Avatar>
-                        <span className="text-foreground flex-1">{assignee.name}</span>
+                  {/* Due Date */}
+                  <div>
+                    <Label className="text-sm font-medium text-muted-foreground">Due Date</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
                         <Button
-                          variant="ghost"
-                          size="icon"
-                          aria-label={`Remove ${assignee.name}`}
-                          disabled={savingAssignee === assignee.id}
-                          onClick={async () => {
-                            if (!task?.id) return;
-                            try {
-                              setSavingAssignee(assignee.id);
-                              await removeAssignee(assignee.id);
-                              await fetchAssignees();
-                            } finally {
-                              setSavingAssignee(null);
-                            }
-                          }}
-                          className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+                          variant="outline"
+                          className={cn("w-full mt-1 justify-start text-left font-normal", !formData.dueDate && "text-muted-foreground")}
                         >
-                          <X className="h-4 w-4" />
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {formData.dueDate ? format(formData.dueDate, "PPP") : "Pick a date"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={formData.dueDate}
+                          onSelect={(date) => setFormData(prev => ({ ...prev, dueDate: date }))}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                </section>
+
+                {/* Description */}
+                <section>
+                  <h3 className="text-lg font-medium text-foreground mb-3">Description</h3>
+                  
+                  {isEditingDescription ? (
+                    <div className="space-y-3">
+                      <RichTextEditor
+                        value={editedDescription}
+                        onChange={setEditedDescription}
+                        placeholder="Describe the task..."
+                        className="min-h-[200px]"
+                      />
+                      <div className="flex gap-2">
+                        <Button
+                          onClick={saveDescription}
+                          size="sm"
+                          className="bg-primary text-primary-foreground hover:bg-primary/90"
+                        >
+                          Save
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={cancelDescription}
+                          size="sm"
+                        >
+                          Cancel
                         </Button>
                       </div>
-                    ))}
-                  </div>
+                    </div>
+                  ) : (
+                    <div
+                      onClick={() => {
+                        setEditedDescription(formData.description);
+                        setIsEditingDescription(true);
+                      }}
+                      className="min-h-[100px] p-4 rounded-md border border-input bg-background hover:bg-accent/30 cursor-text transition-colors"
+                    >
+                      {formData.description ? (
+                        <SafeHtml html={formData.description} />
+                      ) : (
+                        <p className="text-muted-foreground">Click to add a description...</p>
+                      )}
+                    </div>
+                  )}
+                </section>
+
+                {/* Attachments */}
+                <section>
+                  <h3 className="text-lg font-medium text-foreground mb-3">Attachments</h3>
+                  <FileUpload
+                    onFileUpload={handleFileUpload}
+                    disabled={isUploading}
+                    className="mb-4"
+                  />
+                  {Array.isArray(formData.attachments) && formData.attachments.length > 0 && (
+                    <div className="space-y-2">
+                      {formData.attachments.map((attachment: any) => (
+                        <div key={attachment.id} className="flex items-center justify-between p-2 bg-accent/50 rounded">
+                          <div className="flex items-center gap-2">
+                            <Paperclip className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-sm">{attachment.name}</span>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleFileRemove(attachment.id)}
+                            className="h-8 w-8 p-0 hover:bg-destructive/20"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </section>
+
+                {/* Time Tracking */}
+                {task?.id && (
+                  <section>
+                    <h3 className="text-lg font-medium text-foreground mb-3">Time Tracking</h3>
+                    <div className="space-y-4">
+                      <TimeTracker taskId={task.id} taskTitle={formData.title} />
+                      <TimeEntriesList taskId={task.id} />
+                    </div>
+                  </section>
                 )}
-                <AssigneeCompanySelect
-                  value={formData.assignees.map((a: any) => a.id)}
-                  onChange={() => { /* not used in adder mode */ }}
-                  suggestProjectId={projectId}
-                  onSelectOne={handleAddAssignee}
-                />
+
+                {/* Comments */}
+                {task?.id && (
+                  <section>
+                    <h3 className="text-lg font-medium text-foreground mb-3">Comments</h3>
+                    <CommentsSystemWithMentions 
+                      taskId={task.id} 
+                      projectId={projectId}
+                      onCommentCountChange={setCommentCount}
+                    />
+                  </section>
+                )}
               </div>
-            </div>
-
-            {/* Story Points */}
-            <InfoRow label="Story Points">
-              <Select
-                value={formData.story_points?.toString() || "none"}
-                onValueChange={async (value) => {
-                  const newValue = value === "none" ? null : parseInt(value);
-                  const prev = formData.story_points;
-                  setFormData(prevState => ({ ...prevState, story_points: newValue }));
-                  if (task?.id) {
-                    try {
-                      setSavingStoryPoints(true);
-                      const { error } = await supabase
-                        .from('tasks')
-                        .update({ story_points: newValue })
-                        .eq('id', task.id);
-                      if (error) throw error;
-                      toast({ title: 'Saved', description: 'Story points updated' });
-                    } catch (err: any) {
-                      setFormData(prevState => ({ ...prevState, story_points: prev }));
-                      toast({ title: 'Error', description: 'Failed to update story points', variant: 'destructive' });
-                    } finally {
-                      setSavingStoryPoints(false);
-                    }
-                  }
-                }}
-              >
-                <SelectTrigger className="w-20 h-8 text-sm bg-background border-input">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-background border-border z-50">
-                  <SelectItem value="none">-</SelectItem>
-                  <SelectItem value="1">1</SelectItem>
-                  <SelectItem value="2">2</SelectItem>
-                  <SelectItem value="3">3</SelectItem>
-                  <SelectItem value="5">5</SelectItem>
-                  <SelectItem value="8">8</SelectItem>
-                  <SelectItem value="13">13</SelectItem>
-                  <SelectItem value="21">21</SelectItem>
-                </SelectContent>
-              </Select>
-            </InfoRow>
-
-            {/* Priority */}
-            <InfoRow label="Priority">
-              <Select
-                value={formData.priority}
-                onValueChange={(value) => setFormData(prev => ({ 
-                  ...prev, 
-                  priority: value as Task["priority"] 
-                }))}
-              >
-                <SelectTrigger className="w-24 h-8 text-sm bg-background border-input">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-background border-border z-50">
-                  <SelectItem value="low">Low</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
-                  <SelectItem value="urgent">Urgent</SelectItem>
-                </SelectContent>
-              </Select>
-            </InfoRow>
-
-            {/* Due Date */}
-            <InfoRow label="Due Date">
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className={cn(
-                      "h-8 text-sm font-normal bg-background border-input",
-                      !formData.dueDate && "text-muted-foreground"
+            ) : (
+              /* Desktop: Two column layout */
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 min-h-0">
+                {/* Left Column - Main Content */}
+                <div className="lg:col-span-2 space-y-6">
+                  {/* Description */}
+                  <section>
+                    <h3 className="text-lg font-medium text-foreground mb-3">Description</h3>
+                    
+                    {isEditingDescription ? (
+                      <div className="space-y-3">
+                        <RichTextEditor
+                          value={editedDescription}
+                          onChange={setEditedDescription}
+                          placeholder="Describe the task..."
+                          className="min-h-[200px]"
+                        />
+                        <div className="flex gap-2">
+                          <Button
+                            onClick={saveDescription}
+                            size="sm"
+                            className="bg-primary text-primary-foreground hover:bg-primary/90"
+                          >
+                            Save
+                          </Button>
+                          <Button
+                            variant="outline"
+                            onClick={cancelDescription}
+                            size="sm"
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div
+                        onClick={() => {
+                          setEditedDescription(formData.description);
+                          setIsEditingDescription(true);
+                        }}
+                        className="min-h-[100px] p-4 rounded-md border border-input bg-background hover:bg-accent/30 cursor-text transition-colors"
+                      >
+                        {formData.description ? (
+                          <SafeHtml html={formData.description} />
+                        ) : (
+                          <p className="text-muted-foreground">Click to add a description...</p>
+                        )}
+                      </div>
                     )}
-                  >
-                    <CalendarIcon className="mr-1 h-3 w-3" />
-                    {formData.dueDate ? format(formData.dueDate, "MMM dd") : "Set date"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0 bg-background border-border" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={formData.dueDate}
-                    onSelect={(date) => setFormData(prev => ({ ...prev, dueDate: date }))}
-                    initialFocus
-                    className="bg-background pointer-events-auto"
-                  />
-                </PopoverContent>
-              </Popover>
-            </InfoRow>
+                  </section>
 
-            {/* Labels */}
-            <div>
-              <h4 className="text-sm font-medium text-muted-foreground mb-2">Labels</h4>
-              <div className="space-y-2">
-                <div className="flex gap-1">
-                  <Input
-                    value={newTag}
-                    onChange={(e) => setNewTag(e.target.value)}
-                    placeholder="Add label..."
-                    onKeyPress={(e) => e.key === "Enter" && addTag()}
-                    className="flex-1 h-8 text-sm bg-background border-input"
-                  />
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    size="sm"
-                    onClick={addTag} 
-                    className="h-8 px-2 text-sm bg-background border-input"
-                  >
-                    Add
-                  </Button>
-                </div>
-                {formData.tags.length > 0 && (
-                  <div className="flex flex-wrap gap-1">
-                    {formData.tags.map((tag) => (
-                      <Badge key={tag} variant="secondary" className="text-xs">
-                        {tag}
-                        <button
-                          type="button"
-                          onClick={() => removeTag(tag)}
-                          className="ml-1 hover:text-destructive"
-                        >
-                          <X className="w-2 h-2" />
-                        </button>
-                      </Badge>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
+                  {/* Attachments */}
+                  <section>
+                    <h3 className="text-lg font-medium text-foreground mb-3">Attachments</h3>
+                    <FileUpload
+                      onFileUpload={handleFileUpload}
+                      disabled={isUploading}
+                      className="mb-4"
+                    />
+                    {Array.isArray(formData.attachments) && formData.attachments.length > 0 && (
+                      <div className="space-y-2">
+                        {formData.attachments.map((attachment: any) => (
+                          <div key={attachment.id} className="flex items-center justify-between p-2 bg-accent/50 rounded">
+                            <div className="flex items-center gap-2">
+                              <Paperclip className="h-4 w-4 text-muted-foreground" />
+                              <span className="text-sm">{attachment.name}</span>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleFileRemove(attachment.id)}
+                              className="h-8 w-8 p-0 hover:bg-destructive/20"
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </section>
 
-            {/* Time Tracking */}
-            {task?.id && (
-              <section>
-                <h4 className="text-sm font-medium text-muted-foreground mb-2">Time Tracking</h4>
-                <div className="space-y-3">
-                  <TimeTracker taskId={task.id} taskTitle={task.title} />
-                  <TimeEntriesList taskId={task.id} />
-                </div>
-              </section>
-            )}
+                  {/* Time Tracking */}
+                  {task?.id && (
+                    <section>
+                      <h3 className="text-lg font-medium text-foreground mb-3">Time Tracking</h3>
+                      <div className="space-y-4">
+                        <TimeTracker taskId={task.id} taskTitle={formData.title} />
+                        <TimeEntriesList taskId={task.id} />
+                      </div>
+                    </section>
+                  )}
 
-            {/* Relationships */}
-            {task?.id && projectId && (
-              <section>
-                <div className="flex items-center justify-between mb-2">
-                  <h4 className="text-sm font-medium text-muted-foreground">Relationships</h4>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowRelationships(true)}
-                    className="h-6 px-2 text-xs"
-                  >
-                    <GitBranch className="w-3 h-3 mr-1" />
-                    Manage
-                  </Button>
+                  {/* Comments */}
+                  {task?.id && (
+                    <section>
+                      <h3 className="text-lg font-medium text-foreground mb-3">Comments</h3>
+                      <CommentsSystemWithMentions 
+                        taskId={task.id} 
+                        projectId={projectId}
+                        onCommentCountChange={setCommentCount}
+                      />
+                    </section>
+                  )}
                 </div>
-                
-                {relationships.length > 0 ? (
-                  <TaskRelationshipIndicator
-                    taskId={task.id}
-                    compact
-                  />
-                ) : (
-                  <p className="text-xs text-muted-foreground">
-                    No relationships defined
-                  </p>
-                )}
-              </section>
-            )}
 
-            {/* Task Stats */}
-            {task && (
-              <div className="flex flex-col gap-2 text-xs text-muted-foreground border-t pt-4">
-                <div className="flex items-center justify-between">
-                  <span className="flex items-center gap-1">
-                    <MessageSquare className="w-3 h-3" />
-                    Comments
-                  </span>
-                  <span>{commentCount}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="flex items-center gap-1">
-                    <Paperclip className="w-3 h-3" />
-                    Attachments
-                  </span>
-                  <span>{Array.isArray(formData.attachments) ? formData.attachments.length : 0}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="flex items-center gap-1">
-                    <GitBranch className="w-3 h-3" />
-                    Relationships
-                  </span>
-                  <span>{relationships.length}</span>
+                {/* Right Column - Sidebar */}
+                <div className="space-y-6">
+                  {/* Task Info */}
+                  <section className="bg-muted/30 rounded-lg p-4 space-y-4">
+                    <h3 className="font-medium text-foreground">Task Info</h3>
+                    
+                    <InfoRow label="Status">
+                      <Select value={formData.status} onValueChange={(value) => setFormData(prev => ({ ...prev, status: value }))}>
+                        <SelectTrigger className="w-28">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="todo">To Do</SelectItem>
+                          <SelectItem value="in_progress">In Progress</SelectItem>
+                          <SelectItem value="in_review">In Review</SelectItem>
+                          <SelectItem value="done">Done</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </InfoRow>
+
+                    <InfoRow label="Priority">
+                      <Select value={formData.priority} onValueChange={(value) => setFormData(prev => ({ ...prev, priority: value as "low" | "medium" | "high" | "urgent" }))}>
+                        <SelectTrigger className="w-28">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="low">Low</SelectItem>
+                          <SelectItem value="medium">Medium</SelectItem>
+                          <SelectItem value="high">High</SelectItem>
+                          <SelectItem value="urgent">Urgent</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </InfoRow>
+
+                    <InfoRow label="Due Date">
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className={cn("w-32 justify-start text-left font-normal", !formData.dueDate && "text-muted-foreground")}
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {formData.dueDate ? format(formData.dueDate, "MMM dd") : "Set date"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="end">
+                          <Calendar
+                            mode="single"
+                            selected={formData.dueDate}
+                            onSelect={(date) => setFormData(prev => ({ ...prev, dueDate: date }))}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </InfoRow>
+                  </section>
+
+                  {/* Assignees */}
+                  <section className="bg-muted/30 rounded-lg p-4 space-y-4">
+                    <h3 className="font-medium text-foreground">Assignees</h3>
+                    <AssigneeCompanySelect
+                      value={currentAssignees.map(a => a.id)}
+                      onChange={(ids) => {}} // Not used, using onSelectOne instead
+                      onSelectOne={handleAddAssignee}
+                      suggestProjectId={projectId}
+                    />
+                    {currentAssignees.length > 0 && (
+                      <div className="space-y-2">
+                        {currentAssignees.map((assignee) => (
+                          <div key={assignee.id} className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <Avatar className="h-6 w-6">
+                                <AvatarImage src={assignee.avatar || ""} />
+                                <AvatarFallback className="text-xs">
+                                  {getInitials(assignee.name)}
+                                </AvatarFallback>
+                              </Avatar>
+                              <span className="text-sm">{assignee.name}</span>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 w-6 p-0 hover:bg-destructive/20"
+                              onClick={() => removeAssignee(assignee.id)}
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </section>
                 </div>
               </div>
             )}
           </div>
-        </div>
-        </div>
+        </ScrollArea>
 
-        {/* Footer Actions */}
-        <div className="px-6 py-3 border-t border-border bg-muted/30 md:bg-muted/30 md:static md:py-4 md:px-6 sticky bottom-0 left-0 right-0 backdrop-blur supports-[backdrop-filter]:bg-muted/50">
+        {/* Footer - Fixed */}
+        <div className="px-4 md:px-6 py-3 border-t border-border bg-muted/30 shrink-0">
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={onClose}>
               Cancel
             </Button>
-            <Button onClick={handleSave} disabled={!formData.title.trim()}>
+            <Button onClick={handleSave} className="bg-primary text-primary-foreground hover:bg-primary/90">
               {task ? "Update Task" : "Create Task"}
             </Button>
           </div>
         </div>
       </DialogContent>
-
-      {/* Task Relationships Dialog */}
-      {task?.id && projectId && (
-        <TaskRelationshipsDialog
-          taskId={task.id}
-          taskTitle={task.title}
-        >
-          <div /> {/* Empty trigger as it's controlled by state */}
-        </TaskRelationshipsDialog>
-      )}
     </Dialog>
   );
 }
-
