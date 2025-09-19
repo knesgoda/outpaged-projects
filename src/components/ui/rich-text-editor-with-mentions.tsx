@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { RichTextEditor } from './rich-text-editor';
 import { Card } from './card';
 import { Avatar, AvatarFallback, AvatarImage } from './avatar';
-import { useProjectMembers, type ProjectMember } from '@/hooks/useProjectMembers';
+import { useProjectMembersView, type ProjectMemberProfile } from '@/hooks/useProjectMembersView';
 
 interface RichTextEditorWithMentionsProps {
   value: string;
@@ -21,15 +21,15 @@ export function RichTextEditorWithMentions({
   className,
   modules
 }: RichTextEditorWithMentionsProps) {
-  const { members } = useProjectMembers(projectId);
+  const { members } = useProjectMembersView(projectId);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [mentionQuery, setMentionQuery] = useState('');
   const [selectedSuggestion, setSelectedSuggestion] = useState(0);
   const [cursorPosition, setCursorPosition] = useState({ x: 0, y: 0 });
 
-  const filteredMembers = members.filter(member =>
-    member.full_name.toLowerCase().includes(mentionQuery.toLowerCase())
-  );
+  const filteredMembers = (members || []).filter(member =>
+    (member.full_name || '').toLowerCase().includes(mentionQuery.toLowerCase())
+  ).slice(0, 8);
 
   const handleTextChange = (newValue: string) => {
     onChange(newValue);
@@ -37,13 +37,16 @@ export function RichTextEditorWithMentions({
     // Extract plain text for mention detection
     const tempDiv = document.createElement('div');
     tempDiv.innerHTML = newValue;
-    const plainText = tempDiv.textContent || tempDiv.innerText || '';
+    let plainText = tempDiv.textContent || tempDiv.innerText || '';
 
-    // Simple mention detection - look for @ followed by text at the end
-    const mentionMatch = plainText.match(/@([^@\s]*)\s*$/);
+    // Normalize whitespace and zero-width chars
+    plainText = plainText.replace(/[\u00A0\u200B]/g, ' ');
+
+    // Detect last "@query" at end of current text
+    const mentionMatch = plainText.match(/(?:^|\s)@([A-Za-z0-9._-]*)$/);
     
     if (mentionMatch) {
-      setMentionQuery(mentionMatch[1]);
+      setMentionQuery(mentionMatch[1] || '');
       setShowSuggestions(true);
       setSelectedSuggestion(0);
     } else {
@@ -52,23 +55,24 @@ export function RichTextEditorWithMentions({
     }
   };
 
-  const insertMention = (member: ProjectMember) => {
+  const insertMention = (member: ProjectMemberProfile) => {
     // Get the current HTML content
     const currentHTML = value;
     
     // Create a temporary div to work with the HTML
     const tempDiv = document.createElement('div');
     tempDiv.innerHTML = currentHTML;
-    const plainText = tempDiv.textContent || tempDiv.innerText || '';
+    let plainText = tempDiv.textContent || tempDiv.innerText || '';
+    plainText = plainText.replace(/[\u00A0\u200B]/g, ' ');
     
     // Find the last @ symbol
     const lastAtIndex = plainText.lastIndexOf('@');
     if (lastAtIndex === -1) return;
 
-    // Replace the @ and query with the mention
+    // Replace the @query with the selected member's name
     const beforeMention = plainText.substring(0, lastAtIndex);
-    const afterMention = plainText.substring(plainText.length);
-    const mentionText = `${beforeMention}@${member.full_name} ${afterMention}`;
+    const afterMention = plainText.substring(lastAtIndex + 1 + mentionQuery.length);
+    const mentionText = `${beforeMention}@${member.full_name || 'User'} ${afterMention}`.trim();
 
     // Convert back to HTML (simple approach)
     const newHTML = `<p>${mentionText}</p>`;
@@ -159,10 +163,15 @@ export function RichTextEditorWithMentions({
                 <Avatar className="w-6 h-6">
                   <AvatarImage src={member.avatar_url || undefined} />
                   <AvatarFallback className="text-xs">
-                    {member.initials}
+                    {(member.full_name || 'U')
+                      .split(' ')
+                      .map((n) => n[0])
+                      .join('')
+                      .toUpperCase()
+                      .slice(0, 2)}
                   </AvatarFallback>
                 </Avatar>
-                <span className="text-sm">{member.full_name}</span>
+                <span className="text-sm">{member.full_name || 'Unknown User'}</span>
               </div>
             ))}
           </div>
