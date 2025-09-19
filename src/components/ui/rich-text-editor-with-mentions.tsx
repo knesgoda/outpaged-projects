@@ -168,16 +168,19 @@ export function RichTextEditorWithMentions({
       />
       
       {/* Mention Suggestions Dropdown */}
-      {showSuggestions && filteredMembers.length > 0 && (
+      {showSuggestions && (
         <Card className="absolute z-50 w-64 mt-1 max-h-48 overflow-y-auto border shadow-md">
           <div className="p-1">
-            {filteredMembers.map((member, index) => (
-              <div
-                key={member.user_id}
-                className={`flex items-center gap-2 p-2 cursor-pointer rounded hover:bg-accent ${
-                  index === selectedSuggestion ? 'bg-accent' : ''
-                }`}
-                onClick={() => insertMention(member)}
+            {filteredMembers.length === 0 ? (
+              <div className="p-2 text-sm text-muted-foreground">No matches</div>
+            ) : (
+              filteredMembers.map((member, index) => (
+                <div
+                  key={member.user_id}
+                  className={`flex items-center gap-2 p-2 cursor-pointer rounded hover:bg-accent ${
+                    index === selectedSuggestion ? 'bg-accent' : ''
+                  }`}
+                  onClick={() => insertMention(member)}
               >
                 <Avatar className="w-6 h-6">
                   <AvatarImage src={member.avatar_url || undefined} />
