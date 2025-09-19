@@ -179,7 +179,7 @@ export function CommentsSystemWithMentions({
           .from('project_members')
           .select(`
             user_id,
-            profiles!user_id (
+            profiles:profiles (
               full_name
             )
           `)

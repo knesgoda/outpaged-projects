@@ -2,7 +2,8 @@ import { useEffect, useState, useRef } from 'react';
 import { RichTextEditor } from './rich-text-editor';
 import { Card } from './card';
 import { Avatar, AvatarFallback, AvatarImage } from './avatar';
-import { useProjectMembersView, type ProjectMemberProfile } from '@/hooks/useProjectMembersView';
+import { useProjectMembers, type ProjectMember } from '@/hooks/useProjectMembers';
+import { useCompanyDirectory } from '@/hooks/useCompanyDirectory';
 
 interface RichTextEditorWithMentionsProps {
   value: string;
@@ -21,15 +22,33 @@ export function RichTextEditorWithMentions({
   className,
   modules
 }: RichTextEditorWithMentionsProps) {
-  const { members } = useProjectMembersView(projectId);
+  const { members } = useProjectMembers(projectId);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [mentionQuery, setMentionQuery] = useState('');
   const [selectedSuggestion, setSelectedSuggestion] = useState(0);
   const [cursorPosition, setCursorPosition] = useState({ x: 0, y: 0 });
 
-  const filteredMembers = (members || []).filter(member =>
-    (member.full_name || '').toLowerCase().includes(mentionQuery.toLowerCase())
-  ).slice(0, 8);
+  const companyDirectory = useCompanyDirectory(mentionQuery, 8);
+  const directoryMembers: ProjectMember[] = (companyDirectory.data?.users || []).map((u) => {
+    const name = u.full_name || 'Unknown User';
+    const initials = name
+      .split(' ')
+      .map((n) => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+    return {
+      user_id: u.user_id,
+      full_name: name,
+      avatar_url: u.avatar_url,
+      initials,
+    } as ProjectMember;
+  });
+
+  const sourceMembers: ProjectMember[] = projectId ? (members || []) : directoryMembers;
+  const filteredMembers = (sourceMembers || [])
+    .filter((member) => (member.full_name || '').toLowerCase().includes(mentionQuery.toLowerCase()))
+    .slice(0, 8);
 
   const handleTextChange = (newValue: string) => {
     onChange(newValue);
@@ -55,7 +74,7 @@ export function RichTextEditorWithMentions({
     }
   };
 
-  const insertMention = (member: ProjectMemberProfile) => {
+  const insertMention = (member: ProjectMember) => {
     // Get the current HTML content
     const currentHTML = value;
     
@@ -72,7 +91,7 @@ export function RichTextEditorWithMentions({
     // Replace the @query with the selected member's name
     const beforeMention = plainText.substring(0, lastAtIndex);
     const afterMention = plainText.substring(lastAtIndex + 1 + mentionQuery.length);
-    const mentionText = `${beforeMention}@${member.full_name || 'User'} ${afterMention}`.trim();
+    const mentionText = `${beforeMention}@${member.full_name} ${afterMention}`.trim();
 
     // Convert back to HTML (simple approach)
     const newHTML = `<p>${mentionText}</p>`;

@@ -45,12 +45,13 @@ export function MentionInput({
           .from('project_members')
           .select(`
             user_id,
-            profiles!user_id (
+            profiles:profiles (
               full_name,
               avatar_url
             )
           `)
-          .eq('project_id', projectId);
+          .eq('project_id', projectId)
+          .limit(20);
 
         if (error) throw error;
 
@@ -86,7 +87,7 @@ export function MentionInput({
 
     // Check for mention trigger (@)
     const textBeforeCursor = inputValue.slice(0, cursorPos);
-    const mentionMatch = textBeforeCursor.match(/@(\w*)$/);
+    const mentionMatch = textBeforeCursor.match(/@([A-Za-z0-9._-]*)$/);
     
     if (mentionMatch) {
       setMentionQuery(mentionMatch[1]);
