@@ -2,16 +2,172 @@
   --op-orange: #FF7A00;
   --op-royal: #0B3D91;
   --op-dark: #1F2937;
+
+  /* Spacing scale */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+
+  /* Radius scale */
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1.25rem;
+  --radius-xl: 1.75rem;
+  --radius: 1rem;
+
+  /* Elevation */
+  --shadow-soft: 0 20px 45px -20px hsl(218 60% 40% / 0.2);
+  --shadow-medium: 0 32px 60px -24px hsl(215 56% 30% / 0.35);
+  --shadow-large: 0 40px 80px -30px hsl(215 60% 25% / 0.4);
+
+  /* Default to light tokens to avoid FOUC */
+  --background: 240 14% 97%;
+  --foreground: 215 28% 17%;
+  --card: 0 0% 100%;
+  --card-foreground: 215 28% 17%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 215 28% 17%;
+  --border: 220 16% 90%;
+  --input: 0 0% 100%;
+  --ring: 218 86% 31%;
+  --primary: 218 86% 31%;
+  --primary-foreground: 0 0% 100%;
+  --primary-hover: 218 86% 27%;
+  --primary-light: 218 86% 42%;
+  --secondary: 215 33% 95%;
+  --secondary-foreground: 215 28% 28%;
+  --muted: 220 22% 94%;
+  --muted-foreground: 215 16% 45%;
+  --accent: 29 100% 50%;
+  --accent-foreground: 0 0% 100%;
+  --accent-light: 29 100% 60%;
+  --destructive: 5 84% 58%;
+  --destructive-foreground: 0 0% 100%;
+  --success: 152 68% 40%;
+  --success-foreground: 210 40% 98%;
+  --warning: 35 92% 55%;
+  --warning-foreground: 215 28% 17%;
+
+  --sidebar-background: 220 43% 11%;
+  --sidebar-foreground: 210 40% 96%;
+  --sidebar-primary: 218 86% 31%;
+  --sidebar-primary-foreground: 210 40% 98%;
+  --sidebar-accent: 218 86% 20%;
+  --sidebar-accent-foreground: 210 40% 96%;
+  --sidebar-border: 220 30% 20%;
+  --sidebar-ring: 218 86% 31%;
+
+  --gradient-primary: linear-gradient(135deg, hsl(218 86% 32%), hsl(29 100% 55%));
+  --gradient-accent: linear-gradient(135deg, hsl(29 100% 55%), hsl(218 86% 32%));
+  --gradient-hero: radial-gradient(circle at 20% 20%, hsl(29 100% 60% / 0.15), transparent 55%),
+    radial-gradient(circle at 80% 0%, hsl(218 86% 40% / 0.15), transparent 55%),
+    hsl(240 14% 97%);
+
+  --chip-neutral: 220 18% 92%;
+  --chip-neutral-foreground: 215 24% 32%;
+  --chip-info: 218 86% 92%;
+  --chip-info-foreground: 218 86% 30%;
+  --chip-success: 152 68% 90%;
+  --chip-success-foreground: 152 60% 30%;
+  --chip-warning: 29 100% 90%;
+  --chip-warning-foreground: 29 94% 36%;
+  --chip-danger: 5 84% 90%;
+  --chip-danger-foreground: 5 70% 35%;
+  --chip-accent: 218 86% 90%;
+  --chip-accent-foreground: 218 86% 31%;
 }
 
 [data-theme="outpaged-light"] {
   color-scheme: light;
-  --background: 0 0% 100%;
-  --foreground: 222 47% 11%;
+  --background: 240 14% 97%;
+  --foreground: 215 28% 17%;
+  --card: 0 0% 100%;
+  --card-foreground: 215 28% 17%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 215 28% 17%;
+  --border: 220 16% 90%;
+  --input: 0 0% 100%;
+  --ring: 218 86% 31%;
+  --primary: 218 86% 31%;
+  --primary-foreground: 0 0% 100%;
+  --primary-hover: 218 86% 27%;
+  --primary-light: 218 86% 42%;
+  --secondary: 215 33% 95%;
+  --secondary-foreground: 215 28% 28%;
+  --muted: 220 22% 94%;
+  --muted-foreground: 215 16% 45%;
+  --accent: 29 100% 50%;
+  --accent-foreground: 0 0% 100%;
+  --accent-light: 29 100% 60%;
+  --destructive: 5 84% 58%;
+  --destructive-foreground: 0 0% 100%;
+  --success: 152 68% 40%;
+  --success-foreground: 210 40% 98%;
+  --warning: 35 92% 55%;
+  --warning-foreground: 215 28% 17%;
+
+  --chip-neutral: 220 18% 92%;
+  --chip-neutral-foreground: 215 24% 32%;
+  --chip-info: 218 86% 92%;
+  --chip-info-foreground: 218 86% 30%;
+  --chip-success: 152 68% 90%;
+  --chip-success-foreground: 152 60% 30%;
+  --chip-warning: 29 100% 90%;
+  --chip-warning-foreground: 29 94% 36%;
+  --chip-danger: 5 84% 90%;
+  --chip-danger-foreground: 5 70% 35%;
+  --chip-accent: 218 86% 90%;
+  --chip-accent-foreground: 218 86% 31%;
 }
 
 [data-theme="outpaged-dark"] {
   color-scheme: dark;
-  --background: 222 47% 11%;
-  --foreground: 210 40% 98%;
+  --background: 220 43% 11%;
+  --foreground: 210 40% 96%;
+  --card: 221 39% 13%;
+  --card-foreground: 210 40% 96%;
+  --popover: 221 39% 13%;
+  --popover-foreground: 210 40% 96%;
+  --border: 220 30% 20%;
+  --input: 221 39% 13%;
+  --ring: 29 100% 60%;
+  --primary: 29 100% 60%;
+  --primary-foreground: 210 40% 10%;
+  --primary-hover: 29 100% 55%;
+  --primary-light: 29 100% 70%;
+  --secondary: 221 36% 18%;
+  --secondary-foreground: 210 40% 96%;
+  --muted: 221 34% 20%;
+  --muted-foreground: 214 20% 70%;
+  --accent: 218 86% 60%;
+  --accent-foreground: 210 40% 10%;
+  --accent-light: 218 86% 72%;
+  --destructive: 5 84% 58%;
+  --destructive-foreground: 210 40% 98%;
+  --success: 152 68% 45%;
+  --success-foreground: 210 40% 96%;
+  --warning: 35 92% 60%;
+  --warning-foreground: 210 40% 10%;
+
+  --chip-neutral: 221 34% 24%;
+  --chip-neutral-foreground: 210 40% 90%;
+  --chip-info: 218 86% 30%;
+  --chip-info-foreground: 210 40% 96%;
+  --chip-success: 152 68% 32%;
+  --chip-success-foreground: 210 40% 96%;
+  --chip-warning: 35 92% 34%;
+  --chip-warning-foreground: 210 40% 96%;
+  --chip-danger: 5 84% 34%;
+  --chip-danger-foreground: 210 40% 96%;
+  --chip-accent: 218 86% 36%;
+  --chip-accent-foreground: 210 40% 96%;
+
+  --shadow-soft: 0 20px 45px -20px hsl(220 60% 4% / 0.6);
+  --shadow-medium: 0 35px 70px -25px hsl(220 60% 4% / 0.7);
+  --shadow-large: 0 40px 90px -30px hsl(220 60% 4% / 0.75);
 }

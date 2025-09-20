@@ -13,8 +13,10 @@ import { useProjectNavigation } from "@/hooks/useProjectNavigation";
 import { format } from "date-fns";
 import { CreateTaskDialog } from "@/components/tasks/CreateTaskDialog";
 import { InviteMemberDialog } from "@/components/team/InviteMemberDialog";
+import { enableOutpagedBrand } from "@/lib/featureFlags";
+import { StatusChip } from "@/components/outpaged/StatusChip";
 
-export default function ProjectDetails({ overrideProjectId }: { overrideProjectId?: string }) {
+function LegacyProjectDetails({ overrideProjectId }: { overrideProjectId?: string }) {
   const { projectId: paramsProjectId } = useParams();
   const projectId = overrideProjectId || paramsProjectId;
   const navigate = useNavigate();
@@ -428,4 +430,51 @@ export default function ProjectDetails({ overrideProjectId }: { overrideProjectI
       />
     </div>
   );
+}
+
+function OutpagedProjectDetails() {
+  return (
+    <div className="mx-auto flex w-full max-w-4xl flex-col gap-6">
+      <div className="space-y-1">
+        <StatusChip variant="accent">Campaign</StatusChip>
+        <h1 className="text-3xl font-semibold tracking-tight text-[hsl(var(--foreground))]">Marketing</h1>
+        <p className="text-sm text-[hsl(var(--muted-foreground))]">Sloliday campaign</p>
+      </div>
+
+      <Card className="rounded-3xl border-none shadow-soft">
+        <CardContent className="space-y-6 p-8">
+          <div className="rounded-2xl border border-[hsl(var(--chip-neutral))] bg-[hsl(var(--chip-neutral))]/40 px-4 py-3 text-sm font-semibold text-[hsl(var(--muted-foreground))]">
+            Blocked until release cleared
+          </div>
+
+          <div className="grid gap-6 text-sm text-[hsl(var(--foreground))] sm:grid-cols-2">
+            <div className="space-y-1">
+              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-[hsl(var(--muted-foreground))]">Start Date</p>
+              <p className="text-base font-semibold">Holiday promotion</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-[hsl(var(--muted-foreground))]">Owner</p>
+              <p className="text-base font-semibold">Megan Lee</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-[hsl(var(--muted-foreground))]">Status</p>
+              <StatusChip variant="warning">Blocked</StatusChip>
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-[hsl(var(--muted-foreground))]">Next review</p>
+              <p className="text-base font-semibold">December 1, 2024</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+export default function ProjectDetails({ overrideProjectId }: { overrideProjectId?: string }) {
+  if (enableOutpagedBrand) {
+    return <OutpagedProjectDetails />;
+  }
+
+  return <LegacyProjectDetails overrideProjectId={overrideProjectId} />;
 }

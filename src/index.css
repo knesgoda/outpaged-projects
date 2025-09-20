@@ -4,107 +4,27 @@
 @tailwind components;
 @tailwind utilities;
 
-/* OutPaged Project Management Design System
-Modern, professional design tokens for streamlined project management
-All colors MUST be HSL.
-*/
-
-@layer base {
-  :root {
-    /* Core backgrounds and surfaces */
-    --background: 210 11% 9%;
-    --foreground: 210 11% 98%;
-    
-    /* Card and elevated surfaces */
-    --card: 210 11% 11%;
-    --card-foreground: 210 11% 98%;
-    
-    /* Popover and floating elements */
-    --popover: 210 11% 13%;
-    --popover-foreground: 210 11% 98%;
-    
-    /* Primary brand colors - Professional teal */
-    --primary: 180 100% 25%;
-    --primary-foreground: 210 11% 98%;
-    --primary-hover: 180 100% 20%;
-    --primary-light: 180 100% 35%;
-    
-    /* Secondary colors - Warm charcoal */
-    --secondary: 210 11% 15%;
-    --secondary-foreground: 210 11% 98%;
-    
-    /* Muted backgrounds and subtle elements */
-    --muted: 210 11% 17%;
-    --muted-foreground: 210 6% 65%;
-    
-    /* Accent colors - Vibrant orange */
-    --accent: 25 100% 50%;
-    --accent-foreground: 210 11% 98%;
-    --accent-light: 25 100% 60%;
-    
-    /* Status colors */
-    --success: 142 76% 36%;
-    --success-foreground: 210 11% 98%;
-    --warning: 38 92% 50%;
-    --warning-foreground: 210 11% 98%;
-    --destructive: 0 72% 51%;
-    --destructive-foreground: 210 11% 98%;
-    
-    /* Interactive elements */
-    --border: 210 11% 19%;
-    --input: 210 11% 17%;
-    --ring: 180 100% 25%;
-
-    --radius: 0.75rem;
-
-    /* Gradients for visual appeal */
-    --gradient-primary: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-light)));
-    --gradient-accent: linear-gradient(135deg, hsl(var(--accent)), hsl(var(--accent-light)));
-    --gradient-hero: linear-gradient(135deg, hsl(var(--background)) 0%, hsl(var(--muted)) 100%);
-    
-    /* Enhanced shadows */
-    --shadow-soft: 0 4px 6px -1px hsl(var(--primary) / 0.1);
-    --shadow-medium: 0 10px 15px -3px hsl(var(--primary) / 0.1);
-    --shadow-large: 0 25px 50px -12px hsl(var(--primary) / 0.25);
-    --shadow-glow: 0 0 20px hsl(var(--primary) / 0.3);
-    
-    /* Enhanced card styling */
-    --card-shadow: 0 4px 12px -2px hsl(210 11% 9% / 0.8);
-    --card-hover: 0 8px 25px -5px hsl(210 11% 9% / 0.6);
-    
-    /* Sidebar colors with teal accent */
-    --sidebar-background: 210 11% 13%;
-    --sidebar-foreground: 210 11% 95%;
-    --sidebar-primary: 180 100% 25%;
-    --sidebar-primary-foreground: 210 11% 98%;
-    --sidebar-accent: 210 11% 17%;
-    --sidebar-accent-foreground: 210 11% 95%;
-    --sidebar-border: 210 11% 19%;
-    --sidebar-ring: 180 100% 25%;
-    
-    /* Smooth transitions */
-    --transition-fast: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
-    --transition-normal: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    --transition-slow: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-}
-
 @layer base {
   * {
     @apply border-border;
   }
 
   body {
-    @apply bg-background text-foreground;
+    font-family: 'Quicksand', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont;
+    @apply bg-background text-foreground antialiased;
   }
 
-  /* Accessibility enhancements */
+  :root {
+    font-feature-settings: "liga" 1, "kern" 1;
+    font-variant-ligatures: contextual;
+  }
+
   .high-contrast {
     --background: 0 0% 0%;
     --foreground: 0 0% 100%;
     --card: 0 0% 5%;
-    --border: 0 0% 20%;
-    --primary: 180 100% 50%;
+    --border: 0 0% 25%;
+    --primary: 0 0% 100%;
   }
 
   .reduced-motion * {
@@ -114,8 +34,8 @@ All colors MUST be HSL.
   }
 
   .keyboard-navigation *:focus-visible {
-    outline: 2px solid hsl(var(--primary));
-    outline-offset: 2px;
+    outline: 2px solid hsl(var(--accent));
+    outline-offset: 3px;
   }
 
   [data-font-size="small"] {
@@ -134,20 +54,6 @@ All colors MUST be HSL.
     font-size: 1.25rem;
   }
 
-  /* Screen reader only content */
-  .sr-only {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-    border: 0;
-  }
-
-  /* Enterprise gradient backgrounds */
   .bg-gradient-primary {
     background: var(--gradient-primary);
   }
@@ -160,19 +66,17 @@ All colors MUST be HSL.
     background: var(--gradient-hero);
   }
 
-  /* Enhanced card styles */
   .card-shadow {
-    box-shadow: var(--card-shadow);
+    box-shadow: var(--shadow-soft);
   }
 
   .card-hover {
-    box-shadow: var(--card-hover);
+    box-shadow: var(--shadow-medium);
   }
 
-  /* Performance optimizations */
   @media (prefers-reduced-motion: no-preference) {
     .animate-fade-in {
-      animation: fadeIn 0.3s ease-out;
+      animation: fadeIn 0.25s ease-out;
     }
 
     .animate-slide-up {
@@ -190,7 +94,7 @@ All colors MUST be HSL.
 
     @keyframes slideUp {
       from {
-        transform: translateY(20px);
+        transform: translateY(16px);
         opacity: 0;
       }
       to {
@@ -199,87 +103,4 @@ All colors MUST be HSL.
       }
     }
   }
-
-  /* Loading states */
-  .loading-skeleton {
-    background: linear-gradient(90deg, hsl(var(--muted)) 25%, hsl(var(--muted) / 0.5) 50%, hsl(var(--muted)) 75%);
-    background-size: 200% 100%;
-    animation: loading 1.5s infinite;
-  }
-
-  @keyframes loading {
-    0% {
-      background-position: 200% 0;
-    }
-    100% {
-      background-position: -200% 0;
-    }
-  }
-
-  /* Print styles */
-  @media print {
-    .no-print {
-      display: none !important;
-    }
-
-    body {
-      color: black !important;
-      background: white !important;
-    }
-
-    .card {
-      border: 1px solid #ccc !important;
-      background: white !important;
-    }
-  }
-
-  /* Mention highlighting */
-  .mention-highlight {
-    background: hsl(220 14.3% 95.9%);
-    color: hsl(220.9 39.3% 11%);
-    border: 1px solid hsl(220 13% 91%);
-    border-radius: 0.25rem;
-    padding: 0.125rem 0.25rem;
-    font-weight: 500;
-  }
-
-  .dark .mention-highlight {
-    background: hsl(220 13% 18%);
-    color: hsl(220 14.3% 95.9%);
-    border: 1px solid hsl(220 13% 25%);
-  }
-  
-  .rich-text-content p {
-    margin: 0.5em 0;
-  }
-  
-  /* Mobile-specific comment styles */
-  @media (max-width: 768px) {
-    .comment-avatar {
-      @apply w-6 h-6 text-xs;
-    }
-    
-    .comment-content {
-      @apply text-sm;
-    }
-    
-    .comment-actions {
-      @apply text-xs;
-    }
-    
-    .comment-wrapper {
-      @apply gap-2;
-    }
-  }
-  
-  .rich-text-content ul, .rich-text-content ol {
-    margin: 0.5em 0;
-    padding-left: 1.5em;
-  }
-  
-  .rich-text-content a {
-    color: hsl(var(--primary));
-    text-decoration: underline;
-  }
-
 }

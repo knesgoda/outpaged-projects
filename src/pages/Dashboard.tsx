@@ -17,8 +17,285 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { QuickActions } from "@/components/dashboard/QuickActions";
 import { TaskManagementDashboard } from "@/components/dashboard/TaskManagementDashboard";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { enableOutpagedBrand } from "@/lib/featureFlags";
+import { FilterChip } from "@/components/outpaged/FilterChip";
+import { StatusChip } from "@/components/outpaged/StatusChip";
+
+const TEAM_FILTERS = [
+  { label: "All work", count: 12, initial: "A" },
+  { label: "Mobile", count: 9, initial: "M" },
+  { label: "Web", count: 7, initial: "W" },
+  { label: "Backend", count: 4, initial: "B" },
+  { label: "Marketing", count: 3, initial: "M" },
+  { label: "Ops", count: 2, initial: "O" },
+];
+
+const ASSIGNED_TASKS = [
+  {
+    id: "OP-1289",
+    title: "Library UI polish",
+    status: { label: "In Review", variant: "success" as const },
+    handoff: { label: "Design", variant: "accent" as const },
+    handoffStatus: { label: "Handoff pending", variant: "warning" as const },
+    due: { label: "Due today", variant: "warning" as const },
+    team: "Mobile",
+  },
+  {
+    id: "OP-1311",
+    title: "Brand launch toolkit",
+    status: { label: "Packaged", variant: "success" as const },
+    handoff: { label: "Marketing", variant: "accent" as const },
+    handoffStatus: { label: "Ready", variant: "success" as const },
+    due: { label: "Handoff pending", variant: "warning" as const },
+    team: "Marketing",
+  },
+  {
+    id: "OP-1334",
+    title: "Customer journey audit",
+    status: { label: "In Progress", variant: "accent" as const },
+    handoff: { label: "Ops", variant: "neutral" as const },
+    handoffStatus: { label: "Awaiting brief", variant: "neutral" as const },
+    due: { label: "Due tomorrow", variant: "accent" as const },
+    team: "Ops",
+  },
+];
+
+const APPROVAL_TASKS = [
+  {
+    id: "OP-1290",
+    title: "Executive summary deck",
+    owner: "Alyssa Chen",
+    status: { label: "Waiting on you", variant: "warning" as const },
+  },
+  {
+    id: "OP-1302",
+    title: "Design QA checklist",
+    owner: "Maria Nguyen",
+    status: { label: "Approved", variant: "success" as const },
+  },
+];
+
+const HANDOFF_ITEMS = [
+  {
+    id: "OP-1275",
+    title: "Mobile UI kit export",
+    owner: "Jacob Riess",
+    due: "Apr 18",
+    status: { label: "Ready", variant: "success" as const },
+  },
+  {
+    id: "OP-1331",
+    title: "Localization brief",
+    owner: "Samira Ali",
+    due: "Apr 19",
+    status: { label: "Needs review", variant: "warning" as const },
+  },
+];
+
+const TODAY_SCHEDULE = [
+  { time: "11:00am – 12:00pm", title: "Product team sync" },
+  { time: "2:30pm – 3:00pm", title: "Website updates review" },
+  { time: "4:15pm", title: "Bug OP-1353 due today" },
+];
+
+const NOTIFICATIONS = [
+  { title: "3 handoffs ready", detail: "Engineering", badge: "View" },
+  { title: "Marketing needs approval", detail: "CTA refresh", badge: "Open" },
+];
+
+function OutpagedDashboard() {
+  const [activeTeam, setActiveTeam] = useState<string>(TEAM_FILTERS[0].label);
+  const visibleAssignments = ASSIGNED_TASKS.filter((task) =>
+    activeTeam === TEAM_FILTERS[0].label ? true : task.team === activeTeam
+  );
+
+  return (
+    <div className="space-y-10">
+      <div className="flex flex-col gap-6">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="space-y-1">
+            <p className="text-xs font-semibold uppercase tracking-[0.35em] text-[hsl(var(--muted-foreground))]">
+              Overview
+            </p>
+            <h1 className="text-4xl font-semibold tracking-tight text-[hsl(var(--foreground))]">My Work</h1>
+          </div>
+          <Button className="rounded-full bg-[hsl(var(--accent))] px-6 py-2 text-sm font-semibold text-white shadow-soft hover:bg-[hsl(var(--accent))]/90">
+            Create item
+          </Button>
+        </div>
+
+            <div className="flex flex-wrap gap-2">
+              {TEAM_FILTERS.map((filter) => (
+                <FilterChip
+                  key={filter.label}
+                  active={activeTeam === filter.label}
+                  count={filter.count}
+                  leading={filter.initial}
+                  onClick={() => setActiveTeam(filter.label)}
+                >
+                  {filter.label}
+                </FilterChip>
+              ))}
+            </div>
+          </div>
+
+      <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
+        <Card className="rounded-3xl border-none shadow-soft">
+          <CardContent className="p-6">
+            <Tabs defaultValue="assigned" className="space-y-6">
+              <TabsList className="h-auto w-full justify-start gap-2 rounded-full bg-[hsl(var(--chip-neutral))]/40 p-1">
+                <TabsTrigger
+                  value="assigned"
+                  className="rounded-full px-4 py-2 text-sm font-semibold data-[state=active]:bg-white data-[state=active]:shadow-soft"
+                >
+                  Assigned
+                </TabsTrigger>
+                <TabsTrigger
+                  value="approvals"
+                  className="rounded-full px-4 py-2 text-sm font-semibold data-[state=active]:bg-white data-[state=active]:shadow-soft"
+                >
+                  Approvals
+                </TabsTrigger>
+                <TabsTrigger
+                  value="handoffs"
+                  className="rounded-full px-4 py-2 text-sm font-semibold data-[state=active]:bg-white data-[state=active]:shadow-soft"
+                >
+                  Handoffs
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="assigned" className="space-y-3">
+                <div className="grid grid-cols-[minmax(0,120px)_minmax(0,1.4fr)_minmax(0,140px)_minmax(0,140px)_minmax(0,120px)] gap-4 rounded-2xl bg-[hsl(var(--chip-neutral))]/30 px-4 py-3 text-xs font-semibold uppercase tracking-wider text-[hsl(var(--muted-foreground))]">
+                  <span>ID</span>
+                  <span>Task</span>
+                  <span>Status</span>
+                  <span>Handoff</span>
+                  <span>Due</span>
+                </div>
+
+                {visibleAssignments.map((task) => (
+                  <div
+                    key={task.id}
+                    className="grid grid-cols-[minmax(0,120px)_minmax(0,1.4fr)_minmax(0,140px)_minmax(0,140px)_minmax(0,120px)] items-center gap-4 rounded-3xl border border-[hsl(var(--chip-neutral))] bg-[hsl(var(--card))] px-4 py-4 shadow-soft"
+                  >
+                    <div>
+                      <p className="text-sm font-semibold text-[hsl(var(--foreground))]">{task.id}</p>
+                      <p className="text-xs text-[hsl(var(--muted-foreground))]">{task.team}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-[hsl(var(--foreground))]">{task.title}</p>
+                      <p className="text-xs text-[hsl(var(--muted-foreground))]">{task.handoff.label}</p>
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <StatusChip variant={task.status.variant}>{task.status.label}</StatusChip>
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <StatusChip variant={task.handoffStatus.variant}>{task.handoffStatus.label}</StatusChip>
+                      <StatusChip variant="accent">{task.handoff.label}</StatusChip>
+                    </div>
+                    <StatusChip size="md" variant={task.due.variant} className="justify-self-start">
+                      {task.due.label}
+                    </StatusChip>
+                  </div>
+                ))}
+              </TabsContent>
+
+              <TabsContent value="approvals" className="space-y-3">
+                {APPROVAL_TASKS.map((item) => (
+                  <div
+                    key={item.id}
+                    className="flex items-center justify-between gap-4 rounded-3xl border border-[hsl(var(--chip-neutral))] bg-[hsl(var(--card))] px-4 py-4 shadow-soft"
+                  >
+                    <div>
+                      <p className="text-sm font-semibold text-[hsl(var(--foreground))]">{item.title}</p>
+                      <p className="text-xs text-[hsl(var(--muted-foreground))]">
+                        {item.id} • Owner: {item.owner}
+                      </p>
+                    </div>
+                    <StatusChip variant={item.status.variant}>{item.status.label}</StatusChip>
+                  </div>
+                ))}
+              </TabsContent>
+
+              <TabsContent value="handoffs" className="space-y-3">
+                {HANDOFF_ITEMS.map((item) => (
+                  <div
+                    key={item.id}
+                    className="flex items-center justify-between gap-4 rounded-3xl border border-[hsl(var(--chip-neutral))] bg-[hsl(var(--card))] px-4 py-4 shadow-soft"
+                  >
+                    <div>
+                      <p className="text-sm font-semibold text-[hsl(var(--foreground))]">{item.title}</p>
+                      <p className="text-xs text-[hsl(var(--muted-foreground))]">
+                        {item.id} • Due {item.due} • {item.owner}
+                      </p>
+                    </div>
+                    <StatusChip variant={item.status.variant}>{item.status.label}</StatusChip>
+                  </div>
+                ))}
+              </TabsContent>
+            </Tabs>
+          </CardContent>
+        </Card>
+
+        <div className="space-y-6">
+          <Card className="rounded-3xl border-none shadow-soft">
+            <CardContent className="space-y-4 p-6">
+              <div>
+                <h2 className="text-lg font-semibold text-[hsl(var(--foreground))]">Today</h2>
+                <p className="text-sm text-[hsl(var(--muted-foreground))]">Keep momentum with these moments.</p>
+              </div>
+              <div className="space-y-3">
+                {TODAY_SCHEDULE.map((event) => (
+                  <div
+                    key={event.title}
+                    className="rounded-2xl border border-[hsl(var(--chip-neutral))] bg-[hsl(var(--chip-neutral))]/35 px-4 py-3 text-left"
+                  >
+                    <p className="text-sm font-semibold text-[hsl(var(--foreground))]">{event.title}</p>
+                    <p className="text-xs text-[hsl(var(--muted-foreground))]">{event.time}</p>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="rounded-3xl border-none shadow-soft">
+            <CardContent className="space-y-4 p-6">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-[hsl(var(--foreground))]">Notifications</h2>
+                <StatusChip variant="neutral">Live</StatusChip>
+              </div>
+              <div className="space-y-3">
+                {NOTIFICATIONS.map((notification) => (
+                  <div
+                    key={notification.title}
+                    className="flex items-start justify-between gap-4 rounded-2xl border border-[hsl(var(--chip-neutral))] bg-[hsl(var(--chip-neutral))]/30 px-4 py-4"
+                  >
+                    <div>
+                      <p className="text-sm font-semibold text-[hsl(var(--foreground))]">{notification.title}</p>
+                      <p className="text-xs text-[hsl(var(--muted-foreground))]">{notification.detail}</p>
+                    </div>
+                    {notification.badge && <StatusChip variant="accent">{notification.badge}</StatusChip>}
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function Dashboard() {
+  if (enableOutpagedBrand) {
+    return <OutpagedDashboard />;
+  }
+
+  return <LegacyDashboard />;
+}
+
+function LegacyDashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();

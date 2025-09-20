@@ -1,10 +1,25 @@
 import { Outlet } from "react-router-dom";
-import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "./AppSidebar";
 import { AppHeader } from "./AppHeader";
 import { OnboardingFlow } from "@/components/onboarding/OnboardingFlow";
+import { enableOutpagedBrand } from "@/lib/featureFlags";
 
 export function AppLayout() {
+  if (enableOutpagedBrand) {
+    return (
+      <SidebarProvider>
+        <div className="min-h-screen bg-[hsl(var(--background))] text-[hsl(var(--foreground))]">
+          <AppHeader />
+          <main className="mx-auto w-full max-w-6xl px-6 pb-[max(env(safe-area-inset-bottom),theme(spacing.10))] pt-10">
+            <Outlet />
+          </main>
+        </div>
+        <OnboardingFlow />
+      </SidebarProvider>
+    );
+  }
+
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full bg-background">
