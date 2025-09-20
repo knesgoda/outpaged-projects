@@ -104,7 +104,7 @@ export function OpsDashboardPanel() {
             <span>records</span>
           </div>
           <div className="flex gap-2">
-            <Button type="button" variant="outline" onClick={() => exportCsv([snapshot])}>
+            <Button type="button" variant="outline" onClick={() => exportCsv([snapshot as unknown as Record<string, string | number>])}>
               <Download className="h-4 w-4 mr-2" /> Export CSV
             </Button>
             <Button type="button" variant="outline" onClick={() => exportPng(metricsText)}>

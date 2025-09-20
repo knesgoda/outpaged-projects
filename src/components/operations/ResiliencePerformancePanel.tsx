@@ -33,13 +33,20 @@ export function ResiliencePerformancePanel() {
 
   const handleBackup = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    recordBackupJob({ projectId: backupDraft.projectId });
+    recordBackupJob({ 
+      projectId: backupDraft.projectId,
+      requestedAt: new Date().toISOString()
+    });
     setBackupDraft({ projectId: "project-123" });
   };
 
   const handleDrill = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    recordFailoverDrill({ name: drillDraft.name, status: drillDraft.status });
+    recordFailoverDrill({ 
+      name: drillDraft.name, 
+      status: drillDraft.status,
+      executedAt: new Date().toISOString()
+    });
     setDrillDraft({ name: "Quarterly failover", status: "pending" });
   };
 

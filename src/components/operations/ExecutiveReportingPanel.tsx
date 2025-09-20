@@ -36,7 +36,11 @@ export function ExecutiveReportingPanel() {
 
   const handleGenerateReport = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    recordReport({ type: reportType as "roadmap" | "status" | "dependency", url: `/reports/${reportType}.pdf` });
+    recordReport({ 
+      type: reportType as "roadmap" | "status" | "dependency", 
+      url: `/reports/${reportType}.pdf`,
+      generatedAt: new Date().toISOString()
+    });
   };
 
   return (

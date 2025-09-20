@@ -20,7 +20,12 @@ export function MobileOfflinePanel() {
 
   const handleCreateApproval = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    recordMobileApproval({ itemId: approvalDraft.itemId, status: approvalDraft.status as "approved" | "rejected" | "pending", comment: approvalDraft.comment });
+    recordMobileApproval({ 
+      itemId: approvalDraft.itemId, 
+      status: approvalDraft.status as "approved" | "rejected" | "pending", 
+      comment: approvalDraft.comment,
+      requestedAt: new Date().toISOString()
+    });
     setApprovalDraft({ itemId: "APP-1", comment: "", status: "approved" });
   };
 
@@ -28,7 +33,11 @@ export function MobileOfflinePanel() {
     event.preventDefault();
     try {
       const payload = JSON.parse(offlineDraft.payload || "{}");
-      recordOfflineItem({ type: offlineDraft.type as "task" | "comment", payload });
+      recordOfflineItem({ 
+        type: offlineDraft.type as "task" | "comment", 
+        payload,
+        createdAt: new Date().toISOString()
+      });
       setOfflineDraft({ type: "task", payload: "{}" });
     } catch (error) {
       console.error("Invalid JSON", error);

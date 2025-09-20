@@ -14,7 +14,7 @@ export default function AuthGate({ children }: AuthGateProps) {
   const location = useLocation();
   const { user, loading } = useAuth();
 
-  const isPublicRoute = matches.some((match) => match.handle?.public === true);
+  const isPublicRoute = matches.some((match) => (match.handle as any)?.public === true);
 
   if (isPublicRoute) {
     return <>{children}</>;

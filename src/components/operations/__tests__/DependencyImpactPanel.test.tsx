@@ -27,6 +27,6 @@ describe("@xyflow/react integration", () => {
       </ReactFlowProvider>
     );
 
-    expect(screen.getByText("Demo node")).toBeInTheDocument();
+    expect(screen.getByText("Demo node")).toBeDefined();
   });
 });

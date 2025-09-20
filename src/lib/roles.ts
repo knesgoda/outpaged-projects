@@ -16,7 +16,7 @@ export async function getRoleForUser(userId: string | undefined) {
   }
 
   const { data, error } = await supabase
-    .from("user_roles")
+    .from("profiles")
     .select("role")
     .eq("user_id", userId)
     .maybeSingle();

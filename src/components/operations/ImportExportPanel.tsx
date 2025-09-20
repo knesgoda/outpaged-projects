@@ -22,7 +22,11 @@ export function ImportExportPanel() {
 
   const handleCreateImport = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const job = recordImportJob({ type: importDraft.type as "csv" | "jira" | "monday", mapping: Object.fromEntries(importDraft.mapping.split(",").map((pair) => pair.split("="))) });
+    const job = recordImportJob({ 
+      type: importDraft.type as "csv" | "jira" | "monday", 
+      mapping: Object.fromEntries(importDraft.mapping.split(",").map((pair) => pair.split("="))),
+      createdAt: new Date().toISOString()
+    });
     updateImportJobStatus(job.id, "validating");
     setTimeout(() => updateImportJobStatus(job.id, "completed"), 1000);
     setImportDraft({ type: "csv", mapping: "title=Title,status=Status" });
@@ -31,7 +35,12 @@ export function ImportExportPanel() {
   const handleCreateExport = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const token = apiTokens.find((t) => !t.revoked) ?? manageToken({ name: "Ops API" });
-    recordExport({ format: exportDraft.format as "csv" | "json", scope: exportDraft.scope, tokenId: token.id });
+    recordExport({ 
+      format: exportDraft.format as "csv" | "json", 
+      scope: exportDraft.scope, 
+      tokenId: token.id,
+      createdAt: new Date().toISOString()
+    });
     setExportDraft({ format: "csv", scope: "incidents" });
   };
 

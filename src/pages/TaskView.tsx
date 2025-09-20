@@ -186,7 +186,12 @@ export default function TaskView() {
           onEdit={handleEditTask}
         />
         <TaskDialog
-          task={task}
+          task={{
+            ...task,
+            tags: [],
+            comments: 0,
+            attachments: 0
+          }}
           isOpen={isDialogOpen}
           onClose={() => setIsDialogOpen(false)}
           onSave={() => toast.success('Task updated')}

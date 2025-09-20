@@ -139,7 +139,12 @@ export function IncidentManagementPanel() {
       .split("\n")
       .map((item) => item.trim())
       .filter(Boolean)
-      .map((description) => ({ description, owner: postmortemDraft.createdBy }));
+      .map((description) => ({ 
+        id: `action-${Date.now()}-${Math.random()}`, 
+        description, 
+        owner: postmortemDraft.createdBy,
+        status: 'open' as const
+      }));
     recordPostmortem(postmortemIncidentId, {
       incidentId: postmortemIncidentId,
       impact: postmortemDraft.impact,

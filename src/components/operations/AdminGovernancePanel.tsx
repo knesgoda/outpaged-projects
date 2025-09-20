@@ -21,19 +21,34 @@ export function AdminGovernancePanel() {
 
   const handleSandbox = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    recordSandboxPromotion({ name: sandboxDraft.name, status: sandboxDraft.status });
+    recordSandboxPromotion({ 
+      name: sandboxDraft.name, 
+      status: sandboxDraft.status,
+      submittedAt: new Date().toISOString()
+    });
     setSandboxDraft({ name: "Workflow sandbox", status: "pending" });
   };
 
   const handleTemplate = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    recordTemplateVersion({ templateId: templateDraft.templateId, version: templateDraft.version, changelog: templateDraft.changelog, published: templateDraft.published, createdBy: "admin" });
+    recordTemplateVersion({ 
+      templateId: templateDraft.templateId, 
+      version: templateDraft.version, 
+      changelog: templateDraft.changelog, 
+      published: templateDraft.published, 
+      createdBy: "admin",
+      createdAt: new Date().toISOString()
+    });
     setTemplateDraft({ templateId: "template-prd", version: templateDraft.version + 1, changelog: "", published: false });
   };
 
   const handleScim = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    recordScimEvent({ user: scimDraft.user, type: scimDraft.type });
+    recordScimEvent({ 
+      user: scimDraft.user, 
+      type: scimDraft.type,
+      occurredAt: new Date().toISOString()
+    });
     setScimDraft({ user: "user@example.com", type: "provision" });
   };
 
