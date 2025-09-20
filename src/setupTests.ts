@@ -14,3 +14,21 @@ if (!globalThis.ResizeObserver) {
     writable: true,
   });
 }
+
+const randomUUID = () => `test-uuid-${Math.random().toString(16).slice(2)}`;
+
+if (!globalThis.crypto) {
+  Object.defineProperty(globalThis, "crypto", {
+    value: {
+      getRandomValues: <T extends ArrayBufferView>(array: T) => array,
+      randomUUID,
+      subtle: {} as SubtleCrypto,
+    } as unknown as Crypto,
+    configurable: true,
+  });
+} else if (!globalThis.crypto.randomUUID) {
+  Object.defineProperty(globalThis.crypto, "randomUUID", {
+    value: randomUUID,
+    configurable: true,
+  });
+}

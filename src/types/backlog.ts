@@ -5,6 +5,7 @@ export interface BacklogItem {
   status: "new" | "refined" | "estimated" | "ready" | "in_sprint";
   priority: "low" | "medium" | "high" | "urgent";
   storyPoints?: number;
+  timeEstimateHours?: number;
   assignee?: {
     name: string;
     avatar?: string;
@@ -16,4 +17,13 @@ export interface BacklogItem {
   effort: number;
   createdAt: Date;
   sprintId?: string;
+  rank?: number;
+  history?: BacklogHistoryEntry[];
+}
+
+export interface BacklogHistoryEntry {
+  id: string;
+  timestamp: string;
+  type: "rank_change" | "status_change" | "estimate_update" | "story_points_update" | "moved_to_sprint";
+  detail: string;
 }

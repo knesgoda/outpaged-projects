@@ -43,6 +43,9 @@ import NotFound from "./pages/NotFound";
 import OperationsCenter from "./pages/OperationsCenter";
 import { OutpagedThemeProvider } from "./components/theme/OutpagedThemeProvider";
 import AppShell from "./layouts/AppShell";
+import { SlackProvider } from "./components/integrations/SlackProvider";
+import { ReleaseProvider } from "./components/releases/ReleaseProvider";
+import { MarketingProvider } from "./components/marketing/MarketingProvider";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -66,74 +69,80 @@ const App = () => (
       <AuthProvider>
         <SecurityProvider>
           <AccessibilityProvider>
-            <OperationsProvider>
-              <ErrorBoundary>
-                <TooltipProvider>
-                  <Toaster />
-                  <Sonner />
-                  <BrowserRouter>
-                    <CommandPalette />
-                    <KeyboardShortcuts />
-                    <Routes>
-                      {/* Public routes */}
-                      <Route path="/login" element={<Login />} handle={{ public: true }} />
-                      <Route path="/auth" element={<Navigate to="/login" replace />} handle={{ public: true }} />
-                      <Route path="/auth/callback" element={<AuthCallback />} handle={{ public: true }} />
-                      <Route path="/" element={<AuthRedirect />} handle={{ public: true }} />
+            <SlackProvider>
+              <ReleaseProvider>
+                <OperationsProvider>
+                  <MarketingProvider>
+                    <ErrorBoundary>
+                      <TooltipProvider>
+                        <Toaster />
+                        <Sonner />
+                        <BrowserRouter>
+                          <CommandPalette />
+                          <KeyboardShortcuts />
+                          <Routes>
+                            {/* Public routes */}
+                            <Route path="/login" element={<Login />} handle={{ public: true }} />
+                            <Route path="/auth" element={<Navigate to="/login" replace />} handle={{ public: true }} />
+                            <Route path="/auth/callback" element={<AuthCallback />} handle={{ public: true }} />
+                            <Route path="/" element={<AuthRedirect />} handle={{ public: true }} />
 
-                      {/* Protected routes with layout */}
-                      <Route path="/dashboard" element={<AppShell />}>
-                        <Route index element={<Dashboard />} />
-                        <Route path="projects" element={<Projects />} />
-                        <Route path="projects/:projectId" element={<ProjectDetailsResolver />} />
-                        <Route path="projects/:projectId/settings" element={<ProjectSettingsResolver />} />
-                        <Route path="projects/code/:code" element={<ProjectDetailsResolver />} />
-                        <Route path="projects/code/:code/settings" element={<ProjectSettingsResolver />} />
-                        <Route path="projects/code/:code/tasks/:taskNumber" element={<TaskView />} />
-                        <Route path="projects/:projectId/tasks/:taskNumber" element={<TaskView />} />
-                        <Route path="profile" element={<Profile />} />
-                        <Route path="tasks" element={<Tasks />} />
-                        <Route path="board" element={<KanbanBoard />} />
-                        <Route path="backlog" element={<Backlog />} />
-                        <Route path="sprints" element={<SprintPlanning />} />
-                        <Route path="roadmap" element={<Roadmap />} />
-                        <Route path="notifications" element={<Notifications />} />
-                        <Route path="analytics" element={<Analytics />} />
-                        <Route path="reports" element={<Reports />} />
-                        <Route path="templates" element={<ProjectTemplates />} />
-                        <Route path="automation" element={<Automation />} />
-                        <Route path="search" element={<Search />} />
-                        <Route path="settings" element={<Settings />} />
-                        <Route path="team" element={<TeamDirectory />} />
-                        <Route path="team/:identifier" element={<TeamMemberHandler />} />
-                        <Route path="tickets" element={<Tickets />} />
-                        <Route
-                          path="security"
-                          element={
-                            <AdminGuard>
-                              <SecurityDashboard />
-                            </AdminGuard>
-                          }
-                        />
-                        <Route
-                          path="enterprise"
-                          element={
-                            <AdminGuard>
-                              <EnterpriseControlPanel />
-                            </AdminGuard>
-                          }
-                        />
-                        <Route path="operations" element={<OperationsCenter />} />
-                      </Route>
+                            {/* Protected routes with layout */}
+                            <Route path="/dashboard" element={<AppShell />}>
+                              <Route index element={<Dashboard />} />
+                              <Route path="projects" element={<Projects />} />
+                              <Route path="projects/:projectId" element={<ProjectDetailsResolver />} />
+                              <Route path="projects/:projectId/settings" element={<ProjectSettingsResolver />} />
+                              <Route path="projects/code/:code" element={<ProjectDetailsResolver />} />
+                              <Route path="projects/code/:code/settings" element={<ProjectSettingsResolver />} />
+                              <Route path="projects/code/:code/tasks/:taskNumber" element={<TaskView />} />
+                              <Route path="projects/:projectId/tasks/:taskNumber" element={<TaskView />} />
+                              <Route path="profile" element={<Profile />} />
+                              <Route path="tasks" element={<Tasks />} />
+                              <Route path="board" element={<KanbanBoard />} />
+                              <Route path="backlog" element={<Backlog />} />
+                              <Route path="sprints" element={<SprintPlanning />} />
+                              <Route path="roadmap" element={<Roadmap />} />
+                              <Route path="notifications" element={<Notifications />} />
+                              <Route path="analytics" element={<Analytics />} />
+                              <Route path="reports" element={<Reports />} />
+                              <Route path="templates" element={<ProjectTemplates />} />
+                              <Route path="automation" element={<Automation />} />
+                              <Route path="search" element={<Search />} />
+                              <Route path="settings" element={<Settings />} />
+                              <Route path="team" element={<TeamDirectory />} />
+                              <Route path="team/:identifier" element={<TeamMemberHandler />} />
+                              <Route path="tickets" element={<Tickets />} />
+                              <Route
+                                path="security"
+                                element={
+                                  <AdminGuard>
+                                    <SecurityDashboard />
+                                  </AdminGuard>
+                                }
+                              />
+                              <Route
+                                path="enterprise"
+                                element={
+                                  <AdminGuard>
+                                    <EnterpriseControlPanel />
+                                  </AdminGuard>
+                                }
+                              />
+                              <Route path="operations" element={<OperationsCenter />} />
+                            </Route>
 
-                      {/* Catch-all route */}
-                      <Route path="*" element={<NotFound />} handle={{ public: true }} />
-                    </Routes>
-            </BrowserRouter>
-          </TooltipProvider>
-        </ErrorBoundary>
-      </OperationsProvider>
-    </AccessibilityProvider>
+                            {/* Catch-all route */}
+                            <Route path="*" element={<NotFound />} handle={{ public: true }} />
+                          </Routes>
+                        </BrowserRouter>
+                      </TooltipProvider>
+                    </ErrorBoundary>
+                  </MarketingProvider>
+                </OperationsProvider>
+              </ReleaseProvider>
+            </SlackProvider>
+          </AccessibilityProvider>
         </SecurityProvider>
       </AuthProvider>
     </QueryClientProvider>
