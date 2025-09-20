@@ -5,6 +5,7 @@ import type { Database } from './types';
 type SupabaseEnvKey =
   | "VITE_SUPABASE_URL"
   | "VITE_SUPABASE_ANON_KEY"
+  | "VITE_SUPABASE_PUBLISHABLE_KEY"
   | "SUPABASE_URL"
   | "SUPABASE_ANON_KEY"
   | "SUPABASE_KEY"
@@ -15,7 +16,7 @@ type SupabaseEnvKey =
 
 const getImportMetaEnv = () => {
   try {
-    return import.meta.env as Record<SupabaseEnvKey, string | undefined>;
+    return import.meta.env as unknown as Record<SupabaseEnvKey, string | undefined>;
   } catch (_error) {
     return undefined;
   }
@@ -45,6 +46,7 @@ const SUPABASE_URL = getEnvValue(
 );
 const SUPABASE_ANON_KEY = getEnvValue(
   "VITE_SUPABASE_ANON_KEY",
+  "VITE_SUPABASE_PUBLISHABLE_KEY",
   "SUPABASE_ANON_KEY",
   "SUPABASE_KEY",
   "NEXT_PUBLIC_SUPABASE_ANON_KEY",
