@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import designRefreshBacklog from "@/data/designRefreshBacklog";
-import { BacklogItem } from "@/types/backlog";
+import enterpriseBacklog from "@/data/enterpriseBacklog";
+import { BacklogItem, BacklogHistoryEntry } from "@/types/backlog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DndContext,
@@ -29,6 +29,7 @@ import {
   Flag,
   Users,
   Calendar,
+  Clock,
   ArrowRight,
   Target,
   Tag,
@@ -48,7 +49,23 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-const initialBacklogItems: BacklogItem[] = designRefreshBacklog;
+const initialBacklogItems: BacklogItem[] = enterpriseBacklog;
+
+const STORAGE_KEY = "backlog_items_v2";
+const createId = () =>
+  typeof crypto !== "undefined" && crypto.randomUUID
+    ? crypto.randomUUID()
+    : Math.random().toString(36).slice(2);
+
+const enrichBacklogItems = (items: BacklogItem[]): BacklogItem[] =>
+  items.map((item, index) => ({
+    ...item,
+    createdAt: new Date(item.createdAt),
+    rank: item.rank ?? index + 1,
+    timeEstimateHours:
+      item.timeEstimateHours ?? Math.max(item.storyPoints ? item.storyPoints * 2 : 8, 1),
+    history: item.history ?? [],
+  }));
 
 const statusColors = {
   new: "bg-muted text-muted-foreground",
@@ -70,9 +87,18 @@ interface BacklogItemCardProps {
   onEdit?: (item: BacklogItem) => void;
   onDelete?: (itemId: string) => void;
   onMoveToSprint?: (itemId: string) => void;
+  onStoryPointsChange?: (itemId: string, storyPoints: number) => void;
+  onTimeEstimateChange?: (itemId: string, time: number) => void;
 }
 
-function BacklogItemCard({ item, onEdit, onDelete, onMoveToSprint }: BacklogItemCardProps) {
+function BacklogItemCard({
+  item,
+  onEdit,
+  onDelete,
+  onMoveToSprint,
+  onStoryPointsChange,
+  onTimeEstimateChange,
+}: BacklogItemCardProps) {
   const {
     attributes,
     listeners,
@@ -108,7 +134,14 @@ function BacklogItemCard({ item, onEdit, onDelete, onMoveToSprint }: BacklogItem
           
           <div className="flex-1 space-y-2">
             <div className="flex items-start justify-between">
-              <h3 className="font-semibold text-foreground leading-tight">{item.title}</h3>
+              <div className="space-y-1">
+                <h3 className="font-semibold text-foreground leading-tight">{item.title}</h3>
+                {typeof item.rank === "number" && (
+                  <Badge variant="outline" className="text-xs font-normal">
+                    Rank #{item.rank}
+                  </Badge>
+                )}
+              </div>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon" className="w-6 h-6 opacity-50 hover:opacity-100">
@@ -144,12 +177,41 @@ function BacklogItemCard({ item, onEdit, onDelete, onMoveToSprint }: BacklogItem
                 <Flag className="w-3 h-3 mr-1" />
                 {item.priority}
               </Badge>
-              {item.storyPoints && (
-                <Badge variant="outline">
-                  <Target className="w-3 h-3 mr-1" />
-                  {item.storyPoints} pts
-                </Badge>
-              )}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
+              <div className="flex items-center gap-2">
+                <Target className="w-3 h-3" />
+                <Input
+                  key={`story-${item.id}-${item.storyPoints ?? 0}`}
+                  type="number"
+                  min={0}
+                  defaultValue={item.storyPoints ?? 0}
+                  onBlur={(event) => {
+                    const value = Number(event.target.value);
+                    if (!Number.isNaN(value)) {
+                      onStoryPointsChange?.(item.id, value);
+                    }
+                  }}
+                  className="w-20 h-8 text-xs"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <Clock className="w-3 h-3" />
+                <Input
+                  key={`time-${item.id}-${item.timeEstimateHours ?? 0}`}
+                  type="number"
+                  min={0}
+                  defaultValue={item.timeEstimateHours ?? 0}
+                  onBlur={(event) => {
+                    const value = Number(event.target.value);
+                    if (!Number.isNaN(value)) {
+                      onTimeEstimateChange?.(item.id, value);
+                    }
+                  }}
+                  className="w-24 h-8 text-xs"
+                />
+              </div>
             </div>
 
             {/* Tags */}
@@ -199,10 +261,47 @@ function BacklogItemCard({ item, onEdit, onDelete, onMoveToSprint }: BacklogItem
 }
 
 export default function Backlog() {
-  const [items, setItems] = useState<BacklogItem[]>(initialBacklogItems);
+  const [items, setItems] = useState<BacklogItem[]>(() => {
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored) as (BacklogItem & { createdAt: string })[];
+          return enrichBacklogItems(
+            parsed.map((item) => ({
+              ...item,
+              createdAt: new Date(item.createdAt),
+            }))
+          );
+        } catch (error) {
+          console.warn("Failed to parse backlog storage", error);
+        }
+      }
+    }
+    return enrichBacklogItems(enterpriseBacklog);
+  });
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterPriority, setFilterPriority] = useState("all");
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const serializable = items.map((item) => ({
+      ...item,
+      createdAt: item.createdAt.toISOString(),
+    }));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(serializable));
+  }, [items]);
+
+  const createHistoryEntry = (
+    type: BacklogHistoryEntry["type"],
+    detail: string
+  ): BacklogHistoryEntry => ({
+    id: createId(),
+    timestamp: new Date().toISOString(),
+    type,
+    detail,
+  });
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -219,35 +318,108 @@ export default function Backlog() {
       setItems((items) => {
         const oldIndex = items.findIndex((item) => item.id === active.id);
         const newIndex = items.findIndex((item) => item.id === over?.id);
-
-        return arrayMove(items, oldIndex, newIndex);
+        if (oldIndex === -1 || newIndex === -1) {
+          return items;
+        }
+        const reordered = arrayMove(items, oldIndex, newIndex);
+        return reordered.map((item, index) => {
+          const newRank = index + 1;
+          if (item.rank !== newRank) {
+            return {
+              ...item,
+              rank: newRank,
+              history: [
+                ...(item.history ?? []),
+                createHistoryEntry("rank_change", `Rank adjusted to ${newRank}`),
+              ],
+            };
+          }
+          return item;
+        });
       });
     }
   };
 
-  const filteredItems = items.filter((item) => {
-    const matchesSearch = 
-      item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()));
-    
-    const matchesStatus = filterStatus === "all" || item.status === filterStatus;
-    const matchesPriority = filterPriority === "all" || item.priority === filterPriority;
-    
-    return matchesSearch && matchesStatus && matchesPriority;
-  });
+  const filteredItems = useMemo(() => {
+    return items
+      .filter((item) => {
+        const query = searchQuery.toLowerCase();
+        const matchesSearch =
+          item.title.toLowerCase().includes(query) ||
+          item.description.toLowerCase().includes(query) ||
+          item.tags.some((tag) => tag.toLowerCase().includes(query));
+        const matchesStatus = filterStatus === "all" || item.status === filterStatus;
+        const matchesPriority = filterPriority === "all" || item.priority === filterPriority;
+        return matchesSearch && matchesStatus && matchesPriority;
+      })
+      .sort((a, b) => (a.rank ?? 0) - (b.rank ?? 0));
+  }, [items, searchQuery, filterPriority, filterStatus]);
 
   const handleMoveToSprint = (itemId: string) => {
-    setItems(prev => prev.map(item => 
-      item.id === itemId 
-        ? { ...item, status: "in_sprint" as const, sprintId: "current-sprint" }
-        : item
-    ));
+    setItems((prev) =>
+      prev.map((item) =>
+        item.id === itemId
+          ? {
+              ...item,
+              status: "in_sprint" as const,
+              sprintId: "current-sprint",
+              history: [
+                ...(item.history ?? []),
+                createHistoryEntry("status_change", "Moved to in_sprint"),
+                createHistoryEntry("moved_to_sprint", "Moved to current sprint"),
+              ],
+            }
+          : item
+      )
+    );
+  };
+  const handleStoryPointsChange = (itemId: string, storyPoints: number) => {
+    setItems((prev) =>
+      prev.map((item) =>
+        item.id === itemId
+          ? {
+              ...item,
+              storyPoints,
+              history: [
+                ...(item.history ?? []),
+                createHistoryEntry("story_points_update", `Story points set to ${storyPoints}`),
+              ],
+            }
+          : item
+      )
+    );
   };
 
-  const totalStoryPoints = filteredItems.reduce((sum, item) => sum + (item.storyPoints || 0), 0);
-  const totalBusinessValue = filteredItems.reduce((sum, item) => sum + item.businessValue, 0);
+  const handleTimeEstimateChange = (itemId: string, time: number) => {
+    setItems((prev) =>
+      prev.map((item) =>
+        item.id === itemId
+          ? {
+              ...item,
+              timeEstimateHours: time,
+              history: [
+                ...(item.history ?? []),
+                createHistoryEntry("estimate_update", `Time estimate set to ${time}h`),
+              ],
+            }
+          : item
+      )
+    );
+  };
+
+  const totalStoryPoints = useMemo(
+    () => filteredItems.reduce((sum, item) => sum + (item.storyPoints || 0), 0),
+    [filteredItems]
+  );
+  const totalBusinessValue = useMemo(
+    () => filteredItems.reduce((sum, item) => sum + item.businessValue, 0),
+    [filteredItems]
+  );
   const avgBusinessValue = filteredItems.length > 0 ? totalBusinessValue / filteredItems.length : 0;
+  const totalTimeEstimate = useMemo(
+    () => filteredItems.reduce((sum, item) => sum + (item.timeEstimateHours || 0), 0),
+    [filteredItems]
+  );
 
   return (
     <div className="space-y-6">
@@ -264,7 +436,7 @@ export default function Backlog() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
@@ -318,6 +490,20 @@ export default function Backlog() {
                 <p className="text-2xl font-bold">
                   {filteredItems.filter(item => item.status === "ready").length}
                 </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-muted/70 rounded-lg">
+                <Clock className="w-5 h-5 text-foreground" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Total Time (hrs)</p>
+                <p className="text-2xl font-bold">{Math.round(totalTimeEstimate)}</p>
               </div>
             </div>
           </CardContent>
@@ -385,6 +571,8 @@ export default function Backlog() {
                     key={item.id}
                     item={item}
                     onMoveToSprint={handleMoveToSprint}
+                    onStoryPointsChange={handleStoryPointsChange}
+                    onTimeEstimateChange={handleTimeEstimateChange}
                   />
                 ))}
               </div>

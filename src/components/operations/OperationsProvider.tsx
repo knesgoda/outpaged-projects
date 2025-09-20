@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { addHours, addMinutes, differenceInMinutes, isAfter, isBefore, parseISO } from "date-fns";
+import { useSlack } from "@/components/integrations/SlackProvider";
 
 export type IncidentSeverity = "Sev1" | "Sev2" | "Sev3" | "Sev4";
 export type IncidentState = "open" | "mitigated" | "monitoring" | "resolved";
@@ -68,6 +69,53 @@ export interface Incident {
   nearBreachEscalated?: boolean;
   breachEscalated?: boolean;
 }
+
+export type OpsWorkflowState =
+  | "submitted"
+  | "triage"
+  | "approved"
+  | "in_progress"
+  | "waiting_on_vendor"
+  | "qa_validation"
+  | "done";
+
+export type SlaClassification = "P1" | "P2" | "P3" | "P4";
+
+export interface VendorDependency {
+  id: string;
+  taskId: string;
+  vendorName: string;
+  contact: string;
+  slaTargetMinutes: number;
+  startedAt: string;
+}
+
+export interface OpsTask {
+  id: string;
+  title: string;
+  description: string;
+  state: OpsWorkflowState;
+  type: "workflow" | "go_live";
+  slaClassification?: SlaClassification;
+  approverName?: string;
+  approvedAt?: string;
+  qaValidationChecked: boolean;
+  vendorDependencyId?: string;
+  goLiveDate?: string;
+  systems?: string[];
+  relatedCampaignId?: string;
+  history: TimelineEntry[];
+}
+
+const OPS_FLOW: OpsWorkflowState[] = [
+  "submitted",
+  "triage",
+  "approved",
+  "in_progress",
+  "waiting_on_vendor",
+  "qa_validation",
+  "done",
+];
 
 export interface RotationShift {
   id: string;
@@ -434,6 +482,8 @@ export interface OperationsState {
   templateVersions: TemplateVersion[];
   scimEvents: ScimEvent[];
   sloDefinitions: SloDefinition[];
+  opsTasks: OpsTask[];
+  vendorDependencies: VendorDependency[];
 }
 
 const createId = () => (typeof globalThis.crypto !== 'undefined' && globalThis.crypto.randomUUID ? globalThis.crypto.randomUUID() : Math.random().toString(36).slice(2));
@@ -491,6 +541,8 @@ const defaultState: OperationsState = {
   templateVersions: [],
   scimEvents: [],
   sloDefinitions: [],
+  opsTasks: [],
+  vendorDependencies: [],
 };
 
 interface OperationsContextValue extends OperationsState {
@@ -545,11 +597,33 @@ interface OperationsContextValue extends OperationsState {
   recordTemplateVersion: (version: Omit<TemplateVersion, "id"> & { id?: string }) => TemplateVersion;
   recordScimEvent: (event: Omit<ScimEvent, "id">) => ScimEvent;
   recordSlo: (slo: Omit<SloDefinition, "id"> & { id?: string }) => SloDefinition;
+  createOpsTask: (input: {
+    title: string;
+    description: string;
+    type?: OpsTask["type"];
+    goLiveDate?: string;
+    systems?: string[];
+    relatedCampaignId?: string;
+  }) => OpsTask;
+  transitionOpsTask: (
+    taskId: string,
+    nextState: OpsWorkflowState,
+    actor: string,
+    options?: {
+      slaClassification?: SlaClassification;
+      approverName?: string;
+      vendor?: { name: string; contact: string; slaTargetMinutes: number };
+    }
+  ) => void;
+  setOpsTaskQaValidation: (taskId: string, checked: boolean, actor: string) => void;
+  getVendorCountdown: (vendorId: string) => { minutesRemaining: number; overdue: boolean } | null;
+  createGoLiveTask: (input: { campaignId: string; title: string; goLiveDate: string; systems: string[] }) => OpsTask;
 }
 
 const OperationsContext = createContext<OperationsContextValue | undefined>(undefined);
 
 export function OperationsProvider({ children }: { children: React.ReactNode }) {
+  const slack = useSlack();
   const [state, setState] = useState<OperationsState>(() => {
     const stored = typeof window !== "undefined" ? localStorage.getItem(STORAGE_KEY) : null;
     if (stored) {
@@ -588,12 +662,33 @@ export function OperationsProvider({ children }: { children: React.ReactNode }) 
       const updatedIncidents = prev.incidents.map((incident) => {
         const due = parseISO(incident.slaDueAt);
         const minutesToDue = differenceInMinutes(due, now);
+        const calendar = incident.businessCalendarId
+          ? prev.businessCalendars.find((cal) => cal.id === incident.businessCalendarId)
+          : undefined;
         if (minutesToDue <= 30 && minutesToDue > 0 && !incident.nearBreachEscalated) {
           changed = true;
+          calendar?.escalationContacts.nearBreach.forEach((contactId) => {
+            slack.sendDirectMessage(contactId, "mention", {
+              itemId: incident.id,
+              itemTitle: incident.title,
+              status: incident.state,
+              dueDate: incident.slaDueAt,
+              actions: ["open", "approve", "snooze"],
+            });
+          });
           return { ...incident, nearBreachEscalated: true };
         }
         if (isBefore(due, now) && !incident.breachEscalated) {
           changed = true;
+          calendar?.escalationContacts.breach.forEach((contactId) => {
+            slack.sendDirectMessage(contactId, "assignment", {
+              itemId: incident.id,
+              itemTitle: incident.title,
+              status: incident.state,
+              dueDate: incident.slaDueAt,
+              actions: ["open", "approve", "snooze"],
+            });
+          });
           return { ...incident, breachEscalated: true };
         }
         return incident;
@@ -606,7 +701,7 @@ export function OperationsProvider({ children }: { children: React.ReactNode }) 
   useEffect(() => {
     const interval = setInterval(() => escalateIfNeeded(), 60_000);
     return () => clearInterval(interval);
-  }, []);
+  }, [slack]);
 
   const value: OperationsContextValue = useMemo(() => ({
     ...state,
@@ -1501,7 +1596,165 @@ export function OperationsProvider({ children }: { children: React.ReactNode }) 
       }));
       return newSlo;
     },
-  }), [state]);
+    createOpsTask: (input) => {
+      const now = new Date().toISOString();
+      const task: OpsTask = {
+        id: createId(),
+        title: input.title,
+        description: input.description,
+        state: "submitted",
+        type: input.type ?? "workflow",
+        slaClassification: undefined,
+        approverName: undefined,
+        approvedAt: undefined,
+        qaValidationChecked: false,
+        vendorDependencyId: undefined,
+        goLiveDate: input.goLiveDate,
+        systems: input.systems,
+        relatedCampaignId: input.relatedCampaignId,
+        history: [
+          {
+            id: createId(),
+            timestamp: now,
+            actor: "system",
+            action: "Task created",
+          },
+        ],
+      };
+      setState((prev) => ({
+        ...prev,
+        opsTasks: [...prev.opsTasks, task],
+      }));
+      return task;
+    },
+    transitionOpsTask: (taskId, nextState, actor, options) => {
+      setState((prev) => {
+        const task = prev.opsTasks.find((item) => item.id === taskId);
+        if (!task) return prev;
+        const currentIndex = OPS_FLOW.indexOf(task.state);
+        const nextIndex = OPS_FLOW.indexOf(nextState);
+        if (nextIndex !== currentIndex + 1) {
+          throw new Error("Invalid operations workflow transition");
+        }
+        const now = new Date().toISOString();
+        let vendorDependencies = prev.vendorDependencies;
+        let vendorDependencyId = task.vendorDependencyId;
+        let slaClassification = task.slaClassification;
+        let approverName = task.approverName;
+        let approvedAt = task.approvedAt;
+        if (nextState === "triage") {
+          if (!options?.slaClassification) {
+            throw new Error("SLA classification is required in triage");
+          }
+          slaClassification = options.slaClassification;
+        }
+        if (nextState === "approved") {
+          if (!options?.approverName) {
+            throw new Error("Named approver is required for approval");
+          }
+          approverName = options.approverName;
+          approvedAt = now;
+        }
+        if (nextState === "waiting_on_vendor") {
+          if (!options?.vendor) {
+            throw new Error("Vendor information is required when waiting on vendor");
+          }
+          const vendorRecord: VendorDependency = {
+            id: createId(),
+            taskId: task.id,
+            vendorName: options.vendor.name,
+            contact: options.vendor.contact,
+            slaTargetMinutes: options.vendor.slaTargetMinutes,
+            startedAt: now,
+          };
+          vendorDependencyId = vendorRecord.id;
+          vendorDependencies = [...vendorDependencies, vendorRecord];
+        }
+        if (nextState === "done" && !task.qaValidationChecked) {
+          throw new Error("QA/Validation must be completed before marking done");
+        }
+        const updatedTask: OpsTask = {
+          ...task,
+          state: nextState,
+          slaClassification,
+          approverName,
+          approvedAt,
+          vendorDependencyId,
+          history: [
+            ...task.history,
+            {
+              id: createId(),
+              timestamp: now,
+              actor,
+              action: `Moved to ${nextState}`,
+            },
+          ],
+        };
+        return {
+          ...prev,
+          opsTasks: prev.opsTasks.map((item) => (item.id === taskId ? updatedTask : item)),
+          vendorDependencies,
+        };
+      });
+    },
+    setOpsTaskQaValidation: (taskId, checked, actor) => {
+      setState((prev) => ({
+        ...prev,
+        opsTasks: prev.opsTasks.map((task) =>
+          task.id === taskId
+            ? {
+                ...task,
+                qaValidationChecked: checked,
+                history: [
+                  ...task.history,
+                  {
+                    id: createId(),
+                    timestamp: new Date().toISOString(),
+                    actor,
+                    action: checked ? "QA/Validation completed" : "QA/Validation unchecked",
+                  },
+                ],
+              }
+            : task
+        ),
+      }));
+    },
+    getVendorCountdown: (vendorId) => {
+      const vendor = state.vendorDependencies.find((entry) => entry.id === vendorId);
+      if (!vendor) return null;
+      const target = addMinutes(parseISO(vendor.startedAt), vendor.slaTargetMinutes);
+      const minutesRemaining = differenceInMinutes(target, new Date());
+      return { minutesRemaining, overdue: minutesRemaining < 0 };
+    },
+    createGoLiveTask: (input) => {
+      const now = new Date().toISOString();
+      const task: OpsTask = {
+        id: createId(),
+        title: `Go-live execution • ${input.title}`,
+        description: `Coordinate go-live for campaign ${input.title}`,
+        state: "submitted",
+        type: "go_live",
+        qaValidationChecked: false,
+        goLiveDate: input.goLiveDate,
+        systems: input.systems,
+        relatedCampaignId: input.campaignId,
+        history: [
+          {
+            id: createId(),
+            timestamp: now,
+            actor: "system",
+            action: "Task created",
+          },
+        ],
+      };
+      setState((prev) => ({
+        ...prev,
+        opsTasks: [...prev.opsTasks, task],
+      }));
+      slack.postProjectEvent(input.campaignId, "new_item", task.id);
+      return task;
+    },
+  }), [slack, state]);
 
   return <OperationsContext.Provider value={value}>{children}</OperationsContext.Provider>;
 }
