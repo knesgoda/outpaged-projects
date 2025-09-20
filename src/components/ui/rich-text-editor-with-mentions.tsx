@@ -174,28 +174,31 @@ export function RichTextEditorWithMentions({
             {filteredMembers.length === 0 ? (
               <div className="p-2 text-sm text-muted-foreground">No matches</div>
             ) : (
-              filteredMembers.map((member, index) => (
-                <div
-                  key={member.user_id}
-                  className={`flex items-center gap-2 p-2 cursor-pointer rounded hover:bg-accent ${
-                    index === selectedSuggestion ? 'bg-accent' : ''
-                  }`}
-                  onClick={() => insertMention(member)}
-              >
-                <Avatar className="w-6 h-6">
-                  <AvatarImage src={member.avatar_url || undefined} />
-                  <AvatarFallback className="text-xs">
-                    {(member.full_name || 'U')
-                      .split(' ')
-                      .map((n) => n[0])
-                      .join('')
-                      .toUpperCase()
-                      .slice(0, 2)}
-                  </AvatarFallback>
-                </Avatar>
-                <span className="text-sm">{member.full_name || 'Unknown User'}</span>
+              <div>
+                {filteredMembers.map((member, index) => (
+                  <div
+                    key={member.user_id}
+                    className={`flex items-center gap-2 p-2 cursor-pointer rounded hover:bg-accent ${
+                      index === selectedSuggestion ? 'bg-accent' : ''
+                    }`}
+                    onClick={() => insertMention(member)}
+                  >
+                    <Avatar className="w-6 h-6">
+                      <AvatarImage src={member.avatar_url || undefined} />
+                      <AvatarFallback className="text-xs">
+                        {(member.full_name || 'U')
+                          .split(' ')
+                          .map((n) => n[0])
+                          .join('')
+                          .toUpperCase()
+                          .slice(0, 2)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="text-sm">{member.full_name || 'Unknown User'}</span>
+                  </div>
+                ))}
               </div>
-            ))}
+            )}
           </div>
         </Card>
       )}
