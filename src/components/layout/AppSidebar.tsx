@@ -30,7 +30,8 @@ import {
   Bell, 
   Building2,
   Headphones,
-  Shield
+  Shield,
+  Activity
 } from "lucide-react";
 
 interface NavItem {
@@ -76,6 +77,12 @@ const navigationItems = [
     url: "/dashboard/tickets",
     icon: Headphones,
     description: "Customer support and ticketing"
+  },
+  {
+    title: "Operations",
+    url: "/dashboard/operations",
+    icon: Activity,
+    description: "Incidents, changes, and service ownership"
   },
   {
     title: "Reports",
