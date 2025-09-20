@@ -1,0 +1,17 @@
+:root {
+  --op-orange: #FF7A00;
+  --op-royal: #0B3D91;
+  --op-dark: #1F2937;
+}
+
+[data-theme="outpaged-light"] {
+  color-scheme: light;
+  --background: 0 0% 100%;
+  --foreground: 222 47% 11%;
+}
+
+[data-theme="outpaged-dark"] {
+  color-scheme: dark;
+  --background: 222 47% 11%;
+  --foreground: 210 40% 98%;
+}
