@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./hooks/useAuth";
 import { SecurityProvider } from "./components/security/SecurityProvider";
 import { AccessibilityProvider } from "./components/accessibility/AccessibilityProvider";
+import { OperationsProvider } from "./components/operations/OperationsProvider";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { AppLayout } from "./components/layout/AppLayout";
 import { AuthRedirect } from "./components/AuthRedirect";
@@ -42,6 +43,7 @@ import Automation from "./pages/Automation";
 import Analytics from "./pages/Analytics";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
+import OperationsCenter from "./pages/OperationsCenter";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -64,14 +66,15 @@ const App = () => (
     <AuthProvider>
       <SecurityProvider>
         <AccessibilityProvider>
-          <ErrorBoundary>
-            <TooltipProvider>
-              <Toaster />
-              <Sonner />
-              <BrowserRouter>
-                <CommandPalette />
-                <KeyboardShortcuts />
-                <Routes>
+          <OperationsProvider>
+            <ErrorBoundary>
+              <TooltipProvider>
+                <Toaster />
+                <Sonner />
+                <BrowserRouter>
+                  <CommandPalette />
+                  <KeyboardShortcuts />
+                  <Routes>
                   {/* Public routes */}
                   <Route path="/auth" element={<Auth />} />
                   
@@ -115,6 +118,7 @@ const App = () => (
                       <EnterpriseControlPanel />
                     </AdminGuard>
                   } />
+                  <Route path="operations" element={<OperationsCenter />} />
                 </Route>
                 
                 {/* Default route - redirect based on auth status */}
@@ -122,14 +126,15 @@ const App = () => (
                 
                 {/* Catch-all route */}
                 <Route path="*" element={<NotFound />} />
-                  </Routes>
-                </BrowserRouter>
-              </TooltipProvider>
-            </ErrorBoundary>
-          </AccessibilityProvider>
-        </SecurityProvider>
-      </AuthProvider>
-    </QueryClientProvider>
-  );
+              </Routes>
+            </BrowserRouter>
+          </TooltipProvider>
+        </ErrorBoundary>
+      </OperationsProvider>
+    </AccessibilityProvider>
+  </SecurityProvider>
+</AuthProvider>
+</QueryClientProvider>
+);
 
 export default App;
