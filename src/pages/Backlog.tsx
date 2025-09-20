@@ -3,6 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import designRefreshBacklog from "@/data/designRefreshBacklog";
+import { BacklogItem } from "@/types/backlog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DndContext,
@@ -19,11 +21,10 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { 
-  Plus, 
-  Search, 
-  Filter, 
-  GripVertical, 
+import {
+  Plus,
+  Search,
+  GripVertical,
   MoreHorizontal,
   Flag,
   Users,
@@ -47,27 +48,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-export interface BacklogItem {
-  id: string;
-  title: string;
-  description: string;
-  status: "new" | "refined" | "estimated" | "ready" | "in_sprint";
-  priority: "low" | "medium" | "high" | "urgent";
-  storyPoints?: number;
-  assignee?: {
-    name: string;
-    avatar?: string;
-    initials: string;
-  };
-  tags: string[];
-  acceptanceCriteria: string[];
-  businessValue: number;
-  effort: number;
-  createdAt: Date;
-  sprintId?: string;
-}
-
-const mockBacklogItems: BacklogItem[] = [];
+const initialBacklogItems: BacklogItem[] = designRefreshBacklog;
 
 const statusColors = {
   new: "bg-muted text-muted-foreground",
@@ -218,7 +199,7 @@ function BacklogItemCard({ item, onEdit, onDelete, onMoveToSprint }: BacklogItem
 }
 
 export default function Backlog() {
-  const [items, setItems] = useState<BacklogItem[]>(mockBacklogItems);
+  const [items, setItems] = useState<BacklogItem[]>(initialBacklogItems);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterPriority, setFilterPriority] = useState("all");
@@ -265,7 +246,8 @@ export default function Backlog() {
   };
 
   const totalStoryPoints = filteredItems.reduce((sum, item) => sum + (item.storyPoints || 0), 0);
-  const avgBusinessValue = filteredItems.reduce((sum, item) => sum + item.businessValue, 0) / filteredItems.length;
+  const totalBusinessValue = filteredItems.reduce((sum, item) => sum + item.businessValue, 0);
+  const avgBusinessValue = filteredItems.length > 0 ? totalBusinessValue / filteredItems.length : 0;
 
   return (
     <div className="space-y-6">
