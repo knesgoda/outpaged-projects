@@ -19,17 +19,12 @@ export function useProjectMembers(projectId?: string) {
       setLoading(true);
       console.log("[useProjectMembers] Fetching members for project:", projectId);
 
-      // Requires FK project_members.user_id -> profiles.user_id (added in migration)
+      // Query pre-joined view to avoid FK/relationship issues in PostgREST
       const { data, error } = await supabase
-        .from("project_members")
-        .select(`
-          user_id,
-          profiles:profiles (
-            full_name,
-            avatar_url
-          )
-        `)
-        .eq("project_id", projectId);
+        .from("project_members_with_profiles")
+        .select("user_id, full_name, avatar_url")
+        .eq("project_id", projectId)
+        .order("full_name", { ascending: true });
 
       if (error) {
         console.error("[useProjectMembers] Error:", error);
@@ -40,7 +35,7 @@ export function useProjectMembers(projectId?: string) {
 
       const mapped =
         (data || []).map((row: any) => {
-          const name = row.profiles?.full_name || "Unknown User";
+          const name = row.full_name || "Unknown User";
           const initials = name
             .split(" ")
             .map((n: string) => n[0])
@@ -50,7 +45,7 @@ export function useProjectMembers(projectId?: string) {
           return {
             user_id: row.user_id,
             full_name: name,
-            avatar_url: row.profiles?.avatar_url || null,
+            avatar_url: row.avatar_url || null,
             initials,
           } as ProjectMember;
         }) ?? [];
