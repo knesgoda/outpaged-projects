@@ -20,6 +20,7 @@ export default {
 		},
                 extend: {
                         fontFamily: {
+                                sans: ['Quicksand', 'ui-sans-serif', 'system-ui', 'sans-serif'],
                                 quicksand: ['Quicksand', 'ui-sans-serif', 'system-ui'],
                         },
                         colors: {

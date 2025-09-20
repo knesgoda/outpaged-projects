@@ -11,6 +11,8 @@ import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+import { enableOutpagedBrand } from '@/lib/featureFlags';
+import { StatusChip } from '@/components/outpaged/StatusChip';
 import {
   BarChart,
   Bar,
@@ -66,7 +68,7 @@ interface TeamMember {
   efficiency: number;
 }
 
-export default function Reports() {
+function LegacyReports() {
   const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({
     from: startOfMonth(subMonths(new Date(), 1)),
     to: new Date(),
@@ -707,4 +709,82 @@ export default function Reports() {
       </Tabs>
     </div>
   );
+}
+
+function OutpagedAdminConsole() {
+  const cards = [
+    {
+      title: 'Teams',
+      description: 'Design • Mobile Dev • Backend Dev • AI • Operations',
+      body: (
+        <div className="flex flex-wrap gap-2 text-sm text-[hsl(var(--muted-foreground))]">
+          {['Design', 'Mobile Dev', 'Backend Dev', 'AI', 'Operations'].map((team) => (
+            <StatusChip key={team} variant="neutral">
+              {team}
+            </StatusChip>
+          ))}
+        </div>
+      ),
+    },
+    {
+      title: 'Single Sign-On',
+      description: 'outpaged.com',
+      body: (
+        <div className="space-y-2 text-sm text-[hsl(var(--muted-foreground))]">
+          <p>Google Workspace enforced</p>
+          <StatusChip variant="accent">All users</StatusChip>
+        </div>
+      ),
+    },
+    {
+      title: 'Workflow Library',
+      description: 'A collection of predefined workflows',
+      body: (
+        <div className="space-y-2 text-sm text-[hsl(var(--muted-foreground))]">
+          <p>Design → Software handoff</p>
+          <p>Marketing launch QA</p>
+        </div>
+      ),
+    },
+    {
+      title: 'Backups',
+      description: 'Nightly snapshots & exports',
+      body: (
+        <div className="space-y-2 text-sm text-[hsl(var(--muted-foreground))]">
+          <p>Last export: 2 hours ago</p>
+          <StatusChip variant="success">Healthy</StatusChip>
+        </div>
+      ),
+    },
+  ];
+
+  return (
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-8">
+      <div className="space-y-2 text-[hsl(var(--foreground))]">
+        <StatusChip variant="accent">Admin</StatusChip>
+        <h1 className="text-4xl font-semibold tracking-tight">Admin Console</h1>
+        <p className="text-sm text-[hsl(var(--muted-foreground))]">Teams & Workflows</p>
+      </div>
+
+      <div className="grid gap-6 md:grid-cols-2">
+        {cards.map((card) => (
+          <Card key={card.title} className="rounded-3xl border-none bg-[hsl(var(--card))]/95 shadow-soft">
+            <CardHeader className="space-y-1">
+              <CardTitle className="text-lg font-semibold text-[hsl(var(--foreground))]">{card.title}</CardTitle>
+              <CardDescription className="text-sm text-[hsl(var(--muted-foreground))]">{card.description}</CardDescription>
+            </CardHeader>
+            <CardContent>{card.body}</CardContent>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export default function Reports() {
+  if (enableOutpagedBrand) {
+    return <OutpagedAdminConsole />;
+  }
+
+  return <LegacyReports />;
 }

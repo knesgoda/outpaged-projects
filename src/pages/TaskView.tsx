@@ -8,6 +8,12 @@ import { Badge } from '@/components/ui/badge';
 import { TaskDialog } from '@/components/kanban/TaskDialog';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { enableOutpagedBrand } from '@/lib/featureFlags';
+import { StatusChip } from '@/components/outpaged/StatusChip';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+
+type StatusTone = 'neutral' | 'info' | 'success' | 'warning' | 'danger' | 'accent';
 
 export default function TaskView() {
   const { projectId, code, taskNumber } = useParams();
@@ -115,6 +121,79 @@ export default function TaskView() {
       default: return 'bg-gray-500';
     }
   };
+
+  const mapStatusChip = (status?: string): { label: string; variant: StatusTone } => {
+    switch (status) {
+      case 'done':
+      case 'packaged':
+        return { label: 'Packaged', variant: 'success' };
+      case 'in_progress':
+        return { label: 'In Progress', variant: 'accent' };
+      case 'in_review':
+        return { label: 'In Review', variant: 'success' };
+      case 'todo':
+      default:
+        return { label: 'To Do', variant: 'neutral' };
+    }
+  };
+
+  const formatDueDate = (due?: string) => {
+    if (!due) {
+      return 'April 16, 2024';
+    }
+
+    try {
+      return new Date(due).toLocaleDateString(undefined, {
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric',
+      });
+    } catch (err) {
+      console.error('Failed to format due date', err);
+      return 'April 16, 2024';
+    }
+  };
+
+  const brandChecklist = [
+    { label: 'Design QA complete', required: true, checked: true },
+    { label: 'Specifications attached', required: true, checked: false },
+    { label: 'Accessibility review logged', checked: false },
+    { label: 'Add final assets to bundle', checked: false },
+  ];
+
+  const brandApprovals = [
+    { name: 'Satoshi', status: 'Awaiting review' },
+  ];
+
+  const brandTask = {
+    id: task.ticket_number ? `OP-${task.ticket_number}` : 'OP-1289',
+    title: task.title || 'Library UI polish',
+    description: task.description || 'Library screen of the new UI needs a final review',
+    dueDate: formatDueDate(task.due_date),
+    owner: (task as any)?.handoff_owner || 'Monica Lee',
+    projectName: project?.name || 'Design Systems',
+    status: mapStatusChip(task.status),
+  };
+
+  if (enableOutpagedBrand) {
+    return (
+      <>
+        <OutpagedTaskDetail
+          task={brandTask}
+          checklist={brandChecklist}
+          approvals={brandApprovals}
+          onBack={handleBackClick}
+          onEdit={handleEditTask}
+        />
+        <TaskDialog
+          task={task}
+          isOpen={isDialogOpen}
+          onClose={() => setIsDialogOpen(false)}
+          onSave={() => toast.success('Task updated')}
+        />
+      </>
+    );
+  }
 
   return (
     <div className="container mx-auto p-6 max-w-4xl">
@@ -224,6 +303,164 @@ export default function TaskView() {
         }}
         projectId={task?.project_id}
       />
+    </div>
+  );
+}
+
+interface BrandChecklistItem {
+  label: string;
+  required?: boolean;
+  checked?: boolean;
+}
+
+interface BrandApprovalItem {
+  name: string;
+  status: string;
+}
+
+interface OutpagedTaskDetailProps {
+  task: {
+    id: string;
+    title: string;
+    description: string;
+    dueDate: string;
+    owner: string;
+    projectName: string;
+    status: { label: string; variant: StatusTone };
+  };
+  checklist: BrandChecklistItem[];
+  approvals: BrandApprovalItem[];
+  onBack: () => void;
+  onEdit: () => void;
+}
+
+function OutpagedTaskDetail({ task, checklist, approvals, onBack, onEdit }: OutpagedTaskDetailProps) {
+  const [items, setItems] = useState(checklist);
+
+  const handleToggle = (index: number) => {
+    setItems((prev) =>
+      prev.map((item, idx) =>
+        idx === index
+          ? {
+              ...item,
+              checked: !item.checked,
+            }
+          : item
+      )
+    );
+  };
+
+  const ctaLabel = task.status.label === "Packaged" ? "Create Software bundle" : "Send for approval";
+
+  return (
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-8">
+      <div className="flex items-center justify-between">
+        <Button variant="ghost" onClick={onBack} className="flex items-center gap-2 px-0 text-sm font-semibold">
+          <ChevronLeft className="h-4 w-4" />
+          Back to handoff
+        </Button>
+        <StatusChip variant={task.status.variant}>{task.status.label}</StatusChip>
+      </div>
+
+      <div className="grid gap-8 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+        <Card className="rounded-3xl border-none shadow-soft">
+          <CardContent className="space-y-6 p-8">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-[0.35em] text-[hsl(var(--muted-foreground))]">
+                  {task.projectName}
+                </p>
+                <h1 className="text-3xl font-semibold tracking-tight text-[hsl(var(--foreground))]">{task.title}</h1>
+                <p className="text-sm text-[hsl(var(--muted-foreground))]">{task.id}</p>
+              </div>
+              <Button
+                className="rounded-full bg-[hsl(var(--accent))] px-6 py-2 text-sm font-semibold text-white shadow-soft hover:bg-[hsl(var(--accent))]/90"
+                onClick={onEdit}
+              >
+                {ctaLabel}
+              </Button>
+            </div>
+
+            <p className="text-sm leading-6 text-[hsl(var(--muted-foreground))] whitespace-pre-wrap">{task.description}</p>
+          </CardContent>
+        </Card>
+
+        <div className="space-y-6">
+          <Card className="rounded-3xl border-none shadow-soft">
+            <CardContent className="space-y-4 p-6">
+              <div className="space-y-1">
+                <p className="text-xs font-semibold uppercase tracking-[0.35em] text-[hsl(var(--muted-foreground))]">Handoff</p>
+                <h2 className="text-lg font-semibold text-[hsl(var(--foreground))]">Due {task.dueDate}</h2>
+              </div>
+
+              <div className="flex items-center justify-between rounded-2xl border border-[hsl(var(--chip-neutral))] bg-[hsl(var(--chip-neutral))]/30 px-4 py-3">
+                <div>
+                  <p className="text-sm font-semibold text-[hsl(var(--foreground))]">{task.owner}</p>
+                  <p className="text-xs text-[hsl(var(--muted-foreground))]">Handoff owner</p>
+                </div>
+                <StatusChip variant="warning">Handoff pending</StatusChip>
+              </div>
+
+              <div className="space-y-3">
+                {items.map((item, index) => (
+                  <label
+                    key={item.label}
+                    className="flex items-center justify-between gap-4 rounded-2xl border border-[hsl(var(--chip-neutral))] bg-[hsl(var(--card))] px-4 py-3 text-sm"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Checkbox
+                        checked={item.checked}
+                        onCheckedChange={() => handleToggle(index)}
+                        className="h-4 w-4"
+                      />
+                      <span className="font-semibold text-[hsl(var(--foreground))]">{item.label}</span>
+                    </div>
+                    {item.required && (
+                      <span className="text-xs font-semibold uppercase tracking-wide text-[hsl(var(--accent))]">Required</span>
+                    )}
+                  </label>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="rounded-3xl border-none shadow-soft">
+            <CardContent className="space-y-4 p-6">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-[hsl(var(--foreground))]">Approvals</h2>
+                <StatusChip variant="neutral">{approvals.length} pending</StatusChip>
+              </div>
+
+              <div className="space-y-3">
+                {approvals.map((approval) => (
+                  <div
+                    key={approval.name}
+                    className="flex items-center justify-between gap-4 rounded-2xl border border-[hsl(var(--chip-neutral))] bg-[hsl(var(--card))] px-4 py-3"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Avatar className="h-9 w-9">
+                        <AvatarImage src="" alt={approval.name} />
+                        <AvatarFallback>{approval.name.slice(0, 2).toUpperCase()}</AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="text-sm font-semibold text-[hsl(var(--foreground))]">{approval.name}</p>
+                        <p className="text-xs text-[hsl(var(--muted-foreground))]">{approval.status}</p>
+                      </div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="rounded-full border border-[hsl(var(--chip-neutral))] px-3 py-1 text-xs font-semibold"
+                    >
+                      Remind
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     </div>
   );
 }

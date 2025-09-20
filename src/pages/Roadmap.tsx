@@ -42,6 +42,30 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { enableOutpagedBrand } from "@/lib/featureFlags";
+
+const ROADMAP_MONTHS = ['Oct', 'Nov', 'Dec', 'Jan'];
+
+const ROADMAP_LANES = [
+  {
+    name: 'Software',
+    color: 'hsl(var(--primary))',
+    bars: [
+      { label: 'Sprint 12', start: 0, span: 2 },
+      { label: 'Platform hardening', start: 2, span: 2 },
+    ],
+  },
+  {
+    name: 'Marketing',
+    color: 'hsl(var(--accent))',
+    bars: [{ label: 'Holiday campaign', start: 1, span: 2 }],
+  },
+  {
+    name: 'Design',
+    color: 'hsl(var(--chip-neutral-foreground))',
+    bars: [{ label: 'UI redesign', start: 0.5, span: 2 }],
+  },
+];
 
 interface Project {
   id: string;
@@ -70,7 +94,7 @@ const nodeTypes = {
   timeline: TimelineNode,
 };
 
-export default function Roadmap() {
+function LegacyRoadmap() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
@@ -459,4 +483,81 @@ export default function Roadmap() {
       </Card>
     </div>
   );
+}
+
+function OutpagedRoadmap() {
+  const [quarter, setQuarter] = useState('Q4');
+
+  return (
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-8">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="space-y-1">
+          <p className="text-xs font-semibold uppercase tracking-[0.35em] text-[hsl(var(--muted-foreground))]">Roadmap</p>
+          <h1 className="text-4xl font-semibold tracking-tight text-[hsl(var(--foreground))]">Quarterly view</h1>
+        </div>
+        <Select value={quarter} onValueChange={setQuarter}>
+          <SelectTrigger className="w-32 rounded-full border border-[hsl(var(--chip-neutral))] bg-[hsl(var(--card))]">
+            <SelectValue placeholder="Quarter" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="Q3">Q3</SelectItem>
+            <SelectItem value="Q4">Q4</SelectItem>
+            <SelectItem value="Q1">Q1</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      <Card className="rounded-3xl border-none shadow-soft">
+        <CardContent className="space-y-6 p-6">
+          <div className="grid grid-cols-[120px_repeat(4,minmax(0,1fr))] gap-4 text-xs font-semibold uppercase tracking-wide text-[hsl(var(--muted-foreground))]">
+            <span></span>
+            {ROADMAP_MONTHS.map((month) => (
+              <span key={month} className="text-center">
+                {month}
+              </span>
+            ))}
+          </div>
+
+          <div className="space-y-6">
+            {ROADMAP_LANES.map((lane) => (
+              <div key={lane.name} className="grid grid-cols-[120px_repeat(4,minmax(0,1fr))] items-center gap-4">
+                <div className="text-sm font-semibold text-[hsl(var(--foreground))]">{lane.name}</div>
+                <div className="relative col-span-4 h-12 rounded-2xl border border-[hsl(var(--chip-neutral))]/60 bg-[hsl(var(--chip-neutral))]/20">
+                  {lane.bars.map((bar) => (
+                    <div
+                      key={bar.label}
+                      className="absolute top-1/2 flex h-8 -translate-y-1/2 items-center rounded-full px-4 text-xs font-semibold text-white shadow-soft"
+                      style={{
+                        left: `calc(${bar.start * 25}% + 0.25rem)`,
+                        width: `calc(${bar.span * 25}% - 0.5rem)`,
+                        background: lane.color,
+                      }}
+                    >
+                      {bar.label}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-[hsl(var(--muted-foreground))]">Quarter {quarter} plan</p>
+            <Button variant="ghost" className="inline-flex items-center gap-2 rounded-full border border-[hsl(var(--chip-neutral))] px-4 py-2 text-sm font-semibold text-[hsl(var(--accent))]">
+              <Download className="h-4 w-4" />
+              Export PNG
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+export default function Roadmap() {
+  if (enableOutpagedBrand) {
+    return <OutpagedRoadmap />;
+  }
+
+  return <LegacyRoadmap />;
 }

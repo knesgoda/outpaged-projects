@@ -44,6 +44,7 @@ import Analytics from "./pages/Analytics";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import OperationsCenter from "./pages/OperationsCenter";
+import { OutpagedThemeProvider } from "./components/theme/OutpagedThemeProvider";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -62,19 +63,20 @@ const queryClient = new QueryClient({
 });
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      <SecurityProvider>
-        <AccessibilityProvider>
-          <OperationsProvider>
-            <ErrorBoundary>
-              <TooltipProvider>
-                <Toaster />
-                <Sonner />
-                <BrowserRouter>
-                  <CommandPalette />
-                  <KeyboardShortcuts />
-                  <Routes>
+  <OutpagedThemeProvider>
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <SecurityProvider>
+          <AccessibilityProvider>
+            <OperationsProvider>
+              <ErrorBoundary>
+                <TooltipProvider>
+                  <Toaster />
+                  <Sonner />
+                  <BrowserRouter>
+                    <CommandPalette />
+                    <KeyboardShortcuts />
+                    <Routes>
                   {/* Public routes */}
                   <Route path="/auth" element={<Auth />} />
                   
@@ -132,9 +134,10 @@ const App = () => (
         </ErrorBoundary>
       </OperationsProvider>
     </AccessibilityProvider>
-  </SecurityProvider>
-</AuthProvider>
-</QueryClientProvider>
+        </SecurityProvider>
+      </AuthProvider>
+    </QueryClientProvider>
+  </OutpagedThemeProvider>
 );
 
 export default App;

@@ -32,6 +32,239 @@ import { KanbanFiltersComponent, KanbanFilters } from "@/components/kanban/Kanba
 import { BoardSettings } from "@/components/kanban/BoardSettings";
 import { StatsPanel } from "@/components/kanban/StatsPanel";
 import { Plus, ArrowLeft, Settings, Layers, BarChart3 } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { FilterChip } from "@/components/outpaged/FilterChip";
+import { StatusChip } from "@/components/outpaged/StatusChip";
+import { enableOutpagedBrand } from "@/lib/featureFlags";
+
+const DESIGN_FILTERS = [
+  { label: "All work", count: 18 },
+  { label: "Design", count: 9 },
+  { label: "Research", count: 4 },
+  { label: "Marketing", count: 3 },
+];
+
+const DESIGN_COLUMNS = [
+  {
+    title: "To Do",
+    cards: [
+      {
+        title: "Logo concepts",
+        description: "Explore updated brand mark",
+        tags: ["Brand"],
+        thumbnail: "linear-gradient(135deg, hsl(var(--accent)) 0%, hsl(var(--accent)) 60%, hsl(var(--chip-neutral)) 100%)",
+      },
+      {
+        title: "Wireframing",
+        description: "Dashboard empty states",
+        tags: ["UX"],
+        thumbnail: "linear-gradient(135deg, hsl(var(--chip-accent)) 0%, hsl(var(--accent)) 70%, hsl(var(--chip-neutral)) 100%)",
+      },
+    ],
+  },
+  {
+    title: "In Progress",
+    wip: "WIP (3)",
+    cards: [
+      {
+        title: "UX research recap",
+        description: "Synthesis for sprint",
+        tags: ["Research"],
+        thumbnail: "linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--chip-accent)) 55%, hsl(var(--chip-neutral)) 100%)",
+      },
+      {
+        title: "New landing page",
+        description: "Hero module concept",
+        tags: ["Marketing"],
+        thumbnail: "linear-gradient(135deg, hsl(var(--accent)) 0%, hsl(var(--chip-accent)) 60%, hsl(var(--chip-neutral)) 100%)",
+      },
+    ],
+  },
+  {
+    title: "In Review",
+    cards: [
+      {
+        title: "Library UI polish",
+        description: "Component audit",
+        tags: ["Design"],
+        thumbnail: "linear-gradient(135deg, hsl(var(--chip-neutral)) 0%, hsl(var(--chip-accent)) 60%, hsl(var(--accent)) 100%)",
+      },
+      {
+        title: "Icons refresh",
+        description: "Duotone icon set",
+        tags: ["System"],
+        thumbnail: "linear-gradient(135deg, hsl(var(--chip-accent)) 0%, hsl(var(--primary)) 60%, hsl(var(--chip-neutral)) 100%)",
+      },
+    ],
+  },
+  {
+    title: "Completed",
+    cards: [
+      {
+        title: "Design system docs",
+        description: "Tokens v2",
+        tags: ["Docs"],
+        thumbnail: "linear-gradient(135deg, hsl(var(--chip-neutral)) 0%, hsl(var(--chip-accent)) 55%, hsl(var(--chip-neutral)) 100%)",
+      },
+      {
+        title: "Design redux",
+        description: "Archive patterns",
+        tags: ["Ops"],
+        thumbnail: "linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--chip-neutral)) 70%, hsl(var(--chip-neutral)) 100%)",
+      },
+    ],
+  },
+];
+
+const SOFTWARE_COLUMNS = [
+  {
+    title: "Backlog",
+    cards: [
+      { title: "User authentication", status: { label: "Story", variant: "neutral" as const } },
+      { title: "Database migrations", status: { label: "Tech", variant: "neutral" as const } },
+    ],
+  },
+  {
+    title: "Ready",
+    cards: [{ title: "Image cropping", status: { label: "Ready", variant: "accent" as const } }],
+  },
+  {
+    title: "In Progress",
+    wip: "WIP (2)",
+    cards: [
+      { title: "Landing page mockups", status: { label: "High", variant: "warning" as const } },
+      { title: "Mobile responsiveness", status: { label: "In Review", variant: "accent" as const } },
+    ],
+  },
+  {
+    title: "In Review",
+    cards: [{ title: "Library UI polish", status: { label: "Review", variant: "accent" as const } }],
+  },
+  {
+    title: "QA",
+    cards: [{ title: "Search functionality", status: { label: "QA", variant: "info" as const } }],
+  },
+  {
+    title: "Done",
+    cards: [{ title: "Bug fixes", status: { label: "Done", variant: "success" as const } }],
+  },
+];
+
+function OutpagedKanbanBoard() {
+  const [activeFilter, setActiveFilter] = useState<string>(DESIGN_FILTERS[0].label);
+
+  return (
+    <div className="space-y-8">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="space-y-1">
+          <p className="text-xs font-semibold uppercase tracking-[0.35em] text-[hsl(var(--muted-foreground))]">
+            Boards
+          </p>
+          <h1 className="text-4xl font-semibold tracking-tight text-[hsl(var(--foreground))]">Design Board</h1>
+        </div>
+        <Button className="rounded-full bg-[hsl(var(--accent))] px-5 py-2 text-sm font-semibold text-white shadow-soft hover:bg-[hsl(var(--accent))]/90">
+          New card
+        </Button>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        {DESIGN_FILTERS.map((filter) => (
+          <FilterChip
+            key={filter.label}
+            active={activeFilter === filter.label}
+            count={filter.count}
+            onClick={() => setActiveFilter(filter.label)}
+          >
+            {filter.label}
+          </FilterChip>
+        ))}
+      </div>
+
+      <Tabs defaultValue="design" className="space-y-6">
+        <TabsList className="h-auto w-full justify-start gap-2 rounded-full bg-[hsl(var(--chip-neutral))]/40 p-1">
+          <TabsTrigger
+            value="design"
+            className="rounded-full px-4 py-2 text-sm font-semibold data-[state=active]:bg-white data-[state=active]:shadow-soft"
+          >
+            Design
+          </TabsTrigger>
+          <TabsTrigger
+            value="software"
+            className="rounded-full px-4 py-2 text-sm font-semibold data-[state=active]:bg-white data-[state=active]:shadow-soft"
+          >
+            Software
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="design">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            {DESIGN_COLUMNS.map((column) => (
+              <div key={column.title} className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-sm font-semibold uppercase tracking-wide text-[hsl(var(--muted-foreground))]">
+                    {column.title}
+                  </h2>
+                  {column.wip && <StatusChip variant="accent">{column.wip}</StatusChip>}
+                </div>
+                <div className="space-y-3">
+                  {column.cards.map((card) => (
+                    <div
+                      key={card.title}
+                      className="rounded-3xl border border-[hsl(var(--chip-neutral))] bg-[hsl(var(--card))] p-4 shadow-soft"
+                    >
+                      <div className="mb-3 overflow-hidden rounded-2xl">
+                        <div className="aspect-video" style={{ background: card.thumbnail }} />
+                      </div>
+                      <p className="text-sm font-semibold text-[hsl(var(--foreground))]">{card.title}</p>
+                      <p className="text-xs text-[hsl(var(--muted-foreground))]">{card.description}</p>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {card.tags.map((tag) => (
+                          <StatusChip key={tag} variant="neutral">
+                            {tag}
+                          </StatusChip>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="software">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
+            {SOFTWARE_COLUMNS.map((column) => (
+              <div key={column.title} className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-sm font-semibold uppercase tracking-wide text-[hsl(var(--muted-foreground))]">
+                    {column.title}
+                  </h2>
+                  {column.wip && <StatusChip variant="accent">{column.wip}</StatusChip>}
+                </div>
+                <div className="space-y-3">
+                  {column.cards.map((card) => (
+                    <div
+                      key={card.title}
+                      className="rounded-3xl border border-[hsl(var(--chip-neutral))] bg-[hsl(var(--card))] p-4 shadow-soft"
+                    >
+                      <p className="text-sm font-semibold text-[hsl(var(--foreground))]">{card.title}</p>
+                      {card.status && (
+                        <div className="mt-3">
+                          <StatusChip variant={card.status.variant}>{card.status.label}</StatusChip>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
 
 interface KanbanColumnData {
   id: string;
@@ -59,7 +292,7 @@ interface Project {
   status: string;
 }
 
-export function KanbanBoard() {
+function LegacyKanbanBoard() {
   const { user } = useOptionalAuth();
   const { isAdmin } = useIsAdmin();
   const { toast } = useToast();
@@ -1138,4 +1371,10 @@ export function KanbanBoard() {
   );
 }
 
-export default KanbanBoard;
+export default function KanbanBoard() {
+  if (enableOutpagedBrand) {
+    return <OutpagedKanbanBoard />;
+  }
+
+  return <LegacyKanbanBoard />;
+}
