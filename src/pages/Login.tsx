@@ -36,14 +36,28 @@ export default function Login() {
   }, [reason]);
 
   const handleGoogleSignIn = async () => {
+    console.log("Supabase configured:", supabaseConfigured);
+    console.log("Environment variables:", {
+      VITE_SUPABASE_URL: import.meta.env.VITE_SUPABASE_URL,
+      VITE_SUPABASE_PUBLISHABLE_KEY: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+      VITE_SUPABASE_ANON_KEY: import.meta.env.VITE_SUPABASE_ANON_KEY
+    });
+    
+    if (!supabaseConfigured) {
+      console.error("Supabase is not configured properly");
+      return;
+    }
+    
     try {
-      await supabase.auth.signInWithOAuth({
+      console.log("Attempting Google sign in...");
+      const result = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
           redirectTo: getRedirectUrl(next),
           queryParams: { prompt: "select_account" },
         },
       });
+      console.log("Sign in result:", result);
     } catch (error) {
       console.error("Google sign-in failed", error);
     }
