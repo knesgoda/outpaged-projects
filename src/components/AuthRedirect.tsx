@@ -18,6 +18,6 @@ export function AuthRedirect() {
     return <Navigate to="/dashboard" replace />;
   }
 
-  // If not authenticated, redirect to auth page
-  return <Navigate to="/auth" replace />;
+  // If not authenticated, redirect to login page
+  return <Navigate to="/login" replace />;
 }

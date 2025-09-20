@@ -51,7 +51,7 @@ export function AppHeader() {
         description: "You have been successfully signed out.",
       });
 
-      navigate("/auth");
+      navigate("/login");
     } catch (error: any) {
       toast({
         title: "Error signing out",
@@ -68,7 +68,8 @@ export function AppHeader() {
     }
   };
 
-  const isAuthPage = location.pathname === "/auth" || location.pathname === "/login";
+  const authPaths = new Set(["/auth", "/login", "/auth/callback"]);
+  const isAuthPage = authPaths.has(location.pathname);
 
   if (enableOutpagedBrand) {
     const navItems = [
