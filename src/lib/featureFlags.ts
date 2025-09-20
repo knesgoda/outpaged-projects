@@ -3,7 +3,7 @@
  * All flags default to false so new functionality can ship safely.
  */
 export const enableOutpagedBrand = true;
-export const enableGoogleSSO = false;
+export const enableGoogleSSO = true;
 export const enableDomainAllowlist = false;
 export const enableTeamsAndRoles = false;
 export const enableWorkflowEngine = false;
