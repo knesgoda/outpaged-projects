@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
-import ReactFlow, { Background, Controls, MiniMap, Node, Edge } from "@xyflow/react";
+// ReactFlow needs to stay a named import while Edge/Node remain type-only so Vite keeps tree-shaking happy.
+import { Background, Controls, MiniMap, ReactFlow, type Edge, type Node } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { addDays, format } from "date-fns";
 import { DownloadCloud, Network, Target } from "lucide-react";
