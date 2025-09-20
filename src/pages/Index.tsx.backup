@@ -50,7 +50,7 @@ export default function Index() {
               </Button>
             ) : (
               <Button size="lg" className="text-lg px-8 py-3" asChild>
-                <Link to="/auth">
+                <Link to="/login">
                   Get Started
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </Link>
@@ -239,7 +239,7 @@ export default function Index() {
           </p>
           {!user && (
             <Button size="lg" className="text-lg px-8 py-3" asChild>
-              <Link to="/auth">
+              <Link to="/login">
                 Start Your Free Trial
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Link>
