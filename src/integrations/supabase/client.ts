@@ -2,7 +2,16 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-type SupabaseEnvKey = "VITE_SUPABASE_URL" | "VITE_SUPABASE_ANON_KEY";
+type SupabaseEnvKey =
+  | "VITE_SUPABASE_URL"
+  | "VITE_SUPABASE_ANON_KEY"
+  | "SUPABASE_URL"
+  | "SUPABASE_ANON_KEY"
+  | "SUPABASE_KEY"
+  | "NEXT_PUBLIC_SUPABASE_URL"
+  | "NEXT_PUBLIC_SUPABASE_ANON_KEY"
+  | "PUBLIC_SUPABASE_URL"
+  | "PUBLIC_SUPABASE_ANON_KEY";
 
 const getImportMetaEnv = () => {
   try {
@@ -18,20 +27,39 @@ const processEnv =
     ? (process.env as Record<SupabaseEnvKey, string | undefined>)
     : undefined;
 
-const SUPABASE_URL =
-  processEnv?.VITE_SUPABASE_URL ?? importMetaEnv?.VITE_SUPABASE_URL;
-const SUPABASE_ANON_KEY =
-  processEnv?.VITE_SUPABASE_ANON_KEY ?? importMetaEnv?.VITE_SUPABASE_ANON_KEY;
+const getEnvValue = (...keys: SupabaseEnvKey[]) => {
+  for (const key of keys) {
+    const value = importMetaEnv?.[key] ?? processEnv?.[key];
+    if (value) {
+      return value;
+    }
+  }
+  return undefined;
+};
+
+const SUPABASE_URL = getEnvValue(
+  "VITE_SUPABASE_URL",
+  "SUPABASE_URL",
+  "NEXT_PUBLIC_SUPABASE_URL",
+  "PUBLIC_SUPABASE_URL"
+);
+const SUPABASE_ANON_KEY = getEnvValue(
+  "VITE_SUPABASE_ANON_KEY",
+  "SUPABASE_ANON_KEY",
+  "SUPABASE_KEY",
+  "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+  "PUBLIC_SUPABASE_ANON_KEY"
+);
 
 if (!SUPABASE_URL) {
   throw new Error(
-    "Missing Supabase URL. Please set the VITE_SUPABASE_URL environment variable."
+    "Missing Supabase URL. Please set one of VITE_SUPABASE_URL, SUPABASE_URL, NEXT_PUBLIC_SUPABASE_URL, or PUBLIC_SUPABASE_URL."
   );
 }
 
 if (!SUPABASE_ANON_KEY) {
   throw new Error(
-    "Missing Supabase anon key. Please set the VITE_SUPABASE_ANON_KEY environment variable."
+    "Missing Supabase anon key. Please set one of VITE_SUPABASE_ANON_KEY, SUPABASE_ANON_KEY, SUPABASE_KEY, NEXT_PUBLIC_SUPABASE_ANON_KEY, or PUBLIC_SUPABASE_ANON_KEY."
   );
 }
 
