@@ -38,20 +38,27 @@ const getEnvValue = (...keys: SupabaseEnvKey[]) => {
   return undefined;
 };
 
-const SUPABASE_URL = getEnvValue(
-  "VITE_SUPABASE_URL",
-  "SUPABASE_URL",
-  "NEXT_PUBLIC_SUPABASE_URL",
-  "PUBLIC_SUPABASE_URL"
-);
-const SUPABASE_ANON_KEY = getEnvValue(
-  "VITE_SUPABASE_ANON_KEY",
-  "VITE_SUPABASE_PUBLISHABLE_KEY",
-  "SUPABASE_ANON_KEY",
-  "SUPABASE_KEY",
-  "NEXT_PUBLIC_SUPABASE_ANON_KEY",
-  "PUBLIC_SUPABASE_ANON_KEY"
-);
+// Fallbacks for Lovable environments where import.meta.env isn't available
+const FALLBACK_SUPABASE_URL = "https://aoubfejqyifdefyrbjip.supabase.co";
+const FALLBACK_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFvdWJmZWpxeWlmZGVmeXJiamlwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTMwMzcyNTAsImV4cCI6MjA2ODYxMzI1MH0.iUe1T28-T_vT1rUzXOpWTFrv6DRAN9Zwt24ligHdCaM";
+
+const SUPABASE_URL =
+  getEnvValue(
+    "VITE_SUPABASE_URL",
+    "SUPABASE_URL",
+    "NEXT_PUBLIC_SUPABASE_URL",
+    "PUBLIC_SUPABASE_URL"
+  ) ?? FALLBACK_SUPABASE_URL;
+
+const SUPABASE_ANON_KEY =
+  getEnvValue(
+    "VITE_SUPABASE_ANON_KEY",
+    "VITE_SUPABASE_PUBLISHABLE_KEY",
+    "SUPABASE_ANON_KEY",
+    "SUPABASE_KEY",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+    "PUBLIC_SUPABASE_ANON_KEY"
+  ) ?? FALLBACK_SUPABASE_ANON_KEY;
 
 const storage = typeof localStorage === "undefined" ? undefined : localStorage;
 
