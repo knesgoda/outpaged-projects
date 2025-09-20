@@ -1,0 +1,47 @@
+# Phase 2–3 Backlog Tracker
+
+The following tables capture the Phase 2 and Phase 3 backlog items that accompany the OutPaged production migration. Each entry mirrors the product requirements supplied by the stakeholder request so work can be planned and cross-referenced quickly.
+
+## Phase 2
+
+| ID | Title | Description | Acceptance Criteria | Team | Priority |
+| --- | --- | --- | --- | --- | --- |
+| OP-MKT-001 | Marketing Workflow States | As a Marketing user, I want a workflow from Intake → Plan → Copy Draft → Asset Production → Channel Build → QA → Scheduled → Live → Wrap so I can manage campaigns end-to-end. | States are available in sequence; Invalid transitions are blocked; QA requires at least one Marketing Lead approval. | Marketing | P1 |
+| OP-MKT-002 | Link Campaigns to Design Assets | As a Marketing user, I want to link my campaign to Design assets so I can ensure creative is finalized before scheduling. | Scheduled requires at least one linked Design asset when asset-dependent; Block transition to Scheduled if no linked asset. | Marketing | P1 |
+| OP-MKT-003 | Block Scheduling on Release Readiness | As a Marketing user, I want scheduling to be blocked until the Software Release is Released so go-lives don't misfire. | Transition to Scheduled is blocked when linked Release ≠ Released; Unblock automatically once Release=Released. | Marketing | P1 |
+| OP-MKT-004 | Campaign Wrap Metrics | As a Marketing user, I want to complete campaigns with a Wrap state including metrics so performance is recorded. | Wrap requires Performance Summary (text) and Metrics Link (URL); On Wrap, optional digest can be sent. | Marketing | P2 |
+| OP-OPS-001 | Operations Workflow States | As an Operations user, I want a workflow Submitted → Triage → Approved → In Progress → Waiting on Vendor → QA/Validation → Done to run Ops tasks. | Triage requires SLA classification (P1–P4); Approved requires named approver; Done requires QA/Validation checked. | Operations | P1 |
+| OP-OPS-002 | Change Request Fields & Gate | As an Operations user, I want Change Requests with risk, impact, and backout plan so high-risk work is controlled. | Cannot move to Approved unless Risk, Impact, Backout Plan are filled; Approver and timestamp recorded. | Operations | P1 |
+| OP-OPS-003 | Vendor Dependency Handling | As an Operations user, I want to record vendor info and SLA when waiting externally so we can escalate properly. | Waiting on Vendor requires Vendor Name, Contact, SLA Target; Escalation timer visible and counts down. | Operations | P2 |
+| OP-HAND-003 | Design→Marketing Handoff | As a Designer, I want moving to Packaged to create a Marketing item in Assets Received so marketing can start. | On status=Packaged, create Marketing item with mapped fields + attachments; Notify Marketing Lead in-app and email. | Design | P1 |
+| OP-HAND-004 | Software→Marketing Handoff | As an Engineer, I want Ready to Release to auto-create Marketing Launch Prep so launch tasks begin on time. | On status=Ready to Release, create Marketing item with release notes; Marketing item blocked until Release=Released. | Engineering | P1 |
+| OP-HAND-005 | Marketing→Ops Handoff | As a Marketing user, I want moving to Scheduled to create Ops go-live tasks so operations can execute cutover. | On status=Scheduled, create Ops item with Go-Live Date + Systems list; Link back to campaign; Notify Ops channel. | Marketing | P1 |
+| OP-SLACK-001 | Slack DMs for Mentions/Assignments/Approvals | As a user, I want Slack DMs for key events so I can act quickly without email. | DM includes item title/ID/status/due date; Buttons: Open/Approve/Snooze; Respects notification preferences. | Platform | P1 |
+| OP-SLACK-002 | Slack Link Unfurls | As a user, I want OutPaged links to unfurl in Slack so I can see context at a glance. | Unfurl shows title/ID/status/assignee/due date; If viewer lacks permission, show Restricted. | Platform | P1 |
+| OP-SLACK-003 | Project→Slack Channel Notifications | As a Project Lead, I want to configure Slack channel notifications for project events so the team stays aligned. | Configurable events: new items, releases, status changes, SLA breaches; Posts to chosen channel; Audit of deliveries. | Platform | P2 |
+| OP-BACK-001 | Backlog View with Ranking | As a user, I want a Backlog list to drag-rank items so prioritization is explicit. | Drag reorder persists project rank; Rank changes recorded in item history. | Frontend | P1 |
+| OP-SPRINT-001 | Create Sprint & Commit Items | As a Project Lead, I want to create a sprint window and commit items so the team has a plan. | Sprint has start/end dates; Commitment line visible; Mid-sprint added/removed items flagged in scope-change log. | Frontend | P1 |
+| OP-SPRINT-002 | Sprint Board with Swimlanes | As a team member, I want a sprint board with swimlanes so work is organized by Epic or Assignee. | Swimlanes by Epic/Assignee; Dragging cards updates status; Board respects WIP limits. | Frontend | P1 |
+| OP-RM-001 | Roadmap by Quarter | As Leadership, I want a quarterly roadmap so I can see initiatives and key milestones. | Swimlanes=Initiatives; Bars colored by health (Green/Amber/Red); Milestones as diamonds with dates. | Frontend | P2 |
+| OP-RM-002 | Roadmap Filters & Saved Views | As Leadership, I want to filter Roadmap by Team/Quarter/Health and save views so I can share perspectives. | Filters persist in URL; Saved views shareable; Permission-aware. | Frontend | P2 |
+| OP-RM-003 | Roadmap Dependencies | As Leadership, I want to see dependency lines so I understand schedule risk. | Dependency lines in Orange; Hover tooltip shows impact statement (e.g., slip of 7 days impacts X). | Frontend | P2 |
+
+## Phase 3
+
+| ID | Title | Description | Acceptance Criteria | Team | Priority |
+| --- | --- | --- | --- | --- | --- |
+| OP-EST-001 | Enable Story Points & Time Estimates | As a Project Lead, I want items to support points and time so we can plan capacity. | Items accept Story Points (number) and Time Estimate (hours); Fields appear in Table/Board/Backlog; Editable inline. | Frontend | P1 |
+| OP-EST-002 | Team Capacity per Sprint | As a Project Lead, I want to set team capacity so sprint commitments are realistic. | Capacity configurable per sprint and per person; Warning when commitment exceeds capacity. | Frontend | P1 |
+| OP-EST-003 | Velocity Calculation & Forecast | As a Project Lead, I want past velocity and a forecast so I can plan future sprints. | Velocity chart over last 3–6 sprints; Forecast band for next sprint; Uses completed points only. | Frontend | P1 |
+| OP-REL-001 | Release Entity & Versions | As an Engineer, I want Releases with versions so we can track cutlines. | Create Release with semantic version; Link items; Release state (Planning/Ready/Released). | Backend | P1 |
+| OP-REL-002 | Release Readiness Checklist | As a Release Manager, I want a readiness checklist so release quality is consistent. | Checklist template per project; Must pass before marking Released; Missing items block transition. | Backend | P1 |
+| OP-REL-003 | Auto-Generate Release Notes | As a PM, I want release notes compiled from items so communication is easy. | Release notes page compiles item titles/summaries by type; Export to Markdown; Editable pre-publish. | Frontend | P2 |
+| OP-GANTT-001 | Timeline/Gantt View | As a Planner, I want a timeline with dependencies and baselines so I can manage schedules. | Drag tasks to adjust dates; Dependencies create critical path; Baseline vs Actual shows drift. | Frontend | P1 |
+| OP-GANTT-002 | Date Constraints & Auto-Shift | As a Planner, I want dependent tasks to auto-shift so changes propagate safely. | Shifting a predecessor moves successors by the same delta; Conflicts flagged with warnings. | Frontend | P2 |
+| OP-WORK-001 | Workload Heatmap | As a Manager, I want a workload heatmap so I can balance assignments. | Heatmap by person/team; Highlights over/under capacity; Filters by type/team/date range. | Frontend | P1 |
+| OP-NOTIF-001 | SLA Alerts (Ops) | As Operations, I want SLA breach alerts so we can respond quickly. | Start/Pause rules by state; Imminent breach and breach events trigger notifications; Escalation policy configurable. | Operations | P1 |
+| OP-NOTIF-002 | Scheduled Digests | As a Leader, I want scheduled digests so I stay informed without noise. | Daily/Weekly digests by team/project; Email and Slack channel delivery; Only include items user has access to. | Platform | P2 |
+| OP-SEARCH-001 | Advanced Query Builder | As a power user, I want an advanced search builder so I can slice data precisely. | AND/OR groups; Field operators; Save and share queries; Results linkable. | Frontend | P2 |
+| OP-REPORT-001 | Agile Reports Pack | As a PM, I want burndown/burnup/CSD/CFD/velocity so we can inspect and adapt. | Burndown and burnup for current sprint; Cumulative Flow Diagram; Control Chart or Aging WIP; Export PNG/CSV. | Frontend | P2 |
+| OP-ADMIN-001 | Notification Preference Policy Overrides | As an Admin, I want to set org/project overrides so critical alerts always deliver. | Org/project critical categories bypass quiet hours; Audit of overrides; User UI shows enforced settings. | Admin | P2 |
+| OP-SEC-001 | Data Retention & Export Controls | As an Admin, I want retention policies and export controls so we meet compliance. | Per-project retention (e.g., 365 days) with scheduled purge; Export permission gated; Audit log of exports. | Admin | P2 |

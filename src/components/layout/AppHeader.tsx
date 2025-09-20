@@ -17,7 +17,6 @@ import { useAuth } from "@/hooks/useAuth";
 import { useOptionalAuth } from "@/hooks/useOptionalAuth";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { GlobalCreateButton } from "@/components/layout/GlobalCreateButton";
 import { 
   Search, 
@@ -32,6 +31,9 @@ import {
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { SidebarTrigger } from "@/components/ui/sidebar";
+import { enableNotifications, enableOutpagedBrand } from "@/lib/featureFlags";
+import { cn } from "@/lib/utils";
+import { NotificationBell } from "@/components/notifications/NotificationBell";
 
 export function AppHeader() {
   const navigate = useNavigate();
@@ -71,7 +73,12 @@ export function AppHeader() {
   const isAuthPage = location.pathname === "/auth" || location.pathname === "/login";
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <header
+      className={cn(
+        "sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60",
+        enableOutpagedBrand && "font-quicksand"
+      )}
+    >
       <div className="container flex h-16 items-center justify-between px-4">
         <div className="flex items-center gap-6">
           <SidebarTrigger className="md:hidden mr-2" />
@@ -136,7 +143,7 @@ export function AppHeader() {
               <GlobalCreateButton />
 
               {/* Notifications */}
-              <NotificationBell />
+              {enableNotifications && <NotificationBell />}
 
               {/* User Menu */}
               <DropdownMenu>

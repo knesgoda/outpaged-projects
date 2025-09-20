@@ -8,6 +8,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
+import { enableDomainAllowlist, enableGoogleSSO, enableOutpagedBrand } from '@/lib/featureFlags';
+import { cn } from '@/lib/utils';
+import { GoogleSSOButton } from '@/components/security/GoogleSSOButton';
 
 export default function Auth() {
   const { user, signIn, signUp, loading } = useAuth();
@@ -64,7 +67,7 @@ export default function Auth() {
     const fullName = formData.get('fullName') as string;
 
     // Check if email domain is allowed
-    if (!email.endsWith('@outpaged.com')) {
+    if (enableDomainAllowlist && !email.endsWith('@outpaged.com')) {
       toast({
         variant: 'destructive',
         title: 'Invalid email domain',
@@ -92,6 +95,8 @@ export default function Auth() {
     setIsSubmitting(false);
   };
 
+  const primaryCtaClass = enableOutpagedBrand ? 'bg-opRoyal hover:bg-opRoyal/90 text-white' : undefined;
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 via-background to-secondary/10 p-4">
       <Card className="w-full max-w-md">
@@ -109,6 +114,16 @@ export default function Auth() {
             </TabsList>
             
             <TabsContent value="signin">
+              {enableGoogleSSO && (
+                <div className="space-y-4">
+                  <GoogleSSOButton />
+                  <div className="relative flex items-center">
+                    <span className="flex-1 border-t border-border" />
+                    <span className="px-3 text-xs uppercase text-muted-foreground">or</span>
+                    <span className="flex-1 border-t border-border" />
+                  </div>
+                </div>
+              )}
               <form onSubmit={handleSignIn} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="signin-email">Email</Label>
@@ -130,7 +145,7 @@ export default function Auth() {
                     required
                   />
                 </div>
-                <Button type="submit" className="w-full" disabled={isSubmitting}>
+                <Button type="submit" className={cn('w-full', primaryCtaClass)} disabled={isSubmitting}>
                   {isSubmitting ? (
                     <Loader2 className="h-4 w-4 animate-spin mr-2" />
                   ) : null}
@@ -138,7 +153,7 @@ export default function Auth() {
                 </Button>
               </form>
             </TabsContent>
-            
+
             <TabsContent value="signup">
               <form onSubmit={handleSignUp} className="space-y-4">
                 <div className="space-y-2">
@@ -159,12 +174,14 @@ export default function Auth() {
                     type="email"
                     placeholder="your.name@outpaged.com"
                     required
-                    pattern=".*@outpaged\.com$"
-                    title="Only @outpaged.com email addresses are allowed"
+                    pattern={enableDomainAllowlist ? ".*@outpaged\\.com$" : undefined}
+                    title={enableDomainAllowlist ? 'Only @outpaged.com email addresses are allowed' : undefined}
                   />
-                  <p className="text-xs text-muted-foreground">
-                    Only @outpaged.com email addresses are allowed
-                  </p>
+                  {enableDomainAllowlist && (
+                    <p className="text-xs text-muted-foreground">
+                      Only @outpaged.com email addresses are allowed
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="signup-password">Password</Label>
@@ -177,7 +194,7 @@ export default function Auth() {
                     minLength={6}
                   />
                 </div>
-                <Button type="submit" className="w-full" disabled={isSubmitting}>
+                <Button type="submit" className={cn('w-full', primaryCtaClass)} disabled={isSubmitting}>
                   {isSubmitting ? (
                     <Loader2 className="h-4 w-4 animate-spin mr-2" />
                   ) : null}

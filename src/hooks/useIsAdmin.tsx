@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from './useAuth';
 import { supabase } from '@/integrations/supabase/client';
+import { getRoleForUser, isLegacyAdmin } from '@/lib/roles';
 
 export function useIsAdmin() {
   const { user } = useAuth();
@@ -17,9 +18,17 @@ export function useIsAdmin() {
     const checkAdminStatus = async () => {
       try {
         setLoading(true);
-        
+
+        const role = await getRoleForUser(user.id);
+        if (role) {
+          const isRoleAdmin = role === 'org_admin' || role === 'space_admin';
+          setIsAdmin(isRoleAdmin);
+          setLoading(false);
+          return;
+        }
+
         // Add timeout to prevent hanging requests
-        const timeoutPromise = new Promise((_, reject) => 
+        const timeoutPromise = new Promise((_, reject) =>
           setTimeout(() => reject(new Error('Admin check timeout')), 10000)
         );
 
@@ -36,16 +45,16 @@ export function useIsAdmin() {
           if (error.message !== 'Admin check timeout') {
             console.warn('Admin status check failed (non-critical):', error.message);
           }
-          setIsAdmin(false);
+          setIsAdmin(isLegacyAdmin(user.email));
         } else {
           // Additional validation to prevent privilege escalation
           const isAdminUser = Boolean(data?.is_admin) && user.email_confirmed_at !== null;
-          setIsAdmin(isAdminUser);
+          setIsAdmin(isAdminUser || isLegacyAdmin(user.email));
         }
       } catch (error) {
         // Graceful fallback - don't break the UI
         console.warn('Admin check failed (non-critical):', error);
-        setIsAdmin(false);
+        setIsAdmin(isLegacyAdmin(user?.email));
       } finally {
         setLoading(false);
       }
