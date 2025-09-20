@@ -2,16 +2,45 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-const SUPABASE_URL = "https://aoubfejqyifdefyrbjip.supabase.co";
-const SUPABASE_PUBLISHABLE_KEY =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFvdWJmZWpxeWlmZGVmeXJiaWlwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTMwMzcyNTAsImV4cCI6MjA2ODYxMzI1MH0.iUe1T28-T_vT1rUzXOpWTFrv6DRAN9Zwt24ligHdCaM";
+type SupabaseEnvKey = "VITE_SUPABASE_URL" | "VITE_SUPABASE_ANON_KEY";
+
+const getImportMetaEnv = () => {
+  try {
+    return import.meta.env as Record<SupabaseEnvKey, string | undefined>;
+  } catch (_error) {
+    return undefined;
+  }
+};
+
+const importMetaEnv = getImportMetaEnv();
+const processEnv =
+  typeof process !== "undefined"
+    ? (process.env as Record<SupabaseEnvKey, string | undefined>)
+    : undefined;
+
+const SUPABASE_URL =
+  processEnv?.VITE_SUPABASE_URL ?? importMetaEnv?.VITE_SUPABASE_URL;
+const SUPABASE_ANON_KEY =
+  processEnv?.VITE_SUPABASE_ANON_KEY ?? importMetaEnv?.VITE_SUPABASE_ANON_KEY;
+
+if (!SUPABASE_URL) {
+  throw new Error(
+    "Missing Supabase URL. Please set the VITE_SUPABASE_URL environment variable."
+  );
+}
+
+if (!SUPABASE_ANON_KEY) {
+  throw new Error(
+    "Missing Supabase anon key. Please set the VITE_SUPABASE_ANON_KEY environment variable."
+  );
+}
 
 const storage = typeof localStorage === "undefined" ? undefined : localStorage;
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
-export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
     storage,
     persistSession: Boolean(storage),
