@@ -1,12 +1,14 @@
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { GitHubIntegration } from "@/components/integrations/GitHubIntegration";
-import { SlackProvider } from "@/components/integrations/SlackProvider";
-import { CalendarIntegration } from "@/components/integrations/CalendarIntegration";
+import { GitHubIntegrationEnhanced } from "@/components/integrations/GitHubIntegrationEnhanced";
+import { SlackIntegrationEnhanced } from "@/components/integrations/SlackIntegrationEnhanced";
+import { GoogleCalendarIntegration } from "@/components/integrations/GoogleCalendarIntegration";
+import { FigmaIntegration } from "@/components/integrations/FigmaIntegration";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Github, MessageSquare, Calendar, Palette } from "lucide-react";
+import { Github, MessageSquare, Calendar, Palette, Webhook } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
+import { WebhookManager } from "@/components/integrations/WebhookManager";
 
 export default function Integrations() {
   const [searchParams] = useSearchParams();
@@ -19,7 +21,7 @@ export default function Integrations() {
       description: 'Link branches, sync PR status, and auto-update tasks',
       icon: Github,
       status: 'available',
-      component: <GitHubIntegration projectId={projectId} />,
+      component: <GitHubIntegrationEnhanced />,
     },
     {
       id: 'slack',
@@ -27,24 +29,7 @@ export default function Integrations() {
       description: 'Notifications, unfurls, and slash commands',
       icon: MessageSquare,
       status: 'available',
-      component: (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <MessageSquare className="h-5 w-5" />
-              Slack Integration
-            </CardTitle>
-            <CardDescription>
-              Real-time notifications and task updates in your Slack workspace
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-muted-foreground">
-              Slack integration is configured at the workspace level. Contact your admin to enable Slack notifications.
-            </p>
-          </CardContent>
-        </Card>
-      ),
+      component: <SlackIntegrationEnhanced />,
     },
     {
       id: 'calendar',
@@ -52,39 +37,23 @@ export default function Integrations() {
       description: 'Sync milestones and due dates to your calendar',
       icon: Calendar,
       status: 'available',
-      component: <CalendarIntegration />,
+      component: <GoogleCalendarIntegration />,
     },
     {
       id: 'figma',
       name: 'Figma',
       description: 'Design links and preview thumbnails',
       icon: Palette,
-      status: 'coming_soon',
-      component: (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Palette className="h-5 w-5" />
-              Figma Integration
-              <Badge variant="outline">Coming Soon</Badge>
-            </CardTitle>
-            <CardDescription>
-              Link designs and show preview thumbnails in tasks
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-muted-foreground">
-              This integration is coming soon. You'll be able to:
-            </p>
-            <ul className="list-disc list-inside mt-2 space-y-1 text-sm text-muted-foreground">
-              <li>Link Figma files to tasks</li>
-              <li>Show design thumbnails inline</li>
-              <li>Track design version history</li>
-              <li>Get notified of design updates</li>
-            </ul>
-          </CardContent>
-        </Card>
-      ),
+      status: 'available',
+      component: <FigmaIntegration />,
+    },
+    {
+      id: 'webhooks',
+      name: 'Webhooks',
+      description: 'Custom webhooks for external integrations',
+      icon: Webhook,
+      status: 'available',
+      component: <WebhookManager />,
     },
   ];
 
