@@ -34,7 +34,8 @@ import {
   Activity,
   GitBranch,
   Briefcase,
-  Zap
+  Zap,
+  Calculator
 } from "lucide-react";
 
 interface NavItem {
@@ -92,6 +93,12 @@ const navigationItems = [
     url: "/dashboard/automation",
     icon: Zap,
     description: "Automation rules and triggers"
+  },
+  {
+    title: "Planning",
+    url: "/dashboard/planning",
+    icon: Calculator,
+    description: "Estimation, prioritization, and capacity planning"
   },
   {
     title: "Portfolio",

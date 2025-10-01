@@ -1,6 +1,7 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { WorkflowBuilder } from "@/components/workflows/WorkflowBuilder";
 import { HandoffManager } from "@/components/workflows/HandoffManager";
+import { HandoffDashboard } from "@/components/workflows/HandoffDashboard";
 import { VisualWorkflowBuilder } from "@/components/workflows/VisualWorkflowBuilder";
 import { WorkflowTemplateSelector } from "@/components/workflows/WorkflowTemplateSelector";
 import { ProjectSelector } from "@/components/kanban/ProjectSelector";
@@ -36,7 +37,7 @@ export default function WorkflowManagement() {
         </TabsContent>
 
         <TabsContent value="handoffs">
-          <HandoffManager />
+          <HandoffDashboard />
         </TabsContent>
       </Tabs>
     </div>
