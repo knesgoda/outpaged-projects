@@ -5,6 +5,7 @@ import { HandoffDashboard } from "@/components/workflows/HandoffDashboard";
 import { VisualWorkflowBuilder } from "@/components/workflows/VisualWorkflowBuilder";
 import { WorkflowTemplateSelector } from "@/components/workflows/WorkflowTemplateSelector";
 import { ProjectSelector } from "@/components/kanban/ProjectSelector";
+import { HandoffAutomationPanel } from "@/components/workflows/HandoffAutomationPanel";
 
 export default function WorkflowManagement() {
   return (
@@ -22,6 +23,7 @@ export default function WorkflowManagement() {
           <TabsTrigger value="visual">Visual Builder</TabsTrigger>
           <TabsTrigger value="custom">Custom Builder</TabsTrigger>
           <TabsTrigger value="handoffs">Handoffs</TabsTrigger>
+          <TabsTrigger value="automation">Automation</TabsTrigger>
         </TabsList>
 
         <TabsContent value="templates">
@@ -38,6 +40,10 @@ export default function WorkflowManagement() {
 
         <TabsContent value="handoffs">
           <HandoffDashboard />
+        </TabsContent>
+
+        <TabsContent value="automation">
+          <HandoffAutomationPanel />
         </TabsContent>
       </Tabs>
     </div>

@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Check, X, ArrowRight } from "lucide-react";
 import { useHandoffs } from "@/hooks/useHandoffs";
 import { formatDistanceToNow } from "date-fns";
+import { HandoffChecklistManager } from "./HandoffChecklistManager";
 
 interface HandoffManagerProps {
   taskId?: string;
@@ -11,7 +12,7 @@ interface HandoffManagerProps {
 }
 
 export function HandoffManager({ taskId, projectId }: HandoffManagerProps) {
-  const { handoffs, acceptHandoff, rejectHandoff } = useHandoffs(taskId);
+  const { handoffs, acceptHandoff, rejectHandoff, fetchHandoffs } = useHandoffs(taskId);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -66,24 +67,12 @@ export function HandoffManager({ taskId, projectId }: HandoffManagerProps) {
                     </div>
 
                     {handoff.acceptance_checklist && handoff.acceptance_checklist.length > 0 && (
-                      <div className="space-y-2">
-                        <p className="text-sm font-medium">Acceptance Checklist:</p>
-                        <div className="space-y-1">
-                          {handoff.acceptance_checklist.map((item, index) => (
-                            <div key={index} className="flex items-center gap-2 text-sm">
-                              <div className={`h-4 w-4 rounded border flex items-center justify-center ${
-                                item.completed ? 'bg-primary border-primary' : 'border-input'
-                              }`}>
-                                {item.completed && <Check className="h-3 w-3 text-primary-foreground" />}
-                              </div>
-                              <span className={item.completed ? 'line-through text-muted-foreground' : ''}>
-                                {item.item}
-                                {item.required && <span className="text-destructive ml-1">*</span>}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
+                      <HandoffChecklistManager
+                        handoffId={handoff.id}
+                        checklist={handoff.acceptance_checklist}
+                        status={handoff.status}
+                        onChecklistUpdate={() => fetchHandoffs(taskId)}
+                      />
                     )}
 
                     <div className="flex items-center justify-between pt-2 border-t">

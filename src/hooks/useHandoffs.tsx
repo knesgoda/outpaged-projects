@@ -189,6 +189,51 @@ export const useHandoffs = (taskId?: string) => {
     }
   };
 
+  const updateChecklistItem = async (
+    handoffId: string,
+    itemIndex: number,
+    completed: boolean
+  ) => {
+    try {
+      // Get current handoff
+      const { data: handoff } = await supabase
+        .from("handoffs")
+        .select("acceptance_checklist")
+        .eq("id", handoffId)
+        .single();
+
+      if (!handoff) throw new Error("Handoff not found");
+
+      // Update checklist
+      const updatedChecklist = [...(handoff.acceptance_checklist as any[])];
+      updatedChecklist[itemIndex] = {
+        ...updatedChecklist[itemIndex],
+        completed,
+      };
+
+      const { error } = await supabase
+        .from("handoffs")
+        .update({ acceptance_checklist: updatedChecklist })
+        .eq("id", handoffId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Checklist item updated",
+      });
+
+      await fetchHandoffs(taskId);
+    } catch (error: any) {
+      console.error("Error updating checklist:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update checklist item",
+        variant: "destructive",
+      });
+    }
+  };
+
   useEffect(() => {
     if (taskId) {
       fetchHandoffs(taskId);
@@ -202,5 +247,6 @@ export const useHandoffs = (taskId?: string) => {
     createHandoff,
     acceptHandoff,
     rejectHandoff,
+    updateChecklistItem,
   };
 };
