@@ -623,6 +623,72 @@ export type Database = {
         }
         Relationships: []
       }
+      handoffs: {
+        Row: {
+          acceptance_checklist: Json | null
+          accepted_at: string | null
+          accepted_by: string | null
+          context_data: Json | null
+          created_at: string | null
+          created_by: string | null
+          exit_criteria: Json | null
+          from_team: string
+          handoff_type: string
+          id: string
+          source_item_id: string | null
+          status: string | null
+          target_item_id: string | null
+          to_team: string
+        }
+        Insert: {
+          acceptance_checklist?: Json | null
+          accepted_at?: string | null
+          accepted_by?: string | null
+          context_data?: Json | null
+          created_at?: string | null
+          created_by?: string | null
+          exit_criteria?: Json | null
+          from_team: string
+          handoff_type: string
+          id?: string
+          source_item_id?: string | null
+          status?: string | null
+          target_item_id?: string | null
+          to_team: string
+        }
+        Update: {
+          acceptance_checklist?: Json | null
+          accepted_at?: string | null
+          accepted_by?: string | null
+          context_data?: Json | null
+          created_at?: string | null
+          created_by?: string | null
+          exit_criteria?: Json | null
+          from_team?: string
+          handoff_type?: string
+          id?: string
+          source_item_id?: string | null
+          status?: string | null
+          target_item_id?: string | null
+          to_team?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "handoffs_source_item_id_fkey"
+            columns: ["source_item_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "handoffs_target_item_id_fkey"
+            columns: ["target_item_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       kanban_columns: {
         Row: {
           color: string | null
@@ -838,6 +904,59 @@ export type Database = {
         }
         Relationships: []
       }
+      project_custom_fields: {
+        Row: {
+          applies_to: string[] | null
+          created_at: string | null
+          field_type: string
+          formula: string | null
+          id: string
+          is_private: boolean | null
+          is_required: boolean | null
+          name: string
+          options: Json | null
+          position: number
+          project_id: string | null
+          rollup_config: Json | null
+        }
+        Insert: {
+          applies_to?: string[] | null
+          created_at?: string | null
+          field_type: string
+          formula?: string | null
+          id?: string
+          is_private?: boolean | null
+          is_required?: boolean | null
+          name: string
+          options?: Json | null
+          position: number
+          project_id?: string | null
+          rollup_config?: Json | null
+        }
+        Update: {
+          applies_to?: string[] | null
+          created_at?: string | null
+          field_type?: string
+          formula?: string | null
+          id?: string
+          is_private?: boolean | null
+          is_required?: boolean | null
+          name?: string
+          options?: Json | null
+          position?: number
+          project_id?: string | null
+          rollup_config?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_custom_fields_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       project_members: {
         Row: {
           id: string
@@ -866,6 +985,48 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_workflows: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          item_type: string
+          project_id: string | null
+          workflow_template_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          item_type: string
+          project_id?: string | null
+          workflow_template_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          item_type?: string
+          project_id?: string | null
+          workflow_template_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_workflows_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_workflows_workflow_template_id_fkey"
+            columns: ["workflow_template_id"]
+            isOneToOne: false
+            referencedRelation: "workflow_templates"
             referencedColumns: ["id"]
           },
         ]
@@ -1069,6 +1230,113 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      sla_definitions: {
+        Row: {
+          business_hours_only: boolean | null
+          created_at: string | null
+          escalation_rules: Json | null
+          id: string
+          name: string
+          pause_states: string[] | null
+          priority: string
+          project_id: string | null
+          resolution_time_minutes: number
+          response_time_minutes: number
+        }
+        Insert: {
+          business_hours_only?: boolean | null
+          created_at?: string | null
+          escalation_rules?: Json | null
+          id?: string
+          name: string
+          pause_states?: string[] | null
+          priority: string
+          project_id?: string | null
+          resolution_time_minutes: number
+          response_time_minutes: number
+        }
+        Update: {
+          business_hours_only?: boolean | null
+          created_at?: string | null
+          escalation_rules?: Json | null
+          id?: string
+          name?: string
+          pause_states?: string[] | null
+          priority?: string
+          project_id?: string | null
+          resolution_time_minutes?: number
+          response_time_minutes?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sla_definitions_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sla_tracking: {
+        Row: {
+          breached_at: string | null
+          created_at: string | null
+          escalation_level: number | null
+          id: string
+          paused_at: string | null
+          resolved_at: string | null
+          resumed_at: string | null
+          sla_definition_id: string | null
+          started_at: string | null
+          status: string | null
+          task_id: string | null
+          time_paused_minutes: number | null
+        }
+        Insert: {
+          breached_at?: string | null
+          created_at?: string | null
+          escalation_level?: number | null
+          id?: string
+          paused_at?: string | null
+          resolved_at?: string | null
+          resumed_at?: string | null
+          sla_definition_id?: string | null
+          started_at?: string | null
+          status?: string | null
+          task_id?: string | null
+          time_paused_minutes?: number | null
+        }
+        Update: {
+          breached_at?: string | null
+          created_at?: string | null
+          escalation_level?: number | null
+          id?: string
+          paused_at?: string | null
+          resolved_at?: string | null
+          resumed_at?: string | null
+          sla_definition_id?: string | null
+          started_at?: string | null
+          status?: string | null
+          task_id?: string | null
+          time_paused_minutes?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sla_tracking_sla_definition_id_fkey"
+            columns: ["sla_definition_id"]
+            isOneToOne: false
+            referencedRelation: "sla_definitions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sla_tracking_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       sprints: {
         Row: {
@@ -2209,6 +2477,144 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      workflow_states: {
+        Row: {
+          approval_roles: Json | null
+          color: string | null
+          created_at: string | null
+          description: string | null
+          id: string
+          name: string
+          position: number
+          required_fields: Json | null
+          requires_approval: boolean | null
+          state_category: string
+          workflow_template_id: string | null
+        }
+        Insert: {
+          approval_roles?: Json | null
+          color?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          position: number
+          required_fields?: Json | null
+          requires_approval?: boolean | null
+          state_category: string
+          workflow_template_id?: string | null
+        }
+        Update: {
+          approval_roles?: Json | null
+          color?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          position?: number
+          required_fields?: Json | null
+          requires_approval?: boolean | null
+          state_category?: string
+          workflow_template_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workflow_states_workflow_template_id_fkey"
+            columns: ["workflow_template_id"]
+            isOneToOne: false
+            referencedRelation: "workflow_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workflow_templates: {
+        Row: {
+          category: string
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          id: string
+          is_active: boolean | null
+          is_default: boolean | null
+          name: string
+          updated_at: string | null
+        }
+        Insert: {
+          category: string
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_default?: boolean | null
+          name: string
+          updated_at?: string | null
+        }
+        Update: {
+          category?: string
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_default?: boolean | null
+          name?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      workflow_transitions: {
+        Row: {
+          conditions: Json | null
+          created_at: string | null
+          from_state_id: string | null
+          id: string
+          post_actions: Json | null
+          to_state_id: string | null
+          workflow_template_id: string | null
+        }
+        Insert: {
+          conditions?: Json | null
+          created_at?: string | null
+          from_state_id?: string | null
+          id?: string
+          post_actions?: Json | null
+          to_state_id?: string | null
+          workflow_template_id?: string | null
+        }
+        Update: {
+          conditions?: Json | null
+          created_at?: string | null
+          from_state_id?: string | null
+          id?: string
+          post_actions?: Json | null
+          to_state_id?: string | null
+          workflow_template_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workflow_transitions_from_state_id_fkey"
+            columns: ["from_state_id"]
+            isOneToOne: false
+            referencedRelation: "workflow_states"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workflow_transitions_to_state_id_fkey"
+            columns: ["to_state_id"]
+            isOneToOne: false
+            referencedRelation: "workflow_states"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workflow_transitions_workflow_template_id_fkey"
+            columns: ["workflow_template_id"]
+            isOneToOne: false
+            referencedRelation: "workflow_templates"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
