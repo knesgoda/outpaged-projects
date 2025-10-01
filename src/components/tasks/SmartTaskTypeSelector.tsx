@@ -16,7 +16,7 @@ export interface SmartTaskTypeOption {
   icon: string;
   description: string;
   hierarchy_level: "initiative" | "epic" | "story" | "task" | "subtask";
-  task_type: "story" | "epic" | "initiative" | "task" | "subtask" | "bug" | "feature_request" | "design";
+  task_type: "story" | "epic" | "initiative" | "task" | "subtask" | "bug" | "feature_request" | "design" | "idea" | "request" | "incident" | "change" | "test" | "risk";
 }
 
 export const SMART_TASK_TYPE_OPTIONS: SmartTaskTypeOption[] = [
@@ -83,6 +83,54 @@ export const SMART_TASK_TYPE_OPTIONS: SmartTaskTypeOption[] = [
     description: "Design or UX work",
     hierarchy_level: "task",
     task_type: "design"
+  },
+  {
+    id: "idea",
+    label: "Idea",
+    icon: "💡",
+    description: "New concept or suggestion",
+    hierarchy_level: "task",
+    task_type: "idea"
+  },
+  {
+    id: "request",
+    label: "Request",
+    icon: "📝",
+    description: "Feature or service request",
+    hierarchy_level: "task",
+    task_type: "request"
+  },
+  {
+    id: "incident",
+    label: "Incident",
+    icon: "🚨",
+    description: "Production issue or outage",
+    hierarchy_level: "task",
+    task_type: "incident"
+  },
+  {
+    id: "change",
+    label: "Change",
+    icon: "🔄",
+    description: "Change request or modification",
+    hierarchy_level: "task",
+    task_type: "change"
+  },
+  {
+    id: "test",
+    label: "Test",
+    icon: "🧪",
+    description: "Test case or QA task",
+    hierarchy_level: "task",
+    task_type: "test"
+  },
+  {
+    id: "risk",
+    label: "Risk",
+    icon: "⚠️",
+    description: "Identified risk or concern",
+    hierarchy_level: "task",
+    task_type: "risk"
   }
 ];
 

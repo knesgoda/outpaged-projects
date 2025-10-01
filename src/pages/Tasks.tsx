@@ -42,7 +42,7 @@ interface TaskType {
   status: 'todo' | 'in_progress' | 'done' | 'in_review';
   priority: 'low' | 'medium' | 'high' | 'urgent';
   hierarchy_level: 'initiative' | 'epic' | 'story' | 'task' | 'subtask';
-  task_type: 'bug' | 'feature_request' | 'design';
+  task_type: 'bug' | 'feature_request' | 'design' | 'story' | 'epic' | 'initiative' | 'task' | 'subtask' | 'idea' | 'request' | 'incident' | 'change' | 'test' | 'risk';
   parent_id?: string;
   assignee_id?: string;
   reporter_id: string;

@@ -24,7 +24,7 @@ export interface StandardizedTask {
   status: string;
   priority: "low" | "medium" | "high" | "urgent";
   hierarchy_level: "initiative" | "epic" | "story" | "task" | "subtask";
-  task_type: "story" | "epic" | "initiative" | "task" | "subtask" | "bug" | "feature_request" | "design";
+  task_type: "story" | "epic" | "initiative" | "task" | "subtask" | "bug" | "feature_request" | "design" | "idea" | "request" | "incident" | "change" | "test" | "risk";
   parent_id?: string;
   project_id?: string;
   swimlane_id?: string;

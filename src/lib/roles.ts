@@ -6,7 +6,13 @@ export type UserRole =
   | "project_lead"
   | "contributor"
   | "requester"
-  | "guest";
+  | "guest"
+  | "super_admin"
+  | "admin"
+  | "developer"
+  | "designer"
+  | "qa"
+  | "product_manager";
 
 const LEGACY_ADMIN_EMAILS = ["kevin@outpaged.com", "carlos@outpaged.com"];
 
@@ -35,4 +41,9 @@ export function isLegacyAdmin(email: string | undefined | null) {
   }
 
   return LEGACY_ADMIN_EMAILS.includes(email.toLowerCase());
+}
+
+export function checkUserRole(role: UserRole): boolean {
+  // This is a client-side helper - actual enforcement happens server-side
+  return true; // Implement based on your auth context
 }

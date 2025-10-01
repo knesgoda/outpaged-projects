@@ -179,6 +179,39 @@ export type Database = {
         }
         Relationships: []
       }
+      audit_log: {
+        Row: {
+          action: string
+          changes: Json
+          created_at: string
+          entity_id: string
+          entity_type: string
+          id: string
+          metadata: Json | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          changes?: Json
+          created_at?: string
+          entity_id: string
+          entity_type: string
+          id?: string
+          metadata?: Json | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          changes?: Json
+          created_at?: string
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          metadata?: Json | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       automation_actions: {
         Row: {
           action_config: Json
@@ -481,6 +514,81 @@ export type Database = {
         }
         Relationships: []
       }
+      custom_field_definitions: {
+        Row: {
+          applies_to: string[] | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          field_type: Database["public"]["Enums"]["custom_field_type"]
+          formula: string | null
+          id: string
+          is_private: boolean | null
+          is_required: boolean | null
+          name: string
+          options: Json | null
+          position: number
+          project_id: string | null
+          rollup_config: Json | null
+          updated_at: string
+          validation_rules: Json | null
+          workspace_id: string | null
+        }
+        Insert: {
+          applies_to?: string[] | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          field_type: Database["public"]["Enums"]["custom_field_type"]
+          formula?: string | null
+          id?: string
+          is_private?: boolean | null
+          is_required?: boolean | null
+          name: string
+          options?: Json | null
+          position?: number
+          project_id?: string | null
+          rollup_config?: Json | null
+          updated_at?: string
+          validation_rules?: Json | null
+          workspace_id?: string | null
+        }
+        Update: {
+          applies_to?: string[] | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          field_type?: Database["public"]["Enums"]["custom_field_type"]
+          formula?: string | null
+          id?: string
+          is_private?: boolean | null
+          is_required?: boolean | null
+          name?: string
+          options?: Json | null
+          position?: number
+          project_id?: string | null
+          rollup_config?: Json | null
+          updated_at?: string
+          validation_rules?: Json | null
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "custom_field_definitions_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "custom_field_definitions_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       custom_fields: {
         Row: {
           created_at: string
@@ -683,6 +791,48 @@ export type Database = {
           {
             foreignKeyName: "handoffs_target_item_id_fkey"
             columns: ["target_item_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      item_custom_field_values: {
+        Row: {
+          created_at: string
+          field_definition_id: string
+          id: string
+          item_id: string
+          updated_at: string
+          value: Json
+        }
+        Insert: {
+          created_at?: string
+          field_definition_id: string
+          id?: string
+          item_id: string
+          updated_at?: string
+          value?: Json
+        }
+        Update: {
+          created_at?: string
+          field_definition_id?: string
+          id?: string
+          item_id?: string
+          updated_at?: string
+          value?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "item_custom_field_values_field_definition_id_fkey"
+            columns: ["field_definition_id"]
+            isOneToOne: false
+            referencedRelation: "custom_field_definitions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "item_custom_field_values_item_id_fkey"
+            columns: ["item_id"]
             isOneToOne: false
             referencedRelation: "tasks"
             referencedColumns: ["id"]
@@ -1040,9 +1190,13 @@ export type Database = {
           id: string
           name: string
           owner_id: string
+          project_key: string | null
+          settings: Json | null
+          space_id: string | null
           start_date: string | null
           status: Database["public"]["Enums"]["project_status"] | null
           updated_at: string
+          workspace_id: string | null
         }
         Insert: {
           code?: string | null
@@ -1052,9 +1206,13 @@ export type Database = {
           id?: string
           name: string
           owner_id: string
+          project_key?: string | null
+          settings?: Json | null
+          space_id?: string | null
           start_date?: string | null
           status?: Database["public"]["Enums"]["project_status"] | null
           updated_at?: string
+          workspace_id?: string | null
         }
         Update: {
           code?: string | null
@@ -1064,11 +1222,30 @@ export type Database = {
           id?: string
           name?: string
           owner_id?: string
+          project_key?: string | null
+          settings?: Json | null
+          space_id?: string | null
           start_date?: string | null
           status?: Database["public"]["Enums"]["project_status"] | null
           updated_at?: string
+          workspace_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "projects_space_id_fkey"
+            columns: ["space_id"]
+            isOneToOne: false
+            referencedRelation: "spaces"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "projects_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       rate_limits: {
         Row: {
@@ -1334,6 +1511,53 @@ export type Database = {
             columns: ["task_id"]
             isOneToOne: false
             referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      spaces: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          name: string
+          settings: Json | null
+          slug: string
+          space_type: string | null
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          settings?: Json | null
+          slug: string
+          space_type?: string | null
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          settings?: Json | null
+          slug?: string
+          space_type?: string | null
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "spaces_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
             referencedColumns: ["id"]
           },
         ]
@@ -1758,6 +1982,7 @@ export type Database = {
           created_at: string
           created_by: string
           id: string
+          metadata: Json | null
           notes: string | null
           relationship_type: Database["public"]["Enums"]["task_relationship_type"]
           source_task_id: string
@@ -1767,6 +1992,7 @@ export type Database = {
           created_at?: string
           created_by: string
           id?: string
+          metadata?: Json | null
           notes?: string | null
           relationship_type: Database["public"]["Enums"]["task_relationship_type"]
           source_task_id: string
@@ -1776,6 +2002,7 @@ export type Database = {
           created_at?: string
           created_by?: string
           id?: string
+          metadata?: Json | null
           notes?: string | null
           relationship_type?: Database["public"]["Enums"]["task_relationship_type"]
           source_task_id?: string
@@ -2675,6 +2902,39 @@ export type Database = {
           },
         ]
       }
+      workspaces: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          name: string
+          settings: Json | null
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          settings?: Json | null
+          slug: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          settings?: Json | null
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       project_members_with_profiles: {
@@ -2714,6 +2974,13 @@ export type Database = {
       }
       can_delete_default_project: {
         Args: { project_id: string }
+        Returns: boolean
+      }
+      check_user_role: {
+        Args: {
+          required_role: Database["public"]["Enums"]["team_role"]
+          user_id: string
+        }
         Returns: boolean
       }
       execute_automation_rule: {
@@ -2787,6 +3054,17 @@ export type Database = {
       is_verified_admin_email: {
         Args: { email: string }
         Returns: boolean
+      }
+      log_audit_event: {
+        Args: {
+          p_action: string
+          p_changes?: Json
+          p_entity_id: string
+          p_entity_type: string
+          p_metadata?: Json
+          p_user_id: string
+        }
+        Returns: string
       }
       log_security_event: {
         Args: {
@@ -2900,6 +3178,12 @@ export type Database = {
         | "initiative"
         | "task"
         | "subtask"
+        | "idea"
+        | "request"
+        | "incident"
+        | "change"
+        | "test"
+        | "risk"
       team_role:
         | "admin"
         | "project_manager"
@@ -2908,6 +3192,12 @@ export type Database = {
         | "qa"
         | "viewer"
         | "super_admin"
+        | "org_admin"
+        | "space_admin"
+        | "project_lead"
+        | "contributor"
+        | "requester"
+        | "guest"
       ticket_priority: "low" | "medium" | "high" | "urgent"
       ticket_status:
         | "open"
@@ -3139,6 +3429,12 @@ export const Constants = {
         "initiative",
         "task",
         "subtask",
+        "idea",
+        "request",
+        "incident",
+        "change",
+        "test",
+        "risk",
       ],
       team_role: [
         "admin",
@@ -3148,6 +3444,12 @@ export const Constants = {
         "qa",
         "viewer",
         "super_admin",
+        "org_admin",
+        "space_admin",
+        "project_lead",
+        "contributor",
+        "requester",
+        "guest",
       ],
       ticket_priority: ["low", "medium", "high", "urgent"],
       ticket_status: [
