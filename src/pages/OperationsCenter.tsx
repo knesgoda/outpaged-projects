@@ -15,6 +15,11 @@ import { ResiliencePerformancePanel } from "@/components/operations/ResiliencePe
 import { MobileOfflinePanel } from "@/components/operations/MobileOfflinePanel";
 import { AdminGovernancePanel } from "@/components/operations/AdminGovernancePanel";
 import { SloDashboardPanel } from "@/components/operations/SloDashboardPanel";
+import { IncidentManager } from "@/components/incidents/IncidentManager";
+import { OnCallSchedule } from "@/components/oncall/OnCallSchedule";
+import { ServiceRegistry } from "@/components/services/ServiceRegistry";
+import { ReleaseManager } from "@/components/releases/ReleaseManager";
+import { VelocityTracker } from "@/components/analytics/VelocityTracker";
 
 export default function OperationsCenter() {
   return (
@@ -26,12 +31,44 @@ export default function OperationsCenter() {
         </p>
       </div>
 
-      <Tabs defaultValue="phase4" className="space-y-6">
+      <Tabs defaultValue="overview" className="space-y-6">
         <TabsList>
-          <TabsTrigger value="phase4">Phase 4 • Incident & Change</TabsTrigger>
-          <TabsTrigger value="phase5">Phase 5 • Portfolio & Docs</TabsTrigger>
-          <TabsTrigger value="phase6">Phase 6 • Resilience & Governance</TabsTrigger>
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="incidents">Incidents</TabsTrigger>
+          <TabsTrigger value="oncall">On-Call</TabsTrigger>
+          <TabsTrigger value="services">Services</TabsTrigger>
+          <TabsTrigger value="releases">Releases</TabsTrigger>
+          <TabsTrigger value="velocity">Velocity</TabsTrigger>
+          <TabsTrigger value="phase4">Phase 4</TabsTrigger>
+          <TabsTrigger value="phase5">Phase 5</TabsTrigger>
+          <TabsTrigger value="phase6">Phase 6</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="overview">
+          <div className="grid gap-6">
+            <OpsDashboardPanel />
+          </div>
+        </TabsContent>
+
+        <TabsContent value="incidents">
+          <IncidentManager />
+        </TabsContent>
+
+        <TabsContent value="oncall">
+          <OnCallSchedule />
+        </TabsContent>
+
+        <TabsContent value="services">
+          <ServiceRegistry />
+        </TabsContent>
+
+        <TabsContent value="releases">
+          <ReleaseManager />
+        </TabsContent>
+
+        <TabsContent value="velocity">
+          <VelocityTracker />
+        </TabsContent>
 
         <TabsContent value="phase4" className="space-y-6">
           <IncidentManagementPanel />
