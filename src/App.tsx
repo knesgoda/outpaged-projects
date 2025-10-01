@@ -41,6 +41,8 @@ import Login from "./pages/Login";
 import AuthCallback from "./pages/AuthCallback";
 import NotFound from "./pages/NotFound";
 import OperationsCenter from "./pages/OperationsCenter";
+import WorkflowManagement from "./pages/WorkflowManagement";
+import Portfolio from "./pages/Portfolio";
 import { OutpagedThemeProvider } from "./components/theme/OutpagedThemeProvider";
 import AppShell from "./layouts/AppShell";
 import { SlackProvider } from "./components/integrations/SlackProvider";
@@ -108,6 +110,8 @@ const App = () => (
                               <Route path="reports" element={<Reports />} />
                               <Route path="templates" element={<ProjectTemplates />} />
                               <Route path="automation" element={<Automation />} />
+                              <Route path="workflows" element={<WorkflowManagement />} />
+                              <Route path="portfolio" element={<Portfolio />} />
                               <Route path="search" element={<Search />} />
                               <Route path="settings" element={<Settings />} />
                               <Route path="team" element={<TeamDirectory />} />

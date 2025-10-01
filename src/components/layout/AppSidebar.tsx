@@ -31,7 +31,10 @@ import {
   Building2,
   Headphones,
   Shield,
-  Activity
+  Activity,
+  GitBranch,
+  Briefcase,
+  Zap
 } from "lucide-react";
 
 interface NavItem {
@@ -77,6 +80,24 @@ const navigationItems = [
     url: "/dashboard/tickets",
     icon: Headphones,
     description: "Customer support and ticketing"
+  },
+  {
+    title: "Workflows",
+    url: "/dashboard/workflows",
+    icon: GitBranch,
+    description: "Custom workflows and handoffs"
+  },
+  {
+    title: "Automation",
+    url: "/dashboard/automation",
+    icon: Zap,
+    description: "Automation rules and triggers"
+  },
+  {
+    title: "Portfolio",
+    url: "/dashboard/portfolio",
+    icon: Briefcase,
+    description: "Portfolio and initiative planning"
   },
   {
     title: "Operations",
