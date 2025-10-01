@@ -2,6 +2,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EstimationTools } from "@/components/planning/EstimationTools";
 import { WorkloadView } from "@/components/views/WorkloadView";
 import { DependencyGraph } from "@/components/views/DependencyGraph";
+import { SprintBoard } from "@/components/views/SprintBoard";
+import { PlanningPoker } from "@/components/planning/PlanningPoker";
 
 export default function Planning() {
   return (
@@ -16,12 +18,42 @@ export default function Planning() {
       <Tabs defaultValue="estimation" className="space-y-6">
         <TabsList>
           <TabsTrigger value="estimation">Estimation Tools</TabsTrigger>
+          <TabsTrigger value="poker">Planning Poker</TabsTrigger>
+          <TabsTrigger value="sprint">Sprint Board</TabsTrigger>
           <TabsTrigger value="workload">Team Workload</TabsTrigger>
           <TabsTrigger value="dependencies">Dependencies</TabsTrigger>
         </TabsList>
 
         <TabsContent value="estimation">
           <EstimationTools />
+        </TabsContent>
+
+        <TabsContent value="poker">
+          <PlanningPoker
+            taskTitle="Implement OAuth 2.0 Integration"
+            taskDescription="Add support for Google and GitHub OAuth providers"
+            participants={[
+              { id: "current-user", name: "You" },
+              { id: "user-2", name: "Alice" },
+              { id: "user-3", name: "Bob" },
+            ]}
+          />
+        </TabsContent>
+
+        <TabsContent value="sprint">
+          <SprintBoard
+            sprints={[
+              {
+                id: "sprint-1",
+                name: "Sprint 1",
+                start_date: "2025-10-01",
+                end_date: "2025-10-14",
+                goal: "Complete core features",
+                status: "active",
+              },
+            ]}
+            tasks={[]}
+          />
         </TabsContent>
 
         <TabsContent value="workload">

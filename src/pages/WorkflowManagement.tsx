@@ -7,6 +7,7 @@ import { WorkflowTemplateSelector } from "@/components/workflows/WorkflowTemplat
 import { ProjectSelector } from "@/components/kanban/ProjectSelector";
 import { HandoffAutomationPanel } from "@/components/workflows/HandoffAutomationPanel";
 import { WorkflowRulesManager } from "@/components/workflows/WorkflowRulesManager";
+import { WorkflowStateManager } from "@/components/workflows/WorkflowStateManager";
 
 export default function WorkflowManagement() {
   return (
@@ -21,6 +22,7 @@ export default function WorkflowManagement() {
       <Tabs defaultValue="templates" className="space-y-6">
         <TabsList>
           <TabsTrigger value="templates">Pre-built Templates</TabsTrigger>
+          <TabsTrigger value="team-workflows">Team Workflows</TabsTrigger>
           <TabsTrigger value="visual">Visual Builder</TabsTrigger>
           <TabsTrigger value="custom">Custom Builder</TabsTrigger>
           <TabsTrigger value="handoffs">Handoffs</TabsTrigger>
@@ -30,6 +32,21 @@ export default function WorkflowManagement() {
 
         <TabsContent value="templates">
           <WorkflowTemplateSelector />
+        </TabsContent>
+
+        <TabsContent value="team-workflows">
+          <Tabs defaultValue="marketing" className="space-y-4">
+            <TabsList>
+              <TabsTrigger value="marketing">Marketing</TabsTrigger>
+              <TabsTrigger value="operations">Operations</TabsTrigger>
+            </TabsList>
+            <TabsContent value="marketing">
+              <WorkflowStateManager workflowType="marketing" />
+            </TabsContent>
+            <TabsContent value="operations">
+              <WorkflowStateManager workflowType="operations" />
+            </TabsContent>
+          </Tabs>
         </TabsContent>
 
         <TabsContent value="visual">
