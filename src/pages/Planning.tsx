@@ -4,6 +4,8 @@ import { WorkloadView } from "@/components/views/WorkloadView";
 import { DependencyGraph } from "@/components/views/DependencyGraph";
 import { SprintBoard } from "@/components/views/SprintBoard";
 import { PlanningPoker } from "@/components/planning/PlanningPoker";
+import { CapacityPlanner } from "@/components/planning/CapacityPlanner";
+import { SprintMetrics } from "@/components/planning/SprintMetrics";
 
 export default function Planning() {
   return (
@@ -18,6 +20,8 @@ export default function Planning() {
       <Tabs defaultValue="estimation" className="space-y-6">
         <TabsList>
           <TabsTrigger value="estimation">Estimation Tools</TabsTrigger>
+          <TabsTrigger value="capacity">Capacity Planning</TabsTrigger>
+          <TabsTrigger value="metrics">Sprint Metrics</TabsTrigger>
           <TabsTrigger value="poker">Planning Poker</TabsTrigger>
           <TabsTrigger value="sprint">Sprint Board</TabsTrigger>
           <TabsTrigger value="workload">Team Workload</TabsTrigger>
@@ -26,6 +30,14 @@ export default function Planning() {
 
         <TabsContent value="estimation">
           <EstimationTools />
+        </TabsContent>
+
+        <TabsContent value="capacity">
+          <CapacityPlanner />
+        </TabsContent>
+
+        <TabsContent value="metrics">
+          <SprintMetrics />
         </TabsContent>
 
         <TabsContent value="poker">

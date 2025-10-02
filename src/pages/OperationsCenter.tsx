@@ -19,6 +19,8 @@ import { IncidentManager } from "@/components/incidents/IncidentManager";
 import { OnCallSchedule } from "@/components/oncall/OnCallSchedule";
 import { ServiceRegistry } from "@/components/services/ServiceRegistry";
 import { ReleaseManager } from "@/components/releases/ReleaseManager";
+import { ReleaseNotesGenerator } from "@/components/releases/ReleaseNotesGenerator";
+import { ReleaseReadinessDashboard } from "@/components/releases/ReleaseReadinessDashboard";
 import { VelocityTracker } from "@/components/analytics/VelocityTracker";
 
 export default function OperationsCenter() {
@@ -62,8 +64,10 @@ export default function OperationsCenter() {
           <ServiceRegistry />
         </TabsContent>
 
-        <TabsContent value="releases">
+        <TabsContent value="releases" className="space-y-6">
+          <ReleaseReadinessDashboard />
           <ReleaseManager />
+          <ReleaseNotesGenerator />
         </TabsContent>
 
         <TabsContent value="velocity">
