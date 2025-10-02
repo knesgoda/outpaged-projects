@@ -1,18 +1,16 @@
-import React, { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { CustomDashboard } from '@/components/analytics/CustomDashboard';
+import { AdvancedDashboardBuilder } from '@/components/analytics/AdvancedDashboardBuilder';
+import { MetricsCatalog } from '@/components/analytics/MetricsCatalog';
+import { DashboardTemplates } from '@/components/analytics/DashboardTemplates';
 import { TaskVelocityChart } from '@/components/analytics/TaskVelocityChart';
 import { BurndownChart } from '@/components/analytics/BurndownChart';
 import { TeamPerformanceWidget } from '@/components/analytics/TeamPerformanceWidget';
 import { KPITracker } from '@/components/analytics/KPITracker';
 import { ReportsGenerator } from '@/components/analytics/ReportsGenerator';
-import { AnalyticsDashboard } from '@/components/monitoring/AnalyticsDashboard';
-import { BarChart3, TrendingUp, Users, Target, FileText, Activity } from 'lucide-react';
-import { useAuth } from '@/hooks/useAuth';
+import { BarChart3, TrendingUp, Users, Target, FileText, Activity, Database, Layout } from 'lucide-react';
 
 export default function Analytics() {
-  const { user } = useAuth();
   const [activeProject, setActiveProject] = useState<string | undefined>();
 
   return (
@@ -21,16 +19,24 @@ export default function Analytics() {
         <div>
           <h1 className="text-3xl font-bold">Analytics & Reporting</h1>
           <p className="text-muted-foreground">
-            Comprehensive insights into team performance and project metrics
+            Advanced analytics with semantic metrics and interactive dashboards
           </p>
         </div>
       </div>
 
-      <Tabs defaultValue="dashboard" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-6">
-          <TabsTrigger value="dashboard" className="flex items-center gap-2">
+      <Tabs defaultValue="builder" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-8">
+          <TabsTrigger value="builder" className="flex items-center gap-2">
+            <Layout className="w-4 h-4" />
+            Builder
+          </TabsTrigger>
+          <TabsTrigger value="templates" className="flex items-center gap-2">
             <BarChart3 className="w-4 h-4" />
-            Dashboard
+            Templates
+          </TabsTrigger>
+          <TabsTrigger value="metrics" className="flex items-center gap-2">
+            <Database className="w-4 h-4" />
+            Metrics
           </TabsTrigger>
           <TabsTrigger value="velocity" className="flex items-center gap-2">
             <TrendingUp className="w-4 h-4" />
@@ -54,68 +60,28 @@ export default function Analytics() {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="dashboard" className="space-y-6">
-          <div className="grid gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Custom Dashboard</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <CustomDashboard projectId={activeProject} />
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardHeader>
-                <CardTitle>System Analytics</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <AnalyticsDashboard />
-              </CardContent>
-            </Card>
-          </div>
+        <TabsContent value="builder" className="space-y-6">
+          <AdvancedDashboardBuilder projectId={activeProject} />
+        </TabsContent>
+
+        <TabsContent value="templates" className="space-y-6">
+          <DashboardTemplates />
+        </TabsContent>
+
+        <TabsContent value="metrics" className="space-y-6">
+          <MetricsCatalog />
         </TabsContent>
 
         <TabsContent value="velocity" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Task Velocity Analysis</CardTitle>
-              <p className="text-sm text-muted-foreground">
-                Track team velocity and sprint performance over time
-              </p>
-            </CardHeader>
-            <CardContent>
-              <TaskVelocityChart projectId={activeProject} />
-            </CardContent>
-          </Card>
+          <TaskVelocityChart projectId={activeProject} />
         </TabsContent>
 
         <TabsContent value="burndown" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Sprint Burndown Analysis</CardTitle>
-              <p className="text-sm text-muted-foreground">
-                Monitor sprint progress and identify potential issues
-              </p>
-            </CardHeader>
-            <CardContent>
-              <BurndownChart projectId={activeProject} />
-            </CardContent>
-          </Card>
+          <BurndownChart projectId={activeProject} />
         </TabsContent>
 
         <TabsContent value="team" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Team Performance Insights</CardTitle>
-              <p className="text-sm text-muted-foreground">
-                Analyze individual and team performance metrics
-              </p>
-            </CardHeader>
-            <CardContent>
-              <TeamPerformanceWidget projectId={activeProject} />
-            </CardContent>
-          </Card>
+          <TeamPerformanceWidget projectId={activeProject} />
         </TabsContent>
 
         <TabsContent value="kpis" className="space-y-6">
