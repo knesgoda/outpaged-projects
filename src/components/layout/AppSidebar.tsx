@@ -205,6 +205,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       description: "Performance monitoring and optimization"
     },
     {
+      title: "QA & Testing",
+      url: "/dashboard/qa",
+      icon: CheckSquare,
+      description: "Quality assurance and testing dashboard"
+    },
+    {
       title: "Enterprise Control",
       url: "/dashboard/enterprise",
       icon: Building2,
