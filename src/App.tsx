@@ -46,6 +46,7 @@ import Portfolio from "./pages/Portfolio";
 import Planning from "./pages/Planning";
 import Integrations from "./pages/Integrations";
 import Documents from "./pages/Documents";
+import MobileView from "./pages/MobileView";
 import { OutpagedThemeProvider } from "./components/theme/OutpagedThemeProvider";
 import AppShell from "./layouts/AppShell";
 import { SlackProvider } from "./components/integrations/SlackProvider";
@@ -140,6 +141,7 @@ const App = () => (
                                 }
                               />
                               <Route path="operations" element={<OperationsCenter />} />
+                              <Route path="mobile" element={<MobileView />} />
                             </Route>
 
                             {/* Catch-all route */}

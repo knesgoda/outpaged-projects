@@ -37,7 +37,8 @@ import {
   Zap,
   Calculator,
   Plug,
-  FileCode
+  FileCode,
+  Smartphone
 } from "lucide-react";
 
 interface NavItem {
@@ -161,6 +162,12 @@ const navigationItems = [
     url: "/dashboard/notifications",
     icon: Bell,
     description: "Updates and alerts"
+  },
+  {
+    title: "Mobile",
+    url: "/dashboard/mobile",
+    icon: Smartphone,
+    description: "Mobile inbox and approvals"
   },
   {
     title: "Search",
