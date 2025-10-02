@@ -38,7 +38,8 @@ import {
   Calculator,
   Plug,
   FileCode,
-  Smartphone
+  Smartphone,
+  Settings2
 } from "lucide-react";
 
 interface NavItem {
@@ -190,6 +191,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
   // Add enterprise navigation for admins
   const enterpriseItems = isAdmin ? [
+    {
+      title: "Admin Center",
+      url: "/dashboard/admin",
+      icon: Settings2,
+      description: "Comprehensive admin console and governance"
+    },
     {
       title: "Enterprise Control",
       url: "/dashboard/enterprise",

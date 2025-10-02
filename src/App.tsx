@@ -47,6 +47,7 @@ import Planning from "./pages/Planning";
 import Integrations from "./pages/Integrations";
 import Documents from "./pages/Documents";
 import MobileView from "./pages/MobileView";
+import AdminCenter from "./pages/AdminCenter";
 import { OutpagedThemeProvider } from "./components/theme/OutpagedThemeProvider";
 import AppShell from "./layouts/AppShell";
 import { SlackProvider } from "./components/integrations/SlackProvider";
@@ -137,6 +138,14 @@ const App = () => (
                                 element={
                                   <AdminGuard>
                                     <EnterpriseControlPanel />
+                                  </AdminGuard>
+                                }
+                              />
+                              <Route
+                                path="admin"
+                                element={
+                                  <AdminGuard>
+                                    <AdminCenter />
                                   </AdminGuard>
                                 }
                               />
