@@ -8,7 +8,12 @@ import { BurndownChart } from '@/components/analytics/BurndownChart';
 import { TeamPerformanceWidget } from '@/components/analytics/TeamPerformanceWidget';
 import { KPITracker } from '@/components/analytics/KPITracker';
 import { ReportsGenerator } from '@/components/analytics/ReportsGenerator';
-import { BarChart3, TrendingUp, Users, Target, FileText, Activity, Database, Layout } from 'lucide-react';
+import { ControlChart } from '@/components/analytics/ControlChart';
+import { SankeyDiagram } from '@/components/analytics/SankeyDiagram';
+import { AlertManager } from '@/components/analytics/AlertManager';
+import { ReportScheduler } from '@/components/analytics/ReportScheduler';
+import { DORAMetrics } from '@/components/analytics/DORAMetrics';
+import { BarChart3, TrendingUp, Users, Target, FileText, Activity, Database, Layout, Bell, Calendar, Zap, GitBranch } from 'lucide-react';
 
 export default function Analytics() {
   const [activeProject, setActiveProject] = useState<string | undefined>();
@@ -25,7 +30,7 @@ export default function Analytics() {
       </div>
 
       <Tabs defaultValue="builder" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-8">
+        <TabsList className="grid w-full grid-cols-12">
           <TabsTrigger value="builder" className="flex items-center gap-2">
             <Layout className="w-4 h-4" />
             Builder
@@ -38,13 +43,29 @@ export default function Analytics() {
             <Database className="w-4 h-4" />
             Metrics
           </TabsTrigger>
+          <TabsTrigger value="dora" className="flex items-center gap-2">
+            <Zap className="w-4 h-4" />
+            DORA
+          </TabsTrigger>
+          <TabsTrigger value="control" className="flex items-center gap-2">
+            <Activity className="w-4 h-4" />
+            Control
+          </TabsTrigger>
+          <TabsTrigger value="flow" className="flex items-center gap-2">
+            <GitBranch className="w-4 h-4" />
+            Flow
+          </TabsTrigger>
+          <TabsTrigger value="alerts" className="flex items-center gap-2">
+            <Bell className="w-4 h-4" />
+            Alerts
+          </TabsTrigger>
+          <TabsTrigger value="schedules" className="flex items-center gap-2">
+            <Calendar className="w-4 h-4" />
+            Schedules
+          </TabsTrigger>
           <TabsTrigger value="velocity" className="flex items-center gap-2">
             <TrendingUp className="w-4 h-4" />
             Velocity
-          </TabsTrigger>
-          <TabsTrigger value="burndown" className="flex items-center gap-2">
-            <Activity className="w-4 h-4" />
-            Burndown
           </TabsTrigger>
           <TabsTrigger value="team" className="flex items-center gap-2">
             <Users className="w-4 h-4" />
@@ -72,12 +93,28 @@ export default function Analytics() {
           <MetricsCatalog />
         </TabsContent>
 
-        <TabsContent value="velocity" className="space-y-6">
-          <TaskVelocityChart projectId={activeProject} />
+        <TabsContent value="dora" className="space-y-6">
+          <DORAMetrics projectId={activeProject} />
         </TabsContent>
 
-        <TabsContent value="burndown" className="space-y-6">
-          <BurndownChart projectId={activeProject} />
+        <TabsContent value="control" className="space-y-6">
+          <ControlChart projectId={activeProject} />
+        </TabsContent>
+
+        <TabsContent value="flow" className="space-y-6">
+          <SankeyDiagram projectId={activeProject} />
+        </TabsContent>
+
+        <TabsContent value="alerts" className="space-y-6">
+          <AlertManager projectId={activeProject} />
+        </TabsContent>
+
+        <TabsContent value="schedules" className="space-y-6">
+          <ReportScheduler projectId={activeProject} />
+        </TabsContent>
+
+        <TabsContent value="velocity" className="space-y-6">
+          <TaskVelocityChart projectId={activeProject} />
         </TabsContent>
 
         <TabsContent value="team" className="space-y-6">
