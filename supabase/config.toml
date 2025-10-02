@@ -1,1 +1,13 @@
 project_id = "aoubfejqyifdefyrbjip"
+
+[functions.github-webhook]
+verify_jwt = false
+
+[functions.slack-notify]
+verify_jwt = true
+
+[functions.import-jira]
+verify_jwt = true
+
+[functions.export-tasks]
+verify_jwt = true

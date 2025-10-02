@@ -6,9 +6,11 @@ import { GoogleCalendarIntegration } from "@/components/integrations/GoogleCalen
 import { FigmaIntegration } from "@/components/integrations/FigmaIntegration";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Github, MessageSquare, Calendar, Palette, Webhook } from "lucide-react";
+import { Github, MessageSquare, Calendar, Palette, Webhook, Download, Upload } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import { WebhookManager } from "@/components/integrations/WebhookManager";
+import { JiraImporter } from "@/components/import-export/JiraImporter";
+import { TaskExporter } from "@/components/import-export/TaskExporter";
 
 export default function Integrations() {
   const [searchParams] = useSearchParams();
@@ -54,6 +56,22 @@ export default function Integrations() {
       icon: Webhook,
       status: 'available',
       component: <WebhookManager />,
+    },
+    {
+      id: 'import',
+      name: 'Import',
+      description: 'Import from Jira, CSV, and other tools',
+      icon: Download,
+      status: 'available',
+      component: <JiraImporter projectId={projectId} />,
+    },
+    {
+      id: 'export',
+      name: 'Export',
+      description: 'Export tasks to CSV, JSON, Markdown',
+      icon: Upload,
+      status: 'available',
+      component: <TaskExporter projectId={projectId} />,
     },
   ];
 
