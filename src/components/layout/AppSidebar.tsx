@@ -39,7 +39,8 @@ import {
   Plug,
   FileCode,
   Smartphone,
-  Settings2
+  Settings2,
+  Gauge
 } from "lucide-react";
 
 interface NavItem {
@@ -196,6 +197,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       url: "/dashboard/admin",
       icon: Settings2,
       description: "Comprehensive admin console and governance"
+    },
+    {
+      title: "Performance",
+      url: "/dashboard/performance",
+      icon: Gauge,
+      description: "Performance monitoring and optimization"
     },
     {
       title: "Enterprise Control",
