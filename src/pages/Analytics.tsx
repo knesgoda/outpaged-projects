@@ -13,7 +13,13 @@ import { SankeyDiagram } from '@/components/analytics/SankeyDiagram';
 import { AlertManager } from '@/components/analytics/AlertManager';
 import { ReportScheduler } from '@/components/analytics/ReportScheduler';
 import { DORAMetrics } from '@/components/analytics/DORAMetrics';
-import { BarChart3, TrendingUp, Users, Target, FileText, Activity, Database, Layout, Bell, Calendar, Zap, GitBranch } from 'lucide-react';
+import { DSLEditor } from '@/components/analytics/DSLEditor';
+import { SQLConsole } from '@/components/analytics/SQLConsole';
+import { PeriodComparison } from '@/components/analytics/PeriodComparison';
+import { CohortAnalysis } from '@/components/analytics/CohortAnalysis';
+import { ForecastingEngine } from '@/components/analytics/ForecastingEngine';
+import { ScenarioPlanner } from '@/components/analytics/ScenarioPlanner';
+import { BarChart3, TrendingUp, Users, Target, FileText, Activity, Database, Layout, Bell, Calendar, Zap, GitBranch, Code, LineChart, Users2, TrendingUpIcon, Calculator } from 'lucide-react';
 
 export default function Analytics() {
   const [activeProject, setActiveProject] = useState<string | undefined>();
@@ -30,56 +36,82 @@ export default function Analytics() {
       </div>
 
       <Tabs defaultValue="builder" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-12">
-          <TabsTrigger value="builder" className="flex items-center gap-2">
-            <Layout className="w-4 h-4" />
-            Builder
-          </TabsTrigger>
-          <TabsTrigger value="templates" className="flex items-center gap-2">
-            <BarChart3 className="w-4 h-4" />
-            Templates
-          </TabsTrigger>
-          <TabsTrigger value="metrics" className="flex items-center gap-2">
-            <Database className="w-4 h-4" />
-            Metrics
-          </TabsTrigger>
-          <TabsTrigger value="dora" className="flex items-center gap-2">
-            <Zap className="w-4 h-4" />
-            DORA
-          </TabsTrigger>
-          <TabsTrigger value="control" className="flex items-center gap-2">
-            <Activity className="w-4 h-4" />
-            Control
-          </TabsTrigger>
-          <TabsTrigger value="flow" className="flex items-center gap-2">
-            <GitBranch className="w-4 h-4" />
-            Flow
-          </TabsTrigger>
-          <TabsTrigger value="alerts" className="flex items-center gap-2">
-            <Bell className="w-4 h-4" />
-            Alerts
-          </TabsTrigger>
-          <TabsTrigger value="schedules" className="flex items-center gap-2">
-            <Calendar className="w-4 h-4" />
-            Schedules
-          </TabsTrigger>
-          <TabsTrigger value="velocity" className="flex items-center gap-2">
-            <TrendingUp className="w-4 h-4" />
-            Velocity
-          </TabsTrigger>
-          <TabsTrigger value="team" className="flex items-center gap-2">
-            <Users className="w-4 h-4" />
-            Team
-          </TabsTrigger>
-          <TabsTrigger value="kpis" className="flex items-center gap-2">
-            <Target className="w-4 h-4" />
-            KPIs
-          </TabsTrigger>
-          <TabsTrigger value="reports" className="flex items-center gap-2">
-            <FileText className="w-4 h-4" />
-            Reports
-          </TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto">
+          <TabsList className="inline-flex w-auto min-w-full">
+            <TabsTrigger value="builder" className="flex items-center gap-2 whitespace-nowrap">
+              <Layout className="w-4 h-4" />
+              Builder
+            </TabsTrigger>
+            <TabsTrigger value="templates" className="flex items-center gap-2 whitespace-nowrap">
+              <BarChart3 className="w-4 h-4" />
+              Templates
+            </TabsTrigger>
+            <TabsTrigger value="metrics" className="flex items-center gap-2 whitespace-nowrap">
+              <Database className="w-4 h-4" />
+              Metrics
+            </TabsTrigger>
+            <TabsTrigger value="dora" className="flex items-center gap-2 whitespace-nowrap">
+              <Zap className="w-4 h-4" />
+              DORA
+            </TabsTrigger>
+            <TabsTrigger value="control" className="flex items-center gap-2 whitespace-nowrap">
+              <Activity className="w-4 h-4" />
+              Control
+            </TabsTrigger>
+            <TabsTrigger value="flow" className="flex items-center gap-2 whitespace-nowrap">
+              <GitBranch className="w-4 h-4" />
+              Flow
+            </TabsTrigger>
+            <TabsTrigger value="alerts" className="flex items-center gap-2 whitespace-nowrap">
+              <Bell className="w-4 h-4" />
+              Alerts
+            </TabsTrigger>
+            <TabsTrigger value="schedules" className="flex items-center gap-2 whitespace-nowrap">
+              <Calendar className="w-4 h-4" />
+              Schedules
+            </TabsTrigger>
+            <TabsTrigger value="dsl" className="flex items-center gap-2 whitespace-nowrap">
+              <Code className="w-4 h-4" />
+              DSL
+            </TabsTrigger>
+            <TabsTrigger value="sql" className="flex items-center gap-2 whitespace-nowrap">
+              <Database className="w-4 h-4" />
+              SQL
+            </TabsTrigger>
+            <TabsTrigger value="compare" className="flex items-center gap-2 whitespace-nowrap">
+              <LineChart className="w-4 h-4" />
+              Compare
+            </TabsTrigger>
+            <TabsTrigger value="cohorts" className="flex items-center gap-2 whitespace-nowrap">
+              <Users2 className="w-4 h-4" />
+              Cohorts
+            </TabsTrigger>
+            <TabsTrigger value="forecast" className="flex items-center gap-2 whitespace-nowrap">
+              <TrendingUpIcon className="w-4 h-4" />
+              Forecast
+            </TabsTrigger>
+            <TabsTrigger value="scenario" className="flex items-center gap-2 whitespace-nowrap">
+              <Calculator className="w-4 h-4" />
+              Scenario
+            </TabsTrigger>
+            <TabsTrigger value="velocity" className="flex items-center gap-2 whitespace-nowrap">
+              <TrendingUp className="w-4 h-4" />
+              Velocity
+            </TabsTrigger>
+            <TabsTrigger value="team" className="flex items-center gap-2 whitespace-nowrap">
+              <Users className="w-4 h-4" />
+              Team
+            </TabsTrigger>
+            <TabsTrigger value="kpis" className="flex items-center gap-2 whitespace-nowrap">
+              <Target className="w-4 h-4" />
+              KPIs
+            </TabsTrigger>
+            <TabsTrigger value="reports" className="flex items-center gap-2 whitespace-nowrap">
+              <FileText className="w-4 h-4" />
+              Reports
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="builder" className="space-y-6">
           <AdvancedDashboardBuilder projectId={activeProject} />
@@ -111,6 +143,30 @@ export default function Analytics() {
 
         <TabsContent value="schedules" className="space-y-6">
           <ReportScheduler projectId={activeProject} />
+        </TabsContent>
+
+        <TabsContent value="dsl" className="space-y-6">
+          <DSLEditor projectId={activeProject} />
+        </TabsContent>
+
+        <TabsContent value="sql" className="space-y-6">
+          <SQLConsole projectId={activeProject} />
+        </TabsContent>
+
+        <TabsContent value="compare" className="space-y-6">
+          <PeriodComparison projectId={activeProject} />
+        </TabsContent>
+
+        <TabsContent value="cohorts" className="space-y-6">
+          <CohortAnalysis projectId={activeProject} />
+        </TabsContent>
+
+        <TabsContent value="forecast" className="space-y-6">
+          <ForecastingEngine projectId={activeProject} />
+        </TabsContent>
+
+        <TabsContent value="scenario" className="space-y-6">
+          <ScenarioPlanner projectId={activeProject} />
         </TabsContent>
 
         <TabsContent value="velocity" className="space-y-6">
