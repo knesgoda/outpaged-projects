@@ -211,10 +211,10 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       description: "Enterprise management and analytics"
     },
     {
-      title: "Security Dashboard",
+      title: "Security & Compliance",
       url: "/dashboard/security",
       icon: Shield,
-      description: "Security monitoring and configuration"
+      description: "Security policies, audit logs, and compliance"
     }
   ] : [];
 
