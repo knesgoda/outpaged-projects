@@ -9,27 +9,50 @@ interface DORAMetricsProps {
 }
 
 export function DORAMetrics({ projectId }: DORAMetricsProps) {
-  const { data: doraData, isLoading } = useQuery({
+  const { data: doraData = [], isLoading, error } = useQuery({
     queryKey: ['dora-metrics', projectId],
     queryFn: async () => {
-      let query = supabase
-        .from('mv_dora_metrics' as any)
-        .select('*')
-        .order('week_start', { ascending: false })
-        .limit(12);
-      
-      if (projectId) {
-        query = query.eq('project_id', projectId);
+      try {
+        let query = supabase
+          .from('mv_dora_metrics' as any)
+          .select('*')
+          .order('week_start', { ascending: false })
+          .limit(12);
+        
+        if (projectId) {
+          query = query.eq('project_id', projectId);
+        }
+        
+        const { data, error } = await query;
+        if (error) {
+          console.warn('DORA metrics view not available:', error.message);
+          return [];
+        }
+        return (data || []).reverse();
+      } catch (error) {
+        console.warn('Failed to fetch DORA metrics:', error);
+        return [];
       }
-      
-      const { data, error } = await query;
-      if (error) throw error;
-      return (data || []).reverse();
     },
+    retry: false,
   });
 
   if (isLoading) {
     return <div className="text-muted-foreground">Loading DORA metrics...</div>;
+  }
+
+  if (error || !doraData || doraData.length === 0) {
+    return (
+      <Card>
+        <CardContent className="py-12 text-center">
+          <Zap className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+          <h3 className="text-lg font-semibold mb-2">DORA Metrics Not Available</h3>
+          <p className="text-sm text-muted-foreground">
+            DORA metrics data is not yet available. Ensure the analytics database tables are initialized.
+          </p>
+        </CardContent>
+      </Card>
+    );
   }
 
   const latestWeek = doraData?.[doraData.length - 1] as any || {};

@@ -32,33 +32,51 @@ export function AlertManager({ projectId }: AlertManagerProps) {
     is_active: true,
   });
 
-  const { data: alerts, isLoading } = useQuery({
+  const { data: alerts = [], isLoading } = useQuery({
     queryKey: ['alert-definitions', projectId],
     queryFn: async () => {
-      const query = supabase
-        .from('alert_definitions' as any)
-        .select('*, metrics_catalog(*), alert_history(*)');
-      
-      if (projectId) {
-        query.eq('project_id', projectId);
+      try {
+        const query = supabase
+          .from('alert_definitions' as any)
+          .select('*, metrics_catalog(*), alert_history(*)');
+        
+        if (projectId) {
+          query.eq('project_id', projectId);
+        }
+        
+        const { data, error } = await query.order('created_at', { ascending: false });
+        if (error) {
+          console.warn('Alert definitions table not available:', error.message);
+          return [];
+        }
+        return data || [];
+      } catch (error) {
+        console.warn('Failed to fetch alerts:', error);
+        return [];
       }
-      
-      const { data, error } = await query.order('created_at', { ascending: false });
-      if (error) throw error;
-      return data;
     },
+    retry: false,
   });
 
-  const { data: metrics } = useQuery({
+  const { data: metrics = [] } = useQuery({
     queryKey: ['metrics-catalog'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('metrics_catalog' as any)
-        .select('*')
-        .eq('is_active', true);
-      if (error) throw error;
-      return data;
+      try {
+        const { data, error } = await supabase
+          .from('metrics_catalog' as any)
+          .select('*')
+          .eq('is_active', true);
+        if (error) {
+          console.warn('Metrics catalog not available:', error.message);
+          return [];
+        }
+        return data || [];
+      } catch (error) {
+        console.warn('Failed to fetch metrics:', error);
+        return [];
+      }
     },
+    retry: false,
   });
 
   const createAlert = useMutation({

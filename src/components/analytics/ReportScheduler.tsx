@@ -32,29 +32,47 @@ export function ReportScheduler({ projectId }: ReportSchedulerProps) {
     is_active: true,
   });
 
-  const { data: schedules, isLoading } = useQuery({
+  const { data: schedules = [], isLoading } = useQuery({
     queryKey: ['report-schedules', projectId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('report_schedules' as any)
-        .select('*, dashboards(*), report_deliveries(*)')
-        .order('created_at', { ascending: false });
-      
-      if (error) throw error;
-      return data;
+      try {
+        const { data, error } = await supabase
+          .from('report_schedules' as any)
+          .select('*, dashboards(*), report_deliveries(*)')
+          .order('created_at', { ascending: false });
+        
+        if (error) {
+          console.warn('Report schedules table not available:', error.message);
+          return [];
+        }
+        return data || [];
+      } catch (error) {
+        console.warn('Failed to fetch report schedules:', error);
+        return [];
+      }
     },
+    retry: false,
   });
 
-  const { data: dashboards } = useQuery({
+  const { data: dashboards = [] } = useQuery({
     queryKey: ['dashboards'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('dashboards' as any)
-        .select('*')
-        .order('name');
-      if (error) throw error;
-      return data;
+      try {
+        const { data, error } = await supabase
+          .from('dashboards' as any)
+          .select('*')
+          .order('name');
+        if (error) {
+          console.warn('Dashboards table not available:', error.message);
+          return [];
+        }
+        return data || [];
+      } catch (error) {
+        console.warn('Failed to fetch dashboards:', error);
+        return [];
+      }
     },
+    retry: false,
   });
 
   const createSchedule = useMutation({

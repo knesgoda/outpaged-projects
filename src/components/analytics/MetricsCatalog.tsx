@@ -107,10 +107,15 @@ export function MetricsCatalog() {
         .eq('is_active', true)
         .order('category', { ascending: true });
 
-      if (error) throw error;
+      if (error) {
+        console.warn('Metrics catalog table not available:', error.message);
+        setMetrics([]);
+        return;
+      }
       setMetrics((data as any[]) || []);
     } catch (error) {
-      console.error('Error loading metrics:', error);
+      console.warn('Error loading metrics:', error);
+      setMetrics([]);
     }
   };
 
