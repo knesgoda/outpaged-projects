@@ -1,20 +1,21 @@
 import { ReactNode } from "react";
-import { Navigate, useLocation, useMatches } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { enableDomainAllowlist } from "@/lib/featureFlags";
 
 const OUTPAGED_DOMAIN = "@outpaged.com";
+
+const PUBLIC_ROUTES = ['/login', '/auth/callback', '/'];
 
 type AuthGateProps = {
   children: ReactNode;
 };
 
 export default function AuthGate({ children }: AuthGateProps) {
-  const matches = useMatches();
   const location = useLocation();
   const { user, loading } = useAuth();
 
-  const isPublicRoute = matches.some((match) => (match.handle as any)?.public === true);
+  const isPublicRoute = PUBLIC_ROUTES.includes(location.pathname);
 
   if (isPublicRoute) {
     return <>{children}</>;
