@@ -1,5 +1,8 @@
 import { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ErrorBoundary } from '@/components/ui/error-boundary';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { AlertCircle } from 'lucide-react';
 import { AdvancedDashboardBuilder } from '@/components/analytics/AdvancedDashboardBuilder';
 import { MetricsCatalog } from '@/components/analytics/MetricsCatalog';
 import { DashboardTemplates } from '@/components/analytics/DashboardTemplates';
@@ -21,19 +24,33 @@ import { ForecastingEngine } from '@/components/analytics/ForecastingEngine';
 import { ScenarioPlanner } from '@/components/analytics/ScenarioPlanner';
 import { BarChart3, TrendingUp, Users, Target, FileText, Activity, Database, Layout, Bell, Calendar, Zap, GitBranch, Code, LineChart, Users2, TrendingUpIcon, Calculator } from 'lucide-react';
 
+function AnalyticsErrorFallback() {
+  return (
+    <Alert variant="destructive">
+      <AlertCircle className="h-4 w-4" />
+      <AlertTitle>Analytics Unavailable</AlertTitle>
+      <AlertDescription>
+        Some analytics features are temporarily unavailable. Database tables may need to be initialized.
+        Please contact your administrator if this persists.
+      </AlertDescription>
+    </Alert>
+  );
+}
+
 export default function Analytics() {
   const [activeProject, setActiveProject] = useState<string | undefined>();
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Analytics & Reporting</h1>
-          <p className="text-muted-foreground">
-            Advanced analytics with semantic metrics and interactive dashboards
-          </p>
+    <ErrorBoundary fallback={<AnalyticsErrorFallback />}>
+      <div className="container mx-auto p-6 space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold">Analytics & Reporting</h1>
+            <p className="text-muted-foreground">
+              Advanced analytics with semantic metrics and interactive dashboards
+            </p>
+          </div>
         </div>
-      </div>
 
       <Tabs defaultValue="builder" className="space-y-6">
         <div className="overflow-x-auto">
@@ -185,6 +202,7 @@ export default function Analytics() {
           <ReportsGenerator projectId={activeProject} />
         </TabsContent>
       </Tabs>
-    </div>
+      </div>
+    </ErrorBoundary>
   );
 }
