@@ -1,4 +1,14 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type Dispatch,
+  type SetStateAction,
+} from "react";
 import { Profile } from "@/types";
 import { getMyProfile } from "@/services/profile";
 
@@ -16,19 +26,38 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   const refresh = useCallback(async () => {
+    if (!isMountedRef.current) {
+      return;
+    }
+
     setLoading(true);
     try {
       const data = await getMyProfile();
+      if (!isMountedRef.current) {
+        return;
+      }
       setProfile(data);
       setError(null);
     } catch (err) {
       console.error("Failed to load profile", err);
+      if (!isMountedRef.current) {
+        return;
+      }
       setProfile(null);
       setError(err instanceof Error ? err : new Error(String(err)));
     } finally {
-      setLoading(false);
+      if (isMountedRef.current) {
+        setLoading(false);
+      }
     }
   }, []);
 
