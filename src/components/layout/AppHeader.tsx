@@ -73,8 +73,8 @@ export function AppHeader() {
 
   if (enableOutpagedBrand) {
     const navItems = [
-      { label: "Home", href: "/dashboard" },
-      { label: "Projects", href: "/dashboard/projects" },
+      { label: "Home", href: "/" },
+      { label: "Projects", href: "/projects" },
       { label: "Reports", href: "/reports" },
     ];
 
