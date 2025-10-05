@@ -39,7 +39,7 @@ export default function Settings() {
   const { restartOnboarding } = useOnboarding();
   const { toast } = useToast();
   const { isAdmin } = useIsAdmin();
-  const { setProfile } = useProfileState();
+  const { setProfile, error: profileError } = useProfileState();
   const [isLoading, setIsLoading] = useState(false);
   const [exportDialog, setExportDialog] = useState(false);
   const [importDialog, setImportDialog] = useState(false);
@@ -186,6 +186,11 @@ export default function Settings() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            {profileError ? (
+              <p className="text-sm text-muted-foreground">
+                Profile data is unavailable. You can still update your info below.
+              </p>
+            ) : null}
             {/* Avatar */}
             <div className="flex items-center gap-4">
               <Avatar className="h-16 w-16">

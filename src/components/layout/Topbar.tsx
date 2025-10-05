@@ -65,8 +65,8 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
   const { settings: branding } = useWorkspaceBranding();
   const brandLogo = branding?.brand_logo_url ?? null;
   const brandName = branding?.brand_name ?? "Workspace";
-  const { profile } = useProfileState();
-  const displayName = profile?.full_name?.trim() || user?.email || "Guest";
+  const { profile, error: profileError } = useProfileState();
+  const displayName = profile?.full_name?.trim() || user?.email || (profileError ? "Account" : "Guest");
   const avatarUrl = profile?.avatar_url ?? undefined;
   const avatarFallback = (displayName || "User").charAt(0).toUpperCase();
 
