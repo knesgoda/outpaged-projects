@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -42,13 +42,37 @@ export default function Settings() {
   const [isLoading, setIsLoading] = useState(false);
   const [exportDialog, setExportDialog] = useState(false);
   const [importDialog, setImportDialog] = useState(false);
+  const [uploading, setUploading] = useState(false);
   
   // Profile settings
   const [profileData, setProfileData] = useState({
     full_name: '',
     avatar_url: '',
-    role: 'developer' as 'developer' | 'admin' | 'project_manager' | 'designer' | 'qa' | 'viewer' | 'super_admin',
+    role: 'developer' as 'admin' | 'contributor' | 'designer' | 'developer' | 'guest' | 'org_admin' | 'project_lead' | 'project_manager' | 'qa' | 'requester' | 'space_admin' | 'super_admin' | 'viewer',
   });
+
+  // Load profile data on mount
+  useEffect(() => {
+    const fetchProfile = async () => {
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (data && !error) {
+        setProfileData({
+          full_name: data.full_name || '',
+          avatar_url: data.avatar_url || '',
+          role: data.role || 'developer',
+        });
+      }
+    };
+
+    fetchProfile();
+  }, [user]);
 
   // Notification preferences
   const [notifications, setNotifications] = useState({
@@ -74,6 +98,67 @@ export default function Settings() {
     work_hours_end: '17:00',
   });
 
+  const handleAvatarUpload = async (file: File) => {
+    if (!user) return;
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: "File too large",
+        description: "Please upload an image smaller than 5MB",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setUploading(true);
+    try {
+      // Delete old avatar if exists
+      if (profileData.avatar_url) {
+        const oldPath = profileData.avatar_url.split('/').slice(-2).join('/');
+        await supabase.storage.from('avatars').remove([oldPath]);
+      }
+
+      // Upload new avatar
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(fileName, file);
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(fileName);
+
+      // Update profile with new avatar URL
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ avatar_url: publicUrl })
+        .eq('user_id', user.id);
+
+      if (updateError) throw updateError;
+
+      setProfileData(prev => ({ ...prev, avatar_url: publicUrl }));
+      toast({
+        title: "Success",
+        description: "Profile picture updated successfully",
+      });
+    } catch (error: any) {
+      console.error('Error uploading avatar:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to upload profile picture",
+        variant: "destructive",
+      });
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const handleSaveProfile = async () => {
     if (!user) return;
     
@@ -81,8 +166,11 @@ export default function Settings() {
     try {
       const { error } = await supabase
         .from('profiles')
-        .update(profileData)
-        .eq('user_id', user.id);
+        .upsert({
+          user_id: user.id,
+          full_name: profileData.full_name,
+          role: profileData.role,
+        });
 
       if (error) throw error;
 
@@ -134,12 +222,10 @@ export default function Settings() {
               <div className="space-y-2">
                 <Label className="text-sm">Profile Picture</Label>
                 <FileUpload
-                  onFileUpload={async (file) => {
-                    // Handle avatar upload
-                    toast({ title: "Feature coming soon", description: "Avatar upload will be implemented" });
-                  }}
+                  onFileUpload={handleAvatarUpload}
                   accept="image/*"
-                  maxSizeMB={2}
+                  maxSizeMB={5}
+                  disabled={uploading}
                 />
               </div>
             </div>
@@ -173,7 +259,7 @@ export default function Settings() {
                 value={profileData.role}
                 onValueChange={(value) => setProfileData(prev => ({ 
                   ...prev, 
-                  role: value as 'developer' | 'admin' | 'project_manager' | 'designer' | 'qa' | 'viewer' | 'super_admin'
+                  role: value as any
                 }))}
               >
                 <SelectTrigger>
