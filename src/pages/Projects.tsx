@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -14,28 +14,37 @@ import { useToast } from "@/hooks/use-toast";
 import { useProjectNavigation } from "@/hooks/useProjectNavigation";
 import { format } from "date-fns";
 
+interface ProjectListItem {
+  id: string;
+  name: string;
+  code?: string | null;
+  description?: string | null;
+  status?: string | null;
+  created_at?: string;
+  end_date?: string | null;
+}
+
 export default function Projects() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const navigate = useNavigate();
-  const { navigateToProject, navigateToProjectSettings } = useProjectNavigation();
+  const { navigateToProject, navigateToProjectSettings, getProjectUrl } = useProjectNavigation();
   const [isProjectDialogOpen, setIsProjectDialogOpen] = useState(false);
-  const [projects, setProjects] = useState<any[]>([]);
+  const [projects, setProjects] = useState<ProjectListItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchProjects = async () => {
     if (!user) return;
-    
+
     try {
       setLoading(true);
       const { data, error } = await supabase
         .from('projects')
-        .select('*')
+        .select('id, name, code, description, status, created_at, end_date')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
 
-      setProjects(data || []);
+      setProjects((data as ProjectListItem[]) || []);
     } catch (error: any) {
       console.error('Error fetching projects:', error);
       toast({
@@ -56,7 +65,7 @@ export default function Projects() {
     fetchProjects(); // Refresh the projects list
   };
 
-  const handleProjectClick = (project: any) => {
+  const handleProjectClick = (project: ProjectListItem) => {
     navigateToProject(project);
   };
 
@@ -124,8 +133,8 @@ export default function Projects() {
       {/* Projects Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {projects.map((project) => (
-          <Card 
-            key={project.id} 
+          <Card
+            key={project.id}
             className="hover:shadow-soft transition-all cursor-pointer"
             onClick={() => handleProjectClick(project)}
           >
@@ -133,7 +142,15 @@ export default function Projects() {
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-2">
                   <FolderOpen className="w-5 h-5 text-primary" />
-                  <CardTitle className="text-lg text-foreground">{project.name}</CardTitle>
+                  <CardTitle className="text-lg text-foreground">
+                    <Link
+                      to={getProjectUrl(project)}
+                      data-testid={`project-link-${project.id}`}
+                      className="hover:underline"
+                    >
+                      {project.name}
+                    </Link>
+                  </CardTitle>
                 </div>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
