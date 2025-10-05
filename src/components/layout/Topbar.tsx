@@ -23,6 +23,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Menu, Plus, Search } from "lucide-react";
 import { NAV } from "@/lib/navConfig";
 import { getCurrentUser } from "@/lib/auth";
+import { useProfile } from "@/state/profile";
 import { PROJECT_TABS } from "@/components/common/TabBar";
 
 function findNavLabel(path: string) {
@@ -59,6 +60,7 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const user = getCurrentUser();
+  const { profile, error: profileError } = useProfile();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   const actions = useMemo(
@@ -106,6 +108,15 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
     setIsDialogOpen(false);
     navigate(path);
   };
+
+  const fallbackLabel = user?.email ?? "Guest";
+  const hasProfile = Boolean(profile) && !profileError;
+  const displayName = hasProfile
+    ? profile.full_name?.trim() || fallbackLabel
+    : fallbackLabel;
+  const displayInitial = hasProfile
+    ? (profile.full_name?.trim() ?? profile.role ?? fallbackLabel).charAt(0).toUpperCase()
+    : fallbackLabel.charAt(0).toUpperCase();
 
   const canCreate = user?.role !== "viewer";
 
@@ -166,9 +177,9 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="gap-2">
               <Avatar className="h-8 w-8">
-                <AvatarFallback>{user?.email?.charAt(0).toUpperCase() ?? "U"}</AvatarFallback>
+                <AvatarFallback>{displayInitial || "U"}</AvatarFallback>
               </Avatar>
-              <span className="hidden text-sm font-medium sm:inline">{user?.email ?? "Guest"}</span>
+              <span className="hidden text-sm font-medium sm:inline">{displayName}</span>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">

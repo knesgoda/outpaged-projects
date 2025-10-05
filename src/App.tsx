@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter } from "react-router-dom";
 import { AuthProvider } from "./hooks/useAuth";
+import { ProfileProvider } from "./state/profile";
 import { SecurityProvider } from "./components/security/SecurityProvider";
 import { AccessibilityProvider } from "./components/accessibility/AccessibilityProvider";
 import { OperationsProvider } from "./components/operations/OperationsProvider";
@@ -36,27 +37,29 @@ const App = () => (
   <OutpagedThemeProvider>
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <SecurityProvider>
-          <AccessibilityProvider>
-            <SlackProvider>
-              <ReleaseProvider>
-                <OperationsProvider>
-                  <MarketingProvider>
-                    <TooltipProvider>
-                      <Toaster />
-                      <Sonner />
-                      <BrowserRouter>
-                        <CommandPalette />
-                        <KeyboardShortcuts />
-                        <AppRoutes />
-                      </BrowserRouter>
-                    </TooltipProvider>
-                  </MarketingProvider>
-                </OperationsProvider>
-              </ReleaseProvider>
-            </SlackProvider>
-          </AccessibilityProvider>
-        </SecurityProvider>
+        <ProfileProvider>
+          <SecurityProvider>
+            <AccessibilityProvider>
+              <SlackProvider>
+                <ReleaseProvider>
+                  <OperationsProvider>
+                    <MarketingProvider>
+                      <TooltipProvider>
+                        <Toaster />
+                        <Sonner />
+                        <BrowserRouter>
+                          <CommandPalette />
+                          <KeyboardShortcuts />
+                          <AppRoutes />
+                        </BrowserRouter>
+                      </TooltipProvider>
+                    </MarketingProvider>
+                  </OperationsProvider>
+                </ReleaseProvider>
+              </SlackProvider>
+            </AccessibilityProvider>
+          </SecurityProvider>
+        </ProfileProvider>
       </AuthProvider>
     </QueryClientProvider>
   </OutpagedThemeProvider>
