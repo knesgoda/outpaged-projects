@@ -51,6 +51,9 @@ import NewDashboardPage from "@/pages/ia/NewDashboardPage";
 import Login from "@/pages/Login";
 import AuthCallback from "@/pages/AuthCallback";
 import NotFound from "@/pages/NotFound";
+import Profile from "@/pages/Profile";
+import Settings from "@/pages/Settings";
+import SearchPage from "@/pages/Search";
 
 const Suspended = ({ children }: { children: React.ReactNode }) => (
   <Suspense fallback={<div className="p-6">Loading...</div>}>
@@ -105,6 +108,9 @@ export function AppRoutes() {
         { path: "people", element: <PeoplePage /> },
         { path: "time", element: <TimeTrackingPage /> },
         { path: "tasks/new", element: <NewTaskPage /> },
+        { path: "profile", element: <Profile /> },
+        { path: "settings", element: <Settings /> },
+        { path: "search", element: <SearchPage /> },
         { path: "admin", element: <AdminHomePage /> },
         { path: "admin/workspace", element: <AdminWorkspacePage /> },
         { path: "admin/permissions", element: <AdminPermissionsPage /> },

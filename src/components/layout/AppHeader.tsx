@@ -64,7 +64,7 @@ export function AppHeader() {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
-      navigate(`/dashboard/search?q=${encodeURIComponent(searchQuery.trim())}`);
+      navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
     }
   };
 
@@ -73,9 +73,9 @@ export function AppHeader() {
 
   if (enableOutpagedBrand) {
     const navItems = [
-      { label: "Home", href: "/dashboard" },
-      { label: "Projects", href: "/dashboard/projects" },
-      { label: "Reports", href: "/dashboard/reports" },
+      { label: "Home", href: "/" },
+      { label: "Projects", href: "/projects" },
+      { label: "Reports", href: "/reports" },
     ];
 
     return (
@@ -83,7 +83,7 @@ export function AppHeader() {
         <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-6">
           <div className="flex items-center gap-8">
             <button
-              onClick={() => navigate("/dashboard")}
+              onClick={() => navigate("/")}
               className="flex items-center gap-3 rounded-full text-left"
             >
               <OutpagedLogomark className="h-9 w-9 drop-shadow-[0_6px_12px_rgba(15,23,42,0.18)]" aria-hidden />
@@ -175,11 +175,11 @@ export function AppHeader() {
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => navigate("/dashboard/profile")}>
+                  <DropdownMenuItem onClick={() => navigate("/profile")}>
                     <User className="mr-2 h-4 w-4" />
                     Profile
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => navigate("/dashboard/settings")}>
+                  <DropdownMenuItem onClick={() => navigate("/settings")}>
                     <Settings className="mr-2 h-4 w-4" />
                     Settings
                   </DropdownMenuItem>
@@ -212,7 +212,7 @@ export function AppHeader() {
           {/* Logo */}
           <div
             className="flex items-center gap-2 cursor-pointer"
-            onClick={() => navigate(user ? "/dashboard" : "/")}
+            onClick={() => navigate("/")}
           >
             <div className="w-8 h-8 bg-gradient-primary rounded-lg flex items-center justify-center">
               <span className="text-white font-bold text-sm">PM</span>
@@ -300,11 +300,11 @@ export function AppHeader() {
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => navigate("/dashboard/profile")}>
+                  <DropdownMenuItem onClick={() => navigate("/profile")}>
                     <User className="w-4 h-4 mr-2" />
                     Profile
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => navigate("/dashboard/settings")}>
+                  <DropdownMenuItem onClick={() => navigate("/settings")}>
                     <Settings className="w-4 h-4 mr-2" />
                     Settings
                   </DropdownMenuItem>
