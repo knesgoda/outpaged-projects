@@ -2902,6 +2902,76 @@ export type Database = {
           },
         ]
       }
+      reports: {
+        Row: {
+          config: Json
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          owner: string
+          updated_at: string
+        }
+        Insert: {
+          config?: Json
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          owner: string
+          updated_at?: string
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          owner?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reports_owner_fkey"
+            columns: ["owner"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workspace_settings: {
+        Row: {
+          brand_logo_url: string | null
+          brand_name: string | null
+          id: string
+          owner: string
+          updated_at: string
+        }
+        Insert: {
+          brand_logo_url?: string | null
+          brand_name?: string | null
+          id?: string
+          owner: string
+          updated_at?: string
+        }
+        Update: {
+          brand_logo_url?: string | null
+          brand_name?: string | null
+          id?: string
+          owner?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspace_settings_owner_fkey"
+            columns: ["owner"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       workspaces: {
         Row: {
           created_at: string

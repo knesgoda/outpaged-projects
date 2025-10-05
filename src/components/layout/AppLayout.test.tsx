@@ -1,3 +1,14 @@
+jest.mock("@/services/settings", () => ({
+  getWorkspaceSettings: jest.fn().mockResolvedValue(null),
+  upsertWorkspaceSettings: jest.fn(),
+}));
+
+jest.mock("@/services/profile", () => ({
+  getMyProfile: jest.fn().mockResolvedValue(null),
+  updateMyProfile: jest.fn(),
+  uploadMyAvatar: jest.fn(),
+}));
+
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { AppLayout } from "./AppLayout";
@@ -35,16 +46,16 @@ describe("AppLayout", () => {
       </MemoryRouter>
     );
 
-  it("renders the home page content", () => {
+  it("renders the home page content", async () => {
     renderWithRoute("/");
-    expect(screen.getByRole("heading", { name: "Home" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Home" })).toBeInTheDocument();
   });
 
-  it("renders secondary routes without crashing", () => {
+  it("renders secondary routes without crashing", async () => {
     renderWithRoute("/projects");
-    expect(screen.getByRole("heading", { name: "Projects" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Projects" })).toBeInTheDocument();
 
     renderWithRoute("/help");
-    expect(screen.getByRole("heading", { name: "Help" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Help" })).toBeInTheDocument();
   });
 });

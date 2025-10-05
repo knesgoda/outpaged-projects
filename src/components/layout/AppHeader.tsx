@@ -75,7 +75,7 @@ export function AppHeader() {
     const navItems = [
       { label: "Home", href: "/dashboard" },
       { label: "Projects", href: "/dashboard/projects" },
-      { label: "Reports", href: "/dashboard/reports" },
+      { label: "Reports", href: "/reports" },
     ];
 
     return (

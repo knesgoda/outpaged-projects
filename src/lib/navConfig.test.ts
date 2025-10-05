@@ -31,6 +31,11 @@ describe("navConfig", () => {
     expect(ids).toEqual(TOP_LEVEL_IDS);
   });
 
+  it("links the reports nav item to /reports", () => {
+    const reports = NAV.find((item) => item.id === "reports");
+    expect(reports?.path).toBe("/reports");
+  });
+
   it("hides admin entries for managers", () => {
     const managerNav = getNavForRole("manager");
     const topLevelIds = managerNav.map((item) => item.id);

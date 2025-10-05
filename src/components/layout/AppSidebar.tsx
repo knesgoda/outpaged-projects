@@ -131,7 +131,7 @@ const navigationItems = [
   },
   {
     title: "Reports",
-    url: "/dashboard/reports",
+    url: "/reports",
     icon: BarChart3,
     description: "Analytics and insights"
   },

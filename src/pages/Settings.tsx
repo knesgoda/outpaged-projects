@@ -5,7 +5,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
@@ -32,13 +31,15 @@ import { useAuth } from '@/hooks/useAuth';
 import { useOnboarding } from '@/hooks/useOnboarding';
 import { useToast } from '@/hooks/use-toast';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
-import { supabase } from '@/integrations/supabase/client';
+import { getMyProfile, updateMyProfile, uploadMyAvatar } from '@/services/profile';
+import { useProfileState } from '@/state/profile';
 
 export default function Settings() {
   const { user } = useAuth();
   const { restartOnboarding } = useOnboarding();
   const { toast } = useToast();
   const { isAdmin } = useIsAdmin();
+  const { setProfile } = useProfileState();
   const [isLoading, setIsLoading] = useState(false);
   const [exportDialog, setExportDialog] = useState(false);
   const [importDialog, setImportDialog] = useState(false);
@@ -48,31 +49,28 @@ export default function Settings() {
   const [profileData, setProfileData] = useState({
     full_name: '',
     avatar_url: '',
-    role: 'developer' as 'admin' | 'contributor' | 'designer' | 'developer' | 'guest' | 'org_admin' | 'project_lead' | 'project_manager' | 'qa' | 'requester' | 'space_admin' | 'super_admin' | 'viewer',
   });
 
   // Load profile data on mount
   useEffect(() => {
     const fetchProfile = async () => {
-      if (!user) return;
-
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-      if (data && !error) {
-        setProfileData({
-          full_name: data.full_name || '',
-          avatar_url: data.avatar_url || '',
-          role: data.role || 'developer',
-        });
+      if (!user?.id) return;
+      try {
+        const data = await getMyProfile();
+        if (data) {
+          setProfileData({
+            full_name: data.full_name ?? '',
+            avatar_url: data.avatar_url ?? '',
+          });
+        }
+        setProfile(data ?? null);
+      } catch (error) {
+        console.error('Failed to load profile', error);
       }
     };
 
     fetchProfile();
-  }, [user]);
+  }, [user?.id, toast, setProfile]);
 
   // Notification preferences
   const [notifications, setNotifications] = useState({
@@ -99,60 +97,32 @@ export default function Settings() {
   });
 
   const handleAvatarUpload = async (file: File) => {
-    if (!user) return;
-
-    // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      toast({
-        title: "File too large",
-        description: "Please upload an image smaller than 5MB",
-        variant: "destructive",
-      });
-      return;
-    }
-
     setUploading(true);
+    const currentName = profileData.full_name.trim();
     try {
-      // Delete old avatar if exists
-      if (profileData.avatar_url) {
-        const oldPath = profileData.avatar_url.split('/').slice(-2).join('/');
-        await supabase.storage.from('avatars').remove([oldPath]);
-      }
-
-      // Upload new avatar
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${user.id}/${Date.now()}.${fileExt}`;
-      
-      const { error: uploadError } = await supabase.storage
-        .from('avatars')
-        .upload(fileName, file);
-
-      if (uploadError) throw uploadError;
-
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('avatars')
-        .getPublicUrl(fileName);
-
-      // Update profile with new avatar URL
-      const { error: updateError } = await supabase
-        .from('profiles')
-        .update({ avatar_url: publicUrl })
-        .eq('user_id', user.id);
-
-      if (updateError) throw updateError;
-
+      const publicUrl = await uploadMyAvatar(file);
       setProfileData(prev => ({ ...prev, avatar_url: publicUrl }));
-      toast({
-        title: "Success",
-        description: "Profile picture updated successfully",
+      setProfile(prev => {
+        const updated_at = new Date().toISOString();
+        if (prev) {
+          return { ...prev, avatar_url: publicUrl, updated_at };
+        }
+        if (!user?.id) {
+          return prev;
+        }
+        return {
+          id: user.id,
+          full_name: currentName ? currentName : null,
+          avatar_url: publicUrl,
+          updated_at,
+        };
       });
+      toast({ title: 'Avatar updated', description: 'Profile picture saved.' });
     } catch (error: any) {
-      console.error('Error uploading avatar:', error);
       toast({
-        title: "Error",
-        description: error.message || "Failed to upload profile picture",
-        variant: "destructive",
+        title: 'Upload failed',
+        description: error?.message || 'Could not update profile picture.',
+        variant: 'destructive',
       });
     } finally {
       setUploading(false);
@@ -160,29 +130,34 @@ export default function Settings() {
   };
 
   const handleSaveProfile = async () => {
-    if (!user) return;
-    
+    const trimmedName = profileData.full_name.trim();
+    if (trimmedName.length > 0 && (trimmedName.length < 2 || trimmedName.length > 60)) {
+      toast({
+        title: 'Invalid name',
+        description: 'Name must be between 2 and 60 characters.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setIsLoading(true);
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .upsert({
-          user_id: user.id,
-          full_name: profileData.full_name,
-          role: profileData.role,
-        });
-
-      if (error) throw error;
-
-      toast({
-        title: "Profile Updated",
-        description: "Your profile has been saved successfully.",
+      const updated = await updateMyProfile({
+        full_name: trimmedName || null,
       });
+      setProfileData(prev => ({ ...prev, full_name: updated.full_name ?? '' }));
+      setProfile(prev => {
+        if (!prev) {
+          return updated;
+        }
+        return { ...prev, full_name: updated.full_name ?? prev.full_name };
+      });
+      toast({ title: 'Profile updated', description: 'Your profile has been saved.' });
     } catch (error: any) {
       toast({
-        title: "Error",
-        description: "Failed to update profile. Please try again.",
-        variant: "destructive",
+        title: 'Save failed',
+        description: error?.message || 'Failed to update profile. Please try again.',
+        variant: 'destructive',
       });
     } finally {
       setIsLoading(false);
@@ -224,7 +199,7 @@ export default function Settings() {
                 <FileUpload
                   onFileUpload={handleAvatarUpload}
                   accept="image/*"
-                  maxSizeMB={5}
+                  maxSizeMB={2}
                   disabled={uploading}
                 />
               </div>
@@ -251,27 +226,6 @@ export default function Settings() {
               <p className="text-xs text-muted-foreground">
                 Email cannot be changed. Contact support if needed.
               </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Role</Label>
-              <Select
-                value={profileData.role}
-                onValueChange={(value) => setProfileData(prev => ({ 
-                  ...prev, 
-                  role: value as any
-                }))}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="developer">Developer</SelectItem>
-                  <SelectItem value="designer">Designer</SelectItem>
-                  <SelectItem value="project_manager">Project Manager</SelectItem>
-                  <SelectItem value="qa">QA Engineer</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
 
             <Button onClick={handleSaveProfile} disabled={isLoading}>

@@ -19,11 +19,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Menu, Plus, Search } from "lucide-react";
 import { NAV } from "@/lib/navConfig";
 import { getCurrentUser } from "@/lib/auth";
 import { PROJECT_TABS } from "@/components/common/TabBar";
+import { useWorkspaceBranding } from "@/state/workspaceBranding";
+import { useProfileState } from "@/state/profile";
 
 function findNavLabel(path: string) {
   const walk = (items = NAV): string | undefined => {
@@ -60,6 +62,13 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
   const navigate = useNavigate();
   const user = getCurrentUser();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const { settings: branding } = useWorkspaceBranding();
+  const brandLogo = branding?.brand_logo_url ?? null;
+  const brandName = branding?.brand_name ?? "Workspace";
+  const { profile } = useProfileState();
+  const displayName = profile?.full_name?.trim() || user?.email || "Guest";
+  const avatarUrl = profile?.avatar_url ?? undefined;
+  const avatarFallback = (displayName || "User").charAt(0).toUpperCase();
 
   const actions = useMemo(
     () => [
@@ -115,6 +124,13 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
         <Button variant="ghost" size="icon" onClick={onToggleSidebar} aria-label="Toggle navigation">
           <Menu className="h-5 w-5" />
         </Button>
+        <div className="flex items-center gap-2">
+          {brandLogo ? (
+            <img src={brandLogo} alt={brandName} className="h-6 w-auto object-contain" />
+          ) : (
+            <span className="text-sm font-semibold">{brandName}</span>
+          )}
+        </div>
         <Breadcrumb>
           <BreadcrumbList>
             {breadcrumbs.map((crumb, index) => (
@@ -166,9 +182,10 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="gap-2">
               <Avatar className="h-8 w-8">
-                <AvatarFallback>{user?.email?.charAt(0).toUpperCase() ?? "U"}</AvatarFallback>
+                {avatarUrl ? <AvatarImage src={avatarUrl} alt={displayName} /> : null}
+                <AvatarFallback>{avatarFallback}</AvatarFallback>
               </Avatar>
-              <span className="hidden text-sm font-medium sm:inline">{user?.email ?? "Guest"}</span>
+              <span className="hidden text-sm font-medium sm:inline">{displayName}</span>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">

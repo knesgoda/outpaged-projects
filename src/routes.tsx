@@ -11,7 +11,10 @@ import CalendarPage from "@/pages/ia/CalendarPage";
 import TimelinePage from "@/pages/ia/TimelinePage";
 import WorkloadPage from "@/pages/ia/WorkloadPage";
 import DashboardsPage from "@/pages/ia/DashboardsPage";
-import ReportsPage from "@/pages/ia/ReportsPage";
+import ReportsHome from "@/pages/reports/ReportsHome";
+import ReportCreate from "@/pages/reports/ReportCreate";
+import ReportDetail from "@/pages/reports/ReportDetail";
+import ReportEdit from "@/pages/reports/ReportEdit";
 import DocsPage from "@/pages/ia/DocsPage";
 import FilesPage from "@/pages/ia/FilesPage";
 import AutomationsPage from "@/pages/ia/AutomationsPage";
@@ -94,7 +97,10 @@ export function AppRoutes() {
         { path: "workload", element: <WorkloadPage /> },
         { path: "dashboards", element: <DashboardsPage /> },
         { path: "dashboards/new", element: <NewDashboardPage /> },
-        { path: "reports", element: <ReportsPage /> },
+        { path: "reports", element: <ReportsHome /> },
+        { path: "reports/new", element: <ReportCreate /> },
+        { path: "reports/:reportId", element: <ReportDetail /> },
+        { path: "reports/:reportId/edit", element: <ReportEdit /> },
         { path: "docs", element: <DocsPage /> },
         { path: "files", element: <FilesPage /> },
         { path: "automations", element: <AutomationsPage /> },

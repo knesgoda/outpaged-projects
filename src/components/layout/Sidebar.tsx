@@ -7,6 +7,7 @@ import { useBadges } from "@/state/badges";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useWorkspaceBranding } from "@/state/workspaceBranding";
 
 type SidebarProps = {
   isCollapsed: boolean;
@@ -23,6 +24,9 @@ export function Sidebar({ isCollapsed, onCollapseToggle, onNavigate, className }
   const badgeCounts = { inboxCount, myWorkCount } as const;
   const location = useLocation();
   const itemRefs = useRef<(HTMLAnchorElement | null)[]>([]);
+  const { settings: branding, loading: brandingLoading } = useWorkspaceBranding();
+  const brandName = branding?.brand_name || "Workspace";
+  const brandLogo = branding?.brand_logo_url || null;
 
   const flattened = useMemo(() => {
     const acc: Array<{ item: NavItem; depth: number }> = [];
@@ -122,7 +126,31 @@ export function Sidebar({ isCollapsed, onCollapseToggle, onNavigate, className }
       aria-label="Primary"
     >
       <div className={cn("flex items-center justify-between", isCollapsed && "justify-center")}>
-        {!isCollapsed && <p className="text-lg font-semibold">Workspace</p>}
+        {isCollapsed ? (
+          <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary/10">
+            {brandLogo ? (
+              <img src={brandLogo} alt={brandName} className="h-7 w-7 object-contain" />
+            ) : (
+              <span className="text-sm font-semibold">{brandName.charAt(0).toUpperCase()}</span>
+            )}
+          </div>
+        ) : (
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-md bg-primary/10">
+              {brandLogo ? (
+                <img src={brandLogo} alt={brandName} className="h-full w-full object-contain" />
+              ) : brandingLoading ? (
+                <div className="h-4 w-16 animate-pulse rounded bg-muted" />
+              ) : (
+                <span className="text-base font-semibold">{brandName.charAt(0).toUpperCase()}</span>
+              )}
+            </div>
+            <div>
+              <p className="text-lg font-semibold leading-tight">{brandName}</p>
+              <p className="text-xs text-muted-foreground">Workspace</p>
+            </div>
+          </div>
+        )}
         <Button
           variant="ghost"
           size="icon"
