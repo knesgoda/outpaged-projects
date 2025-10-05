@@ -33,12 +33,29 @@ import { useOnboarding } from '@/hooks/useOnboarding';
 import { useToast } from '@/hooks/use-toast';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { supabase } from '@/integrations/supabase/client';
+import { useProfile } from '@/state/profile';
+
+type ProfileRole =
+  | 'admin'
+  | 'contributor'
+  | 'designer'
+  | 'developer'
+  | 'guest'
+  | 'org_admin'
+  | 'project_lead'
+  | 'project_manager'
+  | 'qa'
+  | 'requester'
+  | 'space_admin'
+  | 'super_admin'
+  | 'viewer';
 
 export default function Settings() {
   const { user } = useAuth();
   const { restartOnboarding } = useOnboarding();
   const { toast } = useToast();
   const { isAdmin } = useIsAdmin();
+  const { profile, error: profileError, loading: profileLoading, refresh: refreshProfile } = useProfile();
   const [isLoading, setIsLoading] = useState(false);
   const [exportDialog, setExportDialog] = useState(false);
   const [importDialog, setImportDialog] = useState(false);
@@ -48,31 +65,35 @@ export default function Settings() {
   const [profileData, setProfileData] = useState({
     full_name: '',
     avatar_url: '',
-    role: 'developer' as 'admin' | 'contributor' | 'designer' | 'developer' | 'guest' | 'org_admin' | 'project_lead' | 'project_manager' | 'qa' | 'requester' | 'space_admin' | 'super_admin' | 'viewer',
+    role: 'developer' as ProfileRole,
   });
 
-  // Load profile data on mount
+  // Sync profile data with shared profile context when available
   useEffect(() => {
-    const fetchProfile = async () => {
-      if (!user) return;
+    if (profile) {
+      setProfileData({
+        full_name: profile.full_name || '',
+        avatar_url: profile.avatar_url || '',
+        role: (profile.role as ProfileRole) || 'developer',
+      });
+      return;
+    }
 
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('user_id', user.id)
-        .maybeSingle();
+    if (!profileLoading && !profile && !profileError) {
+      setProfileData((prev) => ({ ...prev, avatar_url: '', full_name: prev.full_name || '', role: prev.role }));
+    }
+  }, [profile, profileLoading, profileError]);
 
-      if (data && !error) {
-        setProfileData({
-          full_name: data.full_name || '',
-          avatar_url: data.avatar_url || '',
-          role: data.role || 'developer',
-        });
-      }
-    };
-
-    fetchProfile();
-  }, [user]);
+  useEffect(() => {
+    if (profileError) {
+      console.error('Error loading profile from context:', profileError);
+      toast({
+        title: 'Profile unavailable',
+        description: 'We were unable to load your profile details. You can continue with defaults.',
+        variant: 'destructive',
+      });
+    }
+  }, [profileError, toast]);
 
   // Notification preferences
   const [notifications, setNotifications] = useState({
@@ -143,6 +164,7 @@ export default function Settings() {
       if (updateError) throw updateError;
 
       setProfileData(prev => ({ ...prev, avatar_url: publicUrl }));
+      await refreshProfile();
       toast({
         title: "Success",
         description: "Profile picture updated successfully",
@@ -174,6 +196,7 @@ export default function Settings() {
 
       if (error) throw error;
 
+      await refreshProfile();
       toast({
         title: "Profile Updated",
         description: "Your profile has been saved successfully.",
@@ -225,7 +248,7 @@ export default function Settings() {
                   onFileUpload={handleAvatarUpload}
                   accept="image/*"
                   maxSizeMB={5}
-                  disabled={uploading}
+                  disabled={uploading || profileLoading}
                 />
               </div>
             </div>
@@ -257,10 +280,12 @@ export default function Settings() {
               <Label>Role</Label>
               <Select
                 value={profileData.role}
-                onValueChange={(value) => setProfileData(prev => ({ 
-                  ...prev, 
-                  role: value as any
-                }))}
+                onValueChange={(value) =>
+                  setProfileData(prev => ({
+                    ...prev,
+                    role: value as ProfileRole
+                  }))
+                }
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -274,7 +299,7 @@ export default function Settings() {
               </Select>
             </div>
 
-            <Button onClick={handleSaveProfile} disabled={isLoading}>
+            <Button onClick={handleSaveProfile} disabled={isLoading || profileLoading}>
               <Save className="h-4 w-4 mr-2" />
               {isLoading ? 'Saving...' : 'Save Profile'}
             </Button>
