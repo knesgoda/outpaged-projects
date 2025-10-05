@@ -3,44 +3,33 @@ import { supabase } from "@/integrations/supabase/client";
 
 export interface ProjectNavigationData {
   id: string;
-  code?: string;
+  code?: string | null;
   name: string;
 }
+
+const buildIdRoute = (projectId: string) => `/dashboard/projects/${projectId}`;
 
 export function useProjectNavigation() {
   const navigate = useNavigate();
 
   const navigateToProject = (project: ProjectNavigationData) => {
-    // Use code-based route if code exists, otherwise use UUID
-    const route = project.code 
-      ? `/dashboard/projects/code/${project.code.toLowerCase()}`
-      : `/dashboard/projects/${project.id}`;
-    navigate(route);
+    navigate(buildIdRoute(project.id));
   };
 
   const navigateToProjectSettings = (project: ProjectNavigationData) => {
-    const route = project.code 
-      ? `/dashboard/projects/code/${project.code.toLowerCase()}/settings`
-      : `/dashboard/projects/${project.id}/settings`;
-    navigate(route);
+    navigate(`${buildIdRoute(project.id)}/settings`);
   };
 
   const getProjectUrl = (project: ProjectNavigationData) => {
-    return project.code 
-      ? `/dashboard/projects/code/${project.code.toLowerCase()}`
-      : `/dashboard/projects/${project.id}`;
+    return buildIdRoute(project.id);
   };
 
   const getProjectSettingsUrl = (project: ProjectNavigationData) => {
-    return project.code 
-      ? `/dashboard/projects/code/${project.code.toLowerCase()}/settings`
-      : `/dashboard/projects/${project.id}/settings`;
+    return `${buildIdRoute(project.id)}/settings`;
   };
 
   const getTaskUrl = (project: ProjectNavigationData, taskNumber: number) => {
-    return project.code 
-      ? `/dashboard/projects/code/${project.code.toLowerCase()}/tasks/${taskNumber}`
-      : `/dashboard/projects/${project.id}/tasks/${taskNumber}`;
+    return `${buildIdRoute(project.id)}/tasks/${taskNumber}`;
   };
 
   return {
@@ -55,13 +44,20 @@ export function useProjectNavigation() {
 // Utility function to resolve project by either UUID or code
 export async function resolveProject(identifier: string): Promise<ProjectNavigationData | null> {
   try {
-    // Check if identifier looks like a UUID
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(identifier);
-    
-    const { data, error } = await supabase
+    const trimmedIdentifier = identifier.trim();
+    if (!trimmedIdentifier) {
+      return null;
+    }
+
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(trimmedIdentifier);
+
+    const query = supabase
       .from('projects')
-      .select('id, code, name')
-      .eq(isUuid ? 'id' : 'code', isUuid ? identifier : identifier.toUpperCase())
+      .select('id, code, name');
+
+    const { data, error } = await (isUuid
+      ? query.eq('id', trimmedIdentifier)
+      : query.ilike('code', trimmedIdentifier))
       .maybeSingle();
 
     if (error) {

@@ -1,6 +1,7 @@
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -8,7 +9,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft, Calendar, Users, CheckSquare2, Settings, Plus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { useToast } from "@/hooks/use-toast";
 import { useProjectNavigation } from "@/hooks/useProjectNavigation";
 import { format } from "date-fns";
 import { CreateTaskDialog } from "@/components/tasks/CreateTaskDialog";
@@ -16,51 +16,56 @@ import { InviteMemberDialog } from "@/components/team/InviteMemberDialog";
 import { enableOutpagedBrand } from "@/lib/featureFlags";
 import { StatusChip } from "@/components/outpaged/StatusChip";
 
+interface ProjectRecord {
+  id: string;
+  name: string;
+  description?: string | null;
+  status?: string | null;
+  code?: string | null;
+  end_date?: string | null;
+  created_at?: string;
+}
+
 function LegacyProjectDetails({ overrideProjectId }: { overrideProjectId?: string }) {
   const { projectId: paramsProjectId } = useParams();
   const projectId = overrideProjectId || paramsProjectId;
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { toast } = useToast();
   const { navigateToProjectSettings } = useProjectNavigation();
-  const [project, setProject] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
   const [tasks, setTasks] = useState<any[]>([]);
   const [members, setMembers] = useState<any[]>([]);
   const [showCreateTask, setShowCreateTask] = useState(false);
   const [showInviteMember, setShowInviteMember] = useState(false);
 
-  useEffect(() => {
-    if (projectId && user) {
-      fetchProjectDetails();
-      fetchTasks();
-      fetchMembers();
-    }
-  }, [projectId, user]);
+  const {
+    data: project,
+    error: projectError,
+    isLoading: projectLoading,
+  } = useQuery<ProjectRecord | null>({
+    queryKey: ['project', projectId],
+    enabled: Boolean(projectId && user),
+    queryFn: async () => {
+      if (!projectId) {
+        throw new Error('Missing project identifier');
+      }
 
-  const fetchProjectDetails = async () => {
-    try {
       const { data, error } = await supabase
         .from('projects')
         .select('*')
         .eq('id', projectId)
-        .single();
+        .maybeSingle();
 
-      if (error) throw error;
-      setProject(data);
-    } catch (error) {
-      console.error('Error fetching project:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load project details",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+      if (error) {
+        throw error;
+      }
 
-  const fetchTasks = async () => {
+      return data as ProjectRecord | null;
+    },
+  });
+
+  const fetchTasks = useCallback(async () => {
+    if (!projectId) return;
+
     try {
       const { data, error } = await supabase
         .from('tasks')
@@ -73,9 +78,11 @@ function LegacyProjectDetails({ overrideProjectId }: { overrideProjectId?: strin
     } catch (error) {
       console.error('Error fetching tasks:', error);
     }
-  };
+  }, [projectId]);
 
-  const fetchMembers = async () => {
+  const fetchMembers = useCallback(async () => {
+    if (!projectId) return;
+
     try {
       const { data, error } = await supabase
         .from('project_members')
@@ -93,7 +100,18 @@ function LegacyProjectDetails({ overrideProjectId }: { overrideProjectId?: strin
     } catch (error) {
       console.error('Error fetching members:', error);
     }
-  };
+  }, [projectId]);
+
+  useEffect(() => {
+    if (!projectId || !user) {
+      setTasks([]);
+      setMembers([]);
+      return;
+    }
+
+    fetchTasks();
+    fetchMembers();
+  }, [projectId, user, fetchTasks, fetchMembers]);
 
   const getStatusVariant = (status: string) => {
     switch (status) {
@@ -153,21 +171,13 @@ function LegacyProjectDetails({ overrideProjectId }: { overrideProjectId?: strin
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[200px]">
-        <div className="text-muted-foreground">Loading project details...</div>
-      </div>
-    );
-  }
-
-  if (!project) {
+  if (!projectId) {
     return (
       <div className="flex items-center justify-center min-h-[200px]">
         <div className="text-center">
-          <h2 className="text-xl font-semibold mb-2">Project Not Found</h2>
-          <p className="text-muted-foreground">The project you're looking for doesn't exist or you don't have access to it.</p>
-          <Button 
+          <h2 className="text-xl font-semibold mb-2">Project Not Specified</h2>
+          <p className="text-muted-foreground">Select a project from the list to view its details.</p>
+          <Button
             onClick={() => navigate('/dashboard/projects')}
             className="mt-4"
           >
@@ -184,6 +194,48 @@ function LegacyProjectDetails({ overrideProjectId }: { overrideProjectId?: strin
         <div className="text-center">
           <h2 className="text-xl font-semibold mb-2">Authentication Required</h2>
           <p className="text-muted-foreground">Please log in to view project details</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (projectLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[200px]">
+        <div className="text-muted-foreground">Loading project details...</div>
+      </div>
+    );
+  }
+
+  if (projectError) {
+    return (
+      <div className="flex items-center justify-center min-h-[200px]">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold mb-2">Error Loading Project</h2>
+          <p className="text-muted-foreground">We couldn't load this project. Please try again.</p>
+          <Button
+            onClick={() => navigate('/dashboard/projects')}
+            className="mt-4"
+          >
+            Back to Projects
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!project) {
+    return (
+      <div className="flex items-center justify-center min-h-[200px]">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold mb-2">Project Not Found</h2>
+          <p className="text-muted-foreground">The project you're looking for doesn't exist or you don't have access to it.</p>
+          <Button 
+            onClick={() => navigate('/dashboard/projects')}
+            className="mt-4"
+          >
+            Back to Projects
+          </Button>
         </div>
       </div>
     );
