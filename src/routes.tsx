@@ -42,6 +42,7 @@ import ProjectDependenciesPage from "@/pages/ia/projects/ProjectDependenciesPage
 import ProjectReportsPage from "@/pages/ia/projects/ProjectReportsPage";
 import ProjectDocsPage from "@/pages/ia/projects/ProjectDocsPage";
 import ProjectFilesPage from "@/pages/ia/projects/ProjectFilesPage";
+import ProjectIntegrationsPage from "@/pages/ia/projects/ProjectIntegrationsPage";
 import ProjectAutomationsPage from "@/pages/ia/projects/ProjectAutomationsPage";
 import ProjectSettingsPage from "@/pages/ia/projects/ProjectSettingsPage";
 import NewProjectPage from "@/pages/ia/NewProjectPage";
@@ -87,7 +88,8 @@ export function AppRoutes() {
         { path: "projects/:id/dependencies", element: <ProjectDependenciesPage /> },
         { path: "projects/:id/reports", element: <ProjectReportsPage /> },
         { path: "projects/:id/docs", element: <ProjectDocsPage /> },
-        { path: "projects/:id/files", element: <ProjectFilesPage /> },
+        { path: "projects/:projectId/files", element: <ProjectFilesPage /> },
+        { path: "projects/:projectId/integrations", element: <ProjectIntegrationsPage /> },
         { path: "projects/:id/automations", element: <ProjectAutomationsPage /> },
         { path: "projects/:id/settings", element: <ProjectSettingsPage /> },
         { path: "boards", element: <BoardsPage /> },

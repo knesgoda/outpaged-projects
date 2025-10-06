@@ -54,8 +54,24 @@ export function Sidebar({ isCollapsed, onCollapseToggle, onNavigate, className }
     }
   };
 
+  const matchesNavPath = (pathname: string, itemPath: string) => {
+    if (pathname === itemPath || pathname.startsWith(`${itemPath}/`)) {
+      return true;
+    }
+
+    if (itemPath === "/files") {
+      return /^\/projects\/[^/]+\/files/.test(pathname);
+    }
+
+    if (itemPath === "/integrations") {
+      return /^\/projects\/[^/]+\/integrations/.test(pathname);
+    }
+
+    return false;
+  };
+
   const renderNavItem = (item: NavItem, index: number, depth = 0) => {
-    const isActive = location.pathname === item.path || location.pathname.startsWith(`${item.path}/`);
+    const isActive = matchesNavPath(location.pathname, item.path);
     const badgeValue = item.badgeKey ? badgeCounts[item.badgeKey] : 0;
     const showBadge = item.badgeKey ? badgeValue > 0 : false;
 

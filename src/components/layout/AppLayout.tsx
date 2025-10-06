@@ -3,6 +3,7 @@ import { Outlet } from "react-router-dom";
 import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
 import { BadgesProvider } from "@/state/badges";
+import { BreadcrumbsProvider } from "@/state/breadcrumbs";
 import { cn } from "@/lib/utils";
 
 function useIsMobile() {
@@ -44,10 +45,11 @@ export function AppLayout() {
 
   return (
     <BadgesProvider>
-      <div className="flex min-h-screen w-full bg-background">
-        <div className={cn("hidden lg:flex", isCollapsed ? "w-[72px]" : "w-[280px]")}>
-          <Sidebar isCollapsed={isCollapsed} onCollapseToggle={toggleSidebar} />
-        </div>
+      <BreadcrumbsProvider>
+        <div className="flex min-h-screen w-full bg-background">
+          <div className={cn("hidden lg:flex", isCollapsed ? "w-[72px]" : "w-[280px]")}>
+            <Sidebar isCollapsed={isCollapsed} onCollapseToggle={toggleSidebar} />
+          </div>
 
         {isMobileOpen && (
           <div className="fixed inset-0 z-50 flex lg:hidden">
@@ -68,13 +70,14 @@ export function AppLayout() {
           </div>
         )}
 
-        <div className="flex flex-1 flex-col">
-          <Topbar onToggleSidebar={toggleSidebar} />
-          <main className="flex-1 overflow-y-auto bg-muted/20 p-6">
-            <Outlet />
-          </main>
+          <div className="flex flex-1 flex-col">
+            <Topbar onToggleSidebar={toggleSidebar} />
+            <main className="flex-1 overflow-y-auto bg-muted/20 p-6">
+              <Outlet />
+            </main>
+          </div>
         </div>
-      </div>
+      </BreadcrumbsProvider>
     </BadgesProvider>
   );
 }

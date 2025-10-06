@@ -24,6 +24,7 @@ import { Menu, Plus, Search } from "lucide-react";
 import { NAV } from "@/lib/navConfig";
 import { getCurrentUser } from "@/lib/auth";
 import { useProfile } from "@/state/profile";
+import { useBreadcrumbsState } from "@/state/breadcrumbs";
 import { PROJECT_TABS } from "@/components/common/TabBar";
 
 function findNavLabel(path: string) {
@@ -63,6 +64,8 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
   const { profile, error: profileError } = useProfile();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
+  const { breadcrumbs: customBreadcrumbs } = useBreadcrumbsState();
+
   const actions = useMemo(
     () => [
       { label: "New Project", path: "/projects/new" },
@@ -74,6 +77,10 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
   );
 
   const breadcrumbs = useMemo(() => {
+    if (customBreadcrumbs) {
+      return customBreadcrumbs;
+    }
+
     const segments = location.pathname.split("/").filter(Boolean);
     if (segments.length === 0) {
       return [{ label: "Home", href: "/" }];
@@ -102,7 +109,7 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
     });
 
     return [{ label: "Home", href: "/" }, ...crumbs];
-  }, [location.pathname]);
+  }, [customBreadcrumbs, location.pathname]);
 
   const handleAction = (path: string) => {
     setIsDialogOpen(false);
