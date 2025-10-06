@@ -26,6 +26,12 @@ export default function TabBar() {
 
   const tabItems = useMemo(() => PROJECT_TABS.map((tab) => ({ ...tab })), []);
 
+  if (!projectId) {
+    return null;
+  }
+
+  const basePath = `/projects/${projectId}`;
+
   const handleKeyDown = (event: React.KeyboardEvent<HTMLAnchorElement>, index: number) => {
     if (event.key === "ArrowRight") {
       event.preventDefault();
@@ -43,16 +49,18 @@ export default function TabBar() {
     <nav className="overflow-x-auto" role="tablist" aria-label="Project navigation">
       <div className="flex min-w-max gap-1 rounded-md border bg-background p-1">
         {tabItems.map((tab, index) => {
-          const currentProjectId = projectId ?? "";
-          const tabPath = `/projects/${currentProjectId}/${tab.path}`;
+          const tabPath =
+            tab.path === "overview" ? basePath : `${basePath}/${tab.path}`;
           const isActive =
-            location.pathname === tabPath ||
-            (tab.path === "overview" && location.pathname === `/projects/${currentProjectId}`);
+            tab.path === "overview"
+              ? location.pathname === basePath
+              : location.pathname === tabPath || location.pathname.startsWith(`${tabPath}/`);
 
           return (
             <NavLink
               key={tab.path}
               to={tabPath}
+              end={tab.path === "overview"}
               ref={(el) => {
                 tabRefs.current[index] = el;
               }}
