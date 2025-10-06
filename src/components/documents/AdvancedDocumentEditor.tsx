@@ -14,6 +14,7 @@ import {
   Link as LinkIcon
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { LinkedResourcesPanel } from "@/components/linked/LinkedResourcesPanel";
 
 interface DocumentBlock {
   id: string;
@@ -312,6 +313,8 @@ export function AdvancedDocumentEditor() {
           </Button>
         </div>
       )}
+
+      <LinkedResourcesPanel entityType="doc" entityId={document.id} projectId={null} />
     </div>
   );
 }

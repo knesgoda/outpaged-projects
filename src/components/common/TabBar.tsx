@@ -15,6 +15,7 @@ export const PROJECT_TABS = [
   { label: "Docs", path: "docs" },
   { label: "Files", path: "files" },
   { label: "Automations", path: "automations" },
+  { label: "Integrations", path: "integrations" },
   { label: "Settings", path: "settings" },
 ] as const;
 
@@ -44,9 +45,12 @@ export function TabBar() {
         {tabItems.map((tab, index) => {
           const currentProjectId = projectId ?? "";
           const tabPath = `/projects/${currentProjectId}/${tab.path}`;
+          const overviewPath = `/projects/${currentProjectId}`;
+          const matchesNested = location.pathname.startsWith(`${tabPath}/`);
+          const isOverviewActive =
+            tab.path === "overview" && (location.pathname === overviewPath || location.pathname === tabPath);
           const isActive =
-            location.pathname === tabPath ||
-            (tab.path === "overview" && location.pathname === `/projects/${currentProjectId}`);
+            location.pathname === tabPath || matchesNested || isOverviewActive;
 
           return (
             <NavLink
