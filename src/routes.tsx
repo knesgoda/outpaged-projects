@@ -15,13 +15,24 @@ import ReportsPage from "@/pages/ia/ReportsPage";
 import DocsPage from "@/pages/ia/DocsPage";
 import FilesPage from "@/pages/ia/FilesPage";
 import AutomationsPage from "@/pages/ia/AutomationsPage";
-import IntegrationsPage from "@/pages/ia/IntegrationsPage";
+import IntegrationsHome from "@/pages/integrations/IntegrationsHome";
+import GoogleIntegrationsPage from "@/pages/integrations/GoogleIntegrationsPage";
+import GitHubIntegrationsPage from "@/pages/integrations/GitHubIntegrationsPage";
+import ProjectIntegrationsPage from "@/pages/integrations/ProjectIntegrationsPage";
+import ProjectGoogleIntegrationsPage from "@/pages/integrations/ProjectGoogleIntegrationsPage";
+import ProjectGitHubIntegrationsPage from "@/pages/integrations/ProjectGitHubIntegrationsPage";
 import FormsPage from "@/pages/ia/FormsPage";
 import GoalsPage from "@/pages/ia/GoalsPage";
 import TemplatesPage from "@/pages/ia/TemplatesPage";
 import PeoplePage from "@/pages/ia/PeoplePage";
 import TimeTrackingPage from "@/pages/ia/TimeTrackingPage";
-import HelpPage from "@/pages/ia/HelpPage";
+import HelpHome from "@/pages/help/HelpHome";
+import HelpSearchPage from "@/pages/help/HelpSearchPage";
+import FAQPage from "@/pages/help/FAQPage";
+import ShortcutsPage from "@/pages/help/ShortcutsPage";
+import ChangelogPage from "@/pages/help/ChangelogPage";
+import ContactSupportPage from "@/pages/help/ContactSupportPage";
+import OnboardingPage from "@/pages/help/OnboardingPage";
 import AdminHomePage from "@/pages/ia/admin/AdminHomePage";
 import AdminWorkspacePage from "@/pages/ia/admin/AdminWorkspacePage";
 import AdminPermissionsPage from "@/pages/ia/admin/AdminPermissionsPage";
@@ -42,6 +53,7 @@ import ProjectDependenciesPage from "@/pages/ia/projects/ProjectDependenciesPage
 import ProjectReportsPage from "@/pages/ia/projects/ProjectReportsPage";
 import ProjectDocsPage from "@/pages/ia/projects/ProjectDocsPage";
 import ProjectFilesPage from "@/pages/ia/projects/ProjectFilesPage";
+import ProjectIntegrationsPage from "@/pages/ia/projects/ProjectIntegrationsPage";
 import ProjectAutomationsPage from "@/pages/ia/projects/ProjectAutomationsPage";
 import ProjectSettingsPage from "@/pages/ia/projects/ProjectSettingsPage";
 import NewProjectPage from "@/pages/ia/NewProjectPage";
@@ -53,8 +65,11 @@ import AuthCallback from "@/pages/AuthCallback";
 import NotFound from "@/pages/NotFound";
 import Profile from "@/pages/Profile";
 import Settings from "@/pages/Settings";
+codex/implement-notifications-and-inbox-functionality-g8mo3c
 import { NotificationSettingsPage } from "@/pages/settings/NotificationSettings";
 import SearchPage from "@/pages/Search";
+=======
+import GlobalSearchPage from "@/pages/search/GlobalSearchPage";
 
 const Suspended = ({ children }: { children: React.ReactNode }) => (
   <Suspense fallback={<div className="p-6">Loading...</div>}>
@@ -85,6 +100,7 @@ export function AppRoutes() {
         { path: "inbox/unread", element: <InboxPage tab="unread" /> },
         { path: "projects", element: <ProjectsPage /> },
         { path: "projects/new", element: <NewProjectPage /> },
+        // Canonicalize on :projectId and keep *all* project routes
         { path: "projects/:projectId", element: <ProjectOverviewPage /> },
         { path: "projects/:projectId/overview", element: <ProjectOverviewPage /> },
         { path: "projects/:projectId/list", element: <ProjectListPage /> },
@@ -97,6 +113,7 @@ export function AppRoutes() {
         { path: "projects/:projectId/reports", element: <ProjectReportsPage /> },
         { path: "projects/:projectId/docs", element: <ProjectDocsPage /> },
         { path: "projects/:projectId/files", element: <ProjectFilesPage /> },
+        { path: "projects/:projectId/integrations", element: <ProjectIntegrationsPage /> },
         { path: "projects/:projectId/automations", element: <ProjectAutomationsPage /> },
         { path: "projects/:projectId/settings", element: <ProjectSettingsPage /> },
         { path: "boards", element: <BoardsPage /> },
@@ -110,7 +127,18 @@ export function AppRoutes() {
         { path: "docs", element: <DocsPage /> },
         { path: "files", element: <FilesPage /> },
         { path: "automations", element: <AutomationsPage /> },
-        { path: "integrations", element: <IntegrationsPage /> },
+        { path: "integrations", element: <IntegrationsHome /> },
+        { path: "integrations/google", element: <GoogleIntegrationsPage /> },
+        { path: "integrations/github", element: <GitHubIntegrationsPage /> },
+        { path: "projects/:projectId/integrations", element: <ProjectIntegrationsPage /> },
+        {
+          path: "projects/:projectId/integrations/google",
+          element: <ProjectGoogleIntegrationsPage />,
+        },
+        {
+          path: "projects/:projectId/integrations/github",
+          element: <ProjectGitHubIntegrationsPage />,
+        },
         { path: "forms", element: <FormsPage /> },
         { path: "goals", element: <GoalsPage /> },
         { path: "templates", element: <TemplatesPage /> },
@@ -119,8 +147,10 @@ export function AppRoutes() {
         { path: "tasks/new", element: <NewTaskPage /> },
         { path: "profile", element: <Profile /> },
         { path: "settings", element: <Settings /> },
+codex/implement-notifications-and-inbox-functionality-g8mo3c
         { path: "settings/notifications", element: <NotificationSettingsPage /> },
         { path: "search", element: <SearchPage /> },
+        { path: "search", element: <GlobalSearchPage /> },
         { path: "admin", element: <AdminHomePage /> },
         { path: "admin/workspace", element: <AdminWorkspacePage /> },
         { path: "admin/permissions", element: <AdminPermissionsPage /> },
@@ -130,7 +160,13 @@ export function AppRoutes() {
         { path: "admin/webhooks", element: <AdminWebhooksPage /> },
         { path: "admin/api", element: <AdminApiPage /> },
         { path: "admin/billing", element: <AdminBillingPage /> },
-        { path: "help", element: <HelpPage /> },
+        { path: "help", element: <HelpHome /> },
+        { path: "help/search", element: <HelpSearchPage /> },
+        { path: "help/faq", element: <FAQPage /> },
+        { path: "help/shortcuts", element: <ShortcutsPage /> },
+        { path: "help/changelog", element: <ChangelogPage /> },
+        { path: "help/contact", element: <ContactSupportPage /> },
+        { path: "help/onboarding", element: <OnboardingPage /> },
       ],
     },
     { path: "/login", element: <Login /> },

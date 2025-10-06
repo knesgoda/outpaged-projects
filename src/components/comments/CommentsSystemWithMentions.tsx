@@ -1,3 +1,4 @@
+codex/implement-notifications-and-inbox-functionality-g8mo3c
 
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
@@ -28,82 +29,29 @@ interface Comment {
     avatar_url?: string;
   };
 }
+=======
+import { useEffect, useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useAuth } from '@/hooks/useAuth';
+import { useComments, useCreateComment, useDeleteComment, useUpdateComment } from '@/hooks/useComments';
+import type { CommentEntityType } from '@/types';
+import { CommentBox } from './CommentBox';
+import { CommentList } from './CommentList';
+import type { CommentWithAuthor } from '@/services/comments';
 
 interface CommentsSystemWithMentionsProps {
-  taskId: string;
+  entityType: CommentEntityType;
+  entityId: string;
   projectId?: string;
-  onCommentCountChange?: (count: number) => void;
+  title?: string;
+  onCountChange?: (count: number) => void;
 }
 
-export function CommentsSystemWithMentions({ 
-  taskId, 
-  projectId,
-  onCommentCountChange 
-}: CommentsSystemWithMentionsProps) {
+export function CommentsSystemWithMentions({ entityType, entityId, projectId, title = 'Comments', onCountChange }: CommentsSystemWithMentionsProps) {
   const { user } = useAuth();
-  const { toast } = useToast();
-  const isMobile = useIsMobile();
-  const [comments, setComments] = useState<Comment[]>([]);
-  const [newComment, setNewComment] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
+  const entity = { type: entityType, id: entityId } as const;
 
-  useEffect(() => {
-    if (taskId) {
-      fetchComments();
-    }
-  }, [taskId]);
-
-  const fetchComments = async () => {
-    try {
-      setLoading(true);
-      
-      const { data, error } = await supabase
-        .from('comments')
-        .select(`
-          id,
-          content,
-          created_at,
-          author_id,
-          task_id,
-          profiles!author_id (
-            full_name,
-            avatar_url
-          )
-        `)
-        .eq('task_id', taskId)
-        .order('created_at', { ascending: true });
-
-      if (error) {
-        console.error('Error fetching comments:', error);
-        throw error;
-      }
-
-      const commentsWithProfiles = data?.map(comment => ({
-        ...comment,
-        author: (comment as any).profiles || { full_name: 'Unknown User', avatar_url: null }
-      })) || [];
-
-      setComments(commentsWithProfiles);
-      onCommentCountChange?.(commentsWithProfiles.length);
-    } catch (error) {
-      console.error('Error fetching comments:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load comments. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSubmitComment = async () => {
-    if (!user || !newComment.trim()) return;
-
-    try {
-      setSubmitting(true);
-
+codex/implement-notifications-and-inbox-functionality-g8mo3c
       const parentComment = comments[comments.length - 1];
 
       const { data, error } = await supabase
@@ -125,9 +73,16 @@ export function CommentsSystemWithMentions({
           )
         `)
         .single();
+=======
+  const { data: comments = [], isLoading } = useComments(entity);
+  const createMutation = useCreateComment(entity);
+  const updateMutation = useUpdateComment(entity);
+  const deleteMutation = useDeleteComment(entity);
 
-      if (error) throw error;
+  const [replyingTo, setReplyingTo] = useState<CommentWithAuthor | null>(null);
+  const [editing, setEditing] = useState<CommentWithAuthor | null>(null);
 
+codex/implement-notifications-and-inbox-functionality-g8mo3c
       // Add the new comment to the list
       const newCommentWithProfile = {
         ...data,
@@ -309,173 +264,120 @@ export function CommentsSystemWithMentions({
     } catch (error) {
       console.error('Error processing mentions:', error);
     }
-  };
+=======
+  useEffect(() => {
+    onCountChange?.(comments.length);
+  }, [comments.length, onCountChange]);
 
-  const handleDeleteComment = async (commentId: string) => {
-    if (!user) return;
-
-    try {
-      const { error } = await supabase
-        .from('comments')
-        .delete()
-        .eq('id', commentId)
-        .eq('author_id', user.id); // Only allow deleting own comments
-
-      if (error) throw error;
-
-      setComments(prev => prev.filter(comment => comment.id !== commentId));
-      onCommentCountChange?.(comments.length - 1);
-
-      toast({
-        title: "Success",
-        description: "Comment deleted successfully",
-      });
-    } catch (error) {
-      console.error('Error deleting comment:', error);
-      toast({
-        title: "Error",
-        description: "Failed to delete comment",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const renderCommentContent = (content: string) => {
-    // Highlight @mentions in the content
-    const mentionPattern = /@([^@<\s]+(?:\s[^@<\s]+)*)/g;
-    
-    // Create safe content with mentions highlighted using a more secure approach
-    const processedContent = content.replace(mentionPattern, (match, name) => {
-      return `<span class="mention-highlight">${match}</span>`;
+  const handleCreate = async ({ markdown, html, mentions }: SubmitPayload) => {
+    await createMutation.mutateAsync({
+      body_markdown: markdown,
+      body_html: html,
+      mentions,
     });
-    
-    return (
-      <SafeHtml 
-        html={processedContent}
-        className="text-sm text-foreground break-words rich-text-content"
-        allowedTags={['span', 'p', 'br', 'strong', 'em']}
-      />
-    );
+  };
+
+  const handleReply = async (comment: CommentWithAuthor, payload: SubmitPayload) => {
+    await createMutation.mutateAsync({
+      parent_id: comment.id,
+      body_markdown: payload.markdown,
+      body_html: payload.html,
+      mentions: payload.mentions,
+    });
+    setReplyingTo(null);
+
+  };
+
+  const handleEdit = async (comment: CommentWithAuthor, payload: SubmitPayload) => {
+    await updateMutation.mutateAsync({
+      id: comment.id,
+      patch: {
+        body_markdown: payload.markdown,
+        body_html: payload.html,
+        mentions: payload.mentions,
+      },
+    });
+    setEditing(null);
+  };
+
+  const handleDelete = (comment: CommentWithAuthor) => {
+    deleteMutation.mutate({ id: comment.id });
   };
 
   if (!user) {
     return (
       <Card>
-        <CardContent className="text-center py-8 text-muted-foreground">
-          Please log in to view and add comments.
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (loading) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <MessageSquare className="w-5 h-5" />
-            Comments
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {[1, 2].map(i => (
-              <div key={i} className="flex gap-3">
-                <div className="w-8 h-8 bg-muted animate-pulse rounded-full" />
-                <div className="flex-1 space-y-2">
-                  <div className="h-4 bg-muted animate-pulse rounded w-1/4" />
-                  <div className="h-3 bg-muted animate-pulse rounded w-3/4" />
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
+        <CardContent className="py-8 text-center text-muted-foreground">Sign in to join the discussion.</CardContent>
       </Card>
     );
   }
 
   return (
-    <div className="space-y-4">
-      {/* Comments List */}
-      <ScrollArea className={`${isMobile ? 'max-h-48' : 'max-h-64'}`}>
-        <div className={`space-y-4 ${isMobile ? 'px-2' : ''}`}>
-          {comments.length === 0 ? (
-            <p className="text-muted-foreground text-center py-4">
-              No comments yet. Be the first to comment!
-            </p>
-          ) : (
-            comments.map((comment) => (
-              <div key={comment.id} className={`flex gap-3 ${isMobile ? 'gap-2' : 'gap-3'}`}>
-                <Avatar className={`${isMobile ? 'w-6 h-6' : 'w-8 h-8'} flex-shrink-0`}>
-                  <AvatarImage src={comment.author?.avatar_url} />
-                  <AvatarFallback className={isMobile ? 'text-xs' : ''}>
-                    {comment.author?.full_name
-                      ?.split(' ')
-                      .map(n => n[0])
-                      .join('')
-                      .toUpperCase()
-                      .slice(0, 2) || 'U'}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex-1 space-y-1 min-w-0">
-                  <div className={`flex items-center justify-between ${isMobile ? 'flex-wrap gap-1' : ''}`}>
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className={`font-medium ${isMobile ? 'text-sm' : 'text-sm'} truncate`}>
-                        {comment.author?.full_name || 'Unknown User'}
-                      </span>
-                      <span className={`${isMobile ? 'text-xs' : 'text-xs'} text-muted-foreground flex-shrink-0`}>
-                        {formatDistanceToNow(new Date(comment.created_at), { 
-                          addSuffix: true 
-                        })}
-                      </span>
-                    </div>
-                    {comment.author_id === user?.id && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDeleteComment(comment.id)}
-                        className={`${isMobile ? 'h-8 w-8 p-0' : 'h-6 w-6 p-0'} text-muted-foreground hover:text-destructive flex-shrink-0`}
-                      >
-                        <Trash2 className={`${isMobile ? 'w-4 h-4' : 'w-3 h-3'}`} />
-                      </Button>
-                    )}
-                  </div>
-                  <div className={isMobile ? 'text-sm' : ''}>
-                    {renderCommentContent(comment.content)}
-                  </div>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      </ScrollArea>
-
-      {comments.length > 0 && <Separator />}
-
-      {/* Add Comment with Adaptive Editor */}
-      <div className={`space-y-3 ${isMobile ? 'space-y-2' : ''}`}>
-        <AdaptiveRichTextEditor
-          value={newComment}
-          onChange={setNewComment}
-          placeholder="Add a comment... Use @ to mention team members"
+    <Card className="border-border bg-card/70">
+      <CardHeader>
+        <CardTitle>{title}</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <CommentBox
+          onSubmit={handleCreate}
           projectId={projectId}
-          className={`${isMobile ? 'min-h-[80px]' : 'min-h-[100px]'}`}
+          submitting={createMutation.isPending}
+          placeholder="Share an update or ask a question…"
         />
-        <div className={`flex ${isMobile ? 'flex-col gap-2' : 'justify-between items-center'}`}>
-          <p className={`${isMobile ? 'text-xs order-2' : 'text-xs'} text-muted-foreground`}>
-            Tip: Use @ to mention team members and notify them
-          </p>
-          <Button
-            onClick={handleSubmitComment}
-            disabled={!newComment.trim() || submitting}
-            size={isMobile ? 'default' : 'sm'}
-            className={isMobile ? 'w-full order-1' : ''}
-          >
-            <Send className="w-4 h-4 mr-2" />
-            {submitting ? "Posting..." : "Post"}
-          </Button>
-        </div>
-      </div>
-    </div>
+
+        {isLoading ? (
+          <div className="space-y-3 text-sm text-muted-foreground">
+            <div className="h-4 w-2/3 animate-pulse rounded bg-muted" />
+            <div className="h-4 w-1/2 animate-pulse rounded bg-muted" />
+            <div className="h-4 w-3/4 animate-pulse rounded bg-muted" />
+          </div>
+        ) : (
+          <CommentList
+            comments={comments}
+            currentUserId={user.id}
+            onReply={(comment) => {
+              setEditing(null);
+              setReplyingTo(comment);
+            }}
+            onEdit={(comment) => {
+              setReplyingTo(null);
+              setEditing(comment);
+            }}
+            onDelete={handleDelete}
+            replyingToId={replyingTo?.id ?? null}
+            renderReplyBox={(comment) => (
+              <CommentBox
+                key={`reply-${comment.id}`}
+                onSubmit={(payload) => handleReply(comment, payload)}
+                onCancel={() => setReplyingTo(null)}
+                projectId={projectId}
+                submitting={createMutation.isPending}
+                autoFocus
+                submitLabel="Reply"
+              />
+            )}
+            editingId={editing?.id ?? null}
+            renderEditBox={(comment) => (
+              <CommentBox
+                key={`edit-${comment.id}`}
+                onSubmit={(payload) => handleEdit(comment, payload)}
+                onCancel={() => setEditing(null)}
+                initialValue={comment.body_markdown}
+                projectId={projectId}
+                submitting={updateMutation.isPending}
+                autoFocus
+                submitLabel="Save"
+              />
+            )}
+          />
+        )}
+      </CardContent>
+    </Card>
   );
 }
+
+type SubmitPayload = {
+  markdown: string;
+  html: string;
+  mentions: string[];
+};

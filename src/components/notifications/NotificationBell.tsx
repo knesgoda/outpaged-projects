@@ -7,6 +7,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+codex/implement-notifications-and-inbox-functionality-g8mo3c
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -63,6 +64,41 @@ export function NotificationBell() {
     if (unreadCount === 0 || markAllRead.isPending) return;
     markAllRead.mutate();
   };
+=======
+} from '@/components/ui/dropdown-menu';
+import { Badge } from '@/components/ui/badge';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { useNotifications } from '@/hooks/useNotifications';
+import { formatDistanceToNow } from 'date-fns';
+import { useNavigate } from 'react-router-dom';
+
+export function NotificationBell() {
+  const navigate = useNavigate();
+  const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
+
+
+  const goToEntity = (notificationId: string, entityType?: string | null, entityId?: string | null) => {
+    if (entityType && entityId) {
+      switch (entityType) {
+        case 'project':
+          navigate(`/projects/${entityId}`);
+          break;
+        case 'task':
+          navigate(`/tasks?task=${entityId}`);
+          break;
+        case 'doc':
+          navigate(`/docs`);
+          break;
+        default:
+          navigate('/inbox');
+          break;
+      }
+    }
+
+    if (notificationId) {
+      markAsRead(notificationId);
+    }
+  };
 
   return (
     <DropdownMenu>
@@ -115,6 +151,7 @@ export function NotificationBell() {
               You're all caught up.
             </div>
           ) : (
+codex/implement-notifications-and-inbox-functionality-g8mo3c
             latestNotifications.map((notification) => {
               const icon = ICONS[notification.type];
               return (
@@ -161,6 +198,29 @@ export function NotificationBell() {
                 </DropdownMenuItem>
               );
             })
+=======
+            notifications.slice(0, 10).map((notification) => (
+              <DropdownMenuItem
+                key={notification.id}
+                className="flex flex-col items-start gap-1 p-3 cursor-pointer"
+                onClick={() => goToEntity(notification.id, notification.entity_type, notification.entity_id ?? undefined)}
+              >
+                <div className="flex items-center gap-2 w-full">
+                  <div className={`w-2 h-2 rounded-full ${
+                    notification.read_at ? 'bg-muted' : 'bg-primary'
+                  }`} />
+                  <span className="font-medium text-sm line-clamp-1">
+                    {notification.title ?? 'Notification'}
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground line-clamp-2 ml-4">
+                  {notification.body}
+                </p>
+                <span className="text-xs text-muted-foreground ml-4">
+                  {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })}
+                </span>
+              </DropdownMenuItem>
+            ))
           )}
         </ScrollArea>
         <DropdownMenuSeparator />

@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { TaskDialog } from '@/components/kanban/TaskDialog';
+import { LinkedResourcesPanel } from '@/components/linked/LinkedResourcesPanel';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { enableOutpagedBrand } from '@/lib/featureFlags';
@@ -289,6 +290,13 @@ export default function TaskView() {
           </div>
         </CardContent>
       </Card>
+
+      <LinkedResourcesPanel
+        entityType="task"
+        entityId={task.id}
+        projectId={task.project_id}
+        className="mb-6"
+      />
 
       {/* Task Dialog for editing */}
       <TaskDialog

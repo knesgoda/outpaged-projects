@@ -15,7 +15,7 @@ export function sanitizeHtml(dirty: string, allowedTags?: string[]): string {
       'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote',
       'code', 'pre', 'a'
     ],
-    ALLOWED_ATTR: ['href', 'title', 'target', 'rel'],
+    ALLOWED_ATTR: ['href', 'title', 'target', 'rel', 'class'],
     ALLOW_DATA_ATTR: false,
     FORBID_CONTENTS: ['script', 'style'],
     FORBID_TAGS: ['script', 'object', 'embed', 'base', 'link'],

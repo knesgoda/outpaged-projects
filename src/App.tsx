@@ -9,7 +9,8 @@ import { ProfileProvider } from "./state/profile";
 import { SecurityProvider } from "./components/security/SecurityProvider";
 import { AccessibilityProvider } from "./components/accessibility/AccessibilityProvider";
 import { OperationsProvider } from "./components/operations/OperationsProvider";
-import { CommandPalette } from "./components/advanced-ux/CommandPalette";
+import { CommandKProvider } from "./components/command/CommandKProvider";
+import { CommandPalette } from "./components/command/CommandPalette";
 import { KeyboardShortcuts } from "./components/advanced-ux/KeyboardShortcuts";
 import { OutpagedThemeProvider } from "./components/theme/OutpagedThemeProvider";
 import { SlackProvider } from "./components/integrations/SlackProvider";
@@ -48,9 +49,11 @@ const App = () => (
                         <Toaster />
                         <Sonner />
                         <BrowserRouter>
-                          <CommandPalette />
-                          <KeyboardShortcuts />
-                          <AppRoutes />
+                          <CommandKProvider>
+                            <CommandPalette />
+                            <KeyboardShortcuts />
+                            <AppRoutes />
+                          </CommandKProvider>
                         </BrowserRouter>
                       </TooltipProvider>
                     </MarketingProvider>

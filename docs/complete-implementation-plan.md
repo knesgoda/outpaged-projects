@@ -11,6 +11,42 @@
 **Purpose:** Establish core architecture that all other features depend on
 **Complexity:** High | **Priority:** Critical
 
+### Integrations Inventory (Workspace + Project scopes)
+- **Current implementation touchpoints**
+  - `src/pages/integrations/IntegrationsHome.tsx`
+  - `src/pages/integrations/GoogleIntegrationsPage.tsx`
+  - `src/pages/integrations/GitHubIntegrationsPage.tsx`
+  - `src/pages/integrations/ProjectIntegrationsPage.tsx`
+  - `src/pages/integrations/ProjectGoogleIntegrationsPage.tsx`
+  - `src/pages/integrations/ProjectGitHubIntegrationsPage.tsx`
+  - `src/hooks/useIntegrations.ts`
+  - `src/hooks/useLinkedResources.ts`
+  - `src/services/integrations.ts`
+  - `src/services/linkedResources.ts`
+  - `src/services/gmail.ts`
+  - `src/services/googleCalendar.ts`
+  - `src/services/googleDocs.ts`
+  - `src/services/github.ts`
+  - `src/components/integrations/ConnectCard.tsx`
+  - `src/components/integrations/LinkExternalModal.tsx`
+  - `src/components/linked/LinkedResourcesPanel.tsx`
+  - Legacy surfaces to revisit: `src/pages/Integrations.tsx`, `src/pages/ia/IntegrationsPage.tsx`,
+    `src/components/integrations/CalendarIntegration.tsx`, `src/components/integrations/GitHubIntegration.tsx`,
+    `src/components/integrations/GitHubIntegrationEnhanced.tsx`, `src/components/integrations/SlackIntegrationEnhanced.tsx`,
+    `src/components/integrations/FigmaIntegration.tsx`, `src/components/integrations/GoogleCalendarIntegration.tsx`.
+- **Router coverage**
+  - `/integrations`, `/integrations/google`, `/integrations/github`
+  - `/projects/:projectId/integrations`, `/projects/:projectId/integrations/google`,
+    `/projects/:projectId/integrations/github`
+- **Navigation gaps**
+  - App sidebar still routes to `/dashboard/integrations` instead of `/integrations`.
+  - Project shells do not yet expose Integrations links.
+  - Breadcrumbs need to surface project + integration hierarchy consistently.
+- **Follow-up fixes**
+  - Remove or redirect legacy integration pages so users land on the new flow.
+  - Ensure linked resource panels appear on task, project, and doc detail pages.
+  - Add workspace-level config editing and copy helpers across provider pages.
+
 ### 0.1 Organizational Hierarchy
 **Missing:** Workspace and Space entities above Projects
 
