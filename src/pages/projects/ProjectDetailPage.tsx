@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, NavLink, Outlet, useLocation, useNavigate, useParams } from "react-router-dom";
+import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
 import { ArrowLeft, Edit3, MoreHorizontal, Trash2 } from "lucide-react";
 
@@ -18,6 +18,7 @@ import {
   useProject,
   useUpdateProject,
 } from "@/hooks/useProjects";
+import { useProjectId } from "@/hooks/useProjectId";
 
 import { ProjectFormDialog } from "./ProjectFormDialog";
 import { PROJECT_TABS } from "./projectTabs";
@@ -88,7 +89,7 @@ function TabNavigation({ projectId }: { projectId: string }) {
 }
 
 export default function ProjectDetailPage() {
-  const { projectId } = useParams<{ projectId: string }>();
+  const projectId = useProjectId();
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();

@@ -3,9 +3,11 @@ import { useParams, useNavigate } from "react-router-dom";
 import { resolveProject, ProjectNavigationData } from "@/hooks/useProjectNavigation";
 import ProjectSettings from "@/pages/ProjectSettings";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useProjectId } from "@/hooks/useProjectId";
 
 export function ProjectSettingsResolver() {
-  const { projectId, code } = useParams<{ projectId?: string; code?: string }>();
+  const { code } = useParams<{ code?: string }>();
+  const projectId = useProjectId();
   const navigate = useNavigate();
   const [project, setProject] = useState<ProjectNavigationData | null>(null);
   const [loading, setLoading] = useState(true);

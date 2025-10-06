@@ -97,6 +97,12 @@ export const PROJECT_TABS: ProjectTabDefinition[] = [
     Component: createPlaceholderTab("Files", "Share supporting files."),
   },
   {
+    key: "integrations",
+    label: "Integrations",
+    path: "integrations",
+    Component: createPlaceholderTab("Integrations", "Connect external tools."),
+  },
+  {
     key: "automations",
     label: "Automations",
     path: "automations",

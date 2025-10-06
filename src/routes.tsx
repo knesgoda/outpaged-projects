@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { Navigate, useParams, useRoutes } from "react-router-dom";
+import { Navigate, useRoutes } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { ErrorBoundary } from "@/components/common/ErrorBoundary";
 import HomePage from "@/pages/ia/HomePage";
@@ -42,6 +42,7 @@ import Settings from "@/pages/Settings";
 import SearchPage from "@/pages/Search";
 import ProjectDetailPage from "@/pages/projects/ProjectDetailPage";
 import { PROJECT_TABS } from "@/pages/projects/projectTabs";
+import { useProjectId } from "@/hooks/useProjectId";
 
 const Suspended = ({ children }: { children: React.ReactNode }) => (
   <Suspense fallback={<div className="p-6">Loading...</div>}>
@@ -50,7 +51,7 @@ const Suspended = ({ children }: { children: React.ReactNode }) => (
 );
 
 const LegacyProjectRouteRedirect = () => {
-  const { projectId } = useParams<{ projectId?: string }>();
+  const projectId = useProjectId();
   return <Navigate to={projectId ? `/projects/${projectId}` : "/projects"} replace />;
 };
 

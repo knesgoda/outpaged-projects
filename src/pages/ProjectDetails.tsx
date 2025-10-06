@@ -1,6 +1,6 @@
 
 import { useState, useEffect, useCallback } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import { ArrowLeft, Calendar, Users, CheckSquare2, Settings, Plus } from "lucide
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useProjectNavigation } from "@/hooks/useProjectNavigation";
+import { useProjectId } from "@/hooks/useProjectId";
 import { format } from "date-fns";
 import { CreateTaskDialog } from "@/components/tasks/CreateTaskDialog";
 import { InviteMemberDialog } from "@/components/team/InviteMemberDialog";
@@ -27,7 +28,7 @@ interface ProjectRecord {
 }
 
 function LegacyProjectDetails({ overrideProjectId }: { overrideProjectId?: string }) {
-  const { projectId: paramsProjectId } = useParams();
+  const paramsProjectId = useProjectId();
   const projectId = overrideProjectId || paramsProjectId;
   const navigate = useNavigate();
   const { user } = useAuth();
