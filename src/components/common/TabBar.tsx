@@ -31,6 +31,7 @@ export default function TabBar() {
   }
 
   const basePath = `/projects/${projectId}`;
+  const normalizedPath = location.pathname.replace(/\/$/, "");
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLAnchorElement>, index: number) => {
     if (event.key === "ArrowRight") {
@@ -53,8 +54,8 @@ export default function TabBar() {
             tab.path === "overview" ? basePath : `${basePath}/${tab.path}`;
           const isActive =
             tab.path === "overview"
-              ? location.pathname === basePath
-              : location.pathname === tabPath || location.pathname.startsWith(`${tabPath}/`);
+              ? normalizedPath === basePath || normalizedPath === `${basePath}/overview`
+              : normalizedPath === tabPath || normalizedPath.startsWith(`${tabPath}/`);
 
           return (
             <NavLink
