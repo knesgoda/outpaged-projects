@@ -21,7 +21,13 @@ import GoalsPage from "@/pages/ia/GoalsPage";
 import TemplatesPage from "@/pages/ia/TemplatesPage";
 import PeoplePage from "@/pages/ia/PeoplePage";
 import TimeTrackingPage from "@/pages/ia/TimeTrackingPage";
-import HelpPage from "@/pages/ia/HelpPage";
+import HelpHome from "@/pages/help/HelpHome";
+import HelpSearchPage from "@/pages/help/HelpSearchPage";
+import FAQPage from "@/pages/help/FAQPage";
+import ShortcutsPage from "@/pages/help/ShortcutsPage";
+import ChangelogPage from "@/pages/help/ChangelogPage";
+import ContactSupportPage from "@/pages/help/ContactSupportPage";
+import OnboardingPage from "@/pages/help/OnboardingPage";
 import AdminHomePage from "@/pages/ia/admin/AdminHomePage";
 import AdminWorkspacePage from "@/pages/ia/admin/AdminWorkspacePage";
 import AdminPermissionsPage from "@/pages/ia/admin/AdminPermissionsPage";
@@ -120,7 +126,13 @@ export function AppRoutes() {
         { path: "admin/webhooks", element: <AdminWebhooksPage /> },
         { path: "admin/api", element: <AdminApiPage /> },
         { path: "admin/billing", element: <AdminBillingPage /> },
-        { path: "help", element: <HelpPage /> },
+        { path: "help", element: <HelpHome /> },
+        { path: "help/search", element: <HelpSearchPage /> },
+        { path: "help/faq", element: <FAQPage /> },
+        { path: "help/shortcuts", element: <ShortcutsPage /> },
+        { path: "help/changelog", element: <ChangelogPage /> },
+        { path: "help/contact", element: <ContactSupportPage /> },
+        { path: "help/onboarding", element: <OnboardingPage /> },
       ],
     },
     { path: "/login", element: <Login /> },

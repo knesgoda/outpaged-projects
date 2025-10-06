@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useCallback, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,7 +20,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Menu, Plus, Search } from "lucide-react";
+import { HelpCircle, Keyboard, Menu, Plus, Search } from "lucide-react";
 import { NAV } from "@/lib/navConfig";
 import { getCurrentUser } from "@/lib/auth";
 import { useProfile } from "@/state/profile";
@@ -45,7 +45,20 @@ function findNavLabel(path: string) {
   return walk();
 }
 
+const SEGMENT_LABELS: Record<string, string> = {
+  faq: "FAQ",
+  shortcuts: "Shortcuts",
+  changelog: "Changelog",
+  contact: "Contact",
+  onboarding: "Onboarding",
+  search: "Search",
+};
+
 function formatSegment(segment: string) {
+  const normalized = segment.toLowerCase();
+  if (SEGMENT_LABELS[normalized]) {
+    return SEGMENT_LABELS[normalized];
+  }
   return segment
     .split("-")
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
@@ -54,9 +67,10 @@ function formatSegment(segment: string) {
 
 type TopbarProps = {
   onToggleSidebar: () => void;
+  onOpenShortcuts?: () => void;
 };
 
-export function Topbar({ onToggleSidebar }: TopbarProps) {
+export function Topbar({ onToggleSidebar, onOpenShortcuts }: TopbarProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const user = getCurrentUser();
@@ -109,6 +123,11 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
     navigate(path);
   };
 
+  const openHelpCenter = useCallback(() => {
+    const newWindow = window.open("/help", "_blank", "noopener,noreferrer");
+    newWindow?.focus();
+  }, []);
+
   const fallbackLabel = user?.email ?? "Guest";
   const hasProfile = Boolean(profile) && !profileError;
   const displayName = hasProfile
@@ -150,6 +169,32 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
       </div>
 
       <div className="ml-auto flex items-center gap-2">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" aria-label="Help and shortcuts">
+              <HelpCircle className="h-5 w-5" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuItem
+              onSelect={(event) => {
+                event.preventDefault();
+                openHelpCenter();
+              }}
+            >
+              <HelpCircle className="mr-2 h-4 w-4" aria-hidden="true" /> Open help center
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onSelect={(event) => {
+                event.preventDefault();
+                onOpenShortcuts?.();
+              }}
+            >
+              <Keyboard className="mr-2 h-4 w-4" aria-hidden="true" /> Keyboard shortcuts
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
         {canCreate && (
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
