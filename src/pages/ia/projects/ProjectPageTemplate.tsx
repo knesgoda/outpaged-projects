@@ -1,5 +1,5 @@
 import { ReactNode } from "react";
-import { useParams } from "react-router-dom";
+import { useProjectId } from "@/hooks/useProjectId";
 import { TabBar } from "@/components/common/TabBar";
 
 interface ProjectPageTemplateProps {
@@ -9,7 +9,7 @@ interface ProjectPageTemplateProps {
 }
 
 export function ProjectPageTemplate({ title, description, children }: ProjectPageTemplateProps) {
-  const { projectId } = useParams();
+  const projectId = useProjectId();
 
   return (
     <section className="flex flex-col gap-6">

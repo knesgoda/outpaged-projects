@@ -89,6 +89,7 @@ export function AppRoutes() {
     { path: "projects/:projectId/reports", element: <ProjectReportsPage /> },
     { path: "projects/:projectId/docs", element: <ProjectDocsPage /> },
     { path: "projects/:projectId/files", element: <ProjectFilesPage /> },
+    { path: "projects/:projectId/integrations", element: <ProjectIntegrationsPage /> },
     { path: "projects/:projectId/automations", element: <ProjectAutomationsPage /> },
     { path: "projects/:projectId/settings", element: <ProjectSettingsPage /> },
     { path: "boards", element: <BoardsPage /> },

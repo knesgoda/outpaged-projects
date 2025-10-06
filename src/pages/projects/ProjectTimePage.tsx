@@ -1,8 +1,8 @@
-import { useParams } from "react-router-dom";
+import { useProjectId } from "@/hooks/useProjectId";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 
 export default function ProjectTimePage() {
-  const { projectId = "" } = useParams();
+  const projectId = useProjectId() ?? "";
   useDocumentTitle(`Projects / ${projectId || "Project"} / Time`);
 
   return (
