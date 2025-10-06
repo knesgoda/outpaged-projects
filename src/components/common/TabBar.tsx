@@ -19,7 +19,7 @@ export const PROJECT_TABS = [
 ] as const;
 
 export function TabBar() {
-  const { id } = useParams();
+  const { projectId } = useParams();
   const location = useLocation();
   const tabRefs = useRef<(HTMLAnchorElement | null)[]>([]);
 
@@ -42,11 +42,11 @@ export function TabBar() {
     <nav className="overflow-x-auto" role="tablist" aria-label="Project navigation">
       <div className="flex min-w-max gap-1 rounded-md border bg-background p-1">
         {tabItems.map((tab, index) => {
-          const projectId = id ?? "";
-          const tabPath = `/projects/${projectId}/${tab.path}`;
+          const currentProjectId = projectId ?? "";
+          const tabPath = `/projects/${currentProjectId}/${tab.path}`;
           const isActive =
             location.pathname === tabPath ||
-            (tab.path === "overview" && location.pathname === `/projects/${projectId}`);
+            (tab.path === "overview" && location.pathname === `/projects/${currentProjectId}`);
 
           return (
             <NavLink
