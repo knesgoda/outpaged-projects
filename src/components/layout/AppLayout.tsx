@@ -53,24 +53,24 @@ export function AppLayout() {
               <Sidebar isCollapsed={isCollapsed} onCollapseToggle={toggleSidebar} />
             </div>
 
-          {isMobileOpen && (
-          <div className="fixed inset-0 z-50 flex lg:hidden">
-            <button
-              type="button"
-              className="absolute inset-0 bg-black/40"
-              onClick={closeMobile}
-              aria-label="Close navigation"
-            />
-            <div className="relative h-full w-[280px]">
-              <Sidebar
-                isCollapsed={false}
-                onCollapseToggle={toggleSidebar}
-                onNavigate={closeMobile}
-                className="h-full w-full bg-background shadow-xl"
-              />
-            </div>
-          </div>
-        )}
+            {isMobileOpen && (
+              <div className="fixed inset-0 z-50 flex lg:hidden">
+                <button
+                  type="button"
+                  className="absolute inset-0 bg-black/40"
+                  onClick={closeMobile}
+                  aria-label="Close navigation"
+                />
+                <div className="relative h-full w-[280px]">
+                  <Sidebar
+                    isCollapsed={false}
+                    onCollapseToggle={toggleSidebar}
+                    onNavigate={closeMobile}
+                    className="h-full w-full bg-background shadow-xl"
+                  />
+                </div>
+              </div>
+            )}
 
             <div className="flex flex-1 flex-col">
               <Topbar onToggleSidebar={toggleSidebar} />
