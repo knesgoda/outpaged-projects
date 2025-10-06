@@ -1,12 +1,13 @@
-import { useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { getNavForRole, type NavItem } from "@/lib/navConfig";
-import { getCurrentUser, type Role } from "@/lib/auth";
+import { clearAuthCache, getWorkspaceRole, type Role } from "@/lib/auth";
 import { useBadges } from "@/state/badges";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 
 type SidebarProps = {
   isCollapsed: boolean;
@@ -16,8 +17,44 @@ type SidebarProps = {
 };
 
 export function Sidebar({ isCollapsed, onCollapseToggle, onNavigate, className }: SidebarProps) {
-  const user = getCurrentUser();
-  const role: Role = user?.role ?? "viewer";
+  const { user } = useAuth();
+  const [role, setRole] = useState<Role>("viewer");
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadRole() {
+      if (!user) {
+        if (active) {
+          setRole("viewer");
+        }
+        return;
+      }
+
+      try {
+        const workspaceRole = await getWorkspaceRole(user.id);
+        if (active) {
+          setRole(workspaceRole ?? "viewer");
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        if (active) {
+          if (message !== "You do not have access") {
+            console.warn("Failed to load workspace role", message);
+          }
+          setRole("viewer");
+        }
+      }
+    }
+
+    clearAuthCache();
+    loadRole();
+
+    return () => {
+      active = false;
+    };
+  }, [user?.id]);
+
   const navItems = useMemo(() => getNavForRole(role), [role]);
   const { inboxCount, myWorkCount } = useBadges();
   const badgeCounts = { inboxCount, myWorkCount } as const;

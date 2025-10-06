@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
+import { createNotification } from '@/services/notifications';
 
 interface TaskAssignee {
   id: string;
@@ -62,24 +63,61 @@ export function useTaskAssignees(taskId?: string) {
 
       if (error) throw error;
 
-      // Notify assignee via edge function (email + in-app)
       try {
         const { data: taskData, error: taskErr } = await supabase
           .from('tasks')
-          .select('project_id')
+          .select('project_id, title, name')
           .eq('id', taskId)
           .single();
+
         if (taskErr) {
-          console.warn('Could not fetch task project_id for notification:', taskErr);
-        } else {
-          await supabase.functions.invoke('send-task-assignment-notification', {
-            body: {
-              taskId,
-              assigneeId: userId,
-              projectId: taskData?.project_id,
-              assignerId: user.id,
-            },
-          });
+          console.warn('Could not fetch task metadata for notification:', taskErr);
+        }
+
+        if (userId !== user.id) {
+          const { data: preferenceRow, error: preferenceError } = await supabase
+            .from('notification_preferences')
+            .select('in_app, email')
+            .eq('user_id', userId)
+            .maybeSingle();
+
+          if (preferenceError) {
+            console.warn('Could not load assignment preferences:', preferenceError);
+          }
+
+          const inAppPref = (preferenceRow?.in_app as Record<string, boolean> | null | undefined)?.assigned;
+          const emailPref = (preferenceRow?.email as Record<string, boolean> | null | undefined)?.assigned;
+
+          const taskTitle = (taskData as any)?.title || (taskData as any)?.name || 'task';
+          const actorName = user?.user_metadata?.full_name || user?.email || 'Someone';
+
+          if (inAppPref !== false) {
+            await createNotification({
+              user_id: userId,
+              type: 'assigned',
+              title: 'New assignment',
+              body: `${actorName} assigned you "${taskTitle}"`,
+              entity_type: 'task',
+              entity_id: taskId,
+              project_id: taskData?.project_id,
+              link: `/tasks/${taskId}`,
+            });
+          }
+
+          if (emailPref === true) {
+            try {
+              await supabase.functions.invoke('send-task-assignment-notification', {
+                body: {
+                  taskId,
+                  assigneeId: userId,
+                  projectId: taskData?.project_id,
+                  assignerId: user.id,
+                },
+              });
+            } catch (notifyError) {
+              console.warn('Assignment notification email error:', notifyError);
+            }
+          }
         }
       } catch (notifyError) {
         console.warn('Assignment notification error:', notifyError);

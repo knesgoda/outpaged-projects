@@ -158,6 +158,14 @@
 - ❌ **Docs View** - No docs workspace
 - ❌ **Activity/Updates** - Comments exist, no activity feed
 - ❌ **Pivot/Chart** - No pivot tables
+- ✅ **Help Center Hub** - Dedicated /help home with search, quick links, and announcements
+- ✅ **Help Detail Pages** - FAQ, shortcuts, changelog, onboarding, and contact routes implemented
+- ✅ **Support Channels** - Feedback widget and support ticket form wired to Supabase services
+- 🟡 **Content Authoring** - Admin/help article editor limited to API access; no in-app editor yet
+- 🟡 **Knowledge Base Search** - Supabase text search wired, relevancy tuning pending
+- 🟡 **Changelog Sync** - Falls back to CHANGELOG.md when announcements empty; needs markdown rendering polish
+- ❌ **Guided Tours** - No interactive tours or walkthrough overlays implemented
+- ❌ **External Support Integrations** - No Intercom or Zendesk connection for help center handoff
 
 ---
 

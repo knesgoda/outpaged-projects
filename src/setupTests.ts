@@ -1,5 +1,32 @@
 import "@testing-library/jest-dom";
 
+jest.mock("@/integrations/supabase/client", () => {
+  const createBuilder = () => {
+    const builder: any = {
+      select: jest.fn(() => builder),
+      insert: jest.fn(() => builder),
+      update: jest.fn(() => builder),
+      delete: jest.fn(() => builder),
+      order: jest.fn(() => builder),
+      limit: jest.fn(() => Promise.resolve({ data: [], error: null })),
+      textSearch: jest.fn(() => builder),
+      filter: jest.fn(() => builder),
+      eq: jest.fn(() => builder),
+      or: jest.fn(() => builder),
+      single: jest.fn(() => Promise.resolve({ data: null, error: null })),
+      maybeSingle: jest.fn(() => Promise.resolve({ data: null, error: null })),
+    };
+    return builder;
+  };
+
+  return {
+    supabaseConfigured: false,
+    supabase: {
+      from: jest.fn(() => createBuilder()),
+    },
+  };
+});
+
 class ResizeObserver {
   observe() {}
   unobserve() {}
@@ -31,4 +58,73 @@ if (!globalThis.crypto) {
     value: randomUUID,
     configurable: true,
   });
+}
+
+codex/implement-notifications-and-inbox-functionality-g8mo3c
+const noopAsync = async () => ({ data: null, error: null });
+
+const createQueryBuilder = () => {
+  const result = { data: [], error: null };
+
+  const builder: any = {
+    select: jest.fn(() => builder),
+    order: jest.fn(() => builder),
+    orderBy: jest.fn(() => builder),
+    eq: jest.fn(() => builder),
+    in: jest.fn(() => builder),
+    is: jest.fn(() => builder),
+    gte: jest.fn(() => builder),
+    limit: jest.fn(() => builder),
+    insert: jest.fn(() => builder),
+    update: jest.fn(() => builder),
+    delete: jest.fn(() => builder),
+    upsert: jest.fn(() => builder),
+    maybeSingle: jest.fn(() => Promise.resolve({ data: null, error: null })),
+    single: jest.fn(() => Promise.resolve({ data: null, error: null })),
+    then: (resolve: (value: typeof result) => void) => Promise.resolve(result).then(resolve),
+    catch: (reject: (reason: unknown) => void) => Promise.resolve(result).catch(reject),
+    finally: (onFinally: () => void) => Promise.resolve().finally(onFinally),
+  };
+
+  return builder;
+};
+
+jest.mock("@/integrations/supabase/client", () => {
+  const channelMock = {
+    on: jest.fn().mockReturnThis(),
+    subscribe: jest.fn().mockResolvedValue({ data: null, error: null }),
+    send: jest.fn().mockResolvedValue({ data: null, error: null }),
+  };
+
+  return {
+    supabase: {
+      auth: {
+        getUser: jest.fn().mockResolvedValue({ data: { user: null }, error: null }),
+        getSession: jest.fn().mockResolvedValue({ data: { session: null }, error: null }),
+        onAuthStateChange: jest.fn(() => ({ data: { subscription: { unsubscribe: jest.fn() } } })),
+        signInWithPassword: jest.fn().mockResolvedValue({ data: { user: null, session: null }, error: null }),
+        signInWithOAuth: jest.fn().mockResolvedValue({ data: { user: null, session: null }, error: null }),
+        signUp: jest.fn().mockResolvedValue({ data: { user: null, session: null }, error: null }),
+        signOut: jest.fn().mockResolvedValue({ error: null }),
+      },
+      from: jest.fn(() => createQueryBuilder()),
+      rpc: jest.fn(() => Promise.resolve({ data: null, error: null })),
+      channel: jest.fn(() => channelMock),
+      removeChannel: jest.fn(),
+      functions: { invoke: jest.fn(noopAsync) },
+      storage: {
+        from: jest.fn(() => ({
+          upload: jest.fn(noopAsync),
+          update: jest.fn(noopAsync),
+          remove: jest.fn(noopAsync),
+          download: jest.fn(noopAsync),
+          getPublicUrl: jest.fn(() => ({ data: { publicUrl: null }, error: null })),
+        })),
+      },
+    },
+    supabaseConfigured: false,
+  };
+});
+if (typeof Element !== "undefined" && !Element.prototype.scrollIntoView) {
+  Element.prototype.scrollIntoView = () => {};
 }

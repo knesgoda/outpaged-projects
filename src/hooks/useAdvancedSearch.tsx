@@ -2,18 +2,16 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { toast } from '@/hooks/use-toast';
+import type { SearchResult as BaseSearchResult } from '@/types';
 
-export interface SearchResult {
-  id: string;
-  type: 'project' | 'task' | 'comment' | 'team_member';
-  title: string;
+export type AdvancedSearchResult = BaseSearchResult & {
   description?: string;
   match_field: string;
   relevance_score: number;
   metadata?: Record<string, any>;
   created_at: string;
   updated_at: string;
-}
+};
 
 export interface SearchFilters {
   types: ('project' | 'task' | 'comment' | 'team_member')[];
@@ -39,7 +37,7 @@ export interface SavedSearch {
 export function useAdvancedSearch() {
   const { user } = useAuth();
   const [isSearching, setIsSearching] = useState(false);
-  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [searchResults, setSearchResults] = useState<AdvancedSearchResult[]>([]);
   const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([]);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
 
@@ -52,7 +50,7 @@ export function useAdvancedSearch() {
 
     setIsSearching(true);
     try {
-      const results: SearchResult[] = [];
+      const results: AdvancedSearchResult[] = [];
       
       // Search projects
       if (filters.types.includes('project')) {
@@ -64,16 +62,21 @@ export function useAdvancedSearch() {
         if (projects) {
           projects.forEach(project => {
             const matchField = project.name.toLowerCase().includes(query.toLowerCase()) ? 'name' : 'description';
+            const relevance = calculateRelevance(query, project.name + ' ' + (project.description || ''));
             results.push({
               id: project.id,
               type: 'project',
               title: project.name,
               description: project.description || '',
               match_field: matchField,
-              relevance_score: calculateRelevance(query, project.name + ' ' + (project.description || '')),
+              relevance_score: relevance,
               metadata: { status: project.status, owner_id: project.owner_id },
               created_at: project.created_at,
               updated_at: project.updated_at,
+              snippet: project.description || null,
+              url: `/projects/${project.id}`,
+              project_id: project.id,
+              score: relevance,
             });
           });
         }
@@ -93,15 +96,16 @@ export function useAdvancedSearch() {
         if (tasks) {
           tasks.forEach(task => {
             const matchField = task.title.toLowerCase().includes(query.toLowerCase()) ? 'title' : 'description';
+            const relevance = calculateRelevance(query, task.title + ' ' + (task.description || ''));
             results.push({
               id: task.id,
               type: 'task',
               title: task.title,
               description: task.description || '',
               match_field: matchField,
-              relevance_score: calculateRelevance(query, task.title + ' ' + (task.description || '')),
-              metadata: { 
-                status: task.status, 
+              relevance_score: relevance,
+              metadata: {
+                status: task.status,
                 priority: task.priority,
                 project_name: task.projects?.name,
                 project_id: task.project_id,
@@ -109,6 +113,10 @@ export function useAdvancedSearch() {
               },
               created_at: task.created_at,
               updated_at: task.updated_at,
+              snippet: task.description || null,
+              url: `/tasks/${task.id}`,
+              project_id: task.project_id,
+              score: relevance,
             });
           });
         }
@@ -126,14 +134,15 @@ export function useAdvancedSearch() {
 
         if (comments) {
           comments.forEach(comment => {
-            results.push({
-              id: comment.id,
-              type: 'comment',
-              title: `Comment on: ${comment.tasks?.title}`,
-              description: comment.content,
-              match_field: 'content',
-              relevance_score: calculateRelevance(query, comment.content),
-              metadata: { 
+            const relevance = calculateRelevance(query, comment.content);
+              results.push({
+                id: comment.id,
+                type: 'comment',
+                title: `Comment on: ${comment.tasks?.title}`,
+                description: comment.content,
+                match_field: 'content',
+              relevance_score: relevance,
+              metadata: {
                 task_id: comment.task_id,
                 task_title: comment.tasks?.title,
                 project_name: comment.tasks?.projects?.name,
@@ -141,7 +150,13 @@ export function useAdvancedSearch() {
               },
               created_at: comment.created_at,
               updated_at: comment.updated_at,
-            });
+                snippet: comment.content,
+                url: comment.task_id
+                  ? `/tasks/${comment.task_id}#comment-${comment.id}`
+                  : '#',
+                project_id: comment.tasks?.project_id ?? null,
+                score: relevance,
+              });
           });
         }
       }
@@ -155,16 +170,21 @@ export function useAdvancedSearch() {
 
         if (profiles) {
           profiles.forEach(profile => {
+            const relevance = calculateRelevance(query, profile.full_name || '');
             results.push({
               id: profile.id,
               type: 'team_member',
               title: profile.full_name || 'Unknown User',
               description: `Role: ${profile.role}`,
               match_field: 'full_name',
-              relevance_score: calculateRelevance(query, profile.full_name || ''),
+              relevance_score: relevance,
               metadata: { role: profile.role, user_id: profile.user_id },
               created_at: profile.created_at,
               updated_at: profile.updated_at,
+              snippet: `Role: ${profile.role}`,
+              url: `/people/${profile.user_id ?? profile.id}`,
+              project_id: null,
+              score: relevance,
             });
           });
         }

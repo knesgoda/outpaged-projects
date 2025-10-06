@@ -25,6 +25,7 @@ import {
   Sun,
   Moon,
   Monitor,
+  Plug,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { SidebarTrigger } from "@/components/ui/sidebar";
@@ -182,6 +183,10 @@ export function AppHeader() {
                   <DropdownMenuItem onClick={() => navigate("/settings")}>
                     <Settings className="mr-2 h-4 w-4" />
                     Settings
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate("/integrations")}>
+                    <Plug className="mr-2 h-4 w-4" />
+                    Integrations
                   </DropdownMenuItem>
                   <DropdownMenuItem>
                     <HelpCircle className="mr-2 h-4 w-4" />
