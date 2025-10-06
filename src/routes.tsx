@@ -60,7 +60,7 @@ import AuthCallback from "@/pages/AuthCallback";
 import NotFound from "@/pages/NotFound";
 import Profile from "@/pages/Profile";
 import Settings from "@/pages/Settings";
-import SearchPage from "@/pages/Search";
+import GlobalSearchPage from "@/pages/search/GlobalSearchPage";
 
 const Suspended = ({ children }: { children: React.ReactNode }) => (
   <Suspense fallback={<div className="p-6">Loading...</div>}>
@@ -119,7 +119,7 @@ export function AppRoutes() {
         { path: "tasks/new", element: <NewTaskPage /> },
         { path: "profile", element: <Profile /> },
         { path: "settings", element: <Settings /> },
-        { path: "search", element: <SearchPage /> },
+        { path: "search", element: <GlobalSearchPage /> },
         { path: "admin", element: <AdminHomePage /> },
         { path: "admin/workspace", element: <AdminWorkspacePage /> },
         { path: "admin/permissions", element: <AdminPermissionsPage /> },

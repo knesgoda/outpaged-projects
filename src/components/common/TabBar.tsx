@@ -19,13 +19,18 @@ export const PROJECT_TABS = [
   { label: "Automations", path: "automations" },
   { label: "Settings", path: "settings" },
 ] as const;
-
-export function TabBar() {
   const projectId = useProjectId();
   const location = useLocation();
   const tabRefs = useRef<(HTMLAnchorElement | null)[]>([]);
 
   const tabItems = useMemo(() => PROJECT_TABS.map((tab) => ({ ...tab })), []);
+
+  if (!projectId) {
+    return null;
+  }
+
+  const basePath = `/projects/${projectId}`;
+  const normalizedPath = location.pathname.replace(/\/$/, "");
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLAnchorElement>, index: number) => {
     if (event.key === "ArrowRight") {
@@ -44,16 +49,18 @@ export function TabBar() {
     <nav className="overflow-x-auto" role="tablist" aria-label="Project navigation">
       <div className="flex min-w-max gap-1 rounded-md border bg-background p-1">
         {tabItems.map((tab, index) => {
-          const currentProjectId = projectId ?? "";
-          const tabPath = `/projects/${currentProjectId}/${tab.path}`;
+          const tabPath =
+            tab.path === "overview" ? basePath : `${basePath}/${tab.path}`;
           const isActive =
-            location.pathname === tabPath ||
-            (tab.path === "overview" && location.pathname === `/projects/${currentProjectId}`);
+            tab.path === "overview"
+              ? normalizedPath === basePath || normalizedPath === `${basePath}/overview`
+              : normalizedPath === tabPath || normalizedPath.startsWith(`${tabPath}/`);
 
           return (
             <NavLink
               key={tab.path}
               to={tabPath}
+              end={tab.path === "overview"}
               ref={(el) => {
                 tabRefs.current[index] = el;
               }}

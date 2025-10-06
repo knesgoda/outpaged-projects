@@ -79,6 +79,27 @@ import HomePage from "@/pages/ia/HomePage";
 import ProjectsPage from "@/pages/ia/ProjectsPage";
 import HelpHome from "@/pages/help/HelpHome";
 
+jest.mock("@/components/command/useCommandK", () => ({
+  useCommandK: () => ({
+    openPalette: jest.fn(),
+    closePalette: jest.fn(),
+    togglePalette: jest.fn(),
+    open: false,
+    query: "",
+    scope: {},
+    setQuery: jest.fn(),
+  }),
+}));
+
+jest.mock("@/state/profile", () => ({
+  useProfile: () => ({
+    profile: { full_name: "Test User", role: "manager" },
+    loading: false,
+    error: null,
+    refresh: jest.fn(),
+  }),
+}));
+
 describe("AppLayout", () => {
   beforeAll(() => {
     Object.defineProperty(window, "matchMedia", {
