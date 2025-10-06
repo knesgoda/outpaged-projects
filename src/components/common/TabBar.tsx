@@ -18,7 +18,7 @@ export const PROJECT_TABS = [
   { label: "Settings", path: "settings" },
 ] as const;
 
-export function TabBar() {
+export default function TabBar() {
   const { projectId } = useParams();
   const location = useLocation();
   const tabRefs = useRef<(HTMLAnchorElement | null)[]>([]);

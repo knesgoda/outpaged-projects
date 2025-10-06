@@ -89,6 +89,32 @@ export const CommandKProvider = ({ children }: { children: ReactNode }) => {
     return () => window.removeEventListener("keydown", handler);
   }, [openPalette]);
 
+  useEffect(() => {
+    const handleOpen = (event: Event) => {
+      const customEvent =
+        event as CustomEvent<
+          | undefined
+          | {
+              query?: string;
+              projectId?: string;
+              types?: Array<SearchResult["type"]>;
+            }
+        >;
+      openPalette(customEvent.detail ?? undefined);
+    };
+
+    document.addEventListener(
+      "open-command-palette",
+      handleOpen as EventListener
+    );
+    return () => {
+      document.removeEventListener(
+        "open-command-palette",
+        handleOpen as EventListener
+      );
+    };
+  }, [openPalette]);
+
   const value = useMemo(
     () => ({ open, query, scope, openPalette, closePalette, togglePalette, setQuery }),
     [open, query, scope, openPalette, closePalette, togglePalette, setQuery]

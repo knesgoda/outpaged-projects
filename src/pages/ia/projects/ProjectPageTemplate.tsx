@@ -1,8 +1,6 @@
 import { ReactNode } from "react";
-import { useParams } from "react-router-dom";
-import { TabBar } from "@/components/common/TabBar";
-import { Button } from "@/components/ui/button";
-import { useCommandK } from "@/components/command/useCommandK";
+import TabBar from "@/components/common/TabBar";
+import { useProjectId } from "@/hooks/useProjectId";
 
 interface ProjectPageTemplateProps {
   title: string;
@@ -11,9 +9,20 @@ interface ProjectPageTemplateProps {
   headerExtras?: ReactNode;
 }
 
-export function ProjectPageTemplate({ title, description, children, headerExtras }: ProjectPageTemplateProps) {
-  const { projectId } = useParams();
-  const { openPalette } = useCommandK();
+export function ProjectPageTemplate({
+  title,
+  description,
+  children,
+  headerExtras,
+}: ProjectPageTemplateProps) {
+  const projectId = useProjectId();
+
+  const openCommandPalette = () => {
+    if (!projectId) return;
+    document.dispatchEvent(
+      new CustomEvent("open-command-palette", { detail: { projectId } })
+    );
+  };
 
   return (
     <section className="flex flex-col gap-6">
@@ -25,19 +34,22 @@ export function ProjectPageTemplate({ title, description, children, headerExtras
         <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
           <span>Project reference: {projectId ?? "Unknown"}</span>
           {projectId ? (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => openPalette({ projectId })}
+            <button
+              type="button"
+              onClick={openCommandPalette}
+              className="rounded-md border border-gray-300 px-3 py-1.5 text-sm hover:bg-gray-50"
+              title="Search in project"
+              aria-label="Search in project"
             >
               Search in project
-            </Button>
+            </button>
           ) : null}
           {headerExtras}
         </div>
-        {/* TODO: Replace reference with actual project name */}
       </header>
+
       <TabBar />
+
       <div className="rounded-lg border bg-background p-6 text-muted-foreground">
         {children ?? "Content for this view is coming soon."}
       </div>
