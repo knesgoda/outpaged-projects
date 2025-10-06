@@ -17,6 +17,7 @@ export const PROJECT_TABS = [
   { label: "Files", path: "files" },
   { label: "Integrations", path: "integrations" },
   { label: "Automations", path: "automations" },
+  { label: "Integrations", path: "integrations" },
   { label: "Settings", path: "settings" },
 ] as const;
   const projectId = useProjectId();
@@ -49,6 +50,15 @@ export const PROJECT_TABS = [
     <nav className="overflow-x-auto" role="tablist" aria-label="Project navigation">
       <div className="flex min-w-max gap-1 rounded-md border bg-background p-1">
         {tabItems.map((tab, index) => {
+codex/implement-integrations-with-google-and-github
+          const currentProjectId = projectId ?? "";
+          const tabPath = `/projects/${currentProjectId}/${tab.path}`;
+          const overviewPath = `/projects/${currentProjectId}`;
+          const matchesNested = location.pathname.startsWith(`${tabPath}/`);
+          const isOverviewActive =
+            tab.path === "overview" && (location.pathname === overviewPath || location.pathname === tabPath);
+          const isActive =
+            location.pathname === tabPath || matchesNested || isOverviewActive;
           const tabPath =
             tab.path === "overview" ? basePath : `${basePath}/${tab.path}`;
           const isActive =

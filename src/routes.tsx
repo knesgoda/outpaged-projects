@@ -15,7 +15,12 @@ import ReportsPage from "@/pages/ia/ReportsPage";
 import DocsPage from "@/pages/ia/DocsPage";
 import FilesPage from "@/pages/ia/FilesPage";
 import AutomationsPage from "@/pages/ia/AutomationsPage";
-import IntegrationsPage from "@/pages/ia/IntegrationsPage";
+import IntegrationsHome from "@/pages/integrations/IntegrationsHome";
+import GoogleIntegrationsPage from "@/pages/integrations/GoogleIntegrationsPage";
+import GitHubIntegrationsPage from "@/pages/integrations/GitHubIntegrationsPage";
+import ProjectIntegrationsPage from "@/pages/integrations/ProjectIntegrationsPage";
+import ProjectGoogleIntegrationsPage from "@/pages/integrations/ProjectGoogleIntegrationsPage";
+import ProjectGitHubIntegrationsPage from "@/pages/integrations/ProjectGitHubIntegrationsPage";
 import FormsPage from "@/pages/ia/FormsPage";
 import GoalsPage from "@/pages/ia/GoalsPage";
 import TemplatesPage from "@/pages/ia/TemplatesPage";
@@ -110,7 +115,18 @@ export function AppRoutes() {
         { path: "docs", element: <DocsPage /> },
         { path: "files", element: <FilesPage /> },
         { path: "automations", element: <AutomationsPage /> },
-        { path: "integrations", element: <IntegrationsPage /> },
+        { path: "integrations", element: <IntegrationsHome /> },
+        { path: "integrations/google", element: <GoogleIntegrationsPage /> },
+        { path: "integrations/github", element: <GitHubIntegrationsPage /> },
+        { path: "projects/:projectId/integrations", element: <ProjectIntegrationsPage /> },
+        {
+          path: "projects/:projectId/integrations/google",
+          element: <ProjectGoogleIntegrationsPage />,
+        },
+        {
+          path: "projects/:projectId/integrations/github",
+          element: <ProjectGitHubIntegrationsPage />,
+        },
         { path: "forms", element: <FormsPage /> },
         { path: "goals", element: <GoalsPage /> },
         { path: "templates", element: <TemplatesPage /> },

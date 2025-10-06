@@ -14,6 +14,8 @@ import {
   Link as LinkIcon
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+codex/implement-integrations-with-google-and-github
+import { LinkedResourcesPanel } from "@/components/linked/LinkedResourcesPanel";
 import { CommentsSystemWithMentions } from "@/components/comments/CommentsSystemWithMentions";
 
 interface DocumentBlock {
@@ -314,6 +316,8 @@ export function AdvancedDocumentEditor() {
         </div>
       )}
 
+codex/implement-integrations-with-google-and-github
+      <LinkedResourcesPanel entityType="doc" entityId={document.id} projectId={null} />
       <CommentsSystemWithMentions
         entityType="doc"
         entityId={document.id}
