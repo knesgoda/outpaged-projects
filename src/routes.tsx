@@ -31,7 +31,6 @@ import AdminDataPage from "@/pages/ia/admin/AdminDataPage";
 import AdminWebhooksPage from "@/pages/ia/admin/AdminWebhooksPage";
 import AdminApiPage from "@/pages/ia/admin/AdminApiPage";
 import AdminBillingPage from "@/pages/ia/admin/AdminBillingPage";
-import NewProjectPage from "@/pages/ia/NewProjectPage";
 import NewBoardPage from "@/pages/ia/NewBoardPage";
 import NewTaskPage from "@/pages/ia/NewTaskPage";
 import NewDashboardPage from "@/pages/ia/NewDashboardPage";
@@ -78,7 +77,6 @@ export function AppRoutes() {
         { path: "my-work", element: <MyWorkPage /> },
         { path: "inbox", element: <InboxPage /> },
         { path: "projects", element: <ProjectsListPage /> },
-        { path: "projects/new", element: <NewProjectPage /> },
         {
           path: "projects/:projectId",
           element: <ProjectDetailPage />,
