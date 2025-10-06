@@ -54,8 +54,23 @@ export function Sidebar({ isCollapsed, onCollapseToggle, onNavigate, className }
     }
   };
 
+  const altActivePatterns: Record<string, RegExp[]> = useMemo(
+    () => ({
+      reports: [/^\/projects\/[^/]+\/reports/],
+      files: [/^\/projects\/[^/]+\/files/],
+      automations: [/^\/projects\/[^/]+\/automations/],
+    }),
+    []
+  );
+
   const renderNavItem = (item: NavItem, index: number, depth = 0) => {
-    const isActive = location.pathname === item.path || location.pathname.startsWith(`${item.path}/`);
+    const pathname = location.pathname;
+    let isActive = pathname === item.path || pathname.startsWith(`${item.path}/`);
+
+    if (!isActive) {
+      const patterns = altActivePatterns[item.id] ?? [];
+      isActive = patterns.some((pattern) => pattern.test(pathname));
+    }
     const badgeValue = item.badgeKey ? badgeCounts[item.badgeKey] : 0;
     const showBadge = item.badgeKey ? badgeValue > 0 : false;
 

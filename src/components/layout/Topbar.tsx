@@ -22,6 +22,7 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Menu, Plus, Search } from "lucide-react";
 import { NAV } from "@/lib/navConfig";
+import { useBreadcrumbOverrides } from "@/state/breadcrumbs";
 import { getCurrentUser } from "@/lib/auth";
 import { useProfile } from "@/state/profile";
 import { PROJECT_TABS } from "@/components/common/TabBar";
@@ -62,6 +63,7 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
   const user = getCurrentUser();
   const { profile, error: profileError } = useProfile();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const breadcrumbOverrides = useBreadcrumbOverrides();
 
   const actions = useMemo(
     () => [
@@ -98,11 +100,16 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
         label = formatSegment(segment);
       }
 
+      const override = breadcrumbOverrides.get(href);
+      if (override) {
+        label = override;
+      }
+
       crumbs.push({ label, href });
     });
 
     return [{ label: "Home", href: "/" }, ...crumbs];
-  }, [location.pathname]);
+  }, [location.pathname, breadcrumbOverrides]);
 
   const handleAction = (path: string) => {
     setIsDialogOpen(false);

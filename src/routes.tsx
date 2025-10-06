@@ -11,10 +11,14 @@ import CalendarPage from "@/pages/ia/CalendarPage";
 import TimelinePage from "@/pages/ia/TimelinePage";
 import WorkloadPage from "@/pages/ia/WorkloadPage";
 import DashboardsPage from "@/pages/ia/DashboardsPage";
-import ReportsPage from "@/pages/ia/ReportsPage";
+import ReportsHome from "@/pages/reports/ReportsHome";
+import ReportCreate from "@/pages/reports/ReportCreate";
+import ReportDetail from "@/pages/reports/ReportDetail";
+import ReportEdit from "@/pages/reports/ReportEdit";
 import DocsPage from "@/pages/ia/DocsPage";
-import FilesPage from "@/pages/ia/FilesPage";
-import AutomationsPage from "@/pages/ia/AutomationsPage";
+import FilesPage from "@/pages/files/FilesPage";
+import AutomationsPage from "@/pages/automations/AutomationsPage";
+import AutomationDetailPage from "@/pages/automations/AutomationDetailPage";
 import IntegrationsPage from "@/pages/ia/IntegrationsPage";
 import FormsPage from "@/pages/ia/FormsPage";
 import GoalsPage from "@/pages/ia/GoalsPage";
@@ -41,8 +45,8 @@ import ProjectTimelinePage from "@/pages/ia/projects/ProjectTimelinePage";
 import ProjectDependenciesPage from "@/pages/ia/projects/ProjectDependenciesPage";
 import ProjectReportsPage from "@/pages/ia/projects/ProjectReportsPage";
 import ProjectDocsPage from "@/pages/ia/projects/ProjectDocsPage";
-import ProjectFilesPage from "@/pages/ia/projects/ProjectFilesPage";
-import ProjectAutomationsPage from "@/pages/ia/projects/ProjectAutomationsPage";
+import ProjectFilesPage from "@/pages/projects/ProjectFilesPage";
+import ProjectAutomationsPage from "@/pages/projects/ProjectAutomationsPage";
 import ProjectSettingsPage from "@/pages/ia/projects/ProjectSettingsPage";
 import NewProjectPage from "@/pages/ia/NewProjectPage";
 import NewBoardPage from "@/pages/ia/NewBoardPage";
@@ -87,8 +91,8 @@ export function AppRoutes() {
         { path: "projects/:id/dependencies", element: <ProjectDependenciesPage /> },
         { path: "projects/:id/reports", element: <ProjectReportsPage /> },
         { path: "projects/:id/docs", element: <ProjectDocsPage /> },
-        { path: "projects/:id/files", element: <ProjectFilesPage /> },
-        { path: "projects/:id/automations", element: <ProjectAutomationsPage /> },
+        { path: "projects/:projectId/files", element: <ProjectFilesPage /> },
+        { path: "projects/:projectId/automations", element: <ProjectAutomationsPage /> },
         { path: "projects/:id/settings", element: <ProjectSettingsPage /> },
         { path: "boards", element: <BoardsPage /> },
         { path: "boards/new", element: <NewBoardPage /> },
@@ -97,10 +101,15 @@ export function AppRoutes() {
         { path: "workload", element: <WorkloadPage /> },
         { path: "dashboards", element: <DashboardsPage /> },
         { path: "dashboards/new", element: <NewDashboardPage /> },
-        { path: "reports", element: <ReportsPage /> },
+        { path: "reports", element: <ReportsHome /> },
+        { path: "reports/new", element: <ReportCreate /> },
+        { path: "reports/:reportId", element: <ReportDetail /> },
+        { path: "reports/:reportId/edit", element: <ReportEdit /> },
         { path: "docs", element: <DocsPage /> },
         { path: "files", element: <FilesPage /> },
         { path: "automations", element: <AutomationsPage /> },
+        { path: "automations/new", element: <AutomationDetailPage /> },
+        { path: "automations/:automationId", element: <AutomationDetailPage /> },
         { path: "integrations", element: <IntegrationsPage /> },
         { path: "forms", element: <FormsPage /> },
         { path: "goals", element: <GoalsPage /> },
