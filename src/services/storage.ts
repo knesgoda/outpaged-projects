@@ -31,6 +31,37 @@ export async function uploadHelpScreenshot(file: File, userId: string): Promise<
   return { publicUrl };
 }
 
+export async function uploadToBucket(
+  bucket: string,
+  path: string,
+  file: File,
+  opts?: { upsert?: boolean }
+): Promise<{ path: string }> {
+  const { error } = await supabase.storage.from(bucket).upload(path, file, {
+    cacheControl: "3600",
+    upsert: opts?.upsert ?? false,
+    contentType: file.type || "application/octet-stream",
+  });
+
+  if (error) {
+    throw mapSupabaseError(error, "Unable to upload file.");
+  }
+
+  return { path };
+}
+
+export async function getSignedUrl(bucket: string, path: string, expiresIn = 60): Promise<string> {
+  const { data, error } = await supabase.storage
+    .from(bucket)
+    .createSignedUrl(path, expiresIn);
+
+  if (error || !data?.signedUrl) {
+    throw mapSupabaseError(error, "Unable to generate file link.");
+  }
+
+  return data.signedUrl;
+}
+
 function getImageExtension(file: File) {
   const fromName = file.name?.split(".").pop();
   if (fromName && fromName.length < 10) {

@@ -16,14 +16,9 @@ import ReportCreate from "@/pages/reports/ReportCreate";
 import ReportDetail from "@/pages/reports/ReportDetail";
 import ReportEdit from "@/pages/reports/ReportEdit";
 import DocsPage from "@/pages/ia/DocsPage";
-import FilesPage from "@/pages/ia/FilesPage";
+import FilesPage from "@/pages/files/FilesPage";
 import AutomationsPage from "@/pages/ia/AutomationsPage";
-import IntegrationsHome from "@/pages/integrations/IntegrationsHome";
-import GoogleIntegrationsPage from "@/pages/integrations/GoogleIntegrationsPage";
-import GitHubIntegrationsPage from "@/pages/integrations/GitHubIntegrationsPage";
-import ProjectIntegrationsPage from "@/pages/integrations/ProjectIntegrationsPage";
-import ProjectGoogleIntegrationsPage from "@/pages/integrations/ProjectGoogleIntegrationsPage";
-import ProjectGitHubIntegrationsPage from "@/pages/integrations/ProjectGitHubIntegrationsPage";
+import IntegrationsPage from "@/pages/integrations/IntegrationsPage";
 import FormsPage from "@/pages/ia/FormsPage";
 import GoalsPage from "@/pages/ia/GoalsPage";
 import TemplatesPage from "@/pages/ia/TemplatesPage";
@@ -81,8 +76,8 @@ import ProjectTimelinePage from "@/pages/ia/projects/ProjectTimelinePage";
 import ProjectDependenciesPage from "@/pages/ia/projects/ProjectDependenciesPage";
 import ProjectReportsPage from "@/pages/ia/projects/ProjectReportsPage";
 import ProjectDocsPage from "@/pages/ia/projects/ProjectDocsPage";
-import ProjectFilesPage from "@/pages/ia/projects/ProjectFilesPage";
-import ProjectIntegrationsPage from "@/pages/ia/projects/ProjectIntegrationsPage";
+import ProjectFilesPage from "@/pages/projects/ProjectFilesPage";
+import ProjectIntegrationsPage from "@/pages/projects/ProjectIntegrationsPage";
 import ProjectAutomationsPage from "@/pages/ia/projects/ProjectAutomationsPage";
 import ProjectSettingsPage from "@/pages/ia/projects/ProjectSettingsPage";
 import NewProjectPage from "@/pages/ia/NewProjectPage";
@@ -256,18 +251,8 @@ codex/implement-people,-teams-and-time-tracking
         { path: "docs", element: <DocsPage /> },
         { path: "files", element: <FilesPage /> },
         { path: "automations", element: <AutomationsPage /> },
-        { path: "integrations", element: <IntegrationsHome /> },
-        { path: "integrations/google", element: <GoogleIntegrationsPage /> },
-        { path: "integrations/github", element: <GitHubIntegrationsPage /> },
+        { path: "integrations", element: <IntegrationsPage /> },
         { path: "projects/:projectId/integrations", element: <ProjectIntegrationsPage /> },
-        {
-          path: "projects/:projectId/integrations/google",
-          element: <ProjectGoogleIntegrationsPage />,
-        },
-        {
-          path: "projects/:projectId/integrations/github",
-          element: <ProjectGitHubIntegrationsPage />,
-        },
         { path: "forms", element: <FormsPage /> },
         { path: "goals", element: <GoalsPage /> },
         { path: "templates", element: <TemplatesPage /> },
