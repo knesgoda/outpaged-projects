@@ -139,6 +139,7 @@ export const NAV: NavItem[] = [
     path: "/files",
     icon: <Files className="h-5 w-5" aria-hidden="true" />,
     roles: ALL_ROLES,
+    matchPaths: ["/projects/:projectId/files"],
   },
   {
     id: "automations",
@@ -155,6 +156,7 @@ export const NAV: NavItem[] = [
     icon: <Share2 className="h-5 w-5" aria-hidden="true" />,
     roles: LEADERSHIP_ROLES,
     featureFlag: "integrations",
+    matchPaths: ["/projects/:projectId/integrations"],
   },
   {
     id: "forms",

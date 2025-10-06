@@ -1,4 +1,3 @@
-codex/perform-deep-dive-on-settings-and-admin
 import { supabase } from "@/integrations/supabase/client";
 import type { PostgrestError } from "@supabase/supabase-js";
 
@@ -24,7 +23,8 @@ export function handleSupabaseError(error: PostgrestError | null, fallbackMessag
   }
 
   throw new Error(error.message || fallbackMessage);
-=======
+}
+
 export function escapeLikePattern(value: string) {
   return value.replace(/[%_]/g, (char) => `\\${char}`);
 }
