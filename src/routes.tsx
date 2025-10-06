@@ -19,8 +19,16 @@ import IntegrationsPage from "@/pages/ia/IntegrationsPage";
 import FormsPage from "@/pages/ia/FormsPage";
 import GoalsPage from "@/pages/ia/GoalsPage";
 import TemplatesPage from "@/pages/ia/TemplatesPage";
-import PeoplePage from "@/pages/ia/PeoplePage";
-import TimeTrackingPage from "@/pages/ia/TimeTrackingPage";
+import PeoplePage from "@/pages/people/PeoplePage";
+import ProfilePage from "@/pages/people/ProfilePage";
+import TeamsPage from "@/pages/teams/TeamsPage";
+import TeamDetailPage from "@/pages/teams/TeamDetailPage";
+import TimeHomePage from "@/pages/time/TimeHomePage";
+import MyTimePage from "@/pages/time/MyTimePage";
+import ApprovalsPage from "@/pages/time/ApprovalsPage";
+import ProjectPeoplePage from "@/pages/projects/ProjectPeoplePage";
+import ProjectTeamsPage from "@/pages/projects/ProjectTeamsPage";
+import ProjectTimePage from "@/pages/projects/ProjectTimePage";
 import HelpPage from "@/pages/ia/HelpPage";
 import AdminHomePage from "@/pages/ia/admin/AdminHomePage";
 import AdminWorkspacePage from "@/pages/ia/admin/AdminWorkspacePage";
@@ -54,6 +62,7 @@ import NotFound from "@/pages/NotFound";
 import Profile from "@/pages/Profile";
 import Settings from "@/pages/Settings";
 import SearchPage from "@/pages/Search";
+import { FEATURE_PEOPLE_TEAMS, FEATURE_TIME_TRACKING } from "@/lib/featureFlags";
 
 const Suspended = ({ children }: { children: React.ReactNode }) => (
   <Suspense fallback={<div className="p-6">Loading...</div>}>
@@ -62,6 +71,83 @@ const Suspended = ({ children }: { children: React.ReactNode }) => (
 );
 
 export function AppRoutes() {
+  const children = [
+    { index: true, element: <HomePage /> },
+    { path: "my-work", element: <MyWorkPage /> },
+    { path: "inbox", element: <InboxPage /> },
+    { path: "projects", element: <ProjectsPage /> },
+    { path: "projects/new", element: <NewProjectPage /> },
+    { path: "projects/:projectId", element: <ProjectOverviewPage /> },
+    { path: "projects/:projectId/overview", element: <ProjectOverviewPage /> },
+    { path: "projects/:projectId/list", element: <ProjectListPage /> },
+    { path: "projects/:projectId/board", element: <ProjectBoardPage /> },
+    { path: "projects/:projectId/backlog", element: <ProjectBacklogPage /> },
+    { path: "projects/:projectId/sprints", element: <ProjectSprintsPage /> },
+    { path: "projects/:projectId/calendar", element: <ProjectCalendarPage /> },
+    { path: "projects/:projectId/timeline", element: <ProjectTimelinePage /> },
+    { path: "projects/:projectId/dependencies", element: <ProjectDependenciesPage /> },
+    { path: "projects/:projectId/reports", element: <ProjectReportsPage /> },
+    { path: "projects/:projectId/docs", element: <ProjectDocsPage /> },
+    { path: "projects/:projectId/files", element: <ProjectFilesPage /> },
+    { path: "projects/:projectId/automations", element: <ProjectAutomationsPage /> },
+    { path: "projects/:projectId/settings", element: <ProjectSettingsPage /> },
+    { path: "boards", element: <BoardsPage /> },
+    { path: "boards/new", element: <NewBoardPage /> },
+    { path: "calendar", element: <CalendarPage /> },
+    { path: "timeline", element: <TimelinePage /> },
+    { path: "workload", element: <WorkloadPage /> },
+    { path: "dashboards", element: <DashboardsPage /> },
+    { path: "dashboards/new", element: <NewDashboardPage /> },
+    { path: "reports", element: <ReportsPage /> },
+    { path: "docs", element: <DocsPage /> },
+    { path: "files", element: <FilesPage /> },
+    { path: "automations", element: <AutomationsPage /> },
+    { path: "integrations", element: <IntegrationsPage /> },
+    { path: "forms", element: <FormsPage /> },
+    { path: "goals", element: <GoalsPage /> },
+    { path: "templates", element: <TemplatesPage /> },
+    { path: "tasks/new", element: <NewTaskPage /> },
+    { path: "profile", element: <Profile /> },
+    { path: "settings", element: <Settings /> },
+    { path: "search", element: <SearchPage /> },
+    { path: "admin", element: <AdminHomePage /> },
+    { path: "admin/workspace", element: <AdminWorkspacePage /> },
+    { path: "admin/permissions", element: <AdminPermissionsPage /> },
+    { path: "admin/security", element: <AdminSecurityPage /> },
+    { path: "admin/audit", element: <AdminAuditPage /> },
+    { path: "admin/data", element: <AdminDataPage /> },
+    { path: "admin/webhooks", element: <AdminWebhooksPage /> },
+    { path: "admin/api", element: <AdminApiPage /> },
+    { path: "admin/billing", element: <AdminBillingPage /> },
+    { path: "help", element: <HelpPage /> },
+  ];
+
+  if (FEATURE_PEOPLE_TEAMS) {
+    children.push(
+      { path: "people", element: <PeoplePage /> },
+      { path: "people/:userId", element: <ProfilePage /> },
+      { path: "teams", element: <TeamsPage /> },
+      { path: "teams/:teamId", element: <TeamDetailPage /> },
+      { path: "projects/:projectId/people", element: <ProjectPeoplePage /> },
+      { path: "projects/:projectId/teams", element: <ProjectTeamsPage /> }
+    );
+  }
+
+  if (FEATURE_TIME_TRACKING) {
+    children.push(
+      {
+        path: "time",
+        element: <TimeHomePage />,
+        children: [
+          { index: true, element: <MyTimePage /> },
+          { path: "my", element: <MyTimePage /> },
+          { path: "approvals", element: <ApprovalsPage /> },
+        ],
+      },
+      { path: "projects/:projectId/time", element: <ProjectTimePage /> }
+    );
+  }
+
   return useRoutes([
     {
       path: "/",
@@ -70,58 +156,7 @@ export function AppRoutes() {
           <AppLayout />
         </Suspended>
       ),
-      children: [
-        { index: true, element: <HomePage /> },
-        { path: "my-work", element: <MyWorkPage /> },
-        { path: "inbox", element: <InboxPage /> },
-        { path: "projects", element: <ProjectsPage /> },
-        { path: "projects/new", element: <NewProjectPage /> },
-        { path: "projects/:projectId", element: <ProjectOverviewPage /> },
-        { path: "projects/:projectId/overview", element: <ProjectOverviewPage /> },
-        { path: "projects/:projectId/list", element: <ProjectListPage /> },
-        { path: "projects/:projectId/board", element: <ProjectBoardPage /> },
-        { path: "projects/:projectId/backlog", element: <ProjectBacklogPage /> },
-        { path: "projects/:projectId/sprints", element: <ProjectSprintsPage /> },
-        { path: "projects/:projectId/calendar", element: <ProjectCalendarPage /> },
-        { path: "projects/:projectId/timeline", element: <ProjectTimelinePage /> },
-        { path: "projects/:projectId/dependencies", element: <ProjectDependenciesPage /> },
-        { path: "projects/:projectId/reports", element: <ProjectReportsPage /> },
-        { path: "projects/:projectId/docs", element: <ProjectDocsPage /> },
-        { path: "projects/:projectId/files", element: <ProjectFilesPage /> },
-        { path: "projects/:projectId/automations", element: <ProjectAutomationsPage /> },
-        { path: "projects/:projectId/settings", element: <ProjectSettingsPage /> },
-        { path: "boards", element: <BoardsPage /> },
-        { path: "boards/new", element: <NewBoardPage /> },
-        { path: "calendar", element: <CalendarPage /> },
-        { path: "timeline", element: <TimelinePage /> },
-        { path: "workload", element: <WorkloadPage /> },
-        { path: "dashboards", element: <DashboardsPage /> },
-        { path: "dashboards/new", element: <NewDashboardPage /> },
-        { path: "reports", element: <ReportsPage /> },
-        { path: "docs", element: <DocsPage /> },
-        { path: "files", element: <FilesPage /> },
-        { path: "automations", element: <AutomationsPage /> },
-        { path: "integrations", element: <IntegrationsPage /> },
-        { path: "forms", element: <FormsPage /> },
-        { path: "goals", element: <GoalsPage /> },
-        { path: "templates", element: <TemplatesPage /> },
-        { path: "people", element: <PeoplePage /> },
-        { path: "time", element: <TimeTrackingPage /> },
-        { path: "tasks/new", element: <NewTaskPage /> },
-        { path: "profile", element: <Profile /> },
-        { path: "settings", element: <Settings /> },
-        { path: "search", element: <SearchPage /> },
-        { path: "admin", element: <AdminHomePage /> },
-        { path: "admin/workspace", element: <AdminWorkspacePage /> },
-        { path: "admin/permissions", element: <AdminPermissionsPage /> },
-        { path: "admin/security", element: <AdminSecurityPage /> },
-        { path: "admin/audit", element: <AdminAuditPage /> },
-        { path: "admin/data", element: <AdminDataPage /> },
-        { path: "admin/webhooks", element: <AdminWebhooksPage /> },
-        { path: "admin/api", element: <AdminApiPage /> },
-        { path: "admin/billing", element: <AdminBillingPage /> },
-        { path: "help", element: <HelpPage /> },
-      ],
+      children,
     },
     { path: "/login", element: <Login /> },
     { path: "/auth/callback", element: <AuthCallback /> },

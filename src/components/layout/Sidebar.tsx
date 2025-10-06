@@ -54,8 +54,20 @@ export function Sidebar({ isCollapsed, onCollapseToggle, onNavigate, className }
     }
   };
 
+  const matchPath = (pattern: string, pathname: string) => {
+    if (pattern === "/") {
+      return pathname === "/";
+    }
+
+    const escaped = pattern.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const regexPattern = escaped.replace(/:\w+/g, "[^/]+");
+    const regex = new RegExp(`^${regexPattern}(?:/.*)?$`);
+    return regex.test(pathname);
+  };
+
   const renderNavItem = (item: NavItem, index: number, depth = 0) => {
-    const isActive = location.pathname === item.path || location.pathname.startsWith(`${item.path}/`);
+    const candidates = [item.path, ...(item.matchPaths ?? [])];
+    const isCustomActive = candidates.some((candidate) => matchPath(candidate, location.pathname));
     const badgeValue = item.badgeKey ? badgeCounts[item.badgeKey] : 0;
     const showBadge = item.badgeKey ? badgeValue > 0 : false;
 
@@ -73,13 +85,13 @@ export function Sidebar({ isCollapsed, onCollapseToggle, onNavigate, className }
             "group relative flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium outline-none transition", // base
             "focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-ring",
             depth > 0 && !isCollapsed ? "ml-6" : "",
-            navActive || isActive
+            navActive || isCustomActive
               ? "bg-primary/10 font-semibold text-primary"
               : "text-muted-foreground hover:bg-muted hover:text-foreground",
             isCollapsed ? "justify-center px-0" : ""
           )
         }
-        aria-current={isActive ? "page" : undefined}
+        aria-current={isCustomActive ? "page" : undefined}
       >
         {item.icon}
         {!isCollapsed && <span className="truncate">{item.label}</span>}
@@ -88,7 +100,7 @@ export function Sidebar({ isCollapsed, onCollapseToggle, onNavigate, className }
             {badgeValue}
           </span>
         )}
-        {isActive && (
+        {isCustomActive && (
           <span
             aria-hidden="true"
             className="absolute left-0 top-1/2 h-8 w-0.5 -translate-y-1/2 rounded-full bg-primary"

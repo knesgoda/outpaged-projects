@@ -1,12 +1,32 @@
+const truthy = new Set(["true", "1", "on", "yes"]);
+const falsy = new Set(["false", "0", "off", "no"]);
+
+function getBooleanFlag(key: string, fallback: boolean) {
+  const envKey = `VITE_${key}` as keyof ImportMetaEnv;
+  const raw = typeof import.meta !== "undefined" ? import.meta.env?.[envKey] : undefined;
+
+  if (typeof raw === "string") {
+    const value = raw.toLowerCase();
+    if (truthy.has(value)) return true;
+    if (falsy.has(value)) return false;
+  }
+
+  return fallback;
+}
+
+export const FEATURE_PEOPLE_TEAMS = getBooleanFlag("FEATURE_PEOPLE_TEAMS", true);
+export const FEATURE_TIME_TRACKING = getBooleanFlag("FEATURE_TIME_TRACKING", true);
+
 export const FEATURE_FLAGS = {
   dashboards: true,
   automations: true,
   integrations: true,
   forms: true,
   goals: true,
-  timeTracking: true,
+  timeTracking: FEATURE_TIME_TRACKING,
   apiExplorer: true,
-} as const;
+  peopleTeams: FEATURE_PEOPLE_TEAMS,
+} satisfies Record<string, boolean>;
 
 export type FeatureFlagKey = keyof typeof FEATURE_FLAGS;
 
