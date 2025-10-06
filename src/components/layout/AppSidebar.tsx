@@ -3,7 +3,9 @@ import React from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { useWorkspaceSettings } from "@/hooks/useWorkspace";
+import { useMyProfile } from "@/hooks/useProfile";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Sidebar,
   SidebarContent,
@@ -131,7 +133,7 @@ const navigationItems = [
   },
   {
     title: "Reports",
-    url: "/dashboard/reports",
+    url: "/reports",
     icon: BarChart3,
     description: "Analytics and insights"
   },
@@ -189,6 +191,16 @@ const navigationItems = [
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { user } = useAuth();
   const { isAdmin } = useIsAdmin();
+  const { data: workspaceSettings } = useWorkspaceSettings();
+  const { data: profile } = useMyProfile();
+
+  const brandName =
+    workspaceSettings?.brand_name?.trim() || workspaceSettings?.name?.trim() || "OutPaged";
+  const brandLogo = workspaceSettings?.brand_logo_url ?? null;
+  const brandSubtitle = workspaceSettings?.brand_name ? "Workspace" : "Project Management";
+
+  const profileName = profile?.full_name?.trim() || user?.email || "User";
+  const profileAvatar = profile?.avatar_url ?? undefined;
 
   // Add enterprise navigation for admins
   const enterpriseItems = isAdmin ? [
@@ -230,14 +242,22 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>
-              <Link to="/dashboard">
+              <Link to="/">
                 <div className="flex items-center gap-2">
-                  <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-                    <Building2 className="size-4" />
-                  </div>
+                  {brandLogo ? (
+                    <img
+                      src={brandLogo}
+                      alt={`${brandName} logo`}
+                      className="size-8 rounded-lg object-contain"
+                    />
+                  ) : (
+                    <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+                      {brandName.charAt(0).toUpperCase()}
+                    </div>
+                  )}
                   <div className="grid flex-1 text-left text-sm leading-tight">
-                    <span className="truncate font-semibold">OutPaged</span>
-                    <span className="truncate text-xs">Project Management</span>
+                    <span className="truncate font-semibold">{brandName}</span>
+                    <span className="truncate text-xs text-muted-foreground">{brandSubtitle}</span>
                   </div>
                 </div>
               </Link>
@@ -286,14 +306,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton asChild tooltip={user?.email || 'User Profile'}>
-              <Link to="/dashboard/profile">
+            <SidebarMenuButton asChild tooltip={profileName}>
+              <Link to="/settings/profile">
                 <Avatar className="h-6 w-6">
-                  <AvatarFallback>
-                    {user?.email?.charAt(0).toUpperCase() || 'U'}
-                  </AvatarFallback>
+                  {profileAvatar ? <AvatarImage src={profileAvatar} alt={profileName} /> : null}
+                  <AvatarFallback>{profileName.charAt(0).toUpperCase()}</AvatarFallback>
                 </Avatar>
-                <span className="truncate">{user?.email || 'User'}</span>
+                <span className="truncate">{profileName}</span>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>

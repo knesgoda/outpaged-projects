@@ -81,7 +81,7 @@ export function CommandPalette() {
       id: 'nav-reports',
       title: 'Go to Reports',
       icon: <BarChart className="h-4 w-4" />,
-      action: () => navigate('/dashboard/reports'),
+      action: () => navigate('/reports'),
       group: 'Navigation',
       keywords: ['analytics', 'metrics', 'insights']
     },

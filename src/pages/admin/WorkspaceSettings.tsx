@@ -31,6 +31,7 @@ const FEATURE_FLAGS = [
 ];
 
 type FormState = {
+  brand_name: string;
   name: string;
   default_timezone: string;
   default_capacity_hours_per_week: string;
@@ -39,6 +40,7 @@ type FormState = {
 };
 
 const DEFAULT_STATE: FormState = {
+  brand_name: "",
   name: "",
   default_timezone: "UTC",
   default_capacity_hours_per_week: "40",
@@ -56,6 +58,7 @@ export default function WorkspaceSettings() {
   useEffect(() => {
     if (!settings) return;
     setFormState({
+      brand_name: settings.brand_name ?? settings.name ?? "",
       name: settings.name ?? "",
       default_timezone: settings.default_timezone ?? "UTC",
       default_capacity_hours_per_week:
@@ -82,6 +85,7 @@ export default function WorkspaceSettings() {
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const payload = {
+      brand_name: formState.brand_name.trim() || null,
       name: formState.name.trim() || null,
       default_timezone: formState.default_timezone,
       default_capacity_hours_per_week: formState.default_capacity_hours_per_week
@@ -138,6 +142,15 @@ export default function WorkspaceSettings() {
             <CardDescription>These values appear in navigation and invite emails.</CardDescription>
           </CardHeader>
           <CardContent className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2 sm:col-span-2">
+              <Label htmlFor="brand_name">Brand name</Label>
+              <Input
+                id="brand_name"
+                value={formState.brand_name}
+                onChange={handleChange("brand_name")}
+                placeholder="OutPaged"
+              />
+            </div>
             <div className="space-y-2 sm:col-span-2">
               <Label htmlFor="name">Workspace name</Label>
               <Input

@@ -11,9 +11,5 @@ export type Profile = {
   id: ID;
   full_name?: string | null;
   avatar_url?: string | null;
-  title?: string | null;
-  department?: string | null;
-  timezone?: string | null;
-  capacity_hours_per_week?: number | null;
   updated_at: string;
 };

@@ -1,7 +1,5 @@
-codex/perform-deep-dive-on-settings-and-admin
-import { Fragment, useEffect, useMemo, useState } from "react";
-import { Fragment, useCallback, useMemo, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
   Breadcrumb,
@@ -20,15 +18,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { HelpCircle, Keyboard, Menu, Plus, Search } from "lucide-react";
 import { NAV } from "@/lib/navConfig";
 import { getWorkspaceRole, type Role } from "@/lib/auth";
-import { useProfile } from "@/state/profile";
 import { PROJECT_TABS } from "@/components/common/TabBar";
-codex/perform-deep-dive-on-settings-and-admin
 import { useAuth } from "@/hooks/useAuth";
 import { useCommandK } from "@/components/command/useCommandK";
+import { useMyProfile } from "@/hooks/useProfile";
+import { useWorkspaceSettings } from "@/hooks/useWorkspace";
 
 function findNavLabel(path: string) {
   const walk = (items = NAV): string | undefined => {
@@ -111,7 +109,10 @@ export function Topbar({ onToggleSidebar, onOpenShortcuts }: TopbarProps) {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [role, setRole] = useState<Role>("viewer");
-  const { profile, error: profileError } = useProfile();
+  const profileQuery = useMyProfile();
+  const profile = profileQuery.data ?? null;
+  const profileError = (profileQuery.error as Error | null) ?? null;
+  const { data: workspaceSettings } = useWorkspaceSettings();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const { openPalette } = useCommandK();
 
@@ -159,6 +160,10 @@ export function Topbar({ onToggleSidebar, onOpenShortcuts }: TopbarProps) {
     []
   );
 
+  const brandName =
+    workspaceSettings?.brand_name?.trim() || workspaceSettings?.name?.trim() || "OutPaged";
+  const brandLogo = workspaceSettings?.brand_logo_url ?? null;
+
   const breadcrumbs = useMemo(() => {
     const segments = location.pathname.split("/").filter(Boolean);
     if (segments.length === 0) {
@@ -203,11 +208,10 @@ export function Topbar({ onToggleSidebar, onOpenShortcuts }: TopbarProps) {
   const fallbackLabel = user?.email ?? "Guest";
   const hasProfile = Boolean(profile) && !profileError;
   const displayName = hasProfile
-    ? profile.full_name?.trim() || fallbackLabel
+    ? profile?.full_name?.trim() || fallbackLabel
     : fallbackLabel;
-  const displayInitial = hasProfile
-    ? (profile.full_name?.trim() ?? profile.role ?? fallbackLabel).charAt(0).toUpperCase()
-    : fallbackLabel.charAt(0).toUpperCase();
+  const displayInitial = (displayName || fallbackLabel).charAt(0).toUpperCase();
+  const avatarUrl = profile?.avatar_url ?? undefined;
 
   const canCreate = role !== "viewer";
 
@@ -217,6 +221,20 @@ export function Topbar({ onToggleSidebar, onOpenShortcuts }: TopbarProps) {
         <Button variant="ghost" size="icon" onClick={onToggleSidebar} aria-label="Toggle navigation">
           <Menu className="h-5 w-5" />
         </Button>
+        <Link to="/" className="flex items-center gap-2" aria-label={`${brandName} home`}>
+          {brandLogo ? (
+            <img
+              src={brandLogo}
+              alt={`${brandName} logo`}
+              className="h-8 w-8 rounded-md object-contain"
+            />
+          ) : (
+            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 text-sm font-semibold text-primary">
+              {brandName.charAt(0).toUpperCase()}
+            </div>
+          )}
+          <span className="hidden text-sm font-semibold text-foreground sm:inline">{brandName}</span>
+        </Link>
         <Breadcrumb>
           <BreadcrumbList>
             {breadcrumbs.map((crumb, index) => (
@@ -304,6 +322,7 @@ export function Topbar({ onToggleSidebar, onOpenShortcuts }: TopbarProps) {
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="gap-2">
               <Avatar className="h-8 w-8">
+                {avatarUrl ? <AvatarImage src={avatarUrl} alt={displayName} /> : null}
                 <AvatarFallback>{displayInitial || "U"}</AvatarFallback>
               </Avatar>
               <span className="hidden text-sm font-medium sm:inline">{displayName}</span>

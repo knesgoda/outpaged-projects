@@ -3,102 +3,78 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useMyProfile, useUpdateMyProfile, useUploadAvatar } from "@/hooks/useProfile";
 import { Skeleton } from "@/components/ui/skeleton";
 
-const TIMEZONE_OPTIONS = [
-  "UTC",
-  "America/New_York",
-  "America/Los_Angeles",
-  "Europe/London",
-  "Europe/Berlin",
-  "Asia/Tokyo",
-  "Asia/Kolkata",
-  "Australia/Sydney",
-];
-
 type FormState = {
   full_name: string;
-  title: string;
-  department: string;
-  timezone: string;
-  capacity_hours_per_week: string;
 };
 
 const DEFAULT_STATE: FormState = {
   full_name: "",
-  title: "",
-  department: "",
-  timezone: "UTC",
-  capacity_hours_per_week: "40",
 };
 
 export default function ProfileSettings() {
-  const { data: profile, isLoading } = useMyProfile();
+  const { data: profile, isLoading, error } = useMyProfile();
   const updateProfile = useUpdateMyProfile();
   const uploadAvatar = useUploadAvatar();
-
   const [formState, setFormState] = useState<FormState>(DEFAULT_STATE);
+  const [formError, setFormError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!profile) {
-      return;
-    }
-
-    setFormState({
-      full_name: profile.full_name ?? "",
-      title: profile.title ?? "",
-      department: profile.department ?? "",
-      timezone: profile.timezone ?? "UTC",
-      capacity_hours_per_week: profile.capacity_hours_per_week?.toString() ?? "40",
-    });
+    if (!profile) return;
+    setFormState({ full_name: profile.full_name ?? "" });
   }, [profile]);
 
   const initials = useMemo(() => {
-    if (formState.full_name) {
+    if (formState.full_name.trim()) {
       return formState.full_name
+        .trim()
         .split(" ")
-        .filter(Boolean)
         .map((part) => part[0]?.toUpperCase())
         .join("");
     }
     return "U";
   }, [formState.full_name]);
 
-  const handleInputChange = (field: keyof FormState) => (event: React.ChangeEvent<HTMLInputElement>) => {
-    setFormState((prev) => ({ ...prev, [field]: event.target.value }));
+  const avatarPreview = uploadAvatar.data ?? profile?.avatar_url ?? undefined;
+
+  const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setFormState({ full_name: event.target.value });
+    if (formError) {
+      setFormError(null);
+    }
   };
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const payload = {
-      full_name: formState.full_name.trim() || null,
-      title: formState.title.trim() || null,
-      department: formState.department.trim() || null,
-      timezone: formState.timezone,
-      capacity_hours_per_week: formState.capacity_hours_per_week
-        ? Number(formState.capacity_hours_per_week)
-        : null,
-    };
+    const trimmed = formState.full_name.trim();
 
-    updateProfile.mutate(payload);
+    if (trimmed.length < 2 || trimmed.length > 60) {
+      setFormError("Name must be 2 to 60 characters.");
+      return;
+    }
+
+    setFormError(null);
+    updateProfile.mutate({ full_name: trimmed });
   };
 
-  const handleAvatarChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
     uploadAvatar.mutate(file);
   };
 
-  const avatarPreview = uploadAvatar.isSuccess ? uploadAvatar.data : profile?.avatar_url ?? undefined;
-
   return (
     <section className="space-y-8">
       <header className="space-y-2">
         <h2 className="text-2xl font-semibold tracking-tight">Profile</h2>
-        <p className="text-muted-foreground">Update your personal details and photo.</p>
+        <p className="text-muted-foreground">Update your name and profile photo.</p>
       </header>
+
+      {error ? (
+        <p className="text-sm text-destructive">Unable to load your profile.</p>
+      ) : null}
 
       <div className="grid gap-6 lg:grid-cols-[280px_1fr]">
         <div className="rounded-lg border bg-card p-6">
@@ -107,13 +83,13 @@ export default function ProfileSettings() {
               <Skeleton className="h-24 w-24 rounded-full" />
             ) : (
               <Avatar className="h-24 w-24">
-                <AvatarImage src={avatarPreview} alt={formState.full_name || "User avatar"} />
+                {avatarPreview ? <AvatarImage src={avatarPreview} alt={formState.full_name || "User avatar"} /> : null}
                 <AvatarFallback>{initials}</AvatarFallback>
               </Avatar>
             )}
 
             <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">Upload a square image at least 256px.</p>
+              <p className="text-sm text-muted-foreground">Upload a square image under 5 MB.</p>
               <Input type="file" accept="image/*" onChange={handleAvatarChange} disabled={uploadAvatar.isPending} />
               {uploadAvatar.isPending && <p className="text-xs text-muted-foreground">Uploading...</p>}
             </div>
@@ -121,65 +97,18 @@ export default function ProfileSettings() {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="full_name">Full name</Label>
-              <Input
-                id="full_name"
-                value={formState.full_name}
-                onChange={handleInputChange("full_name")}
-                placeholder="Add your name"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="title">Title</Label>
-              <Input
-                id="title"
-                value={formState.title}
-                onChange={handleInputChange("title")}
-                placeholder="Product Manager"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="department">Department</Label>
-              <Input
-                id="department"
-                value={formState.department}
-                onChange={handleInputChange("department")}
-                placeholder="Operations"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="capacity">Capacity (hours per week)</Label>
-              <Input
-                id="capacity"
-                type="number"
-                min={1}
-                max={80}
-                step={1}
-                value={formState.capacity_hours_per_week}
-                onChange={handleInputChange("capacity_hours_per_week")}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Timezone</Label>
-              <Select
-                value={formState.timezone}
-                onValueChange={(value) => setFormState((prev) => ({ ...prev, timezone: value }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select timezone" />
-                </SelectTrigger>
-                <SelectContent>
-                  {TIMEZONE_OPTIONS.map((tz) => (
-                    <SelectItem key={tz} value={tz}>
-                      {tz}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="full_name">Full name</Label>
+            <Input
+              id="full_name"
+              value={formState.full_name}
+              onChange={handleInputChange}
+              placeholder="Add your name"
+              autoComplete="name"
+            />
           </div>
+
+          {formError ? <p className="text-sm text-destructive">{formError}</p> : null}
 
           <div className="flex items-center justify-end gap-2">
             <Button type="submit" disabled={updateProfile.isPending}>

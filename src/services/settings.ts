@@ -1,9 +1,10 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { WorkspaceMember, WorkspaceSettings } from "@/types";
 import { requireUserId } from "@/services/utils";
+import { uploadPublicImage } from "./storage";
 
 const WORKSPACE_FIELDS =
-  "id, owner, name, brand_logo_url, default_timezone, default_capacity_hours_per_week, allowed_email_domain, features, security, billing, updated_at";
+  "id, owner, brand_name, name, brand_logo_url, default_timezone, default_capacity_hours_per_week, allowed_email_domain, features, security, billing, updated_at";
 
 export async function getWorkspaceSettings(): Promise<WorkspaceSettings | null> {
   const { data, error } = await supabase
@@ -79,46 +80,22 @@ export async function removeMember(userId: string): Promise<void> {
   }
 }
 
-function getExtension(file: File) {
-  const fromName = file.name?.split(".").pop();
-  if (fromName && fromName.length < 10) {
-    return fromName;
-  }
-  const fromType = file.type?.split("/").pop();
-  return fromType ?? "png";
-}
-
 export async function uploadBrandLogo(file: File): Promise<string> {
   if (!file.type?.startsWith("image/")) {
     throw new Error("Logo must be an image.");
   }
 
-  const MAX_SIZE = 4 * 1024 * 1024;
+  const MAX_SIZE = 2 * 1024 * 1024;
   if (file.size > MAX_SIZE) {
-    throw new Error("Logo must be smaller than 4 MB.");
+    throw new Error("Logo must be smaller than 2 MB.");
   }
 
   const userId = await requireUserId();
-  const extension = getExtension(file);
-  const filePath = `branding/${userId}/logo-${Date.now()}.${extension}`;
-
-  const { error: uploadError } = await supabase.storage
-    .from("branding")
-    .upload(filePath, file, { upsert: true, cacheControl: "3600" });
-
-  if (uploadError) {
-    throw new Error(uploadError.message);
-  }
-
-  const { data } = supabase.storage.from("branding").getPublicUrl(filePath);
-  const publicUrl = data.publicUrl;
-  if (!publicUrl) {
-    throw new Error("Failed to generate logo URL.");
-  }
+  const { publicUrl } = await uploadPublicImage("branding", file, `branding/${userId}/logo-${Date.now()}`);
 
   const existing = await getWorkspaceSettings();
   const payload: Partial<WorkspaceSettings> & { owner: string; updated_at: string; brand_logo_url: string } = {
-    owner: existing?.owner ?? (await requireUserId()),
+    owner: existing?.owner ?? userId,
     brand_logo_url: publicUrl,
     updated_at: new Date().toISOString(),
   };
