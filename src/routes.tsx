@@ -80,7 +80,6 @@ export function AppRoutes() {
         { path: "inbox", element: <InboxPage /> },
         { path: "projects", element: <ProjectsPage /> },
         { path: "projects/new", element: <NewProjectPage /> },
-        // Canonicalize on :projectId and keep *all* project routes
         { path: "projects/:projectId", element: <ProjectOverviewPage /> },
         { path: "projects/:projectId/overview", element: <ProjectOverviewPage /> },
         { path: "projects/:projectId/list", element: <ProjectListPage /> },
