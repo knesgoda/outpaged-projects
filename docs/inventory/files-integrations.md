@@ -27,11 +27,11 @@
 
 ## Routes discovered
 - /files (src/routes.tsx → FilesPage via src/pages/ia/FilesPage.tsx)
-- /projects/:id/files (src/routes.tsx → ProjectFilesPage via src/pages/ia/projects/ProjectFilesPage.tsx)
+- /projects/:projectId/files (src/routes.tsx → ProjectFilesPage via src/pages/ia/projects/ProjectFilesPage.tsx)
 - /integrations (src/routes.tsx → IntegrationsPage via src/pages/ia/IntegrationsPage.tsx)
-- /projects/:id/integrations (src/routes.tsx → ProjectIntegrationsPage via src/pages/ia/projects/ProjectIntegrationsPage.tsx)
+- /projects/:projectId/integrations (src/routes.tsx → ProjectIntegrationsPage via src/pages/ia/projects/ProjectIntegrationsPage.tsx)
 
 ## Observations
-- ProjectFilesPage and ProjectIntegrationsPage call `useParams<{ projectId: string }>()` but the router paths provide the `:id` param, leaving `projectId` empty when navigating from `/projects/:id/*` routes.
+- ProjectFilesPage and ProjectIntegrationsPage now rely on the canonical `:projectId` param provided by `useProjectId()` and the updated routes.
 - src/pages/Integrations.tsx renders a legacy tabbed experience that is not referenced by the current router.
 - Existing Files and Integrations pages already load data through Supabase-backed hooks; no missing imports were encountered during this review.
