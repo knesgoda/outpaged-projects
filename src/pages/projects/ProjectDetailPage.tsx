@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
 import { ArrowLeft, Edit3, MoreHorizontal, Trash2 } from "lucide-react";
 
@@ -20,6 +20,7 @@ import {
 } from "@/hooks/useProjects";
 import { useProjectId } from "@/hooks/useProjectId";
 
+import { TabBar } from "@/components/common/TabBar";
 import { ProjectFormDialog } from "./ProjectFormDialog";
 import { PROJECT_TABS } from "./projectTabs";
 import { getProjectStatusLabel, getProjectStatusVariant } from "./status";
@@ -50,40 +51,6 @@ function ProjectNotFound() {
       <Button asChild>
         <Link to="/projects">Back to projects</Link>
       </Button>
-    </div>
-  );
-}
-
-function TabNavigation({ projectId }: { projectId: string }) {
-  const location = useLocation();
-  const basePath = `/projects/${projectId}`;
-
-  return (
-    <div className="flex w-full overflow-x-auto border-b">
-      <nav className="flex min-w-full gap-4">
-        {PROJECT_TABS.map((tab) => {
-          const to = `${basePath}/${tab.path}`;
-          const isActive =
-            location.pathname === to || (tab.path === "overview" && location.pathname === basePath);
-          return (
-            <NavLink
-              key={tab.key}
-              to={to}
-              className={({ isActive: linkActive }) =>
-                [
-                  "px-2 py-3 text-sm font-medium transition", 
-                  (isActive || linkActive)
-                    ? "border-b-2 border-primary text-primary"
-                    : "text-muted-foreground hover:text-foreground",
-                ].join(" ")
-              }
-              end={tab.path === "overview"}
-            >
-              {tab.label}
-            </NavLink>
-          );
-        })}
-      </nav>
     </div>
   );
 }
@@ -272,7 +239,7 @@ export default function ProjectDetailPage() {
             </DropdownMenu>
           </div>
         </div>
-        <TabNavigation projectId={projectId} />
+        <TabBar />
       </div>
 
       <div className="py-2">

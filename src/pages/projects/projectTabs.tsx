@@ -1,26 +1,19 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import type { ComponentType } from "react";
 
-interface TabPlaceholderProps {
-  title: string;
-  description: string;
-}
-
-const TabPlaceholder = ({ title, description }: TabPlaceholderProps) => (
-  <Card>
-    <CardHeader>
-      <CardTitle>{title}</CardTitle>
-      <CardDescription>{description}</CardDescription>
-    </CardHeader>
-    <CardContent>
-      <p className="text-sm text-muted-foreground">TODO: Build the {title.toLowerCase()} experience.</p>
-    </CardContent>
-  </Card>
-);
-
-function createPlaceholderTab(title: string, description: string): ComponentType {
-  return () => <TabPlaceholder title={title} description={description} />;
-}
+import ProjectOverviewPage from "@/pages/ia/projects/ProjectOverviewPage";
+import ProjectListPage from "@/pages/ia/projects/ProjectListPage";
+import ProjectBoardPage from "@/pages/ia/projects/ProjectBoardPage";
+import ProjectBacklogPage from "@/pages/ia/projects/ProjectBacklogPage";
+import ProjectSprintsPage from "@/pages/ia/projects/ProjectSprintsPage";
+import ProjectCalendarPage from "@/pages/ia/projects/ProjectCalendarPage";
+import ProjectTimelinePage from "@/pages/ia/projects/ProjectTimelinePage";
+import ProjectDependenciesPage from "@/pages/ia/projects/ProjectDependenciesPage";
+import ProjectReportsPage from "@/pages/ia/projects/ProjectReportsPage";
+import ProjectDocsPage from "@/pages/ia/projects/ProjectDocsPage";
+import ProjectFilesPage from "@/pages/ia/projects/ProjectFilesPage";
+import ProjectIntegrationsPage from "@/pages/ia/projects/ProjectIntegrationsPage";
+import ProjectAutomationsPage from "@/pages/ia/projects/ProjectAutomationsPage";
+import ProjectSettingsPage from "@/pages/ia/projects/ProjectSettingsPage";
 
 export interface ProjectTabDefinition {
   key: string;
@@ -34,84 +27,84 @@ export const PROJECT_TABS: ProjectTabDefinition[] = [
     key: "overview",
     label: "Overview",
     path: "overview",
-    Component: createPlaceholderTab("Overview", "High-level status and context for the project."),
+    Component: ProjectOverviewPage,
   },
   {
     key: "list",
     label: "List",
     path: "list",
-    Component: createPlaceholderTab("List", "Plan tasks in a table view."),
+    Component: ProjectListPage,
   },
   {
     key: "board",
     label: "Board",
     path: "board",
-    Component: createPlaceholderTab("Board", "Visualize work across columns."),
+    Component: ProjectBoardPage,
   },
   {
     key: "backlog",
     label: "Backlog",
     path: "backlog",
-    Component: createPlaceholderTab("Backlog", "Review upcoming ideas and tasks."),
+    Component: ProjectBacklogPage,
   },
   {
     key: "sprints",
     label: "Sprints",
     path: "sprints",
-    Component: createPlaceholderTab("Sprints", "Organize work into timeboxed iterations."),
+    Component: ProjectSprintsPage,
   },
   {
     key: "calendar",
     label: "Calendar",
     path: "calendar",
-    Component: createPlaceholderTab("Calendar", "Track milestones on a calendar."),
+    Component: ProjectCalendarPage,
   },
   {
     key: "timeline",
     label: "Timeline",
     path: "timeline",
-    Component: createPlaceholderTab("Timeline", "Visualize dependencies across time."),
+    Component: ProjectTimelinePage,
   },
   {
     key: "dependencies",
     label: "Dependencies",
     path: "dependencies",
-    Component: createPlaceholderTab("Dependencies", "Document upstream and downstream work."),
+    Component: ProjectDependenciesPage,
   },
   {
     key: "reports",
     label: "Reports",
     path: "reports",
-    Component: createPlaceholderTab("Reports", "Build insights for the team."),
+    Component: ProjectReportsPage,
   },
   {
     key: "docs",
     label: "Docs",
     path: "docs",
-    Component: createPlaceholderTab("Docs", "Keep reference notes in one place."),
+    Component: ProjectDocsPage,
   },
   {
     key: "files",
     label: "Files",
     path: "files",
-    Component: createPlaceholderTab("Files", "Share supporting files."),
+    Component: ProjectFilesPage,
   },
   {
     key: "integrations",
     label: "Integrations",
     path: "integrations",
-    Component: createPlaceholderTab("Integrations", "Connect external tools."),
+    Component: ProjectIntegrationsPage,
   },
   {
     key: "automations",
     label: "Automations",
     path: "automations",
-    Component: createPlaceholderTab("Automations", "Configure workflow automations."),
+    Component: ProjectAutomationsPage,
   },
   {
     key: "settings",
     label: "Settings",
     path: "settings",
-    Component: createPlaceholderTab("Settings", "Manage project preferences and members."),
+    Component: ProjectSettingsPage,
   },
 ];

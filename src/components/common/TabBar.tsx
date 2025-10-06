@@ -1,31 +1,19 @@
 import { useMemo, useRef } from "react";
 import { NavLink, useLocation } from "react-router-dom";
+
 import { cn } from "@/lib/utils";
 import { useProjectId } from "@/hooks/useProjectId";
-
-export const PROJECT_TABS = [
-  { label: "Overview", path: "overview" },
-  { label: "List", path: "list" },
-  { label: "Board", path: "board" },
-  { label: "Backlog", path: "backlog" },
-  { label: "Sprints", path: "sprints" },
-  { label: "Calendar", path: "calendar" },
-  { label: "Timeline", path: "timeline" },
-  { label: "Dependencies", path: "dependencies" },
-  { label: "Reports", path: "reports" },
-  { label: "Docs", path: "docs" },
-  { label: "Files", path: "files" },
-  { label: "Integrations", path: "integrations" },
-  { label: "Automations", path: "automations" },
-  { label: "Settings", path: "settings" },
-] as const;
+import { PROJECT_TABS } from "@/pages/projects/projectTabs";
 
 export function TabBar() {
   const projectId = useProjectId() ?? "";
   const location = useLocation();
   const tabRefs = useRef<(HTMLAnchorElement | null)[]>([]);
 
-  const tabItems = useMemo(() => PROJECT_TABS.map((tab) => ({ ...tab })), []);
+  const tabItems = useMemo(
+    () => PROJECT_TABS.map(({ label, path }) => ({ label, path })),
+    []
+  );
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLAnchorElement>, index: number) => {
     if (event.key === "ArrowRight") {
