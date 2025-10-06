@@ -1,11 +1,10 @@
 import { useMemo } from "react";
-import { useParams } from "react-router-dom";
 import { FilesView } from "@/pages/files/FilesPage";
 import { useProjectSummary } from "@/hooks/useProjectsLite";
+import { useProjectId } from "@/hooks/useProjectId";
 
 export default function ProjectFilesPage() {
-  const params = useParams<{ projectId?: string; id?: string }>();
-  const projectId = params.projectId ?? params.id ?? "";
+  const projectId = useProjectId() ?? "";
   const { data: project } = useProjectSummary(projectId);
 
   const projectLabel = project?.name?.trim() || projectId || "Project";

@@ -10,7 +10,7 @@ import {
   Webhook as WebhookIcon,
   Folder,
 } from "lucide-react";
-import { useParams } from "react-router-dom";
+import { useProjectId } from "@/hooks/useProjectId";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -791,8 +791,7 @@ export default function IntegrationsPage() {
 }
 
 export function ProjectIntegrationsPage() {
-  const params = useParams<{ projectId?: string; id?: string }>();
-  const projectId = params.projectId ?? params.id ?? "";
+  const projectId = useProjectId() ?? "";
   const { data: project } = useProjectSummary(projectId);
   const projectLabelValue = project?.name?.trim() || projectId || "Project";
 
