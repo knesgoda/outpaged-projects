@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -12,10 +12,10 @@ import { useProjectsLite } from "@/hooks/useProjectsLite";
 import { setBreadcrumbLabel } from "@/state/breadcrumbs";
 import type { Automation } from "@/types";
 import { Loader2, Play, Plus } from "lucide-react";
+import { useProjectId } from "@/hooks/useProjectId";
 
 export default function ProjectAutomationsPage() {
-  const params = useParams<{ projectId: string }>();
-  const projectId = params.projectId ?? "";
+  const projectId = useProjectId() ?? "";
   const [search, setSearch] = useState("");
   const navigate = useNavigate();
   const { data: projects = [] } = useProjectsLite();

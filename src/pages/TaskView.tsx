@@ -10,13 +10,15 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import { enableOutpagedBrand } from '@/lib/featureFlags';
 import { StatusChip } from '@/components/outpaged/StatusChip';
+import { useProjectId } from '@/hooks/useProjectId';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 type StatusTone = 'neutral' | 'info' | 'success' | 'warning' | 'danger' | 'accent';
 
 export default function TaskView() {
-  const { projectId, code, taskNumber } = useParams();
+  const projectId = useProjectId();
+  const { code, taskNumber } = useParams();
   const navigate = useNavigate();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 

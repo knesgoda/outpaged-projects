@@ -1,6 +1,6 @@
 
 import { useState, useEffect, useCallback } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,7 @@ import { CreateTaskDialog } from "@/components/tasks/CreateTaskDialog";
 import { InviteMemberDialog } from "@/components/team/InviteMemberDialog";
 import { enableOutpagedBrand } from "@/lib/featureFlags";
 import { StatusChip } from "@/components/outpaged/StatusChip";
+import { useProjectId } from "@/hooks/useProjectId";
 
 interface ProjectRecord {
   id: string;
@@ -27,7 +28,7 @@ interface ProjectRecord {
 }
 
 function LegacyProjectDetails({ overrideProjectId }: { overrideProjectId?: string }) {
-  const { projectId: paramsProjectId } = useParams();
+  const paramsProjectId = useProjectId();
   const projectId = overrideProjectId || paramsProjectId;
   const navigate = useNavigate();
   const { user } = useAuth();

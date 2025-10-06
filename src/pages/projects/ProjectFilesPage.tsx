@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useProjectId } from "@/hooks/useProjectId";
 import { formatDistanceToNow } from "date-fns";
 import {
   AlertDialog,
@@ -56,8 +56,7 @@ import {
 import { formatBytes, MAX_FILE_SIZE } from "@/pages/files/utils";
 
 export default function ProjectFilesPage() {
-  const params = useParams<{ projectId: string }>();
-  const projectId = params.projectId ?? "";
+  const projectId = useProjectId() ?? "";
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [renameTarget, setRenameTarget] = useState<ProjectFile | null>(null);
