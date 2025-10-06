@@ -241,7 +241,13 @@ const searchDocs = async (
     ctx.ts
   );
 
-  const getBaseQuery = () => client.from("doc_pages").select(columns);
+  const getBaseQuery = () => {
+    let query = client.from("doc_pages").select(columns);
+    if (ctx.projectId) {
+      query = query.eq("project_id", ctx.projectId);
+    }
+    return query;
+  };
 
   const rows = await buildWithFallback(
     ctx,
@@ -284,7 +290,13 @@ const searchFiles = async (
     ctx.ts
   );
 
-  const getBaseQuery = () => client.from("project_files").select(columns);
+  const getBaseQuery = () => {
+    let query = client.from("project_files").select(columns);
+    if (ctx.projectId) {
+      query = query.eq("project_id", ctx.projectId);
+    }
+    return query;
+  };
 
   const rows = await buildWithFallback(
     ctx,
@@ -357,7 +369,13 @@ const searchComments = async (
     ctx.ts
   );
 
-  const getBaseQuery = () => client.from("comments").select(columns);
+  const getBaseQuery = () => {
+    let query = client.from("comments").select(columns);
+    if (ctx.projectId) {
+      query = query.eq("project_id", ctx.projectId);
+    }
+    return query;
+  };
 
   const rows = await buildWithFallback(
     ctx,
@@ -405,7 +423,6 @@ const searchProfiles = async (
   const getBaseQuery = () => client.from("profiles").select(columns);
 
   const rows = await buildWithFallback(
-    client,
     ctx,
     () =>
       getBaseQuery()
