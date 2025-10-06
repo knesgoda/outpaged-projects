@@ -378,7 +378,7 @@ function LegacyDashboard() {
       description: `${stats.activeProjects} active`,
       icon: FolderOpen,
       color: "text-primary",
-      onClick: () => navigate('/dashboard/projects')
+      onClick: () => navigate('/projects')
     },
     {
       title: "Total Tasks",
@@ -424,7 +424,7 @@ function LegacyDashboard() {
         </div>
         <Button 
           className="bg-gradient-primary hover:opacity-90"
-          onClick={() => navigate('/dashboard/projects')}
+          onClick={() => navigate('/projects')}
         >
           <Plus className="w-4 h-4 mr-2" />
           New Project
@@ -487,7 +487,7 @@ function LegacyDashboard() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => navigate('/dashboard/projects')}
+                  onClick={() => navigate('/projects')}
                 >
                   View All
                   <ArrowRight className="w-4 h-4 ml-1" />
@@ -504,7 +504,7 @@ function LegacyDashboard() {
                       variant="outline" 
                       size="sm" 
                       className="mt-2"
-                      onClick={() => navigate('/dashboard/projects')}
+                      onClick={() => navigate('/projects')}
                     >
                       Create Your First Project
                     </Button>
@@ -514,7 +514,7 @@ function LegacyDashboard() {
                     <div
                       key={project.id}
                       className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
-                      onClick={() => navigate(`/dashboard/projects/${project.id}`)}
+                      onClick={() => navigate(`/projects/${project.id}`)}
                     >
                       <div className="flex items-center gap-3">
                         <div className="w-2 h-2 bg-primary rounded-full" />

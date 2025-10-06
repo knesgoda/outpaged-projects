@@ -24,7 +24,8 @@ import { Menu, Plus, Search } from "lucide-react";
 import { NAV } from "@/lib/navConfig";
 import { getCurrentUser } from "@/lib/auth";
 import { useProfile } from "@/state/profile";
-import { PROJECT_TABS } from "@/components/common/TabBar";
+import { PROJECT_TABS } from "@/pages/projects/projectTabs";
+import { useProject } from "@/hooks/useProjects";
 
 function findNavLabel(path: string) {
   const walk = (items = NAV): string | undefined => {
@@ -73,8 +74,11 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
     []
   );
 
+  const segments = useMemo(() => location.pathname.split("/").filter(Boolean), [location.pathname]);
+  const projectId = segments[0] === "projects" ? segments[1] : undefined;
+  const { data: breadcrumbProject } = useProject(projectId);
+
   const breadcrumbs = useMemo(() => {
-    const segments = location.pathname.split("/").filter(Boolean);
     if (segments.length === 0) {
       return [{ label: "Home", href: "/" }];
     }
@@ -88,7 +92,7 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
 
       if (!label && segments[0] === "projects") {
         if (index === 1) {
-          label = `Project ${segment}`;
+          label = breadcrumbProject?.name ?? `Project ${segment}`;
         } else if (index > 1) {
           label = PROJECT_TABS.find((tab) => tab.path === segment)?.label ?? formatSegment(segment);
         }
@@ -102,7 +106,7 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
     });
 
     return [{ label: "Home", href: "/" }, ...crumbs];
-  }, [location.pathname]);
+  }, [breadcrumbProject?.name, segments]);
 
   const handleAction = (path: string) => {
     setIsDialogOpen(false);

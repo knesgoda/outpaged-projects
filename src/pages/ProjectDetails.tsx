@@ -178,7 +178,7 @@ function LegacyProjectDetails({ overrideProjectId }: { overrideProjectId?: strin
           <h2 className="text-xl font-semibold mb-2">Project Not Specified</h2>
           <p className="text-muted-foreground">Select a project from the list to view its details.</p>
           <Button
-            onClick={() => navigate('/dashboard/projects')}
+            onClick={() => navigate('/projects')}
             className="mt-4"
           >
             Back to Projects
@@ -214,7 +214,7 @@ function LegacyProjectDetails({ overrideProjectId }: { overrideProjectId?: strin
           <h2 className="text-xl font-semibold mb-2">Error Loading Project</h2>
           <p className="text-muted-foreground">We couldn't load this project. Please try again.</p>
           <Button
-            onClick={() => navigate('/dashboard/projects')}
+            onClick={() => navigate('/projects')}
             className="mt-4"
           >
             Back to Projects
@@ -231,7 +231,7 @@ function LegacyProjectDetails({ overrideProjectId }: { overrideProjectId?: strin
           <h2 className="text-xl font-semibold mb-2">Project Not Found</h2>
           <p className="text-muted-foreground">The project you're looking for doesn't exist or you don't have access to it.</p>
           <Button 
-            onClick={() => navigate('/dashboard/projects')}
+            onClick={() => navigate('/projects')}
             className="mt-4"
           >
             Back to Projects
@@ -247,7 +247,7 @@ function LegacyProjectDetails({ overrideProjectId }: { overrideProjectId?: strin
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => navigate('/dashboard/projects')}
+          onClick={() => navigate('/projects')}
         >
           <ArrowLeft className="w-4 h-4 mr-2" />
           Back to Projects

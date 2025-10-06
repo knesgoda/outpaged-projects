@@ -60,11 +60,11 @@ export default function TaskView() {
     if (task?.projects) {
       const project = Array.isArray(task.projects) ? task.projects[0] : task.projects;
       if (projectId) {
-        navigate(`/dashboard/projects/${projectId}`);
-      } else if (project?.code) {
-        navigate(`/dashboard/projects/code/${project.code}`);
+        navigate(`/projects/${projectId}`);
+      } else if (project?.id) {
+        navigate(`/projects/${project.id}`);
       } else {
-        navigate('/dashboard/board');
+        navigate('/projects');
       }
     } else {
       navigate('/dashboard/tasks');

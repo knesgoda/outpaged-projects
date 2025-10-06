@@ -1,11 +1,11 @@
 import { Suspense } from "react";
-import { Navigate, useRoutes } from "react-router-dom";
+import { Navigate, useParams, useRoutes } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { ErrorBoundary } from "@/components/common/ErrorBoundary";
 import HomePage from "@/pages/ia/HomePage";
 import MyWorkPage from "@/pages/ia/MyWorkPage";
 import InboxPage from "@/pages/ia/InboxPage";
-import ProjectsPage from "@/pages/ia/ProjectsPage";
+import ProjectsListPage from "@/pages/projects/ProjectsListPage";
 import BoardsPage from "@/pages/ia/BoardsPage";
 import CalendarPage from "@/pages/ia/CalendarPage";
 import TimelinePage from "@/pages/ia/TimelinePage";
@@ -31,19 +31,6 @@ import AdminDataPage from "@/pages/ia/admin/AdminDataPage";
 import AdminWebhooksPage from "@/pages/ia/admin/AdminWebhooksPage";
 import AdminApiPage from "@/pages/ia/admin/AdminApiPage";
 import AdminBillingPage from "@/pages/ia/admin/AdminBillingPage";
-import ProjectOverviewPage from "@/pages/ia/projects/ProjectOverviewPage";
-import ProjectListPage from "@/pages/ia/projects/ProjectListPage";
-import ProjectBoardPage from "@/pages/ia/projects/ProjectBoardPage";
-import ProjectBacklogPage from "@/pages/ia/projects/ProjectBacklogPage";
-import ProjectSprintsPage from "@/pages/ia/projects/ProjectSprintsPage";
-import ProjectCalendarPage from "@/pages/ia/projects/ProjectCalendarPage";
-import ProjectTimelinePage from "@/pages/ia/projects/ProjectTimelinePage";
-import ProjectDependenciesPage from "@/pages/ia/projects/ProjectDependenciesPage";
-import ProjectReportsPage from "@/pages/ia/projects/ProjectReportsPage";
-import ProjectDocsPage from "@/pages/ia/projects/ProjectDocsPage";
-import ProjectFilesPage from "@/pages/ia/projects/ProjectFilesPage";
-import ProjectAutomationsPage from "@/pages/ia/projects/ProjectAutomationsPage";
-import ProjectSettingsPage from "@/pages/ia/projects/ProjectSettingsPage";
 import NewProjectPage from "@/pages/ia/NewProjectPage";
 import NewBoardPage from "@/pages/ia/NewBoardPage";
 import NewTaskPage from "@/pages/ia/NewTaskPage";
@@ -54,6 +41,8 @@ import NotFound from "@/pages/NotFound";
 import Profile from "@/pages/Profile";
 import Settings from "@/pages/Settings";
 import SearchPage from "@/pages/Search";
+import ProjectDetailPage from "@/pages/projects/ProjectDetailPage";
+import { PROJECT_TABS } from "@/pages/projects/projectTabs";
 
 const Suspended = ({ children }: { children: React.ReactNode }) => (
   <Suspense fallback={<div className="p-6">Loading...</div>}>
@@ -61,7 +50,21 @@ const Suspended = ({ children }: { children: React.ReactNode }) => (
   </Suspense>
 );
 
+const LegacyProjectRouteRedirect = () => {
+  const { projectId } = useParams<{ projectId?: string }>();
+  return <Navigate to={projectId ? `/projects/${projectId}` : "/projects"} replace />;
+};
+
 export function AppRoutes() {
+  const OverviewComponent = PROJECT_TABS[0]?.Component;
+  const projectTabChildren = [
+    ...(OverviewComponent ? [{ index: true, element: <OverviewComponent /> }] : []),
+    ...PROJECT_TABS.map((tab) => {
+      const TabComponent = tab.Component;
+      return { path: tab.path, element: <TabComponent /> };
+    }),
+  ];
+
   return useRoutes([
     {
       path: "/",
@@ -74,22 +77,16 @@ export function AppRoutes() {
         { index: true, element: <HomePage /> },
         { path: "my-work", element: <MyWorkPage /> },
         { path: "inbox", element: <InboxPage /> },
-        { path: "projects", element: <ProjectsPage /> },
+        { path: "projects", element: <ProjectsListPage /> },
         { path: "projects/new", element: <NewProjectPage /> },
-        { path: "projects/:id", element: <ProjectOverviewPage /> },
-        { path: "projects/:id/overview", element: <ProjectOverviewPage /> },
-        { path: "projects/:id/list", element: <ProjectListPage /> },
-        { path: "projects/:id/board", element: <ProjectBoardPage /> },
-        { path: "projects/:id/backlog", element: <ProjectBacklogPage /> },
-        { path: "projects/:id/sprints", element: <ProjectSprintsPage /> },
-        { path: "projects/:id/calendar", element: <ProjectCalendarPage /> },
-        { path: "projects/:id/timeline", element: <ProjectTimelinePage /> },
-        { path: "projects/:id/dependencies", element: <ProjectDependenciesPage /> },
-        { path: "projects/:id/reports", element: <ProjectReportsPage /> },
-        { path: "projects/:id/docs", element: <ProjectDocsPage /> },
-        { path: "projects/:id/files", element: <ProjectFilesPage /> },
-        { path: "projects/:id/automations", element: <ProjectAutomationsPage /> },
-        { path: "projects/:id/settings", element: <ProjectSettingsPage /> },
+        {
+          path: "projects/:projectId",
+          element: <ProjectDetailPage />,
+          children: projectTabChildren,
+        },
+        { path: "dashboard/projects", element: <Navigate to="/projects" replace /> },
+        { path: "dashboard/projects/:projectId", element: <LegacyProjectRouteRedirect /> },
+        { path: "dashboard/projects/:projectId/*", element: <LegacyProjectRouteRedirect /> },
         { path: "boards", element: <BoardsPage /> },
         { path: "boards/new", element: <NewBoardPage /> },
         { path: "calendar", element: <CalendarPage /> },

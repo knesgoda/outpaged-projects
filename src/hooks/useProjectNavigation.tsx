@@ -7,7 +7,7 @@ export interface ProjectNavigationData {
   name: string;
 }
 
-const buildIdRoute = (projectId: string) => `/dashboard/projects/${projectId}`;
+const buildIdRoute = (projectId: string) => `/projects/${projectId}`;
 
 export function useProjectNavigation() {
   const navigate = useNavigate();

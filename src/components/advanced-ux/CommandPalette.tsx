@@ -49,7 +49,7 @@ export function CommandPalette() {
       id: 'nav-projects',
       title: 'Go to Projects',
       icon: <FileText className="h-4 w-4" />,
-      action: () => navigate('/dashboard/projects'),
+      action: () => navigate('/projects'),
       group: 'Navigation',
       keywords: ['work', 'portfolio']
     },
@@ -101,7 +101,7 @@ export function CommandPalette() {
       description: 'Start a new project',
       icon: <Plus className="h-4 w-4" />,
       action: () => {
-        navigate('/dashboard/projects');
+        navigate('/projects');
         // Trigger project creation dialog
       },
       group: 'Quick Actions',

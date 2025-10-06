@@ -12,7 +12,7 @@ export function QuickActions() {
       title: "New Project",
       description: "Create a new project",
       icon: FolderOpen,
-      action: () => navigate('/dashboard/projects'),
+      action: () => navigate('/projects'),
       color: "bg-primary"
     },
     {
