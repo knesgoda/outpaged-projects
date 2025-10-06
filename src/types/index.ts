@@ -11,3 +11,5 @@ export * from "./notifications";
 export * from "./integrations";
 export * from "./comments";
 export * from "./backlog";
+export * from "./workspace";
+export * from "./reports";

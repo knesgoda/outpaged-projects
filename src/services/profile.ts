@@ -1,12 +1,13 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Profile } from "@/types";
 import { requireUserId } from "@/services/utils";
+import { uploadPublicImage } from "./storage";
 
 export async function getMyProfile(): Promise<Profile | null> {
   const userId = await requireUserId();
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, full_name, avatar_url, title, department, timezone, capacity_hours_per_week, updated_at")
+    .select("id, full_name, avatar_url, updated_at")
     .eq("id", userId)
     .maybeSingle();
 
@@ -18,17 +19,7 @@ export async function getMyProfile(): Promise<Profile | null> {
 }
 
 export async function updateMyProfile(
-  patch: Partial<
-    Pick<
-      Profile,
-      | "full_name"
-      | "avatar_url"
-      | "title"
-      | "department"
-      | "timezone"
-      | "capacity_hours_per_week"
-    >
-  >
+  patch: Partial<Pick<Profile, "full_name" | "avatar_url">>
 ): Promise<Profile> {
   const userId = await requireUserId();
   const payload = {
@@ -40,7 +31,7 @@ export async function updateMyProfile(
   const { data, error } = await supabase
     .from("profiles")
     .upsert(payload, { onConflict: "id" })
-    .select("id, full_name, avatar_url, title, department, timezone, capacity_hours_per_week, updated_at")
+    .select("id, full_name, avatar_url, updated_at")
     .single();
 
   if (error) {
@@ -48,15 +39,6 @@ export async function updateMyProfile(
   }
 
   return data as Profile;
-}
-
-function getExtension(file: File) {
-  const fromName = file.name?.split(".").pop();
-  if (fromName && fromName.length < 10) {
-    return fromName;
-  }
-  const fromType = file.type?.split("/").pop();
-  return fromType ?? "png";
 }
 
 export async function uploadMyAvatar(file: File): Promise<string> {
@@ -70,22 +52,7 @@ export async function uploadMyAvatar(file: File): Promise<string> {
   }
 
   const userId = await requireUserId();
-  const extension = getExtension(file);
-  const filePath = `avatars/${userId}/avatar-${Date.now()}.${extension}`;
-
-  const { error: uploadError } = await supabase.storage
-    .from("avatars")
-    .upload(filePath, file, { upsert: true, cacheControl: "3600" });
-
-  if (uploadError) {
-    throw new Error(uploadError.message);
-  }
-
-  const { data } = supabase.storage.from("avatars").getPublicUrl(filePath);
-  const publicUrl = data.publicUrl;
-  if (!publicUrl) {
-    throw new Error("Failed to generate avatar URL.");
-  }
+  const { publicUrl } = await uploadPublicImage("avatars", file, `avatars/${userId}/avatar-${Date.now()}`);
 
   const { error: updateError } = await supabase
     .from("profiles")

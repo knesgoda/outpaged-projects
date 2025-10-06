@@ -30,3 +30,46 @@ export async function uploadHelpScreenshot(file: File, userId: string): Promise<
 
   return { publicUrl };
 }
+
+function getImageExtension(file: File) {
+  const fromName = file.name?.split(".").pop();
+  if (fromName && fromName.length < 10) {
+    return fromName.toLowerCase();
+  }
+
+  const fromType = file.type?.split("/").pop();
+  return fromType?.toLowerCase() ?? "png";
+}
+
+export async function uploadPublicImage(
+  bucket: "branding" | "avatars",
+  file: File,
+  pathPrefix: string
+): Promise<{ path: string; publicUrl: string }> {
+  if (!file.type?.startsWith("image/")) {
+    throw new Error("File must be an image.");
+  }
+
+  const extension = getImageExtension(file);
+  const cleanedPrefix = pathPrefix.replace(/\/+$/, "");
+  const objectPath = `${cleanedPrefix}/${Date.now()}.${extension}`;
+
+  const { error } = await supabase.storage.from(bucket).upload(objectPath, file, {
+    cacheControl: "3600",
+    upsert: true,
+    contentType: file.type || "image/png",
+  });
+
+  if (error) {
+    throw mapSupabaseError(error, "Unable to upload file.");
+  }
+
+  const { data, error: urlError } = supabase.storage.from(bucket).getPublicUrl(objectPath);
+  const publicUrl = data?.publicUrl;
+
+  if (urlError || !publicUrl) {
+    throw mapSupabaseError(urlError, "Unable to generate file URL.");
+  }
+
+  return { path: objectPath, publicUrl };
+}
