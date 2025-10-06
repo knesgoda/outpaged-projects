@@ -26,6 +26,20 @@ import GoalsPage from "@/pages/ia/GoalsPage";
 import TemplatesPage from "@/pages/ia/TemplatesPage";
 import PeoplePage from "@/pages/ia/PeoplePage";
 import TimeTrackingPage from "@/pages/ia/TimeTrackingPage";
+codex/perform-deep-dive-on-settings-and-admin
+import HelpPage from "@/pages/ia/HelpPage";
+import { AdminLayout } from "@/pages/admin/AdminLayout";
+import AdminHome from "@/pages/admin/AdminHome";
+import WorkspaceSettings from "@/pages/admin/WorkspaceSettings";
+import MembersPage from "@/pages/admin/MembersPage";
+import PermissionsPage from "@/pages/admin/PermissionsPage";
+import SecurityPage from "@/pages/admin/SecurityPage";
+import AuditLogsPage from "@/pages/admin/AuditLogsPage";
+import DataPage from "@/pages/admin/DataPage";
+import WebhooksPage from "@/pages/admin/WebhooksPage";
+import ApiExplorerPage from "@/pages/admin/ApiExplorerPage";
+import BillingPage from "@/pages/admin/BillingPage";
+=======
 import HelpHome from "@/pages/help/HelpHome";
 import HelpSearchPage from "@/pages/help/HelpSearchPage";
 import FAQPage from "@/pages/help/FAQPage";
@@ -64,6 +78,19 @@ import Login from "@/pages/Login";
 import AuthCallback from "@/pages/AuthCallback";
 import NotFound from "@/pages/NotFound";
 import Profile from "@/pages/Profile";
+codex/perform-deep-dive-on-settings-and-admin
+import { SettingsLayout } from "@/pages/settings/SettingsLayout";
+import SettingsHome from "@/pages/settings/SettingsHome";
+import ProfileSettings from "@/pages/settings/ProfileSettings";
+import AccountSettings from "@/pages/settings/AccountSettings";
+import SecuritySettings from "@/pages/settings/SecuritySettings";
+import NotificationSettings from "@/pages/settings/NotificationSettings";
+import AppearanceSettings from "@/pages/settings/AppearanceSettings";
+import ConnectionsSettings from "@/pages/settings/ConnectionsSettings";
+import SearchPage from "@/pages/Search";
+import NotAuthorizedPage from "@/pages/NotAuthorized";
+import { RequireAdmin } from "@/lib/auth";
+=======
 import Settings from "@/pages/Settings";
 codex/implement-notifications-and-inbox-functionality-g8mo3c
 import { NotificationSettingsPage } from "@/pages/settings/NotificationSettings";
@@ -146,6 +173,42 @@ export function AppRoutes() {
         { path: "time", element: <TimeTrackingPage /> },
         { path: "tasks/new", element: <NewTaskPage /> },
         { path: "profile", element: <Profile /> },
+codex/perform-deep-dive-on-settings-and-admin
+        {
+          path: "settings",
+          element: <SettingsLayout />,
+          children: [
+            { index: true, element: <SettingsHome /> },
+            { path: "profile", element: <ProfileSettings /> },
+            { path: "account", element: <AccountSettings /> },
+            { path: "security", element: <SecuritySettings /> },
+            { path: "notifications", element: <NotificationSettings /> },
+            { path: "appearance", element: <AppearanceSettings /> },
+            { path: "connections", element: <ConnectionsSettings /> },
+          ],
+        },
+        { path: "search", element: <SearchPage /> },
+        {
+          path: "admin",
+          element: (
+            <RequireAdmin>
+              <AdminLayout />
+            </RequireAdmin>
+          ),
+          children: [
+            { index: true, element: <AdminHome /> },
+            { path: "workspace", element: <WorkspaceSettings /> },
+            { path: "members", element: <MembersPage /> },
+            { path: "permissions", element: <PermissionsPage /> },
+            { path: "security", element: <SecurityPage /> },
+            { path: "audit", element: <AuditLogsPage /> },
+            { path: "data", element: <DataPage /> },
+            { path: "webhooks", element: <WebhooksPage /> },
+            { path: "api", element: <ApiExplorerPage /> },
+            { path: "billing", element: <BillingPage /> },
+          ],
+        },
+        { path: "help", element: <HelpPage /> },
         { path: "settings", element: <Settings /> },
 codex/implement-notifications-and-inbox-functionality-g8mo3c
         { path: "settings/notifications", element: <NotificationSettingsPage /> },
@@ -173,6 +236,7 @@ codex/implement-notifications-and-inbox-functionality-g8mo3c
     { path: "/auth/callback", element: <AuthCallback /> },
     { path: "/auth", element: <Navigate to="/login" replace /> },
     { path: "/logout", element: <Navigate to="/login" replace /> },
+    { path: "/not-authorized", element: <NotAuthorizedPage /> },
     { path: "*", element: <NotFound /> },
   ]);
 }

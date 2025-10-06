@@ -1,3 +1,61 @@
+codex/perform-deep-dive-on-settings-and-admin
+export type Profile = {
+  id: string;
+  full_name?: string | null;
+  avatar_url?: string | null;
+  title?: string | null;
+  department?: string | null;
+  timezone?: string | null;
+  capacity_hours_per_week?: number | null;
+  updated_at: string;
+};
+
+export type WorkspaceSettings = {
+  id: string;
+  owner: string;
+  name?: string | null;
+  brand_logo_url?: string | null;
+  default_timezone?: string | null;
+  default_capacity_hours_per_week?: number | null;
+  allowed_email_domain?: string | null;
+  features: any;
+  security: any;
+  billing: any;
+  updated_at: string;
+};
+
+export type WorkspaceMember = {
+  user_id: string;
+  role: "owner" | "admin" | "manager" | "member" | "billing";
+};
+
+export type AuditLog = {
+  id: string;
+  actor?: string | null;
+  action: string;
+  target_type?: string | null;
+  target_id?: string | null;
+  metadata?: any;
+  created_at: string;
+};
+
+export type ApiToken = {
+  id: string;
+  user_id: string;
+  name: string;
+  token_prefix: string;
+  last_four: string;
+  created_at: string;
+  revoked_at?: string | null;
+};
+
+export type Webhook = {
+  id: string;
+  owner: string;
+  target_url: string;
+  secret?: string | null;
+  active: boolean;
+=======
 codex/implement-notifications-and-inbox-functionality-g8mo3c
 export type NotificationItem = {
   id: string;
@@ -93,6 +151,8 @@ export type SupportTicket = {
   user_id: string;
   subject: string;
   body: string;
+codex/perform-deep-dive-on-settings-and-admin
+=======
  codex/implement-notifications-and-inbox-functionality-g8mo3c
   status: 'open' | 'in_progress' | 'resolved' | 'closed';
   priority: 'low' | 'normal' | 'high' | 'urgent';
@@ -106,6 +166,8 @@ export type SupportTicket = {
 export type FeedbackItem = {
   id: string;
   user_id: string;
+codex/perform-deep-dive-on-settings-and-admin
+=======
 codex/implement-notifications-and-inbox-functionality-g8mo3c
   type: 'bug' | 'idea' | 'question';
   type: "bug" | "idea" | "question";
@@ -114,6 +176,8 @@ codex/implement-notifications-and-inbox-functionality-g8mo3c
   screenshot_url?: string | null;
   created_at: string;
 };
+codex/perform-deep-dive-on-settings-and-admin
+=======
 codex/implement-notifications-and-inbox-functionality-g8mo3c
 
 export type HelpCenterEntity =
