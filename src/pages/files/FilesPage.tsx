@@ -1,5 +1,4 @@
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import {
   Alert,
   AlertDescription,
@@ -49,8 +48,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useFiles } from "@/hooks/useFiles";
 import { useToast } from "@/hooks/use-toast";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
-import { supabase } from "@/integrations/supabase/client";
-import { mapSupabaseError } from "@/services/utils";
+import { useProjectOptions, type ProjectOption } from "@/hooks/useProjectOptions";
 import type { ProjectFile } from "@/types";
 import {
   Download,
@@ -115,8 +113,6 @@ const getFileExtension = (file: ProjectFile) => {
   return ext ? ext.toUpperCase() : "";
 };
 
-type ProjectOption = { id: string; name: string | null };
-
 type UploadJob = {
   id: string;
   name: string;
@@ -139,36 +135,14 @@ type FilesTableProps = {
   renamingId?: string | null;
   deletingId?: string | null;
   emptyHint?: string;
+  showProject?: boolean;
+  projectNames?: Record<string, string>;
 };
 
 type PreviewState = {
   file: ProjectFile;
   url: string;
 };
-
-const ProjectsQueryKey = ["files", "projects"] as const;
-
-async function fetchProjects(): Promise<ProjectOption[]> {
-  const { data, error } = await supabase
-    .from("projects")
-    .select("id, name")
-    .order("name", { ascending: true });
-
-  if (error) {
-    throw mapSupabaseError(error, "Unable to load projects.");
-  }
-
-  return (data ?? []) as ProjectOption[];
-}
-
-function useProjectOptions(enabled: boolean) {
-  return useQuery({
-    queryKey: ProjectsQueryKey,
-    queryFn: fetchProjects,
-    enabled,
-    staleTime: 1000 * 60 * 5,
-  });
-}
 
 export default function FilesPage() {
   useDocumentTitle("Files");
@@ -183,10 +157,19 @@ export default function FilesPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const {
-    data: projects,
+    data: projectOptions = [],
     isLoading: projectsLoading,
     error: projectsError,
   } = useProjectOptions(true);
+
+  const projectOptionList = projectOptions as ProjectOption[];
+  const projectNames = useMemo(() => {
+    const entries: Record<string, string> = {};
+    projectOptionList.forEach((project) => {
+      entries[project.id] = project.name ?? project.id;
+    });
+    return entries;
+  }, [projectOptionList]);
 
   useEffect(() => {
     if (projectsError) {
@@ -419,7 +402,7 @@ export default function FilesPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All projects</SelectItem>
-                {projects?.map((project) => (
+                {projectOptionList.map((project) => (
                   <SelectItem key={project.id} value={project.id}>
                     {project.name ?? project.id}
                   </SelectItem>
@@ -481,7 +464,13 @@ export default function FilesPage() {
         onDelete={handleDelete}
         renamingId={renamingId}
         deletingId={deletingId}
-        emptyHint={selectedProjectId ? "Upload your first file for this project." : "Select a project to start uploading."}
+        emptyHint={
+          selectedProjectId
+            ? "Upload your first file for this project."
+            : "Select a project to manage files."
+        }
+        showProject={!selectedProjectId}
+        projectNames={projectNames}
       />
 
       <Drawer open={Boolean(preview)} onOpenChange={(open) => !open && setPreview(null)}>
@@ -531,6 +520,8 @@ function FilesTable({
   renamingId,
   deletingId,
   emptyHint,
+  showProject = false,
+  projectNames = {},
 }: FilesTableProps) {
   if (error) {
     return (
@@ -547,12 +538,15 @@ function FilesTable({
   }
 
   if (isLoading) {
+    const skeletonCols = showProject ? "grid-cols-7" : "grid-cols-6";
     return (
       <div className="space-y-3 rounded-lg border bg-background p-6 shadow-sm">
         {Array.from({ length: 5 }).map((_, index) => (
-          <div key={index} className="grid grid-cols-6 items-center gap-4">
+          <div key={index} className={`grid ${skeletonCols} items-center gap-4`}>
             <Skeleton className="h-5 w-full col-span-2" />
             <Skeleton className="h-5 w-full" />
+            <Skeleton className="h-5 w-full" />
+            {showProject ? <Skeleton className="h-5 w-full" /> : null}
             <Skeleton className="h-5 w-full" />
             <Skeleton className="h-5 w-full" />
             <Skeleton className="h-8 w-12 justify-self-end" />
@@ -582,6 +576,7 @@ function FilesTable({
             <TableHead className="w-[30%]">Name</TableHead>
             <TableHead>Size</TableHead>
             <TableHead>Type</TableHead>
+            {showProject ? <TableHead>Project</TableHead> : null}
             <TableHead>Uploaded</TableHead>
             <TableHead>Uploader</TableHead>
             <TableHead className="w-[80px] text-right">Actions</TableHead>
@@ -599,6 +594,8 @@ function FilesTable({
               onDelete={onDelete}
               isRenaming={renamingId === file.id}
               isDeleting={deletingId === file.id}
+              showProject={showProject}
+              projectName={projectNames[file.project_id] ?? file.project_id}
             />
           ))}
         </TableBody>
@@ -621,6 +618,8 @@ type FileRowProps = {
   onDelete: (file: ProjectFile) => Promise<void>;
   isRenaming: boolean;
   isDeleting: boolean;
+  showProject?: boolean;
+  projectName?: string;
 };
 
 function FileRow({
@@ -632,6 +631,8 @@ function FileRow({
   onDelete,
   isRenaming,
   isDeleting,
+  showProject = false,
+  projectName,
 }: FileRowProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState(getDisplayName(file));
@@ -690,6 +691,11 @@ function FileRow({
           ) : null}
         </div>
       </TableCell>
+      {showProject ? (
+        <TableCell className="truncate" title={projectName ?? file.project_id}>
+          {projectName ?? file.project_id ?? "—"}
+        </TableCell>
+      ) : null}
       <TableCell>
         {file.created_at
           ? formatDistanceToNow(new Date(file.created_at), { addSuffix: true })

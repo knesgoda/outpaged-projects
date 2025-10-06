@@ -17,7 +17,8 @@ import ReportDetail from "@/pages/reports/ReportDetail";
 import ReportEdit from "@/pages/reports/ReportEdit";
 import DocsPage from "@/pages/ia/DocsPage";
 import FilesPage from "@/pages/files/FilesPage";
-import AutomationsPage from "@/pages/ia/AutomationsPage";
+import AutomationsPage from "@/pages/automations/AutomationsPage";
+import AutomationDetailPage from "@/pages/automations/AutomationDetailPage";
 import IntegrationsPage from "@/pages/integrations/IntegrationsPage";
 import FormsPage from "@/pages/ia/FormsPage";
 import GoalsPage from "@/pages/ia/GoalsPage";
@@ -78,7 +79,7 @@ import ProjectReportsPage from "@/pages/ia/projects/ProjectReportsPage";
 import ProjectDocsPage from "@/pages/ia/projects/ProjectDocsPage";
 import ProjectFilesPage from "@/pages/projects/ProjectFilesPage";
 import ProjectIntegrationsPage from "@/pages/projects/ProjectIntegrationsPage";
-import ProjectAutomationsPage from "@/pages/ia/projects/ProjectAutomationsPage";
+import ProjectAutomationsPage from "@/pages/projects/ProjectAutomationsPage";
 import ProjectSettingsPage from "@/pages/ia/projects/ProjectSettingsPage";
 import NewProjectPage from "@/pages/ia/NewProjectPage";
 import NewBoardPage from "@/pages/ia/NewBoardPage";
@@ -151,6 +152,7 @@ export function AppRoutes() {
     { path: "docs", element: <DocsPage /> },
     { path: "files", element: <FilesPage /> },
     { path: "automations", element: <AutomationsPage /> },
+    { path: "automations/:automationId", element: <AutomationDetailPage /> },
     { path: "integrations", element: <IntegrationsPage /> },
     { path: "forms", element: <FormsPage /> },
     { path: "goals", element: <GoalsPage /> },

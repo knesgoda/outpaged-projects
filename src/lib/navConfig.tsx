@@ -125,6 +125,12 @@ export const NAV: NavItem[] = [
     path: "/reports",
     icon: <BarChart3 className="h-5 w-5" aria-hidden="true" />,
     roles: ALL_ROLES,
+    matchPaths: [
+      "/reports/new",
+      "/reports/:reportId",
+      "/reports/:reportId/edit",
+      "/projects/:projectId/reports",
+    ],
   },
   {
     id: "docs",
@@ -148,6 +154,7 @@ export const NAV: NavItem[] = [
     icon: <Workflow className="h-5 w-5" aria-hidden="true" />,
     roles: LEADERSHIP_ROLES,
     featureFlag: "automations",
+    matchPaths: ["/automations/:automationId", "/projects/:projectId/automations"],
   },
   {
     id: "integrations",

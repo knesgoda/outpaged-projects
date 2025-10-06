@@ -1,6 +1,5 @@
-import { useDeferredValue, useRef, useState } from "react";
+import { useDeferredValue, useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -26,8 +25,7 @@ import { Progress } from "@/components/ui/progress";
 import { useFiles } from "@/hooks/useFiles";
 import { useToast } from "@/hooks/use-toast";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
-import { supabase } from "@/integrations/supabase/client";
-import { mapSupabaseError } from "@/services/utils";
+import { useProjectSummary } from "@/hooks/useProjectOptions";
 import type { ProjectFile } from "@/types";
 import { Download, Search, Upload } from "lucide-react";
 import { FilesTable } from "../files/FilesPage";
@@ -36,11 +34,6 @@ const MAX_FILE_SIZE_MB = 50;
 
 const getFileName = (file: ProjectFile) =>
   file.title?.trim() || file.path.split("/").pop() || "Untitled";
-
-type ProjectSummary = {
-  id: string;
-  name: string | null;
-};
 
 type UploadJob = {
   id: string;
@@ -55,20 +48,6 @@ type PreviewState = {
   url: string;
 };
 
-async function fetchProject(projectId: string): Promise<ProjectSummary | null> {
-  const { data, error } = await supabase
-    .from("projects")
-    .select("id, name")
-    .eq("id", projectId)
-    .maybeSingle();
-
-  if (error) {
-    throw mapSupabaseError(error, "Unable to load project.");
-  }
-
-  return (data as ProjectSummary | null) ?? null;
-}
-
 export default function ProjectFilesPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const resolvedProjectId = projectId ?? "";
@@ -81,16 +60,24 @@ export default function ProjectFilesPage() {
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  const projectQuery = useQuery({
-    queryKey: ["project", resolvedProjectId],
-    queryFn: () => fetchProject(resolvedProjectId),
-    enabled: Boolean(resolvedProjectId),
-    staleTime: 1000 * 60 * 5,
-  });
-
+  const projectQuery = useProjectSummary(resolvedProjectId);
   const projectName = projectQuery.data?.name ?? resolvedProjectId;
 
   useDocumentTitle(`Projects / ${projectName} / Files`);
+
+  useEffect(() => {
+    if (projectQuery.error) {
+      const message =
+        projectQuery.error instanceof Error
+          ? projectQuery.error.message
+          : "Unable to load project.";
+      toast({
+        title: "Project unavailable",
+        description: message,
+        variant: "destructive",
+      });
+    }
+  }, [projectQuery.error, toast]);
 
   const {
     files,
