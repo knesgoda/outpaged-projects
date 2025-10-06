@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { Navigate, useRoutes } from "react-router-dom";
+import { Navigate, Outlet, useRoutes } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { ErrorBoundary } from "@/components/common/ErrorBoundary";
 import HomePage from "@/pages/ia/HomePage";
@@ -11,8 +11,14 @@ import CalendarPage from "@/pages/ia/CalendarPage";
 import TimelinePage from "@/pages/ia/TimelinePage";
 import WorkloadPage from "@/pages/ia/WorkloadPage";
 import DashboardsPage from "@/pages/ia/DashboardsPage";
-import ReportsPage from "@/pages/ia/ReportsPage";
-import DocsPage from "@/pages/ia/DocsPage";
+import DocsHome from "@/pages/docs/DocsHome";
+import DocCreate from "@/pages/docs/DocCreate";
+import DocDetail from "@/pages/docs/DocDetail";
+import DocEdit from "@/pages/docs/DocEdit";
+import ReportsHome from "@/pages/reports/ReportsHome";
+import ReportCreate from "@/pages/reports/ReportCreate";
+import ReportDetail from "@/pages/reports/ReportDetail";
+import ReportEdit from "@/pages/reports/ReportEdit";
 import FilesPage from "@/pages/ia/FilesPage";
 import AutomationsPage from "@/pages/ia/AutomationsPage";
 import IntegrationsPage from "@/pages/ia/IntegrationsPage";
@@ -40,7 +46,10 @@ import ProjectCalendarPage from "@/pages/ia/projects/ProjectCalendarPage";
 import ProjectTimelinePage from "@/pages/ia/projects/ProjectTimelinePage";
 import ProjectDependenciesPage from "@/pages/ia/projects/ProjectDependenciesPage";
 import ProjectReportsPage from "@/pages/ia/projects/ProjectReportsPage";
-import ProjectDocsPage from "@/pages/ia/projects/ProjectDocsPage";
+import ProjectDocsHome from "@/pages/projects/ProjectDocsHome";
+import ProjectDocCreate from "@/pages/projects/ProjectDocCreate";
+import ProjectDocDetail from "@/pages/projects/ProjectDocDetail";
+import ProjectDocEdit from "@/pages/projects/ProjectDocEdit";
 import ProjectFilesPage from "@/pages/ia/projects/ProjectFilesPage";
 import ProjectAutomationsPage from "@/pages/ia/projects/ProjectAutomationsPage";
 import ProjectSettingsPage from "@/pages/ia/projects/ProjectSettingsPage";
@@ -86,7 +95,16 @@ export function AppRoutes() {
         { path: "projects/:id/timeline", element: <ProjectTimelinePage /> },
         { path: "projects/:id/dependencies", element: <ProjectDependenciesPage /> },
         { path: "projects/:id/reports", element: <ProjectReportsPage /> },
-        { path: "projects/:id/docs", element: <ProjectDocsPage /> },
+        {
+          path: "projects/:projectId/docs",
+          element: <Outlet />,
+          children: [
+            { index: true, element: <ProjectDocsHome /> },
+            { path: "new", element: <ProjectDocCreate /> },
+            { path: ":docId", element: <ProjectDocDetail /> },
+            { path: ":docId/edit", element: <ProjectDocEdit /> },
+          ],
+        },
         { path: "projects/:id/files", element: <ProjectFilesPage /> },
         { path: "projects/:id/automations", element: <ProjectAutomationsPage /> },
         { path: "projects/:id/settings", element: <ProjectSettingsPage /> },
@@ -97,8 +115,26 @@ export function AppRoutes() {
         { path: "workload", element: <WorkloadPage /> },
         { path: "dashboards", element: <DashboardsPage /> },
         { path: "dashboards/new", element: <NewDashboardPage /> },
-        { path: "reports", element: <ReportsPage /> },
-        { path: "docs", element: <DocsPage /> },
+        {
+          path: "reports",
+          element: <Outlet />,
+          children: [
+            { index: true, element: <ReportsHome /> },
+            { path: "new", element: <ReportCreate /> },
+            { path: ":reportId", element: <ReportDetail /> },
+            { path: ":reportId/edit", element: <ReportEdit /> },
+          ],
+        },
+        {
+          path: "docs",
+          element: <Outlet />,
+          children: [
+            { index: true, element: <DocsHome /> },
+            { path: "new", element: <DocCreate /> },
+            { path: ":docId", element: <DocDetail /> },
+            { path: ":docId/edit", element: <DocEdit /> },
+          ],
+        },
         { path: "files", element: <FilesPage /> },
         { path: "automations", element: <AutomationsPage /> },
         { path: "integrations", element: <IntegrationsPage /> },

@@ -25,6 +25,9 @@ import { NAV } from "@/lib/navConfig";
 import { getCurrentUser } from "@/lib/auth";
 import { useProfile } from "@/state/profile";
 import { PROJECT_TABS } from "@/components/common/TabBar";
+import { useReport } from "@/hooks/useReports";
+import { useDoc } from "@/hooks/useDocs";
+import { useProjectMeta } from "@/hooks/useProjectMeta";
 
 function findNavLabel(path: string) {
   const walk = (items = NAV): string | undefined => {
@@ -62,6 +65,27 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
   const user = getCurrentUser();
   const { profile, error: profileError } = useProfile();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const segments = useMemo(
+    () => location.pathname.split("/").filter(Boolean),
+    [location.pathname]
+  );
+  const reportId =
+    segments[0] === "reports" && segments[1] && segments[1] !== "new"
+      ? segments[1]
+      : undefined;
+  const docId =
+    segments[0] === "docs"
+      ? segments[1] && segments[1] !== "new"
+        ? segments[1]
+        : undefined
+      : segments[0] === "projects" && segments[2] === "docs" && segments[3] && segments[3] !== "new"
+      ? segments[3]
+      : undefined;
+  const projectId = segments[0] === "projects" ? segments[1] : undefined;
+
+  const reportQuery = useReport(reportId);
+  const docQuery = useDoc(docId);
+  const projectMetaQuery = useProjectMeta(projectId);
 
   const actions = useMemo(
     () => [
@@ -74,7 +98,6 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
   );
 
   const breadcrumbs = useMemo(() => {
-    const segments = location.pathname.split("/").filter(Boolean);
     if (segments.length === 0) {
       return [{ label: "Home", href: "/" }];
     }
@@ -86,9 +109,19 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
       href += `/${segment}`;
       let label = findNavLabel(href);
 
+      if (!label && segments[0] === "reports" && index === 1) {
+        label = reportQuery.data?.name;
+      }
+
+      if (!label && segments[0] === "docs" && index === 1) {
+        label = docQuery.data?.title;
+      }
+
       if (!label && segments[0] === "projects") {
         if (index === 1) {
-          label = `Project ${segment}`;
+          label = projectMetaQuery.data?.name ?? projectId ?? `Project ${segment}`;
+        } else if (segments[2] === "docs" && index === 3) {
+          label = docQuery.data?.title;
         } else if (index > 1) {
           label = PROJECT_TABS.find((tab) => tab.path === segment)?.label ?? formatSegment(segment);
         }
@@ -102,7 +135,7 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
     });
 
     return [{ label: "Home", href: "/" }, ...crumbs];
-  }, [location.pathname]);
+  }, [segments, reportQuery.data?.name, docQuery.data?.title, projectMetaQuery.data?.name, projectId]);
 
   const handleAction = (path: string) => {
     setIsDialogOpen(false);

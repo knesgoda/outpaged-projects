@@ -23,6 +23,16 @@ export function Sidebar({ isCollapsed, onCollapseToggle, onNavigate, className }
   const badgeCounts = { inboxCount, myWorkCount } as const;
   const location = useLocation();
   const itemRefs = useRef<(HTMLAnchorElement | null)[]>([]);
+  const additionalActiveMatchers = useMemo(
+    () => ({
+      "/docs": (path: string) =>
+        path === "/docs" ||
+        path.startsWith("/docs/") ||
+        /^\/projects\/[^/]+\/docs(\/.*)?$/.test(path),
+      "/reports": (path: string) => path === "/reports" || path.startsWith("/reports/"),
+    }),
+    []
+  );
 
   const flattened = useMemo(() => {
     const acc: Array<{ item: NavItem; depth: number }> = [];
@@ -55,7 +65,10 @@ export function Sidebar({ isCollapsed, onCollapseToggle, onNavigate, className }
   };
 
   const renderNavItem = (item: NavItem, index: number, depth = 0) => {
-    const isActive = location.pathname === item.path || location.pathname.startsWith(`${item.path}/`);
+    const baseActive =
+      location.pathname === item.path || location.pathname.startsWith(`${item.path}/`);
+    const extraActive = additionalActiveMatchers[item.path]?.(location.pathname) ?? false;
+    const isActive = baseActive || extraActive;
     const badgeValue = item.badgeKey ? badgeCounts[item.badgeKey] : 0;
     const showBadge = item.badgeKey ? badgeValue > 0 : false;
 
@@ -88,7 +101,7 @@ export function Sidebar({ isCollapsed, onCollapseToggle, onNavigate, className }
             {badgeValue}
           </span>
         )}
-        {isActive && (
+        {(isActive) && (
           <span
             aria-hidden="true"
             className="absolute left-0 top-1/2 h-8 w-0.5 -translate-y-1/2 rounded-full bg-primary"

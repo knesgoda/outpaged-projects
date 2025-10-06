@@ -1,4 +1,7 @@
 import "@testing-library/jest-dom";
+import { jest } from "@jest/globals";
+
+jest.mock("@/integrations/supabase/client");
 
 class ResizeObserver {
   observe() {}
