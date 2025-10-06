@@ -104,6 +104,15 @@ export default function AutomationDetailPage() {
     await enqueueTestRun.mutateAsync(automation.id);
   };
 
+  const current = automation ?? ({} as Automation);
+  const projectMap = useMemo(() => {
+    const map = new Map<string, string>();
+    projects.forEach((project) => {
+      map.set(project.id, project.name ?? "Untitled project");
+    });
+    return map;
+  }, [projects]);
+
   if (!isNew && isLoading) {
     return (
       <div className="space-y-4">
@@ -121,15 +130,6 @@ export default function AutomationDetailPage() {
       </Alert>
     );
   }
-
-  const current = automation ?? ({} as Automation);
-  const projectMap = useMemo(() => {
-    const map = new Map<string, string>();
-    projects.forEach((project) => {
-      map.set(project.id, project.name ?? "Untitled project");
-    });
-    return map;
-  }, [projects]);
 
   return (
     <div className="space-y-6">

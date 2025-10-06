@@ -38,15 +38,6 @@ export default function ProjectAutomationsPage() {
     }
   }, [projectId, projectName]);
 
-  if (!projectId) {
-    return (
-      <Alert variant="destructive">
-        <AlertTitle>Project not found</AlertTitle>
-        <AlertDescription>The project id is missing from the URL.</AlertDescription>
-      </Alert>
-    );
-  }
-
   const filteredAutomations = useMemo(() => {
     const term = search.trim().toLowerCase();
     if (!term) return automations;
@@ -55,6 +46,15 @@ export default function ProjectAutomationsPage() {
       return source.includes(term);
     });
   }, [automations, search]);
+
+  if (!projectId) {
+    return (
+      <Alert variant="destructive">
+        <AlertTitle>Project not found</AlertTitle>
+        <AlertDescription>The project id is missing from the URL.</AlertDescription>
+      </Alert>
+    );
+  }
 
   const handleTestRun = async (automation: Automation) => {
     await enqueueTestRun.mutateAsync(automation.id);
