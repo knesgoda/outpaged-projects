@@ -15,6 +15,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
 import { MessageSquare, Send, Trash2 } from "lucide-react";
+import { createNotification } from "@/services/notifications";
 
 interface Comment {
   id: string;
@@ -103,6 +104,8 @@ export function CommentsSystemWithMentions({
     try {
       setSubmitting(true);
 
+      const parentComment = comments[comments.length - 1];
+
       const { data, error } = await supabase
         .from('comments')
         .insert({
@@ -141,6 +144,10 @@ export function CommentsSystemWithMentions({
       // Process mentions and create notifications
       await processMentions(newComment.trim(), data.id);
 
+      if (parentComment && parentComment.author_id && parentComment.author_id !== user.id) {
+        await notifyCommentReply(parentComment.author_id, data.id, newComment.trim());
+      }
+
       toast({
         title: "Success",
         description: "Comment added successfully",
@@ -154,6 +161,41 @@ export function CommentsSystemWithMentions({
       });
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const notifyCommentReply = async (recipientId: string, commentId: string, rawContent: string) => {
+    try {
+      const { data: preferenceRow, error: preferenceError } = await supabase
+        .from('notification_preferences')
+        .select('in_app')
+        .eq('user_id', recipientId)
+        .maybeSingle();
+
+      if (preferenceError) {
+        console.warn('Unable to load comment reply preferences:', preferenceError);
+      }
+
+      const inAppPref = (preferenceRow?.in_app as Record<string, boolean> | null | undefined)?.comment_reply;
+      if (inAppPref === false) {
+        return;
+      }
+
+      const actorName = user?.user_metadata?.full_name || user?.email || 'Someone';
+      const snippet = rawContent.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 160);
+
+      await createNotification({
+        user_id: recipientId,
+        type: 'comment_reply',
+        title: 'New reply',
+        body: snippet ? `${actorName}: ${snippet}` : `${actorName} replied to your comment`,
+        entity_type: 'task',
+        entity_id: taskId,
+        project_id: projectId,
+        link: `/tasks/${taskId}#comment-${commentId}`,
+      });
+    } catch (error) {
+      console.warn('Failed to create comment reply notification:', error);
     }
   };
 
@@ -192,44 +234,75 @@ export function CommentsSystemWithMentions({
         // Match mentioned names with actual users
         members?.forEach(member => {
           const profile = (member as any).profiles;
-          if (profile && mentions.some(mention => 
+          if (profile && mentions.some(mention =>
             profile.full_name.toLowerCase().includes(mention.toLowerCase())
           )) {
             mentionedUserIds.push(member.user_id);
           }
         });
 
-        // Create notifications for mentioned users
-        if (mentionedUserIds.length > 0) {
-          const notifications = mentionedUserIds.map(userId => ({
-            user_id: userId,
-            title: "You were mentioned in a comment",
-            message: `${user?.user_metadata?.full_name || user?.email} mentioned you in a comment`,
-            type: 'info' as const,
-            related_task_id: taskId
-          }));
+        const targetUserIds = mentionedUserIds.filter((id) => id !== user?.id);
 
-          const { error: notificationError } = await supabase
-            .from('notifications')
-            .insert(notifications);
+        if (targetUserIds.length === 0) return;
 
-          if (notificationError) {
-            console.error('Error creating mention notifications:', notificationError);
+        const { data: preferenceRows, error: preferenceError } = await supabase
+          .from("notification_preferences")
+          .select("user_id, in_app, email")
+          .in("user_id", targetUserIds);
+
+        if (preferenceError) {
+          console.warn("Could not load mention preferences:", preferenceError);
+        }
+
+        const inAppAllowed = new Set<string>();
+        const emailAllowed = new Set<string>();
+
+        targetUserIds.forEach((targetId) => {
+          const pref = preferenceRows?.find((row) => row.user_id === targetId);
+          const inAppPref = (pref?.in_app as Record<string, boolean> | null | undefined)?.mention;
+          const emailPref = (pref?.email as Record<string, boolean> | null | undefined)?.mention;
+
+          if (inAppPref !== false) {
+            inAppAllowed.add(targetId);
           }
 
-          // Send email notifications
+          if (emailPref === true) {
+            emailAllowed.add(targetId);
+          }
+        });
+
+        const actorName = user?.user_metadata?.full_name || user?.email || "Someone";
+        const snippet = content.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().slice(0, 160);
+
+        if (inAppAllowed.size > 0) {
+          await Promise.all(
+            Array.from(inAppAllowed).map((mentionedId) =>
+              createNotification({
+                user_id: mentionedId,
+                type: "mention",
+                title: "You were mentioned",
+                body: snippet ? `${actorName}: ${snippet}` : `${actorName} mentioned you in a comment`,
+                entity_type: "task",
+                entity_id: taskId,
+                project_id: projectId,
+                link: `/tasks/${taskId}`,
+              })
+            )
+          );
+        }
+
+        if (emailAllowed.size > 0) {
           try {
-            await supabase.functions.invoke('send-mention-notification', {
+            await supabase.functions.invoke("send-mention-notification", {
               body: {
-                mentions: mentionedUserIds,
+                mentions: Array.from(emailAllowed),
                 taskId,
                 commentId,
-                mentionedBy: user?.user_metadata?.full_name || user?.email || 'Someone'
-              }
+                mentionedBy: actorName,
+              },
             });
           } catch (emailError) {
-            console.error('Error sending mention emails:', emailError);
-            // Don't fail the comment creation if email fails
+            console.error("Error sending mention emails:", emailError);
           }
         }
       }

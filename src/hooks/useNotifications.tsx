@@ -1,92 +1,139 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useRealtime } from './useRealtime';
-import { useAuth } from './useAuth';
+import { useEffect, useMemo } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  archive as archiveNotification,
+  listNotifications,
+  markAllRead as markAllReadService,
+  markRead as markReadService,
+  markUnread as markUnreadService,
+  type NotificationTab,
+  unarchive as unarchiveNotification,
+} from "@/services/notifications";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 
-export interface Notification {
-  id: string;
-  user_id: string;
-  title: string;
-  message: string;
-  type: 'info' | 'success' | 'warning' | 'error';
-  read: boolean;
-  related_task_id?: string;
-  related_project_id?: string;
-  created_at: string;
-  updated_at: string;
-}
+const QUERY_KEY = ["notifications"] as const;
 
-export function useNotifications() {
-  const { user } = useAuth();
+export type UseNotificationsOptions = {
+  limit?: number;
+  since?: string;
+  includeArchived?: boolean;
+};
+
+export function useNotifications(
+  tab: NotificationTab = "all",
+  options: UseNotificationsOptions = {}
+) {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
-  const { data: notifications = [], isLoading } = useQuery({
-    queryKey: ['notifications', user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('notifications')
-        .select('*')
-        .eq('user_id', user!.id)
-        .order('created_at', { ascending: false });
-      
-      if (error) throw error;
-      return (data ?? []) as Notification[];
-    },
-    enabled: !!user,
+  const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
+    queryKey: [...QUERY_KEY, { tab, ...options }],
+    queryFn: () => listNotifications({ tab, ...options }),
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
   });
 
-  const markAsReadMutation = useMutation({
-    mutationFn: async (notificationId: string) => {
-      const { error } = await supabase
-        .from('notifications')
-        .update({ read: true })
-        .eq('id', notificationId);
-      
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['notifications', user?.id] });
-    },
-  });
+  useEffect(() => {
+    if (!user?.id) return;
 
-  const markAllAsReadMutation = useMutation({
-    mutationFn: async () => {
-      if (!user) throw new Error('Not authenticated');
-      const { error } = await supabase
-        .from('notifications')
-        .update({ read: true })
-        .eq('user_id', user.id)
-        .eq('read', false);
-      
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['notifications', user?.id] });
-    },
-  });
+    const channel = supabase
+      .channel(`notifications:user:${user.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "notifications",
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: QUERY_KEY });
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "notifications",
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: QUERY_KEY });
+        }
+      )
+      .subscribe();
 
-  // Real-time updates for notifications
-  useRealtime({
-    table: 'notifications',
-    filter: user ? `user_id=eq.${user.id}` : undefined,
-    onInsert: () => {
-      queryClient.invalidateQueries({ queryKey: ['notifications', user?.id] });
-    },
-    onUpdate: () => {
-      queryClient.invalidateQueries({ queryKey: ['notifications', user?.id] });
-    },
-    onDelete: () => {
-      queryClient.invalidateQueries({ queryKey: ['notifications', user?.id] });
-    },
-  });
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id, queryClient]);
 
-  const unreadCount = notifications.filter(n => !n.read).length;
+  const notifications = data ?? [];
+  const unreadCount = useMemo(
+    () => notifications.filter((notification) => !notification.read_at).length,
+    [notifications]
+  );
+
+  const invalidateAllTabs = () =>
+    queryClient.invalidateQueries({ queryKey: QUERY_KEY, refetchType: "active" });
 
   return {
     notifications,
     unreadCount,
     isLoading,
-    markAsRead: markAsReadMutation.mutate,
-    markAllAsRead: markAllAsReadMutation.mutate,
+    isError,
+    error,
+    isFetching,
+    refetch,
+    invalidateAllTabs,
   };
+}
+
+export function useMarkRead() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => markReadService(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEY });
+    },
+  });
+}
+
+export function useMarkAllRead() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () => markAllReadService(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEY });
+    },
+  });
+}
+
+export function useMarkUnread() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => markUnreadService(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEY });
+    },
+  });
+}
+
+type ArchiveVariables = { id: string; archived: boolean };
+
+export function useArchive() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, archived }: ArchiveVariables) =>
+      archived ? archiveNotification(id) : unarchiveNotification(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEY });
+    },
+  });
 }
