@@ -4,16 +4,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { 
-  FileText, 
-  Save, 
-  Users, 
-  CheckCircle2, 
+import {
+  FileText,
+  Save,
+  Users,
+  CheckCircle2,
   Clock,
   AtSign,
   Link as LinkIcon
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { CommentsSystemWithMentions } from "@/components/comments/CommentsSystemWithMentions";
 
 interface DocumentBlock {
   id: string;
@@ -312,6 +313,12 @@ export function AdvancedDocumentEditor() {
           </Button>
         </div>
       )}
+
+      <CommentsSystemWithMentions
+        entityType="doc"
+        entityId={document.id}
+        title="Document comments"
+      />
     </div>
   );
 }

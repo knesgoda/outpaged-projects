@@ -1,5 +1,7 @@
 import { ReactNode } from "react";
+codex/implement-global-search-and-command-k-palette
 import TabBar from "@/components/common/TabBar";
+import { TabBar } from "@/components/common/TabBar";
 import { useProjectId } from "@/hooks/useProjectId";
 
 interface ProjectPageTemplateProps {
@@ -8,7 +10,6 @@ interface ProjectPageTemplateProps {
   children?: ReactNode;
   headerExtras?: ReactNode;
 }
-
 export function ProjectPageTemplate({
   title,
   description,
@@ -23,6 +24,8 @@ export function ProjectPageTemplate({
       new CustomEvent("open-command-palette", { detail: { projectId } })
     );
   };
+export function ProjectPageTemplate({ title, description, children }: ProjectPageTemplateProps) {
+  const projectId = useProjectId()
 
   return (
     <section className="flex flex-col gap-6">
