@@ -1,29 +1,52 @@
-import { FormEvent, useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { JsonEditor } from "@/components/common/JsonEditor";
-import { useReport, useUpdateReport } from "@/hooks/useReports";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+} from "@/components/ui/breadcrumb";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useReport, useUpdateReport } from "@/hooks/useReports";
+import { useDocumentTitle } from "@/hooks/useDocumentTitle";
+import { useProjectOptions } from "@/hooks/useProjectOptions";
 
 export default function ReportEdit() {
   const { reportId } = useParams<{ reportId: string }>();
   const navigate = useNavigate();
   const { data: report, isLoading, isError, error } = useReport(reportId);
   const updateReport = useUpdateReport(reportId ?? "");
+  const { data: projects = [], isLoading: loadingProjects } = useProjectOptions(true);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [projectId, setProjectId] = useState<string | "none">("none");
   const [config, setConfig] = useState("{}");
   const [isConfigValid, setIsConfigValid] = useState(true);
   const [formError, setFormError] = useState<string | null>(null);
 
+  useDocumentTitle(report ? `Reports / ${report.name} / Edit` : "Reports / Edit");
+
   useEffect(() => {
-    if (!report) return;
+    if (!report) {
+      return;
+    }
     setName(report.name);
     setDescription(report.description ?? "");
+    setProjectId(report.project_id ?? "none");
     try {
       setConfig(JSON.stringify(report.config ?? {}, null, 2));
     } catch (_error) {
@@ -31,37 +54,19 @@ export default function ReportEdit() {
     }
   }, [report]);
 
-  if (isLoading) {
-    return (
-      <div className="space-y-4 p-6">
-        <Skeleton className="h-8 w-64" />
-        <Skeleton className="h-24 w-full" />
-        <Skeleton className="h-64 w-full" />
-      </div>
-    );
-  }
-
-  if (isError) {
-    const message = error instanceof Error ? error.message : "Unable to load the report.";
-    return (
-      <div className="p-6">
-        <p className="text-sm text-destructive">{message}</p>
-      </div>
-    );
-  }
-
-  if (!report || !reportId) {
-    return (
-      <div className="p-6">
-        <p className="text-sm text-muted-foreground">Report not found.</p>
-        <Button variant="link" onClick={() => navigate("/reports")}>Back to reports</Button>
-      </div>
-    );
-  }
+  const projectOptions = useMemo(
+    () => projects.map((project) => ({ value: project.id, label: project.name ?? project.id })),
+    [projects]
+  );
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setFormError(null);
+
+    if (!reportId) {
+      setFormError("Report id is required.");
+      return;
+    }
 
     if (!name.trim()) {
       setFormError("Name is required.");
@@ -83,20 +88,69 @@ export default function ReportEdit() {
       await updateReport.mutateAsync({
         name: name.trim(),
         description: description.trim() || null,
+        project_id: projectId === "none" ? null : projectId,
         config: parsedConfig,
       });
       navigate(`/reports/${reportId}`);
-    } catch (saveError) {
-      const message = saveError instanceof Error ? saveError.message : "Unable to save report.";
+    } catch (updateError) {
+      const message = updateError instanceof Error ? updateError.message : "Unable to save report.";
       setFormError(message);
     }
   };
 
+  if (isLoading) {
+    return (
+      <section className="space-y-4 p-6">
+        <Skeleton className="h-8 w-64" />
+        <Skeleton className="h-5 w-40" />
+        <Skeleton className="h-24 w-full" />
+      </section>
+    );
+  }
+
+  if (isError) {
+    const message = error instanceof Error ? error.message : "Unable to load the report.";
+    return (
+      <section className="p-6">
+        <p className="text-sm text-destructive">{message}</p>
+      </section>
+    );
+  }
+
+  if (!report || !reportId) {
+    return (
+      <section className="p-6 space-y-4">
+        <p className="text-sm text-muted-foreground">Report not found.</p>
+        <Button variant="link" onClick={() => navigate("/reports")}>Back to reports</Button>
+      </section>
+    );
+  }
+
   return (
     <section className="mx-auto max-w-3xl space-y-6 p-6">
+      <Breadcrumb>
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink asChild>
+              <Link to="/reports">Reports</Link>
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbItem>
+            <BreadcrumbLink asChild>
+              <Link to={`/reports/${report.id}`}>{report.name}</Link>
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbItem>
+            <BreadcrumbPage>Edit</BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
+
       <header className="space-y-1">
         <h1 className="text-2xl font-semibold tracking-tight">Edit report</h1>
-        <p className="text-sm text-muted-foreground">Update the report details and JSON config.</p>
+        <p className="text-sm text-muted-foreground">
+          Update the report details and JSON config.
+        </p>
       </header>
 
       <Card>
@@ -113,6 +167,26 @@ export default function ReportEdit() {
                 value={name}
                 onChange={(event) => setName(event.target.value)}
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="project">Project</Label>
+              <Select value={projectId} onValueChange={(value) => setProjectId(value)}>
+                <SelectTrigger id="project">
+                  <SelectValue placeholder="All projects" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">All projects</SelectItem>
+                  {projectOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {loadingProjects ? (
+                <p className="text-xs text-muted-foreground">Loading projects…</p>
+              ) : null}
             </div>
 
             <div className="space-y-2">
