@@ -8,6 +8,7 @@
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
+    "typecheck": "npm run type-check",
     "type-check": "tsc --noEmit",
     "test": "jest --config jest.config.cjs --runInBand",
     "analyze": "vite build --mode production && npx rollup-plugin-visualizer --open dist/**/*.html",

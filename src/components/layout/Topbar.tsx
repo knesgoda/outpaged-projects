@@ -36,6 +36,12 @@ function findNavLabel(path: string) {
       if (item.path === path) {
         return item.label;
       }
+      if (item.matchPaths) {
+        const match = item.matchPaths.find((candidate) => matchesPattern(candidate, path));
+        if (match) {
+          return item.label;
+        }
+      }
       if (item.children) {
         const found = walk(item.children);
         if (found) {
@@ -67,6 +73,32 @@ function formatSegment(segment: string) {
     .split("-")
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(" ");
+}
+
+const CUSTOM_CRUMBS = [
+  { pattern: "/people", label: "People" },
+  { pattern: "/people/:userId", label: "Member" },
+  { pattern: "/teams", label: "Teams" },
+  { pattern: "/teams/:teamId", label: "Team" },
+  { pattern: "/time", label: "Time" },
+  { pattern: "/time/my", label: "My" },
+  { pattern: "/time/approvals", label: "Approvals" },
+  { pattern: "/projects/:projectId/people", label: "People" },
+  { pattern: "/projects/:projectId/teams", label: "Teams" },
+  { pattern: "/projects/:projectId/time", label: "Time" },
+] as const;
+
+function matchesPattern(pattern: string, path: string) {
+  if (pattern === path) return true;
+  const escaped = pattern.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const regexPattern = escaped.replace(/:\w+/g, "[^/]+");
+  const regex = new RegExp(`^${regexPattern}$`);
+  return regex.test(path);
+}
+
+function findCustomLabel(path: string) {
+  const match = CUSTOM_CRUMBS.find((crumb) => matchesPattern(crumb.pattern, path));
+  return match?.label;
 }
 
 type TopbarProps = {
@@ -138,7 +170,7 @@ export function Topbar({ onToggleSidebar, onOpenShortcuts }: TopbarProps) {
 
     segments.forEach((segment, index) => {
       href += `/${segment}`;
-      let label = findNavLabel(href);
+      let label = findCustomLabel(href) ?? findNavLabel(href);
 
       if (!label && segments[0] === "projects") {
         if (index === 1) {

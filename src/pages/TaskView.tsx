@@ -13,11 +13,13 @@ import { enableOutpagedBrand } from '@/lib/featureFlags';
 import { StatusChip } from '@/components/outpaged/StatusChip';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { useProjectId } from '@/hooks/useProjectId';
 
 type StatusTone = 'neutral' | 'info' | 'success' | 'warning' | 'danger' | 'accent';
 
 export default function TaskView() {
-  const { projectId, code, taskNumber } = useParams();
+  const { code, taskNumber } = useParams();
+  const projectId = useProjectId();
   const navigate = useNavigate();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 

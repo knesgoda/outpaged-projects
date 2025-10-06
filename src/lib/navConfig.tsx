@@ -44,6 +44,7 @@ export type NavItem = {
   roles?: Role[];
   featureFlag?: keyof typeof FEATURE_FLAGS;
   badgeKey?: BadgeKey;
+  matchPaths?: string[];
   children?: NavItem[];
 };
 
@@ -184,6 +185,14 @@ export const NAV: NavItem[] = [
     path: "/people",
     icon: <Users className="h-5 w-5" aria-hidden="true" />,
     roles: LEADERSHIP_ROLES,
+    featureFlag: "peopleTeams",
+    matchPaths: [
+      "/people/:userId",
+      "/teams",
+      "/teams/:teamId",
+      "/projects/:projectId/people",
+      "/projects/:projectId/teams",
+    ],
   },
   {
     id: "time",
@@ -192,6 +201,11 @@ export const NAV: NavItem[] = [
     icon: <Clock3 className="h-5 w-5" aria-hidden="true" />,
     roles: ALL_ROLES,
     featureFlag: "timeTracking",
+    matchPaths: [
+      "/time/my",
+      "/time/approvals",
+      "/projects/:projectId/time",
+    ],
   },
   {
     id: "admin",

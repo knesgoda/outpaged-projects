@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -15,6 +14,7 @@ import { CreateTaskDialog } from "@/components/tasks/CreateTaskDialog";
 import { InviteMemberDialog } from "@/components/team/InviteMemberDialog";
 import { enableOutpagedBrand } from "@/lib/featureFlags";
 import { StatusChip } from "@/components/outpaged/StatusChip";
+codex/implement-people,-teams-and-time-tracking
 import { CommentsSystemWithMentions } from "@/components/comments/CommentsSystemWithMentions";
 import { useProjectId } from "@/hooks/useProjectId";
 

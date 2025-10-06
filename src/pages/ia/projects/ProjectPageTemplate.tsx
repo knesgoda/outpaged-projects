@@ -36,6 +36,8 @@ type ProjectPageTemplateChildren = ReactNode | ((args: {
   isLoading: boolean;
 }) => ReactNode);
 import { ReactNode } from "react";
+codex/implement-people,-teams-and-time-tracking
+import { useProjectId } from "@/hooks/useProjectId";
 codex/implement-global-search-and-command-k-palette
 import TabBar from "@/components/common/TabBar";
 import { TabBar } from "@/components/common/TabBar";
@@ -64,6 +66,18 @@ export function ProjectPageTemplate({
     );
   };
 export function ProjectPageTemplate({ title, description, children }: ProjectPageTemplateProps) {
+codex/implement-people,-teams-and-time-tracking
+  const projectId = useProjectId();
+
+  return (
+    <section className="flex flex-col gap-6">
+      <header className="space-y-2">
+        <h1 className="text-3xl font-semibold tracking-tight">{title}</h1>
+        <p className="text-muted-foreground">{description}</p>
+        <p className="text-sm text-muted-foreground">
+          Project reference: {projectId ?? "Unknown project"}
+        </p>
+=======
 codex/implement-integrations-with-google-and-github
   const { projectId = "" } = useParams();
 
