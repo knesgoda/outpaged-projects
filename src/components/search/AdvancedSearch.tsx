@@ -42,11 +42,11 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { useAdvancedSearch, SearchFilters, SearchResult } from '@/hooks/useAdvancedSearch';
+import { useAdvancedSearch, SearchFilters, type AdvancedSearchResult } from '@/hooks/useAdvancedSearch';
 import { toast } from '@/hooks/use-toast';
 
 interface AdvancedSearchProps {
-  onResultSelect?: (result: SearchResult) => void;
+  onResultSelect?: (result: AdvancedSearchResult) => void;
   embedded?: boolean;
 }
 
