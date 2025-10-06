@@ -231,7 +231,7 @@ function LegacyProjectDetails({ overrideProjectId }: { overrideProjectId?: strin
         <div className="text-center">
           <h2 className="text-xl font-semibold mb-2">Project Not Found</h2>
           <p className="text-muted-foreground">The project you're looking for doesn't exist or you don't have access to it.</p>
-          <Button 
+          <Button
             onClick={() => navigate('/dashboard/projects')}
             className="mt-4"
           >
@@ -271,8 +271,8 @@ function LegacyProjectDetails({ overrideProjectId }: { overrideProjectId?: strin
             )}
           </div>
         </div>
-        <Button 
-          variant="outline" 
+        <Button
+          variant="outline"
           size="sm"
           onClick={() => navigateToProjectSettings(project)}
         >
