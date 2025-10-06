@@ -24,6 +24,8 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { createNotification } from "@/services/notifications";
 
 interface Task {
   id: string;
@@ -40,14 +42,102 @@ interface BulkTaskOperationsProps {
   onTasksUpdated: () => void;
 }
 
-export const BulkTaskOperations = ({ 
-  tasks, 
-  selectedTasks, 
-  onSelectionChange, 
-  onTasksUpdated 
+export const BulkTaskOperations = ({
+  tasks,
+  selectedTasks,
+  onSelectionChange,
+  onTasksUpdated
 }: BulkTaskOperationsProps) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const { toast } = useToast();
+  const { user } = useAuth();
+
+  const notifyStatusChanges = async (taskIds: string[], newStatus: string) => {
+    if (taskIds.length === 0) return;
+
+    try {
+      const { data: subscriptions, error: subsError } = await supabase
+        .from("notification_subscriptions")
+        .select("user_id, entity_id")
+        .eq("entity_type", "task")
+        .in("entity_id", taskIds);
+
+      if (subsError) {
+        console.warn("Unable to load task subscriptions:", subsError);
+        return;
+      }
+
+      if (!subscriptions || subscriptions.length === 0) {
+        return;
+      }
+
+      const subscriberIds = Array.from(
+        new Set(
+          subscriptions
+            .map((subscription) => subscription.user_id)
+            .filter((userId) => userId && userId !== user?.id)
+        )
+      );
+
+      if (subscriberIds.length === 0) {
+        return;
+      }
+
+      const { data: preferenceRows, error: preferenceError } = await supabase
+        .from("notification_preferences")
+        .select("user_id, in_app")
+        .in("user_id", subscriberIds);
+
+      if (preferenceError) {
+        console.warn("Unable to load status change preferences:", preferenceError);
+      }
+
+      const allowed = new Set(
+        subscriberIds.filter((subscriberId) => {
+          const prefs = preferenceRows?.find((row) => row.user_id === subscriberId);
+          const value = (prefs?.in_app as Record<string, boolean> | null | undefined)?.status_change;
+          return value !== false;
+        })
+      );
+
+      if (allowed.size === 0) {
+        return;
+      }
+
+      const { data: tasksData, error: taskError } = await supabase
+        .from("tasks")
+        .select("id, title, name, project_id")
+        .in("id", taskIds);
+
+      if (taskError) {
+        console.warn("Unable to load updated tasks for notifications:", taskError);
+        return;
+      }
+
+      const actorName = user?.user_metadata?.full_name || user?.email || "Someone";
+
+      await Promise.all(
+        subscriptions.map(async (subscription) => {
+          if (!allowed.has(subscription.user_id)) return;
+          const task = tasksData?.find((record) => record.id === subscription.entity_id);
+          if (!task) return;
+          const taskTitle = (task as any).title || (task as any).name || "task";
+          await createNotification({
+            user_id: subscription.user_id,
+            type: "status_change",
+            title: `Status changed to ${newStatus}`,
+            body: `${actorName} moved "${taskTitle}" to ${newStatus}`,
+            entity_type: "task",
+            entity_id: subscription.entity_id,
+            project_id: (task as any).project_id,
+            link: `/tasks/${subscription.entity_id}`,
+          });
+        })
+      );
+    } catch (notificationError) {
+      console.warn("Failed to create status change notifications:", notificationError);
+    }
+  };
 
   const selectedTasksData = tasks.filter(task => selectedTasks.includes(task.id));
 
@@ -70,6 +160,8 @@ export const BulkTaskOperations = ({
         .in("id", selectedTasks);
 
       if (error) throw error;
+
+      await notifyStatusChanges(selectedTasks, newStatus);
 
       toast({
         title: "Success",

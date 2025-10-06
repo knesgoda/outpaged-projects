@@ -4,7 +4,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { ErrorBoundary } from "@/components/common/ErrorBoundary";
 import HomePage from "@/pages/ia/HomePage";
 import MyWorkPage from "@/pages/ia/MyWorkPage";
-import InboxPage from "@/pages/ia/InboxPage";
+import { InboxPage } from "@/pages/inbox/InboxPage";
 import ProjectsPage from "@/pages/ia/ProjectsPage";
 import BoardsPage from "@/pages/ia/BoardsPage";
 import CalendarPage from "@/pages/calendar/CalendarPage";
@@ -65,6 +65,10 @@ import AuthCallback from "@/pages/AuthCallback";
 import NotFound from "@/pages/NotFound";
 import Profile from "@/pages/Profile";
 import Settings from "@/pages/Settings";
+codex/implement-notifications-and-inbox-functionality-g8mo3c
+import { NotificationSettingsPage } from "@/pages/settings/NotificationSettings";
+import SearchPage from "@/pages/Search";
+=======
 import GlobalSearchPage from "@/pages/search/GlobalSearchPage";
 
 const Suspended = ({ children }: { children: React.ReactNode }) => (
@@ -85,7 +89,15 @@ export function AppRoutes() {
       children: [
         { index: true, element: <HomePage /> },
         { path: "my-work", element: <MyWorkPage /> },
-        { path: "inbox", element: <InboxPage /> },
+        {
+          path: "inbox",
+          element: <InboxPage tab="all" />,
+        },
+        { path: "inbox/mentions", element: <InboxPage tab="mentions" /> },
+        { path: "inbox/assigned", element: <InboxPage tab="assigned" /> },
+        { path: "inbox/following", element: <InboxPage tab="following" /> },
+        { path: "inbox/due-soon", element: <InboxPage tab="due-soon" /> },
+        { path: "inbox/unread", element: <InboxPage tab="unread" /> },
         { path: "projects", element: <ProjectsPage /> },
         { path: "projects/new", element: <NewProjectPage /> },
         // Canonicalize on :projectId and keep *all* project routes
@@ -135,6 +147,9 @@ export function AppRoutes() {
         { path: "tasks/new", element: <NewTaskPage /> },
         { path: "profile", element: <Profile /> },
         { path: "settings", element: <Settings /> },
+codex/implement-notifications-and-inbox-functionality-g8mo3c
+        { path: "settings/notifications", element: <NotificationSettingsPage /> },
+        { path: "search", element: <SearchPage /> },
         { path: "search", element: <GlobalSearchPage /> },
         { path: "admin", element: <AdminHomePage /> },
         { path: "admin/workspace", element: <AdminWorkspacePage /> },

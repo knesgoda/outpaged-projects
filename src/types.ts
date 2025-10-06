@@ -1,3 +1,41 @@
+codex/implement-notifications-and-inbox-functionality-g8mo3c
+export type NotificationItem = {
+  id: string;
+  user_id: string;
+  type:
+    | 'mention'
+    | 'assigned'
+    | 'comment_reply'
+    | 'status_change'
+    | 'due_soon'
+    | 'automation'
+    | 'file_shared'
+    | 'doc_comment';
+  title?: string | null;
+  body?: string | null;
+  entity_type?: 'task' | 'project' | 'doc' | 'file' | 'automation' | null;
+  entity_id?: string | null;
+  project_id?: string | null;
+  link?: string | null;
+  read_at?: string | null;
+  archived_at?: string | null;
+  created_at: string;
+};
+
+export type NotificationPreferences = {
+  user_id: string;
+  in_app: Record<string, boolean>;
+  email: Record<string, boolean>;
+  digest_frequency: 'off' | 'daily' | 'weekly';
+  updated_at: string;
+};
+
+export type Subscription = {
+  id: string;
+  user_id: string;
+  entity_type: 'task' | 'project' | 'doc';
+  entity_id: string;
+=======
 codex/implement-integrations-with-google-and-github
 export type IntegrationKey = 'gmail' | 'google_calendar' | 'google_docs' | 'github';
 
@@ -55,6 +93,10 @@ export type SupportTicket = {
   user_id: string;
   subject: string;
   body: string;
+ codex/implement-notifications-and-inbox-functionality-g8mo3c
+  status: 'open' | 'in_progress' | 'resolved' | 'closed';
+  priority: 'low' | 'normal' | 'high' | 'urgent';
+=======
   status: "open" | "in_progress" | "resolved" | "closed";
   priority: "low" | "normal" | "high" | "urgent";
   created_at: string;
@@ -64,12 +106,15 @@ export type SupportTicket = {
 export type FeedbackItem = {
   id: string;
   user_id: string;
+codex/implement-notifications-and-inbox-functionality-g8mo3c
+  type: 'bug' | 'idea' | 'question';
   type: "bug" | "idea" | "question";
   page_path?: string | null;
   message: string;
   screenshot_url?: string | null;
   created_at: string;
 };
+codex/implement-notifications-and-inbox-functionality-g8mo3c
 
 export type HelpCenterEntity =
   | HelpArticle
