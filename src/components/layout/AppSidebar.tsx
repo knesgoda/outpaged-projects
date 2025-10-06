@@ -53,13 +53,13 @@ interface NavItem {
 const navigationItems = [
   {
     title: "Dashboard",
-    url: "/dashboard",
+    url: "/",
     icon: Home,
     description: "Overview and quick access"
   },
   {
     title: "Projects",
-    url: "/dashboard/projects", 
+    url: "/projects",
     icon: Folder,
     description: "Manage your projects"
   },
@@ -71,13 +71,13 @@ const navigationItems = [
   },
   {
     title: "Kanban Board",
-    url: "/dashboard/board",
+    url: "/boards",
     icon: Calendar,
     description: "Visual task management"
   },
   {
     title: "Team",
-    url: "/dashboard/team",
+    url: "/people",
     icon: Users,
     description: "Team directory and collaboration"
   },
@@ -230,7 +230,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>
-              <Link to="/dashboard">
+              <Link to="/">
                 <div className="flex items-center gap-2">
                   <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
                     <Building2 className="size-4" />

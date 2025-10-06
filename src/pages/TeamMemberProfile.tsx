@@ -164,7 +164,7 @@ export default function TeamMemberProfile() {
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
           <p className="text-muted-foreground mb-4">Member not found</p>
-          <Button onClick={() => navigate("/dashboard/team")}>
+          <Button onClick={() => navigate("/people")}>
             Back to Team Directory
           </Button>
         </div>
@@ -176,10 +176,10 @@ export default function TeamMemberProfile() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Button 
-          variant="ghost" 
+        <Button
+          variant="ghost"
           size="icon"
-          onClick={() => navigate("/dashboard/team")}
+          onClick={() => navigate("/people")}
         >
           <ArrowLeft className="w-4 h-4" />
         </Button>

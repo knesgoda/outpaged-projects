@@ -80,23 +80,23 @@ export function OnboardingFlow() {
   };
 
   const handleNavigateToKanban = () => {
-    navigate('/dashboard/board');
+    navigate('/boards');
     completeStep('explore-kanban');
   };
 
   const handleNavigateToTasks = () => {
-    navigate('/dashboard/tasks');
+    navigate('/my-work');
     completeStep('add-tasks');
   };
 
   const handleTryTimeTracking = () => {
-    navigate('/dashboard/board');
+    navigate('/time');
     completeStep('time-tracking');
   };
 
   const handleFinishOnboarding = () => {
     completeOnboarding();
-    navigate('/dashboard');
+    navigate('/');
   };
 
   const renderStepContent = () => {

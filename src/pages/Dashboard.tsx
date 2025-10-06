@@ -378,7 +378,7 @@ function LegacyDashboard() {
       description: `${stats.activeProjects} active`,
       icon: FolderOpen,
       color: "text-primary",
-      onClick: () => navigate('/dashboard/projects')
+      onClick: () => navigate('/projects')
     },
     {
       title: "Total Tasks",
@@ -386,7 +386,7 @@ function LegacyDashboard() {
       description: `${stats.completedTasks} completed`,
       icon: CheckSquare,
       color: "text-success",
-      onClick: () => navigate('/dashboard/tasks')
+      onClick: () => navigate('/my-work')
     },
     {
       title: "Team Members",
@@ -394,7 +394,7 @@ function LegacyDashboard() {
       description: "Active members",
       icon: Users,
       color: "text-accent",
-      onClick: () => navigate('/dashboard/team')
+      onClick: () => navigate('/people')
     },
     {
       title: "This Week",
@@ -402,7 +402,7 @@ function LegacyDashboard() {
       description: "Tasks created",
       icon: Calendar,
       color: "text-warning",
-      onClick: () => navigate('/dashboard/analytics')
+      onClick: () => navigate('/reports')
     }
   ];
 
@@ -422,9 +422,9 @@ function LegacyDashboard() {
           <h1 className="text-3xl font-bold">Dashboard</h1>
           <p className="text-muted-foreground">Welcome back! Here's your project overview.</p>
         </div>
-        <Button 
+        <Button
           className="bg-gradient-primary hover:opacity-90"
-          onClick={() => navigate('/dashboard/projects')}
+          onClick={() => navigate('/projects/new')}
         >
           <Plus className="w-4 h-4 mr-2" />
           New Project
@@ -459,7 +459,7 @@ function LegacyDashboard() {
            <Button
              variant="outline"
              size="sm"
-             onClick={() => navigate('/dashboard/board')}
+             onClick={() => navigate('/boards')}
            >
              Open Kanban Board
              <ArrowRight className="w-4 h-4 ml-1" />
@@ -487,7 +487,7 @@ function LegacyDashboard() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => navigate('/dashboard/projects')}
+                  onClick={() => navigate('/projects')}
                 >
                   View All
                   <ArrowRight className="w-4 h-4 ml-1" />
@@ -500,11 +500,11 @@ function LegacyDashboard() {
                   <div className="text-center py-8 text-muted-foreground">
                     <FolderOpen className="w-12 h-12 mx-auto mb-4 opacity-50" />
                     <p>No projects yet</p>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
+                    <Button
+                      variant="outline"
+                      size="sm"
                       className="mt-2"
-                      onClick={() => navigate('/dashboard/projects')}
+                      onClick={() => navigate('/projects/new')}
                     >
                       Create Your First Project
                     </Button>
@@ -514,7 +514,7 @@ function LegacyDashboard() {
                     <div
                       key={project.id}
                       className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
-                      onClick={() => navigate(`/dashboard/projects/${project.id}`)}
+                      onClick={() => navigate(`/projects/${project.id}`)}
                     >
                       <div className="flex items-center gap-3">
                         <div className="w-2 h-2 bg-primary rounded-full" />
@@ -548,7 +548,7 @@ function LegacyDashboard() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => navigate('/dashboard/tasks')}
+              onClick={() => navigate('/my-work')}
             >
               View All
               <ArrowRight className="w-4 h-4 ml-1" />
@@ -561,11 +561,11 @@ function LegacyDashboard() {
               <div className="text-center py-8 text-muted-foreground">
                 <CheckSquare className="w-12 h-12 mx-auto mb-4 opacity-50" />
                 <p>No tasks yet</p>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
+                <Button
+                  variant="outline"
+                  size="sm"
                   className="mt-2"
-                  onClick={() => navigate('/dashboard/tasks')}
+                  onClick={() => navigate('/my-work')}
                 >
                   Create Your First Task
                 </Button>
@@ -575,7 +575,7 @@ function LegacyDashboard() {
                 <div
                   key={task.id}
                   className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
-                  onClick={() => navigate('/dashboard/tasks')}
+                  onClick={() => navigate('/my-work')}
                 >
                   <div className="flex items-center gap-3">
                     <div className="w-2 h-2 bg-success rounded-full" />

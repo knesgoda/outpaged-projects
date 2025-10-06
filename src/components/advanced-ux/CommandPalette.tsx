@@ -41,7 +41,7 @@ export function CommandPalette() {
       id: 'nav-dashboard',
       title: 'Go to Dashboard',
       icon: <BarChart className="h-4 w-4" />,
-      action: () => navigate('/dashboard'),
+      action: () => navigate('/'),
       group: 'Navigation',
       keywords: ['home', 'overview']
     },
@@ -49,7 +49,7 @@ export function CommandPalette() {
       id: 'nav-projects',
       title: 'Go to Projects',
       icon: <FileText className="h-4 w-4" />,
-      action: () => navigate('/dashboard/projects'),
+      action: () => navigate('/projects'),
       group: 'Navigation',
       keywords: ['work', 'portfolio']
     },
@@ -57,7 +57,7 @@ export function CommandPalette() {
       id: 'nav-tasks',
       title: 'Go to Tasks',
       icon: <Search className="h-4 w-4" />,
-      action: () => navigate('/dashboard/tasks'),
+      action: () => navigate('/my-work'),
       group: 'Navigation',
       keywords: ['todo', 'work items']
     },
@@ -65,7 +65,7 @@ export function CommandPalette() {
       id: 'nav-board',
       title: 'Go to Kanban Board',
       icon: <Calendar className="h-4 w-4" />,
-      action: () => navigate('/dashboard/board'),
+      action: () => navigate('/boards'),
       group: 'Navigation',
       keywords: ['kanban', 'agile', 'scrum']
     },
@@ -73,7 +73,7 @@ export function CommandPalette() {
       id: 'nav-team',
       title: 'Go to Team Directory',
       icon: <Users className="h-4 w-4" />,
-      action: () => navigate('/dashboard/team'),
+      action: () => navigate('/people'),
       group: 'Navigation',
       keywords: ['people', 'members', 'colleagues']
     },
@@ -89,7 +89,7 @@ export function CommandPalette() {
       id: 'nav-settings',
       title: 'Go to Settings',
       icon: <Settings className="h-4 w-4" />,
-      action: () => navigate('/dashboard/settings'),
+      action: () => navigate('/settings'),
       group: 'Navigation',
       keywords: ['preferences', 'configuration']
     },
@@ -101,7 +101,7 @@ export function CommandPalette() {
       description: 'Start a new project',
       icon: <Plus className="h-4 w-4" />,
       action: () => {
-        navigate('/dashboard/projects');
+        navigate('/projects/new');
         // Trigger project creation dialog
       },
       group: 'Quick Actions',
@@ -114,7 +114,7 @@ export function CommandPalette() {
       description: 'Add a new task',
       icon: <Plus className="h-4 w-4" />,
       action: () => {
-        navigate('/dashboard/tasks');
+        navigate('/my-work');
         // Trigger task creation dialog
       },
       group: 'Quick Actions',
@@ -127,7 +127,7 @@ export function CommandPalette() {
       description: 'Send an invitation to join the team',
       icon: <Users className="h-4 w-4" />,
       action: () => {
-        navigate('/dashboard/team');
+        navigate('/people');
         // Trigger invite dialog
       },
       group: 'Quick Actions',

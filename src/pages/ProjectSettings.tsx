@@ -64,7 +64,7 @@ export default function ProjectSettings({ overrideProjectId }: { overrideProject
         description: "Failed to load project settings",
         variant: "destructive",
       });
-      navigate('/dashboard/projects');
+      navigate('/projects');
     } finally {
       setLoading(false);
     }
@@ -152,7 +152,7 @@ export default function ProjectSettings({ overrideProjectId }: { overrideProject
         description: "The project has been deleted successfully.",
       });
 
-      navigate('/dashboard/projects');
+      navigate('/projects');
     } catch (error) {
       console.error('Error deleting project:', error);
       toast({

@@ -25,19 +25,19 @@ export function TeamMemberHandler() {
 
           if (error || !profile?.username) {
             // If profile not found, redirect to team directory
-            navigate('/dashboard/team', { replace: true });
+            navigate('/people', { replace: true });
             return;
           }
 
           // Redirect to new username-based URL
-          navigate(`/dashboard/team/${profile.username}`, { replace: true });
+          navigate(`/people/${profile.username}`, { replace: true });
           return;
         }
         
         // It's a username, no redirect needed - component will handle it
       } catch (error) {
         console.error('Error handling team member identifier:', error);
-        navigate('/dashboard/team', { replace: true });
+        navigate('/people', { replace: true });
       }
     };
 

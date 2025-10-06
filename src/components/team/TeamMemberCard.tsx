@@ -40,7 +40,7 @@ export function TeamMemberCard({ member, onStatusChange }: TeamMemberCardProps) 
   return (
     <Card 
       className="hover:shadow-medium transition-shadow cursor-pointer group"
-      onClick={() => navigate(`/dashboard/team/${member.username}`)}
+      onClick={() => navigate(`/people/${member.username}`)}
     >
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
@@ -67,7 +67,7 @@ export function TeamMemberCard({ member, onStatusChange }: TeamMemberCardProps) 
             <DropdownMenuContent className="z-50" align="end">
               <DropdownMenuItem onClick={(e) => {
                 e.stopPropagation();
-                navigate(`/dashboard/team/${member.username}`);
+                navigate(`/people/${member.username}`);
               }}>
                 <Edit className="w-4 h-4 mr-2" />
                 View Profile

@@ -12,14 +12,14 @@ export function QuickActions() {
       title: "New Project",
       description: "Create a new project",
       icon: FolderOpen,
-      action: () => navigate('/dashboard/projects'),
+      action: () => navigate('/projects/new'),
       color: "bg-primary"
     },
     {
       title: "Add Task",
       description: "Create a new task",
       icon: CheckSquare,
-      action: () => navigate('/dashboard/tasks'),
+      action: () => navigate('/my-work'),
       color: "bg-success"
     },
     {
@@ -54,7 +54,7 @@ export function QuickActions() {
       title: "View Team",
       description: "Manage team members",
       icon: Users,
-      action: () => navigate('/dashboard/team'),
+      action: () => navigate('/people'),
       color: "bg-accent"
     },
     {

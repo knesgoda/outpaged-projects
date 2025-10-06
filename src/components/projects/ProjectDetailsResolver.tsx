@@ -26,7 +26,7 @@ export function ProjectDetailsResolver() {
           
           // If accessed via UUID but has code, redirect to code-based URL
           if (projectId && resolvedProject.code) {
-            navigate(`/dashboard/projects/code/${resolvedProject.code.toLowerCase()}`, { replace: true });
+            navigate(`/projects/code/${resolvedProject.code.toLowerCase()}`, { replace: true });
             return;
           }
         } else {
@@ -69,8 +69,8 @@ export function ProjectDetailsResolver() {
       <div className="text-center py-12">
         <h2 className="text-2xl font-bold text-foreground mb-2">Project Not Found</h2>
         <p className="text-muted-foreground mb-4">{error || "The requested project could not be found."}</p>
-        <button 
-          onClick={() => navigate('/dashboard/projects')}
+        <button
+          onClick={() => navigate('/projects')}
           className="text-blue-600 hover:text-blue-800"
         >
           Back to Projects

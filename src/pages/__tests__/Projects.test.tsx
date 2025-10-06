@@ -49,14 +49,14 @@ describe("Projects", () => {
     });
 
     render(
-      <MemoryRouter initialEntries={["/dashboard/projects"]}>
+      <MemoryRouter initialEntries={["/projects"]}>
         <Projects />
       </MemoryRouter>
     );
 
     const link = await waitFor(() => screen.getByTestId(`project-link-${mockProjects[0].id}`));
 
-    expect(link).toHaveAttribute("href", `/dashboard/projects/${mockProjects[0].id}`);
+    expect(link).toHaveAttribute("href", `/projects/${mockProjects[0].id}`);
     expect(selectMock).toHaveBeenCalledWith("id, name, code, description, status, created_at, end_date");
   });
 });
