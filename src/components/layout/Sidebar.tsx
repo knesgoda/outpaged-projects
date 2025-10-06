@@ -55,7 +55,15 @@ export function Sidebar({ isCollapsed, onCollapseToggle, onNavigate, className }
   };
 
   const renderNavItem = (item: NavItem, index: number, depth = 0) => {
-    const isActive = location.pathname === item.path || location.pathname.startsWith(`${item.path}/`);
+    const matchesProjectWorkload =
+      item.path === "/workload" && location.pathname.includes("/workload");
+    const matchesProjectDashboards =
+      item.path === "/dashboards" && location.pathname.includes("/dashboards");
+    const isActive =
+      location.pathname === item.path ||
+      location.pathname.startsWith(`${item.path}/`) ||
+      matchesProjectWorkload ||
+      matchesProjectDashboards;
     const badgeValue = item.badgeKey ? badgeCounts[item.badgeKey] : 0;
     const showBadge = item.badgeKey ? badgeValue > 0 : false;
 

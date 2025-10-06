@@ -42,3 +42,33 @@ export type FeedbackItem = {
   screenshot_url?: string | null;
   created_at: string;
 };
+
+export type WorkloadRow = {
+  assignee: string | null;
+  assignee_name?: string | null;
+  open_tasks: number;
+  overdue_tasks: number;
+  estimate_minutes_total: number;
+  logged_minutes_total?: number;
+};
+
+export type Dashboard = {
+  id: string;
+  owner: string;
+  name: string;
+  project_id?: string | null;
+  layout: any;
+  created_at: string;
+  updated_at: string;
+};
+
+export type DashboardWidget = {
+  id: string;
+  dashboard_id: string;
+  type: "counter" | "bar" | "pie" | "line" | "table";
+  title?: string | null;
+  config: any;
+  position: any;
+  created_at: string;
+  updated_at: string;
+};

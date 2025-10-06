@@ -9,8 +9,12 @@ import ProjectsPage from "@/pages/ia/ProjectsPage";
 import BoardsPage from "@/pages/ia/BoardsPage";
 import CalendarPage from "@/pages/calendar/CalendarPage";
 import TimelinePage from "@/pages/ia/TimelinePage";
-import WorkloadPage from "@/pages/ia/WorkloadPage";
-import DashboardsPage from "@/pages/ia/DashboardsPage";
+import WorkloadPage from "@/pages/workload/WorkloadPage";
+import DashboardsPage from "@/pages/dashboards/DashboardsPage";
+import DashboardDetailPage from "@/pages/dashboards/DashboardDetailPage";
+import ProjectWorkloadPage from "@/pages/projects/ProjectWorkloadPage";
+import ProjectDashboardsPage from "@/pages/projects/ProjectDashboardsPage";
+import ProjectDashboardDetailPage from "@/pages/projects/ProjectDashboardDetailPage";
 import ReportsPage from "@/pages/ia/ReportsPage";
 import DocsPage from "@/pages/ia/DocsPage";
 import FilesPage from "@/pages/ia/FilesPage";
@@ -90,6 +94,9 @@ export function AppRoutes() {
         { path: "projects/:projectId/sprints", element: <ProjectSprintsPage /> },
         { path: "projects/:projectId/calendar", element: <ProjectCalendarPage /> },
         { path: "projects/:projectId/timeline", element: <ProjectTimelinePage /> },
+        { path: "projects/:projectId/workload", element: <ProjectWorkloadPage /> },
+        { path: "projects/:projectId/dashboards", element: <ProjectDashboardsPage /> },
+        { path: "projects/:projectId/dashboards/:dashboardId", element: <ProjectDashboardDetailPage /> },
         { path: "projects/:projectId/dependencies", element: <ProjectDependenciesPage /> },
         { path: "projects/:projectId/reports", element: <ProjectReportsPage /> },
         { path: "projects/:projectId/docs", element: <ProjectDocsPage /> },
@@ -102,6 +109,7 @@ export function AppRoutes() {
         { path: "timeline", element: <TimelinePage /> },
         { path: "workload", element: <WorkloadPage /> },
         { path: "dashboards", element: <DashboardsPage /> },
+        { path: "dashboards/:dashboardId", element: <DashboardDetailPage /> },
         { path: "dashboards/new", element: <NewDashboardPage /> },
         { path: "reports", element: <ReportsPage /> },
         { path: "docs", element: <DocsPage /> },
