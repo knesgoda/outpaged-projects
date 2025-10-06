@@ -69,3 +69,9 @@ export type FeedbackItem = {
   screenshot_url?: string | null;
   created_at: string;
 };
+
+export type HelpCenterEntity =
+  | HelpArticle
+  | Announcement
+  | SupportTicket
+  | FeedbackItem;
