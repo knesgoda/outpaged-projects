@@ -2,22 +2,26 @@ import { searchAll } from "../search";
 
 jest.mock("@/integrations/supabase/client", () => {
   const mockData: Record<string, any[]> = {};
+  const builders: Record<string, any> = {};
 
   const createBuilder = (table: string) => {
     const builder: any = {
       select: jest.fn(() => builder),
       textSearch: jest.fn(() => builder),
       order: jest.fn(() => builder),
-      limit: jest.fn(() => Promise.resolve({ data: mockData[table] ?? [], error: null })),
+      limit: jest.fn(
+        () => Promise.resolve({ data: mockData[table] ?? [], error: null })
+      ),
       or: jest.fn(() => builder),
       filter: jest.fn(() => builder),
       eq: jest.fn(() => builder),
     };
+    builders[table] = builder;
     return builder;
   };
 
   const supabase = {
-    from: jest.fn((table: string) => createBuilder(table)),
+    from: jest.fn((table: string) => builders[table] ?? createBuilder(table)),
   };
 
   return {
@@ -27,15 +31,18 @@ jest.mock("@/integrations/supabase/client", () => {
       Object.keys(mockData).forEach((key) => delete mockData[key]);
       Object.assign(mockData, data);
     },
+    __getBuilder: (table: string) => builders[table],
   };
 });
 
 const supabaseMock = jest.requireMock("@/integrations/supabase/client") as {
   __setMockData: (data: Record<string, any[]>) => void;
+  __getBuilder: (table: string) => any;
 };
 
 describe("searchAll", () => {
   beforeEach(() => {
+    jest.clearAllMocks();
     supabaseMock.__setMockData({
       projects: [
         {
@@ -60,5 +67,29 @@ describe("searchAll", () => {
         expect.objectContaining({ id: "p1", type: "project" }),
       ])
     );
+  });
+
+  it("applies project filters to scoped queries", async () => {
+    supabaseMock.__setMockData({
+      projects: [],
+      doc_pages: [],
+      project_files: [],
+      comments: [],
+    });
+
+    await searchAll({
+      q: "Alpha",
+      projectId: "p1",
+      types: ["doc", "file", "comment"],
+      includeComments: true,
+    });
+
+    const docBuilder = supabaseMock.__getBuilder("doc_pages");
+    const fileBuilder = supabaseMock.__getBuilder("project_files");
+    const commentBuilder = supabaseMock.__getBuilder("comments");
+
+    expect(docBuilder?.eq).toHaveBeenCalledWith("project_id", "p1");
+    expect(fileBuilder?.eq).toHaveBeenCalledWith("project_id", "p1");
+    expect(commentBuilder?.eq).toHaveBeenCalledWith("project_id", "p1");
   });
 });
