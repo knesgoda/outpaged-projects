@@ -643,10 +643,11 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
                 {task?.id && (
                   <section>
                     <h3 className="text-lg font-medium text-foreground mb-3">Comments</h3>
-                    <CommentsSystemWithMentions 
-                      taskId={task.id} 
+                    <CommentsSystemWithMentions
+                      entityType="task"
+                      entityId={task.id}
                       projectId={projectId}
-                      onCommentCountChange={setCommentCount}
+                      onCountChange={setCommentCount}
                     />
                   </section>
                 )}
@@ -747,10 +748,11 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
                   {task?.id && (
                     <section>
                       <h3 className="text-lg font-medium text-foreground mb-3">Comments</h3>
-                      <CommentsSystemWithMentions 
-                        taskId={task.id} 
+                      <CommentsSystemWithMentions
+                        entityType="task"
+                        entityId={task.id}
                         projectId={projectId}
-                        onCommentCountChange={setCommentCount}
+                        onCountChange={setCommentCount}
                       />
                     </section>
                   )}

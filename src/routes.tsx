@@ -48,6 +48,7 @@ import ProjectDependenciesPage from "@/pages/ia/projects/ProjectDependenciesPage
 import ProjectReportsPage from "@/pages/ia/projects/ProjectReportsPage";
 import ProjectDocsPage from "@/pages/ia/projects/ProjectDocsPage";
 import ProjectFilesPage from "@/pages/ia/projects/ProjectFilesPage";
+import ProjectIntegrationsPage from "@/pages/ia/projects/ProjectIntegrationsPage";
 import ProjectAutomationsPage from "@/pages/ia/projects/ProjectAutomationsPage";
 import ProjectSettingsPage from "@/pages/ia/projects/ProjectSettingsPage";
 import NewProjectPage from "@/pages/ia/NewProjectPage";
@@ -82,6 +83,7 @@ export function AppRoutes() {
         { path: "inbox", element: <InboxPage /> },
         { path: "projects", element: <ProjectsPage /> },
         { path: "projects/new", element: <NewProjectPage /> },
+        // Canonicalize on :projectId and keep *all* project routes
         { path: "projects/:projectId", element: <ProjectOverviewPage /> },
         { path: "projects/:projectId/overview", element: <ProjectOverviewPage /> },
         { path: "projects/:projectId/list", element: <ProjectListPage /> },
@@ -94,6 +96,7 @@ export function AppRoutes() {
         { path: "projects/:projectId/reports", element: <ProjectReportsPage /> },
         { path: "projects/:projectId/docs", element: <ProjectDocsPage /> },
         { path: "projects/:projectId/files", element: <ProjectFilesPage /> },
+        { path: "projects/:projectId/integrations", element: <ProjectIntegrationsPage /> },
         { path: "projects/:projectId/automations", element: <ProjectAutomationsPage /> },
         { path: "projects/:projectId/settings", element: <ProjectSettingsPage /> },
         { path: "boards", element: <BoardsPage /> },

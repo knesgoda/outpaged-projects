@@ -104,3 +104,9 @@
     }
   }
 }
+
+@layer components {
+  .mention-pill {
+    @apply inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary hover:bg-primary/20;
+  }
+}

@@ -1,49 +1,22 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { useRealtime } from './useRealtime';
+import { listMyNotifications, markNotificationRead } from '@/services/notifications';
+import type { Notification } from '@/types';
 import { useAuth } from './useAuth';
-
-export interface Notification {
-  id: string;
-  user_id: string;
-  title: string;
-  message: string;
-  type: 'info' | 'success' | 'warning' | 'error';
-  read: boolean;
-  related_task_id?: string;
-  related_project_id?: string;
-  created_at: string;
-  updated_at: string;
-}
 
 export function useNotifications() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
-  const { data: notifications = [], isLoading } = useQuery({
+  const { data: notifications = [], isLoading } = useQuery<Notification[]>({
     queryKey: ['notifications', user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('notifications')
-        .select('*')
-        .eq('user_id', user!.id)
-        .order('created_at', { ascending: false });
-      
-      if (error) throw error;
-      return (data ?? []) as Notification[];
-    },
+    queryFn: () => listMyNotifications(),
     enabled: !!user,
+    staleTime: 30_000,
   });
 
   const markAsReadMutation = useMutation({
-    mutationFn: async (notificationId: string) => {
-      const { error } = await supabase
-        .from('notifications')
-        .update({ read: true })
-        .eq('id', notificationId);
-      
-      if (error) throw error;
-    },
+    mutationFn: async (notificationId: string) => markNotificationRead(notificationId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications', user?.id] });
     },
@@ -52,13 +25,11 @@ export function useNotifications() {
   const markAllAsReadMutation = useMutation({
     mutationFn: async () => {
       if (!user) throw new Error('Not authenticated');
-      const { error } = await supabase
-        .from('notifications')
-        .update({ read: true })
-        .eq('user_id', user.id)
-        .eq('read', false);
-      
-      if (error) throw error;
+
+      const unread = notifications.filter(notification => !notification.read_at);
+      if (unread.length === 0) return;
+
+      await Promise.all(unread.map(notification => markNotificationRead(notification.id)));
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications', user?.id] });
@@ -80,7 +51,7 @@ export function useNotifications() {
     },
   });
 
-  const unreadCount = notifications.filter(n => !n.read).length;
+  const unreadCount = notifications.filter(n => !n.read_at).length;
 
   return {
     notifications,
