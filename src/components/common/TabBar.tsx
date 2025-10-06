@@ -1,6 +1,7 @@
 import { useMemo, useRef } from "react";
-import { NavLink, useLocation, useParams } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
+import { useProjectId } from "@/hooks/useProjectId";
 
 export const PROJECT_TABS = [
   { label: "Overview", path: "overview" },
@@ -19,7 +20,7 @@ export const PROJECT_TABS = [
 ] as const;
 
 export default function TabBar() {
-  const { projectId } = useParams();
+  const projectId = useProjectId();
   const location = useLocation();
   const tabRefs = useRef<(HTMLAnchorElement | null)[]>([]);
 
