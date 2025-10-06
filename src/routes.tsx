@@ -1,4 +1,4 @@
-import { Suspense } from "react";
+import { Suspense, type ReactNode } from "react";
 import { Navigate, Outlet, useRoutes } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { ErrorBoundary } from "@/components/common/ErrorBoundary";
@@ -64,7 +64,7 @@ import Profile from "@/pages/Profile";
 import Settings from "@/pages/Settings";
 import SearchPage from "@/pages/Search";
 
-const Suspended = ({ children }: { children: React.ReactNode }) => (
+const Suspended = ({ children }: { children: ReactNode }) => (
   <Suspense fallback={<div className="p-6">Loading...</div>}>
     <ErrorBoundary>{children}</ErrorBoundary>
   </Suspense>

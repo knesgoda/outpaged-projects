@@ -6,8 +6,9 @@ export async function uploadDocImage(file: File, userId: string): Promise<{ publ
   }
 
   const bucket = "docs";
-  const fileName = `${Date.now()}-${file.name}`.replace(/\s+/g, "-");
-  const path = `${userId}/${fileName}`;
+  const timestamp = Date.now();
+  const sanitizedName = file.name.replace(/\s+/g, "-");
+  const path = `${userId}/${timestamp}-${sanitizedName}`;
 
   const { error: uploadError } = await supabase.storage
     .from(bucket)

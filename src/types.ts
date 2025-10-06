@@ -31,3 +31,9 @@ export type ProjectMeta = {
   name: string | null;
   code?: string | null;
 };
+
+export type DocVersionSummary = {
+  version: number;
+  created_at: string;
+  created_by: string | null;
+};
