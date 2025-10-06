@@ -17,8 +17,19 @@ import FilesPage from "@/pages/ia/FilesPage";
 import AutomationsPage from "@/pages/ia/AutomationsPage";
 import IntegrationsPage from "@/pages/ia/IntegrationsPage";
 import FormsPage from "@/pages/ia/FormsPage";
-import GoalsPage from "@/pages/ia/GoalsPage";
-import TemplatesPage from "@/pages/ia/TemplatesPage";
+import GoalsHome from "@/pages/goals/GoalsHome";
+import GoalCreate from "@/pages/goals/GoalCreate";
+import GoalDetailPage from "@/pages/goals/GoalDetail";
+import GoalEdit from "@/pages/goals/GoalEdit";
+import TemplatesHome from "@/pages/templates/TemplatesHome";
+import TemplateDetail from "@/pages/templates/TemplateDetail";
+import TemplateEdit from "@/pages/templates/TemplateEdit";
+import TemplateApply from "@/pages/templates/TemplateApply";
+import ProjectGoalsHome from "@/pages/projects/ProjectGoalsHome";
+import ProjectGoalDetail from "@/pages/projects/ProjectGoalDetail";
+import ProjectGoalCreate from "@/pages/projects/ProjectGoalCreate";
+import ProjectGoalEdit from "@/pages/projects/ProjectGoalEdit";
+import ProjectTemplates from "@/pages/ProjectTemplates";
 import PeoplePage from "@/pages/ia/PeoplePage";
 import TimeTrackingPage from "@/pages/ia/TimeTrackingPage";
 import HelpPage from "@/pages/ia/HelpPage";
@@ -79,6 +90,10 @@ export function AppRoutes() {
         { path: "projects/:id", element: <ProjectOverviewPage /> },
         { path: "projects/:id/overview", element: <ProjectOverviewPage /> },
         { path: "projects/:id/list", element: <ProjectListPage /> },
+        { path: "projects/:projectId/goals", element: <ProjectGoalsHome /> },
+        { path: "projects/:projectId/goals/new", element: <ProjectGoalCreate /> },
+        { path: "projects/:projectId/goals/:goalId", element: <ProjectGoalDetail /> },
+        { path: "projects/:projectId/goals/:goalId/edit", element: <ProjectGoalEdit /> },
         { path: "projects/:id/board", element: <ProjectBoardPage /> },
         { path: "projects/:id/backlog", element: <ProjectBacklogPage /> },
         { path: "projects/:id/sprints", element: <ProjectSprintsPage /> },
@@ -103,8 +118,16 @@ export function AppRoutes() {
         { path: "automations", element: <AutomationsPage /> },
         { path: "integrations", element: <IntegrationsPage /> },
         { path: "forms", element: <FormsPage /> },
-        { path: "goals", element: <GoalsPage /> },
-        { path: "templates", element: <TemplatesPage /> },
+        { path: "goals", element: <GoalsHome /> },
+        { path: "goals/new", element: <GoalCreate /> },
+        { path: "goals/:goalId", element: <GoalDetailPage /> },
+        { path: "goals/:goalId/edit", element: <GoalEdit /> },
+        { path: "templates", element: <TemplatesHome /> },
+        { path: "templates/new", element: <TemplateEdit mode="create" /> },
+        { path: "templates/:templateId", element: <TemplateDetail /> },
+        { path: "templates/:templateId/edit", element: <TemplateEdit mode="edit" /> },
+        { path: "templates/:templateId/apply", element: <TemplateApply /> },
+        { path: "projects/:projectId/templates", element: <ProjectTemplates /> },
         { path: "people", element: <PeoplePage /> },
         { path: "time", element: <TimeTrackingPage /> },
         { path: "tasks/new", element: <NewTaskPage /> },
