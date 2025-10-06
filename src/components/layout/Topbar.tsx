@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,9 +22,10 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Menu, Plus, Search } from "lucide-react";
 import { NAV } from "@/lib/navConfig";
-import { getCurrentUser } from "@/lib/auth";
+import { getWorkspaceRole, type Role } from "@/lib/auth";
 import { useProfile } from "@/state/profile";
 import { PROJECT_TABS } from "@/components/common/TabBar";
+import { useAuth } from "@/hooks/useAuth";
 
 function findNavLabel(path: string) {
   const walk = (items = NAV): string | undefined => {
@@ -59,9 +60,44 @@ type TopbarProps = {
 export function Topbar({ onToggleSidebar }: TopbarProps) {
   const location = useLocation();
   const navigate = useNavigate();
-  const user = getCurrentUser();
+  const { user } = useAuth();
+  const [role, setRole] = useState<Role>("viewer");
   const { profile, error: profileError } = useProfile();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadRole() {
+      if (!user) {
+        if (active) {
+          setRole("viewer");
+        }
+        return;
+      }
+
+      try {
+        const workspaceRole = await getWorkspaceRole(user.id);
+        if (active) {
+          setRole(workspaceRole ?? "viewer");
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        if (active) {
+          if (message !== "You do not have access") {
+            console.warn("Failed to load workspace role", message);
+          }
+          setRole("viewer");
+        }
+      }
+    }
+
+    loadRole();
+
+    return () => {
+      active = false;
+    };
+  }, [user?.id]);
 
   const actions = useMemo(
     () => [
@@ -118,7 +154,7 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
     ? (profile.full_name?.trim() ?? profile.role ?? fallbackLabel).charAt(0).toUpperCase()
     : fallbackLabel.charAt(0).toUpperCase();
 
-  const canCreate = user?.role !== "viewer";
+  const canCreate = role !== "viewer";
 
   return (
     <header className="flex h-14 items-center gap-4 border-b bg-background px-4">

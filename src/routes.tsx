@@ -22,15 +22,17 @@ import TemplatesPage from "@/pages/ia/TemplatesPage";
 import PeoplePage from "@/pages/ia/PeoplePage";
 import TimeTrackingPage from "@/pages/ia/TimeTrackingPage";
 import HelpPage from "@/pages/ia/HelpPage";
-import AdminHomePage from "@/pages/ia/admin/AdminHomePage";
-import AdminWorkspacePage from "@/pages/ia/admin/AdminWorkspacePage";
-import AdminPermissionsPage from "@/pages/ia/admin/AdminPermissionsPage";
-import AdminSecurityPage from "@/pages/ia/admin/AdminSecurityPage";
-import AdminAuditPage from "@/pages/ia/admin/AdminAuditPage";
-import AdminDataPage from "@/pages/ia/admin/AdminDataPage";
-import AdminWebhooksPage from "@/pages/ia/admin/AdminWebhooksPage";
-import AdminApiPage from "@/pages/ia/admin/AdminApiPage";
-import AdminBillingPage from "@/pages/ia/admin/AdminBillingPage";
+import { AdminLayout } from "@/pages/admin/AdminLayout";
+import AdminHome from "@/pages/admin/AdminHome";
+import WorkspaceSettings from "@/pages/admin/WorkspaceSettings";
+import MembersPage from "@/pages/admin/MembersPage";
+import PermissionsPage from "@/pages/admin/PermissionsPage";
+import SecurityPage from "@/pages/admin/SecurityPage";
+import AuditLogsPage from "@/pages/admin/AuditLogsPage";
+import DataPage from "@/pages/admin/DataPage";
+import WebhooksPage from "@/pages/admin/WebhooksPage";
+import ApiExplorerPage from "@/pages/admin/ApiExplorerPage";
+import BillingPage from "@/pages/admin/BillingPage";
 import ProjectOverviewPage from "@/pages/ia/projects/ProjectOverviewPage";
 import ProjectListPage from "@/pages/ia/projects/ProjectListPage";
 import ProjectBoardPage from "@/pages/ia/projects/ProjectBoardPage";
@@ -52,8 +54,17 @@ import Login from "@/pages/Login";
 import AuthCallback from "@/pages/AuthCallback";
 import NotFound from "@/pages/NotFound";
 import Profile from "@/pages/Profile";
-import Settings from "@/pages/Settings";
+import { SettingsLayout } from "@/pages/settings/SettingsLayout";
+import SettingsHome from "@/pages/settings/SettingsHome";
+import ProfileSettings from "@/pages/settings/ProfileSettings";
+import AccountSettings from "@/pages/settings/AccountSettings";
+import SecuritySettings from "@/pages/settings/SecuritySettings";
+import NotificationSettings from "@/pages/settings/NotificationSettings";
+import AppearanceSettings from "@/pages/settings/AppearanceSettings";
+import ConnectionsSettings from "@/pages/settings/ConnectionsSettings";
 import SearchPage from "@/pages/Search";
+import NotAuthorizedPage from "@/pages/NotAuthorized";
+import { RequireAdmin } from "@/lib/auth";
 
 const Suspended = ({ children }: { children: React.ReactNode }) => (
   <Suspense fallback={<div className="p-6">Loading...</div>}>
@@ -109,17 +120,40 @@ export function AppRoutes() {
         { path: "time", element: <TimeTrackingPage /> },
         { path: "tasks/new", element: <NewTaskPage /> },
         { path: "profile", element: <Profile /> },
-        { path: "settings", element: <Settings /> },
+        {
+          path: "settings",
+          element: <SettingsLayout />,
+          children: [
+            { index: true, element: <SettingsHome /> },
+            { path: "profile", element: <ProfileSettings /> },
+            { path: "account", element: <AccountSettings /> },
+            { path: "security", element: <SecuritySettings /> },
+            { path: "notifications", element: <NotificationSettings /> },
+            { path: "appearance", element: <AppearanceSettings /> },
+            { path: "connections", element: <ConnectionsSettings /> },
+          ],
+        },
         { path: "search", element: <SearchPage /> },
-        { path: "admin", element: <AdminHomePage /> },
-        { path: "admin/workspace", element: <AdminWorkspacePage /> },
-        { path: "admin/permissions", element: <AdminPermissionsPage /> },
-        { path: "admin/security", element: <AdminSecurityPage /> },
-        { path: "admin/audit", element: <AdminAuditPage /> },
-        { path: "admin/data", element: <AdminDataPage /> },
-        { path: "admin/webhooks", element: <AdminWebhooksPage /> },
-        { path: "admin/api", element: <AdminApiPage /> },
-        { path: "admin/billing", element: <AdminBillingPage /> },
+        {
+          path: "admin",
+          element: (
+            <RequireAdmin>
+              <AdminLayout />
+            </RequireAdmin>
+          ),
+          children: [
+            { index: true, element: <AdminHome /> },
+            { path: "workspace", element: <WorkspaceSettings /> },
+            { path: "members", element: <MembersPage /> },
+            { path: "permissions", element: <PermissionsPage /> },
+            { path: "security", element: <SecurityPage /> },
+            { path: "audit", element: <AuditLogsPage /> },
+            { path: "data", element: <DataPage /> },
+            { path: "webhooks", element: <WebhooksPage /> },
+            { path: "api", element: <ApiExplorerPage /> },
+            { path: "billing", element: <BillingPage /> },
+          ],
+        },
         { path: "help", element: <HelpPage /> },
       ],
     },
@@ -127,6 +161,7 @@ export function AppRoutes() {
     { path: "/auth/callback", element: <AuthCallback /> },
     { path: "/auth", element: <Navigate to="/login" replace /> },
     { path: "/logout", element: <Navigate to="/login" replace /> },
+    { path: "/not-authorized", element: <NotAuthorizedPage /> },
     { path: "*", element: <NotFound /> },
   ]);
 }

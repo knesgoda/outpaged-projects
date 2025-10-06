@@ -47,9 +47,9 @@ export type NavItem = {
   children?: NavItem[];
 };
 
-const ALL_ROLES: Role[] = ["admin", "manager", "member", "viewer"];
-const COLLAB_ROLES: Role[] = ["admin", "manager", "member"];
-const LEADERSHIP_ROLES: Role[] = ["admin", "manager"];
+const ALL_ROLES: Role[] = ["owner", "admin", "manager", "member", "billing", "viewer"];
+const COLLAB_ROLES: Role[] = ["owner", "admin", "manager", "member"];
+const LEADERSHIP_ROLES: Role[] = ["owner", "admin", "manager"];
 
 export const NAV: NavItem[] = [
   {
@@ -198,42 +198,49 @@ export const NAV: NavItem[] = [
     label: "Admin",
     path: "/admin",
     icon: <Settings className="h-5 w-5" aria-hidden="true" />,
-    roles: ["admin"],
+    roles: ["owner", "admin"],
     children: [
       {
         id: "admin-workspace",
         label: "Workspace",
         path: "/admin/workspace",
         icon: <Building2 className="h-4 w-4" aria-hidden="true" />,
-        roles: ["admin"],
+        roles: ["owner", "admin"],
+      },
+      {
+        id: "admin-members",
+        label: "Members",
+        path: "/admin/members",
+        icon: <Users className="h-4 w-4" aria-hidden="true" />,
+        roles: ["owner", "admin"],
       },
       {
         id: "admin-permissions",
         label: "Permissions & Roles",
         path: "/admin/permissions",
         icon: <BadgeCheck className="h-4 w-4" aria-hidden="true" />,
-        roles: ["admin"],
+        roles: ["owner", "admin"],
       },
       {
         id: "admin-security",
         label: "Security",
         path: "/admin/security",
         icon: <ShieldCheck className="h-4 w-4" aria-hidden="true" />,
-        roles: ["admin"],
+        roles: ["owner", "admin"],
       },
       {
         id: "admin-audit",
         label: "Audit Logs",
         path: "/admin/audit",
         icon: <ListChecks className="h-4 w-4" aria-hidden="true" />,
-        roles: ["admin"],
+        roles: ["owner", "admin"],
       },
       {
         id: "admin-data",
         label: "Data & Backups",
         path: "/admin/data",
         icon: <Archive className="h-4 w-4" aria-hidden="true" />,
-        roles: ["admin"],
+        roles: ["owner", "admin"],
       },
       {
         id: "admin-webhooks",
