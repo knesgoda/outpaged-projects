@@ -1,7 +1,6 @@
 import { Fragment, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -25,6 +24,7 @@ import { NAV } from "@/lib/navConfig";
 import { getCurrentUser } from "@/lib/auth";
 import { useProfile } from "@/state/profile";
 import { PROJECT_TABS } from "@/components/common/TabBar";
+import { useCommandK } from "@/components/command/useCommandK";
 
 function findNavLabel(path: string) {
   const walk = (items = NAV): string | undefined => {
@@ -62,6 +62,7 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
   const user = getCurrentUser();
   const { profile, error: profileError } = useProfile();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const { openPalette } = useCommandK();
 
   const actions = useMemo(
     () => [
@@ -144,9 +145,19 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
         </Breadcrumb>
       </div>
 
-      <div className="mx-auto hidden w-full max-w-xl items-center gap-2 md:flex">
-        <Search className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-        <Input placeholder="Search tasks, projects, and people" className="border-0 shadow-none focus-visible:ring-0" />
+      <div className="mx-auto hidden w-full max-w-xl md:flex">
+        <button
+          type="button"
+          onClick={() => openPalette()}
+          className="flex h-10 w-full items-center gap-2 rounded-md border border-input bg-background px-3 text-left text-sm text-muted-foreground shadow-sm transition hover:border-primary/50 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+          aria-label="Open search"
+        >
+          <Search className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+          <span className="flex-1 text-left">Search everything</span>
+          <span className="hidden items-center rounded border bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground sm:flex">
+            Ctrl&nbsp;K
+          </span>
+        </button>
       </div>
 
       <div className="ml-auto flex items-center gap-2">
