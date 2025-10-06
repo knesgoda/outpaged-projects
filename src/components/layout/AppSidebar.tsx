@@ -107,7 +107,7 @@ const navigationItems = [
   },
   {
     title: "Integrations",
-    url: "/dashboard/integrations",
+    url: "/integrations",
     icon: Plug,
     description: "GitHub, Slack, Calendar, and more"
   },

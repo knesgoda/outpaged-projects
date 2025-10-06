@@ -16,7 +16,10 @@ type SupabaseEnvKey =
 
 const getImportMetaEnv = () => {
   try {
-    return import.meta.env as unknown as Record<SupabaseEnvKey, string | undefined>;
+    const evaluator = new Function(
+      "return typeof import !== 'undefined' && import.meta ? import.meta.env : undefined;"
+    );
+    return evaluator() as Record<SupabaseEnvKey, string | undefined> | undefined;
   } catch (_error) {
     return undefined;
   }

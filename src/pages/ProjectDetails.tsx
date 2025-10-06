@@ -1,6 +1,6 @@
 
 import { useState, useEffect, useCallback } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,8 @@ import { CreateTaskDialog } from "@/components/tasks/CreateTaskDialog";
 import { InviteMemberDialog } from "@/components/team/InviteMemberDialog";
 import { enableOutpagedBrand } from "@/lib/featureFlags";
 import { StatusChip } from "@/components/outpaged/StatusChip";
+import { CommentsSystemWithMentions } from "@/components/comments/CommentsSystemWithMentions";
+import { useProjectId } from "@/hooks/useProjectId";
 
 interface ProjectRecord {
   id: string;
@@ -27,8 +29,8 @@ interface ProjectRecord {
 }
 
 function LegacyProjectDetails({ overrideProjectId }: { overrideProjectId?: string }) {
-  const { projectId: paramsProjectId } = useParams();
-  const projectId = overrideProjectId || paramsProjectId;
+  const paramsProjectId = useProjectId();
+  const projectId = overrideProjectId ?? paramsProjectId;
   const navigate = useNavigate();
   const { user } = useAuth();
   const { navigateToProjectSettings } = useProjectNavigation();
@@ -36,6 +38,7 @@ function LegacyProjectDetails({ overrideProjectId }: { overrideProjectId?: strin
   const [members, setMembers] = useState<any[]>([]);
   const [showCreateTask, setShowCreateTask] = useState(false);
   const [showInviteMember, setShowInviteMember] = useState(false);
+  const [commentCount, setCommentCount] = useState(0);
 
   const {
     data: project,
@@ -285,6 +288,7 @@ function LegacyProjectDetails({ overrideProjectId }: { overrideProjectId?: strin
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="tasks">Tasks ({tasks.length})</TabsTrigger>
           <TabsTrigger value="members">Members ({members.length})</TabsTrigger>
+          <TabsTrigger value="comments">Comments ({commentCount})</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
@@ -464,6 +468,16 @@ function LegacyProjectDetails({ overrideProjectId }: { overrideProjectId?: strin
               ))
             )}
           </div>
+        </TabsContent>
+
+        <TabsContent value="comments" className="space-y-4">
+          <CommentsSystemWithMentions
+            entityType="project"
+            entityId={project.id}
+            projectId={project.id}
+            onCountChange={setCommentCount}
+            title="Project comments"
+          />
         </TabsContent>
       </Tabs>
 

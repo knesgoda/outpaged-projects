@@ -1,7 +1,8 @@
+codex/perform-deep-dive-on-settings-and-admin
 import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -20,12 +21,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Menu, Plus, Search } from "lucide-react";
+import { HelpCircle, Keyboard, Menu, Plus, Search } from "lucide-react";
 import { NAV } from "@/lib/navConfig";
 import { getWorkspaceRole, type Role } from "@/lib/auth";
 import { useProfile } from "@/state/profile";
 import { PROJECT_TABS } from "@/components/common/TabBar";
+codex/perform-deep-dive-on-settings-and-admin
 import { useAuth } from "@/hooks/useAuth";
+import { useCommandK } from "@/components/command/useCommandK";
 
 function findNavLabel(path: string) {
   const walk = (items = NAV): string | undefined => {
@@ -46,7 +49,20 @@ function findNavLabel(path: string) {
   return walk();
 }
 
+const SEGMENT_LABELS: Record<string, string> = {
+  faq: "FAQ",
+  shortcuts: "Shortcuts",
+  changelog: "Changelog",
+  contact: "Contact",
+  onboarding: "Onboarding",
+  search: "Search",
+};
+
 function formatSegment(segment: string) {
+  const normalized = segment.toLowerCase();
+  if (SEGMENT_LABELS[normalized]) {
+    return SEGMENT_LABELS[normalized];
+  }
   return segment
     .split("-")
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
@@ -55,15 +71,17 @@ function formatSegment(segment: string) {
 
 type TopbarProps = {
   onToggleSidebar: () => void;
+  onOpenShortcuts?: () => void;
 };
 
-export function Topbar({ onToggleSidebar }: TopbarProps) {
+export function Topbar({ onToggleSidebar, onOpenShortcuts }: TopbarProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuth();
   const [role, setRole] = useState<Role>("viewer");
   const { profile, error: profileError } = useProfile();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const { openPalette } = useCommandK();
 
   useEffect(() => {
     let active = true;
@@ -145,6 +163,11 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
     navigate(path);
   };
 
+  const openHelpCenter = useCallback(() => {
+    const newWindow = window.open("/help", "_blank", "noopener,noreferrer");
+    newWindow?.focus();
+  }, []);
+
   const fallbackLabel = user?.email ?? "Guest";
   const hasProfile = Boolean(profile) && !profileError;
   const displayName = hasProfile
@@ -180,12 +203,48 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
         </Breadcrumb>
       </div>
 
-      <div className="mx-auto hidden w-full max-w-xl items-center gap-2 md:flex">
-        <Search className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-        <Input placeholder="Search tasks, projects, and people" className="border-0 shadow-none focus-visible:ring-0" />
+      <div className="mx-auto hidden w-full max-w-xl md:flex">
+        <button
+          type="button"
+          onClick={() => openPalette()}
+          className="flex h-10 w-full items-center gap-2 rounded-md border border-input bg-background px-3 text-left text-sm text-muted-foreground shadow-sm transition hover:border-primary/50 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+          aria-label="Open search"
+        >
+          <Search className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+          <span className="flex-1 text-left">Search everything</span>
+          <span className="hidden items-center rounded border bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground sm:flex">
+            Ctrl&nbsp;K
+          </span>
+        </button>
       </div>
 
       <div className="ml-auto flex items-center gap-2">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" aria-label="Help and shortcuts">
+              <HelpCircle className="h-5 w-5" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuItem
+              onSelect={(event) => {
+                event.preventDefault();
+                openHelpCenter();
+              }}
+            >
+              <HelpCircle className="mr-2 h-4 w-4" aria-hidden="true" /> Open help center
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onSelect={(event) => {
+                event.preventDefault();
+                onOpenShortcuts?.();
+              }}
+            >
+              <Keyboard className="mr-2 h-4 w-4" aria-hidden="true" /> Keyboard shortcuts
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
         {canCreate && (
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
