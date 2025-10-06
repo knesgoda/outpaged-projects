@@ -50,6 +50,7 @@ import ProjectDependenciesPage from "@/pages/ia/projects/ProjectDependenciesPage
 import ProjectReportsPage from "@/pages/ia/projects/ProjectReportsPage";
 import ProjectDocsPage from "@/pages/ia/projects/ProjectDocsPage";
 import ProjectFilesPage from "@/pages/ia/projects/ProjectFilesPage";
+import ProjectIntegrationsPage from "@/pages/ia/projects/ProjectIntegrationsPage";
 import ProjectAutomationsPage from "@/pages/ia/projects/ProjectAutomationsPage";
 import ProjectSettingsPage from "@/pages/ia/projects/ProjectSettingsPage";
 import NewProjectPage from "@/pages/ia/NewProjectPage";

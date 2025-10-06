@@ -1,4 +1,4 @@
-import { useMemo, useRef } from "react";
+import { useRef } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useProjectId } from "@/hooks/useProjectId";
@@ -25,17 +25,15 @@ export function TabBar() {
   const location = useLocation();
   const tabRefs = useRef<(HTMLAnchorElement | null)[]>([]);
 
-  const tabItems = useMemo(() => PROJECT_TABS.map((tab) => ({ ...tab })), []);
-
   const handleKeyDown = (event: React.KeyboardEvent<HTMLAnchorElement>, index: number) => {
     if (event.key === "ArrowRight") {
       event.preventDefault();
-      const next = tabRefs.current[(index + 1) % tabItems.length];
+      const next = tabRefs.current[(index + 1) % PROJECT_TABS.length];
       next?.focus();
     }
     if (event.key === "ArrowLeft") {
       event.preventDefault();
-      const prev = tabRefs.current[(index - 1 + tabItems.length) % tabItems.length];
+      const prev = tabRefs.current[(index - 1 + PROJECT_TABS.length) % PROJECT_TABS.length];
       prev?.focus();
     }
   };
@@ -43,7 +41,7 @@ export function TabBar() {
   return (
     <nav className="overflow-x-auto" role="tablist" aria-label="Project navigation">
       <div className="flex min-w-max gap-1 rounded-md border bg-background p-1">
-        {tabItems.map((tab, index) => {
+        {PROJECT_TABS.map((tab, index) => {
           const currentProjectId = projectId ?? "";
           const tabPath = `/projects/${currentProjectId}/${tab.path}`;
           const isActive =

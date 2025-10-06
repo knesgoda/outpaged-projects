@@ -28,7 +28,7 @@ interface ProjectRecord {
 
 function LegacyProjectDetails({ overrideProjectId }: { overrideProjectId?: string }) {
   const paramsProjectId = useProjectId();
-  const projectId = overrideProjectId || paramsProjectId;
+  const projectId = overrideProjectId ?? paramsProjectId;
   const navigate = useNavigate();
   const { user } = useAuth();
   const { navigateToProjectSettings } = useProjectNavigation();
