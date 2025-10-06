@@ -23,7 +23,6 @@ import IntegrationsPage from "@/pages/integrations/IntegrationsPage";
 import FormsPage from "@/pages/ia/FormsPage";
 import GoalsPage from "@/pages/ia/GoalsPage";
 import TemplatesPage from "@/pages/ia/TemplatesPage";
-codex/implement-people,-teams-and-time-tracking
 import PeoplePage from "@/pages/people/PeoplePage";
 import ProfilePage from "@/pages/people/ProfilePage";
 import TeamsPage from "@/pages/teams/TeamsPage";
@@ -34,23 +33,6 @@ import ApprovalsPage from "@/pages/time/ApprovalsPage";
 import ProjectPeoplePage from "@/pages/projects/ProjectPeoplePage";
 import ProjectTeamsPage from "@/pages/projects/ProjectTeamsPage";
 import ProjectTimePage from "@/pages/projects/ProjectTimePage";
-=======
-import PeoplePage from "@/pages/ia/PeoplePage";
-import TimeTrackingPage from "@/pages/ia/TimeTrackingPage";
-codex/perform-deep-dive-on-settings-and-admin
-import HelpPage from "@/pages/ia/HelpPage";
-import { AdminLayout } from "@/pages/admin/AdminLayout";
-import AdminHome from "@/pages/admin/AdminHome";
-import WorkspaceSettings from "@/pages/admin/WorkspaceSettings";
-import MembersPage from "@/pages/admin/MembersPage";
-import PermissionsPage from "@/pages/admin/PermissionsPage";
-import SecurityPage from "@/pages/admin/SecurityPage";
-import AuditLogsPage from "@/pages/admin/AuditLogsPage";
-import DataPage from "@/pages/admin/DataPage";
-import WebhooksPage from "@/pages/admin/WebhooksPage";
-import ApiExplorerPage from "@/pages/admin/ApiExplorerPage";
-import BillingPage from "@/pages/admin/BillingPage";
-=======
 import HelpHome from "@/pages/help/HelpHome";
 import HelpSearchPage from "@/pages/help/HelpSearchPage";
 import FAQPage from "@/pages/help/FAQPage";
@@ -89,7 +71,6 @@ import Login from "@/pages/Login";
 import AuthCallback from "@/pages/AuthCallback";
 import NotFound from "@/pages/NotFound";
 import Profile from "@/pages/Profile";
-codex/perform-deep-dive-on-settings-and-admin
 import { SettingsLayout } from "@/pages/settings/SettingsLayout";
 import SettingsHome from "@/pages/settings/SettingsHome";
 import ProfileSettings from "@/pages/settings/ProfileSettings";
@@ -99,16 +80,21 @@ import NotificationSettings from "@/pages/settings/NotificationSettings";
 import AppearanceSettings from "@/pages/settings/AppearanceSettings";
 import ConnectionsSettings from "@/pages/settings/ConnectionsSettings";
 import SearchPage from "@/pages/Search";
+import GlobalSearchPage from "@/pages/search/GlobalSearchPage";
 import NotAuthorizedPage from "@/pages/NotAuthorized";
 import { RequireAdmin } from "@/lib/auth";
-=======
-import Settings from "@/pages/Settings";
-codex/implement-notifications-and-inbox-functionality-g8mo3c
-import { NotificationSettingsPage } from "@/pages/settings/NotificationSettings";
-import SearchPage from "@/pages/Search";
-codex/implement-people,-teams-and-time-tracking
+import { AdminLayout } from "@/pages/admin/AdminLayout";
+import AdminHome from "@/pages/admin/AdminHome";
+import WorkspaceSettings from "@/pages/admin/WorkspaceSettings";
+import MembersPage from "@/pages/admin/MembersPage";
+import PermissionsPage from "@/pages/admin/PermissionsPage";
+import SecurityPage from "@/pages/admin/SecurityPage";
+import AuditLogsPage from "@/pages/admin/AuditLogsPage";
+import DataPage from "@/pages/admin/DataPage";
+import WebhooksPage from "@/pages/admin/WebhooksPage";
+import ApiExplorerPage from "@/pages/admin/ApiExplorerPage";
+import BillingPage from "@/pages/admin/BillingPage";
 import { FEATURE_PEOPLE_TEAMS, FEATURE_TIME_TRACKING } from "@/lib/featureFlags";
-import GlobalSearchPage from "@/pages/search/GlobalSearchPage";
 
 const Suspended = ({ children }: { children: React.ReactNode }) => (
   <Suspense fallback={<div className="p-6">Loading...</div>}>
@@ -120,7 +106,15 @@ export function AppRoutes() {
   const children = [
     { index: true, element: <HomePage /> },
     { path: "my-work", element: <MyWorkPage /> },
-    { path: "inbox", element: <InboxPage /> },
+    {
+      path: "inbox",
+      element: <InboxPage tab="all" />,
+    },
+    { path: "inbox/mentions", element: <InboxPage tab="mentions" /> },
+    { path: "inbox/assigned", element: <InboxPage tab="assigned" /> },
+    { path: "inbox/following", element: <InboxPage tab="following" /> },
+    { path: "inbox/due-soon", element: <InboxPage tab="due-soon" /> },
+    { path: "inbox/unread", element: <InboxPage tab="unread" /> },
     { path: "projects", element: <ProjectsPage /> },
     { path: "projects/new", element: <NewProjectPage /> },
     { path: "projects/:projectId", element: <ProjectOverviewPage /> },
@@ -159,18 +153,47 @@ export function AppRoutes() {
     { path: "templates", element: <TemplatesPage /> },
     { path: "tasks/new", element: <NewTaskPage /> },
     { path: "profile", element: <Profile /> },
-    { path: "settings", element: <Settings /> },
-    { path: "search", element: <SearchPage /> },
-    { path: "admin", element: <AdminHomePage /> },
-    { path: "admin/workspace", element: <AdminWorkspacePage /> },
-    { path: "admin/permissions", element: <AdminPermissionsPage /> },
-    { path: "admin/security", element: <AdminSecurityPage /> },
-    { path: "admin/audit", element: <AdminAuditPage /> },
-    { path: "admin/data", element: <AdminDataPage /> },
-    { path: "admin/webhooks", element: <AdminWebhooksPage /> },
-    { path: "admin/api", element: <AdminApiPage /> },
-    { path: "admin/billing", element: <AdminBillingPage /> },
-    { path: "help", element: <HelpPage /> },
+    { path: "search", element: <GlobalSearchPage /> },
+    {
+      path: "settings",
+      element: <SettingsLayout />,
+      children: [
+        { index: true, element: <SettingsHome /> },
+        { path: "profile", element: <ProfileSettings /> },
+        { path: "account", element: <AccountSettings /> },
+        { path: "security", element: <SecuritySettings /> },
+        { path: "notifications", element: <NotificationSettings /> },
+        { path: "appearance", element: <AppearanceSettings /> },
+        { path: "connections", element: <ConnectionsSettings /> },
+      ],
+    },
+    {
+      path: "admin",
+      element: (
+        <RequireAdmin>
+          <AdminLayout />
+        </RequireAdmin>
+      ),
+      children: [
+        { index: true, element: <AdminHome /> },
+        { path: "workspace", element: <WorkspaceSettings /> },
+        { path: "members", element: <MembersPage /> },
+        { path: "permissions", element: <PermissionsPage /> },
+        { path: "security", element: <SecurityPage /> },
+        { path: "audit", element: <AuditLogsPage /> },
+        { path: "data", element: <DataPage /> },
+        { path: "webhooks", element: <WebhooksPage /> },
+        { path: "api", element: <ApiExplorerPage /> },
+        { path: "billing", element: <BillingPage /> },
+      ],
+    },
+    { path: "help", element: <HelpHome /> },
+    { path: "help/search", element: <HelpSearchPage /> },
+    { path: "help/faq", element: <FAQPage /> },
+    { path: "help/shortcuts", element: <ShortcutsPage /> },
+    { path: "help/changelog", element: <ChangelogPage /> },
+    { path: "help/contact", element: <ContactSupportPage /> },
+    { path: "help/onboarding", element: <OnboardingPage /> },
   ];
 
   if (FEATURE_PEOPLE_TEAMS) {
@@ -207,119 +230,7 @@ export function AppRoutes() {
           <AppLayout />
         </Suspended>
       ),
-codex/implement-people,-teams-and-time-tracking
       children,
-      children: [
-        { index: true, element: <HomePage /> },
-        { path: "my-work", element: <MyWorkPage /> },
-        {
-          path: "inbox",
-          element: <InboxPage tab="all" />,
-        },
-        { path: "inbox/mentions", element: <InboxPage tab="mentions" /> },
-        { path: "inbox/assigned", element: <InboxPage tab="assigned" /> },
-        { path: "inbox/following", element: <InboxPage tab="following" /> },
-        { path: "inbox/due-soon", element: <InboxPage tab="due-soon" /> },
-        { path: "inbox/unread", element: <InboxPage tab="unread" /> },
-        { path: "projects", element: <ProjectsPage /> },
-        { path: "projects/new", element: <NewProjectPage /> },
-        // Canonicalize on :projectId and keep *all* project routes
-        { path: "projects/:projectId", element: <ProjectOverviewPage /> },
-        { path: "projects/:projectId/overview", element: <ProjectOverviewPage /> },
-        { path: "projects/:projectId/list", element: <ProjectListPage /> },
-        { path: "projects/:projectId/board", element: <ProjectBoardPage /> },
-        { path: "projects/:projectId/backlog", element: <ProjectBacklogPage /> },
-        { path: "projects/:projectId/sprints", element: <ProjectSprintsPage /> },
-        { path: "projects/:projectId/calendar", element: <ProjectCalendarPage /> },
-        { path: "projects/:projectId/timeline", element: <ProjectTimelinePage /> },
-        { path: "projects/:projectId/dependencies", element: <ProjectDependenciesPage /> },
-        { path: "projects/:projectId/reports", element: <ProjectReportsPage /> },
-        { path: "projects/:projectId/docs", element: <ProjectDocsPage /> },
-        { path: "projects/:projectId/files", element: <ProjectFilesPage /> },
-        { path: "projects/:projectId/integrations", element: <ProjectIntegrationsPage /> },
-        { path: "projects/:projectId/automations", element: <ProjectAutomationsPage /> },
-        { path: "projects/:projectId/settings", element: <ProjectSettingsPage /> },
-        { path: "boards", element: <BoardsPage /> },
-        { path: "boards/new", element: <NewBoardPage /> },
-        { path: "calendar", element: <CalendarPage /> },
-        { path: "timeline", element: <TimelinePage /> },
-        { path: "workload", element: <WorkloadPage /> },
-        { path: "dashboards", element: <DashboardsPage /> },
-        { path: "dashboards/new", element: <NewDashboardPage /> },
-        { path: "reports", element: <ReportsHome /> },
-        { path: "reports/new", element: <ReportCreate /> },
-        { path: "reports/:reportId", element: <ReportDetail /> },
-        { path: "reports/:reportId/edit", element: <ReportEdit /> },
-        { path: "docs", element: <DocsPage /> },
-        { path: "files", element: <FilesPage /> },
-        { path: "automations", element: <AutomationsPage /> },
-        { path: "integrations", element: <IntegrationsPage /> },
-        { path: "projects/:projectId/integrations", element: <ProjectIntegrationsPage /> },
-        { path: "forms", element: <FormsPage /> },
-        { path: "goals", element: <GoalsPage /> },
-        { path: "templates", element: <TemplatesPage /> },
-        { path: "people", element: <PeoplePage /> },
-        { path: "time", element: <TimeTrackingPage /> },
-        { path: "tasks/new", element: <NewTaskPage /> },
-        { path: "profile", element: <Profile /> },
-codex/perform-deep-dive-on-settings-and-admin
-        {
-          path: "settings",
-          element: <SettingsLayout />,
-          children: [
-            { index: true, element: <SettingsHome /> },
-            { path: "profile", element: <ProfileSettings /> },
-            { path: "account", element: <AccountSettings /> },
-            { path: "security", element: <SecuritySettings /> },
-            { path: "notifications", element: <NotificationSettings /> },
-            { path: "appearance", element: <AppearanceSettings /> },
-            { path: "connections", element: <ConnectionsSettings /> },
-          ],
-        },
-        { path: "search", element: <SearchPage /> },
-        {
-          path: "admin",
-          element: (
-            <RequireAdmin>
-              <AdminLayout />
-            </RequireAdmin>
-          ),
-          children: [
-            { index: true, element: <AdminHome /> },
-            { path: "workspace", element: <WorkspaceSettings /> },
-            { path: "members", element: <MembersPage /> },
-            { path: "permissions", element: <PermissionsPage /> },
-            { path: "security", element: <SecurityPage /> },
-            { path: "audit", element: <AuditLogsPage /> },
-            { path: "data", element: <DataPage /> },
-            { path: "webhooks", element: <WebhooksPage /> },
-            { path: "api", element: <ApiExplorerPage /> },
-            { path: "billing", element: <BillingPage /> },
-          ],
-        },
-        { path: "help", element: <HelpPage /> },
-        { path: "settings", element: <Settings /> },
-codex/implement-notifications-and-inbox-functionality-g8mo3c
-        { path: "settings/notifications", element: <NotificationSettingsPage /> },
-        { path: "search", element: <SearchPage /> },
-        { path: "search", element: <GlobalSearchPage /> },
-        { path: "admin", element: <AdminHomePage /> },
-        { path: "admin/workspace", element: <AdminWorkspacePage /> },
-        { path: "admin/permissions", element: <AdminPermissionsPage /> },
-        { path: "admin/security", element: <AdminSecurityPage /> },
-        { path: "admin/audit", element: <AdminAuditPage /> },
-        { path: "admin/data", element: <AdminDataPage /> },
-        { path: "admin/webhooks", element: <AdminWebhooksPage /> },
-        { path: "admin/api", element: <AdminApiPage /> },
-        { path: "admin/billing", element: <AdminBillingPage /> },
-        { path: "help", element: <HelpHome /> },
-        { path: "help/search", element: <HelpSearchPage /> },
-        { path: "help/faq", element: <FAQPage /> },
-        { path: "help/shortcuts", element: <ShortcutsPage /> },
-        { path: "help/changelog", element: <ChangelogPage /> },
-        { path: "help/contact", element: <ContactSupportPage /> },
-        { path: "help/onboarding", element: <OnboardingPage /> },
-      ],
     },
     { path: "/login", element: <Login /> },
     { path: "/auth/callback", element: <AuthCallback /> },

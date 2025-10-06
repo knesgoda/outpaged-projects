@@ -14,7 +14,6 @@ import {
   Link as LinkIcon
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
-codex/implement-integrations-with-google-and-github
 import { LinkedResourcesPanel } from "@/components/linked/LinkedResourcesPanel";
 import { CommentsSystemWithMentions } from "@/components/comments/CommentsSystemWithMentions";
 
