@@ -1,62 +1,170 @@
-import { render, screen, waitFor } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
-import Projects from "../Projects";
+import React, { useEffect } from "react";
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { HelmetProvider } from "react-helmet-async";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 
-jest.mock("@/integrations/supabase/client", () => ({
-  supabase: {
-    from: jest.fn(),
-  },
+import { ProjectsListPage } from "../projects/ProjectsListPage";
+import { ProjectDetailPage } from "../projects/ProjectDetailPage";
+
+const navigateMock = jest.fn();
+
+jest.mock("react-router-dom", () => {
+  const actual = jest.requireActual("react-router-dom");
+  return {
+    ...actual,
+    useNavigate: () => navigateMock,
+  };
+});
+
+const mockUseProjects = jest.fn();
+const mockUseProject = jest.fn();
+const archiveMutation = { mutateAsync: jest.fn(), isPending: false };
+const updateMutation = { mutateAsync: jest.fn(), isPending: false };
+const deleteMutation = { mutateAsync: jest.fn(), isPending: false };
+const createMutation = { mutateAsync: jest.fn(), isPending: false };
+
+jest.mock("@/hooks/useProjects", () => ({
+  useProjects: (...args: any[]) => mockUseProjects(...args),
+  useProject: (...args: any[]) => mockUseProject(...args),
+  useArchiveProject: () => archiveMutation,
+  useUpdateProject: () => updateMutation,
+  useDeleteProject: () => deleteMutation,
+  useCreateProject: () => createMutation,
 }));
 
-const { supabase } = jest.requireMock("@/integrations/supabase/client") as {
-  supabase: { from: jest.Mock };
+let lastLocation: { pathname: string; search: string } | null = null;
+
+const LocationTracker: React.FC = () => {
+  const location = useLocation();
+  useEffect(() => {
+    lastLocation = { pathname: location.pathname, search: location.search };
+  }, [location]);
+  return null;
 };
 
-jest.mock("@/hooks/useAuth", () => ({
-  useAuth: () => ({ user: { id: "user-1" } }),
-}));
+const listWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <HelmetProvider>
+    <MemoryRouter initialEntries={["/projects"]}>
+      <LocationTracker />
+      {children}
+    </MemoryRouter>
+  </HelmetProvider>
+);
 
-jest.mock("@/hooks/use-toast", () => ({
-  useToast: () => ({ toast: jest.fn() }),
-}));
-
-describe("Projects", () => {
+describe("Projects pages", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    navigateMock.mockReset();
+    mockUseProjects.mockReset();
+    mockUseProject.mockReset();
+    archiveMutation.mutateAsync = jest.fn();
+    updateMutation.mutateAsync = jest.fn();
+    deleteMutation.mutateAsync = jest.fn();
+    createMutation.mutateAsync = jest.fn();
+    lastLocation = null;
   });
 
-  it("renders project links using the project id", async () => {
-    const mockProjects = [
-      {
-        id: "project-123",
-        name: "Demo Project",
-        status: "active",
-        created_at: new Date().toISOString(),
-        description: null,
-        end_date: null,
-        code: null,
-      },
-    ];
+  it("renders projects after loading", async () => {
+    const project = {
+      id: "abc-123",
+      name: "Alpha Initiative",
+      description: "Shipping the redesign.",
+      status: "active",
+      updated_at: new Date().toISOString(),
+      created_at: new Date().toISOString(),
+    };
+    const refetch = jest.fn();
 
-    const orderMock = jest.fn().mockResolvedValue({ data: mockProjects, error: null });
-    const selectMock = jest.fn(() => ({ order: orderMock }));
+    let queryState: any = {
+      data: undefined,
+      isLoading: true,
+      isError: false,
+      error: null,
+      refetch,
+    };
 
-    supabase.from.mockImplementation((table: string) => {
-      if (table === "projects") {
-        return { select: selectMock };
-      }
-      return { select: jest.fn() };
+    mockUseProjects.mockImplementation(() => queryState);
+
+    const { rerender } = render(<ProjectsListPage />, { wrapper: listWrapper });
+
+    expect(screen.queryByText(project.name)).not.toBeInTheDocument();
+
+    queryState = {
+      data: { data: [project], total: 1 },
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch,
+    };
+
+    rerender(<ProjectsListPage />);
+
+    expect(await screen.findByText(project.name)).toBeInTheDocument();
+  });
+
+  it("navigates to the project overview when a row is clicked", async () => {
+    const project = {
+      id: "project-42",
+      name: "Roadmap Refresh",
+      description: "New roadmap planning.",
+      status: "active",
+      updated_at: new Date().toISOString(),
+      created_at: new Date().toISOString(),
+    };
+
+    mockUseProjects.mockReturnValue({
+      data: { data: [project], total: 1 },
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: jest.fn(),
+    });
+
+    render(<ProjectsListPage />, { wrapper: listWrapper });
+
+    await userEvent.click(screen.getByText(project.name));
+
+    expect(navigateMock).toHaveBeenCalledWith(`/projects/${project.id}`);
+  });
+
+  it("shows not found when a project cannot be loaded", () => {
+    const projectId = "missing-id";
+    mockUseProject.mockReturnValue({
+      data: null,
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: jest.fn(),
     });
 
     render(
-      <MemoryRouter initialEntries={["/dashboard/projects"]}>
-        <Projects />
-      </MemoryRouter>
+      <HelmetProvider>
+        <MemoryRouter initialEntries={[`/projects/${projectId}`]}>
+          <Routes>
+            <Route path="/projects/:projectId" element={<ProjectDetailPage tab="overview" />} />
+          </Routes>
+        </MemoryRouter>
+      </HelmetProvider>,
     );
 
-    const link = await waitFor(() => screen.getByTestId(`project-link-${mockProjects[0].id}`));
+    expect(screen.getByText("Project not found")).toBeInTheDocument();
+    expect(mockUseProject).toHaveBeenCalledWith(projectId);
+  });
 
-    expect(link).toHaveAttribute("href", `/dashboard/projects/${mockProjects[0].id}`);
-    expect(selectMock).toHaveBeenCalledWith("id, name, code, description, status, created_at, end_date");
+  it("opens the create dialog and syncs the URL when requested", async () => {
+    mockUseProjects.mockReturnValue({
+      data: { data: [], total: 0 },
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: jest.fn(),
+    });
+
+    render(<ProjectsListPage />, { wrapper: listWrapper });
+
+    await userEvent.click(screen.getByRole("button", { name: /new project/i }));
+
+    expect(await screen.findByText("Give your project a clear name.")).toBeInTheDocument();
+    expect(lastLocation?.search).toContain("new=1");
   });
 });

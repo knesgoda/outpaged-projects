@@ -1,6 +1,6 @@
 
 import React from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { useWorkspaceSettings } from "@/hooks/useWorkspace";
@@ -61,7 +61,7 @@ const navigationItems = [
   },
   {
     title: "Projects",
-    url: "/dashboard/projects", 
+    url: "/projects",
     icon: Folder,
     description: "Manage your projects"
   },
@@ -193,6 +193,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { isAdmin } = useIsAdmin();
   const { data: workspaceSettings } = useWorkspaceSettings();
   const { data: profile } = useMyProfile();
+  const location = useLocation();
 
   const brandName =
     workspaceSettings?.brand_name?.trim() || workspaceSettings?.name?.trim() || "OutPaged";
@@ -270,16 +271,24 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <SidebarGroup>
           <SidebarGroupLabel>Navigation</SidebarGroupLabel>
           <SidebarMenu>
-            {navigationItems.map((item) => (
-              <SidebarMenuItem key={item.title}>
-                <SidebarMenuButton asChild tooltip={item.description}>
-                  <Link to={item.url}>
-                    <item.icon />
-                    <span>{item.title}</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            ))}
+            {navigationItems.map((item) => {
+              const normalizedUrl = item.url.replace(/\/+$/, "");
+              const isProjects = normalizedUrl === "/projects";
+              const isActive = isProjects
+                ? location.pathname.startsWith("/projects")
+                : location.pathname === normalizedUrl || location.pathname.startsWith(`${normalizedUrl}/`);
+
+              return (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton asChild tooltip={item.description} isActive={isActive}>
+                    <Link to={item.url}>
+                      <item.icon />
+                      <span>{item.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              );
+            })}
           </SidebarMenu>
         </SidebarGroup>
 

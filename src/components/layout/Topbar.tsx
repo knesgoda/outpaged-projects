@@ -152,7 +152,7 @@ export function Topbar({ onToggleSidebar, onOpenShortcuts }: TopbarProps) {
 
   const actions = useMemo(
     () => [
-      { label: "New Project", path: "/projects/new" },
+      { label: "New Project", path: "/projects?new=1" },
       { label: "New Board", path: "/boards/new" },
       { label: "New Task", path: "/tasks/new" },
       { label: "New Dashboard", path: "/dashboards/new" },

@@ -20,7 +20,7 @@ const CHECKLIST_ITEMS: ChecklistItem[] = [
     id: "create-project",
     title: "Create a project",
     description: "Set up your first project so you can plan and assign work.",
-    link: { label: "New project", to: "/projects/new" },
+    link: { label: "New project", to: "/projects?new=1" },
   },
   {
     id: "invite-members",

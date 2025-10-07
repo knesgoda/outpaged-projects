@@ -128,7 +128,7 @@ export const CommandPalette = () => {
         label: "New project",
         description: "Start a project",
         Icon: FolderKanban,
-        onSelect: () => navigateAndClose("/projects/new"),
+        onSelect: () => navigateAndClose("/projects?new=1"),
       },
       {
         id: "my-day",
