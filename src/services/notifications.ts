@@ -160,10 +160,43 @@ export async function createNotification(
 
   return data as NotificationItem;
 }
-import { supabase } from '@/integrations/supabase/client';
-import type { Notification } from '@/types';
 
-export async function listMyNotifications(): Promise<Notification[]> {
+type NotificationRow = {
+  id: string;
+  user_id: string;
+  type: NotificationItem["type"];
+  title: string | null;
+  body: string | null;
+  entity_type: NotificationItem["entity_type"];
+  entity_id: string | null;
+  project_id: string | null;
+  link: string | null;
+  read_at: string | null;
+  archived_at: string | null;
+  created_at: string;
+};
+
+function mapNotificationRow(row: NotificationRow): NotificationItem {
+  return {
+    id: row.id,
+    user_id: row.user_id,
+    type: row.type,
+    title: row.title ?? null,
+    body: row.body ?? null,
+    entity_type: row.entity_type ?? null,
+    entity_id: row.entity_id ?? null,
+    project_id: row.project_id ?? null,
+    link: row.link ?? null,
+    read_at: row.read_at ?? null,
+    archived_at: row.archived_at ?? null,
+    created_at: row.created_at,
+  };
+}
+
+const NOTIFICATION_SELECT_FIELDS =
+  "id, user_id, type, title, body, entity_type, entity_id, project_id, link, read_at, archived_at, created_at";
+
+export async function listMyNotifications(): Promise<NotificationItem[]> {
   const { data: userData, error: userError } = await supabase.auth.getUser();
   if (userError) {
     throw userError;
@@ -171,39 +204,22 @@ export async function listMyNotifications(): Promise<Notification[]> {
 
   const user = userData.user;
   if (!user) {
-    throw new Error('Not authenticated');
+    throw new Error("Not authenticated");
   }
 
   const { data, error } = await supabase
-    .from('notifications')
-    .select('id, user_id, type, title, body, entity_type, entity_id, read_at, created_at')
-    .eq('user_id', user.id)
-    .order('created_at', { ascending: false });
+    .from("notifications")
+    .select(NOTIFICATION_SELECT_FIELDS)
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false });
 
   if (error) {
     throw error;
   }
 
-  return (data ?? []).map(row => ({
-    id: row.id,
-    user_id: row.user_id,
-    type: row.type,
-    title: row.title,
-    body: row.body,
-    entity_type: row.entity_type,
-    entity_id: row.entity_id,
-    read_at: row.read_at,
-    created_at: row.created_at,
-  }));
+  return (data ?? []).map((row) => mapNotificationRow(row as NotificationRow));
 }
 
 export async function markNotificationRead(id: string): Promise<void> {
-  const { error } = await supabase
-    .from('notifications')
-    .update({ read_at: new Date().toISOString() })
-    .eq('id', id);
-
-  if (error) {
-    throw error;
-  }
+  await markRead(id);
 }
