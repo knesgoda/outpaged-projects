@@ -155,7 +155,7 @@ export default function ReportCreate() {
                 value={config}
                 onChange={setConfig}
                 onValidationChange={setIsConfigValid}
-                placeholder="{\n  \"source\": \"tasks\",\n  \"limit\": 100\n}"
+                placeholder='{\n  "source": "tasks",\n  "limit": 100\n}'
               />
               {!isConfigValid && <p className="text-sm text-destructive">Config must be valid JSON.</p>}
             </div>

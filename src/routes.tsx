@@ -36,6 +36,7 @@ import ApprovalsPage from "@/pages/time/ApprovalsPage";
 import ProjectPeoplePage from "@/pages/projects/ProjectPeoplePage";
 import ProjectTeamsPage from "@/pages/projects/ProjectTeamsPage";
 import ProjectTimePage from "@/pages/projects/ProjectTimePage";
+ codex/implement-reports-and-docs-ui-and-backend
 import PeoplePage from "@/pages/ia/PeoplePage";
 import TimeTrackingPage from "@/pages/ia/TimeTrackingPage";
 import HelpPage from "@/pages/ia/HelpPage";
@@ -100,13 +101,24 @@ import NotificationSettings from "@/pages/settings/NotificationSettings";
 import AppearanceSettings from "@/pages/settings/AppearanceSettings";
 import ConnectionsSettings from "@/pages/settings/ConnectionsSettings";
 import SearchPage from "@/pages/Search";
+import GlobalSearchPage from "@/pages/search/GlobalSearchPage";
 import NotAuthorizedPage from "@/pages/NotAuthorized";
-import { RequireAdmin } from "@/lib/auth";
+import { RequireAdmin } from "@/lib/auth"; codex/implement-reports-and-docs-ui-and-backend
 import Settings from "@/pages/Settings";
 import { NotificationSettingsPage } from "@/pages/settings/NotificationSettings";
 import SearchPage from "@/pages/Search";
+import { AdminLayout } from "@/pages/admin/AdminLayout";
+import AdminHome from "@/pages/admin/AdminHome";
+import WorkspaceSettings from "@/pages/admin/WorkspaceSettings";
+import MembersPage from "@/pages/admin/MembersPage";
+import PermissionsPage from "@/pages/admin/PermissionsPage";
+import SecurityPage from "@/pages/admin/SecurityPage";
+import AuditLogsPage from "@/pages/admin/AuditLogsPage";
+import DataPage from "@/pages/admin/DataPage";
+import WebhooksPage from "@/pages/admin/WebhooksPage";
+import ApiExplorerPage from "@/pages/admin/ApiExplorerPage";
+import BillingPage from "@/pages/admin/BillingPage";
 import { FEATURE_PEOPLE_TEAMS, FEATURE_TIME_TRACKING } from "@/lib/featureFlags";
-import GlobalSearchPage from "@/pages/search/GlobalSearchPage";
 
 const Suspended = ({ children }: { children: React.ReactNode }) => (
   <Suspense fallback={<div className="p-6">Loading...</div>}>
@@ -118,7 +130,15 @@ export function AppRoutes() {
   const children = [
     { index: true, element: <HomePage /> },
     { path: "my-work", element: <MyWorkPage /> },
-    { path: "inbox", element: <InboxPage /> },
+    {
+      path: "inbox",
+      element: <InboxPage tab="all" />,
+    },
+    { path: "inbox/mentions", element: <InboxPage tab="mentions" /> },
+    { path: "inbox/assigned", element: <InboxPage tab="assigned" /> },
+    { path: "inbox/following", element: <InboxPage tab="following" /> },
+    { path: "inbox/due-soon", element: <InboxPage tab="due-soon" /> },
+    { path: "inbox/unread", element: <InboxPage tab="unread" /> },
     { path: "projects", element: <ProjectsPage /> },
     { path: "projects/new", element: <NewProjectPage /> },
     { path: "projects/:projectId", element: <ProjectOverviewPage /> },
@@ -163,18 +183,47 @@ export function AppRoutes() {
     { path: "templates", element: <TemplatesPage /> },
     { path: "tasks/new", element: <NewTaskPage /> },
     { path: "profile", element: <Profile /> },
-    { path: "settings", element: <Settings /> },
-    { path: "search", element: <SearchPage /> },
-    { path: "admin", element: <AdminHomePage /> },
-    { path: "admin/workspace", element: <AdminWorkspacePage /> },
-    { path: "admin/permissions", element: <AdminPermissionsPage /> },
-    { path: "admin/security", element: <AdminSecurityPage /> },
-    { path: "admin/audit", element: <AdminAuditPage /> },
-    { path: "admin/data", element: <AdminDataPage /> },
-    { path: "admin/webhooks", element: <AdminWebhooksPage /> },
-    { path: "admin/api", element: <AdminApiPage /> },
-    { path: "admin/billing", element: <AdminBillingPage /> },
-    { path: "help", element: <HelpPage /> },
+    { path: "search", element: <GlobalSearchPage /> },
+    {
+      path: "settings",
+      element: <SettingsLayout />,
+      children: [
+        { index: true, element: <SettingsHome /> },
+        { path: "profile", element: <ProfileSettings /> },
+        { path: "account", element: <AccountSettings /> },
+        { path: "security", element: <SecuritySettings /> },
+        { path: "notifications", element: <NotificationSettings /> },
+        { path: "appearance", element: <AppearanceSettings /> },
+        { path: "connections", element: <ConnectionsSettings /> },
+      ],
+    },
+    {
+      path: "admin",
+      element: (
+        <RequireAdmin>
+          <AdminLayout />
+        </RequireAdmin>
+      ),
+      children: [
+        { index: true, element: <AdminHome /> },
+        { path: "workspace", element: <WorkspaceSettings /> },
+        { path: "members", element: <MembersPage /> },
+        { path: "permissions", element: <PermissionsPage /> },
+        { path: "security", element: <SecurityPage /> },
+        { path: "audit", element: <AuditLogsPage /> },
+        { path: "data", element: <DataPage /> },
+        { path: "webhooks", element: <WebhooksPage /> },
+        { path: "api", element: <ApiExplorerPage /> },
+        { path: "billing", element: <BillingPage /> },
+      ],
+    },
+    { path: "help", element: <HelpHome /> },
+    { path: "help/search", element: <HelpSearchPage /> },
+    { path: "help/faq", element: <FAQPage /> },
+    { path: "help/shortcuts", element: <ShortcutsPage /> },
+    { path: "help/changelog", element: <ChangelogPage /> },
+    { path: "help/contact", element: <ContactSupportPage /> },
+    { path: "help/onboarding", element: <OnboardingPage /> },
   ];
 
   if (FEATURE_PEOPLE_TEAMS) {
@@ -211,6 +260,7 @@ export function AppRoutes() {
           <AppLayout />
         </Suspended>
       ),
+codex/implement-reports-and-docs-ui-and-backend
       children: [
         { index: true, element: <HomePage /> },
         { path: "my-work", element: <MyWorkPage /> },
@@ -326,6 +376,7 @@ export function AppRoutes() {
         { path: "help/contact", element: <ContactSupportPage /> },
         { path: "help/onboarding", element: <OnboardingPage /> },
       ],
+      children,
     },
     { path: "/login", element: <Login /> },
     { path: "/auth/callback", element: <AuthCallback /> },
