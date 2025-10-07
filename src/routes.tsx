@@ -15,7 +15,10 @@ import ReportsHome from "@/pages/reports/ReportsHome";
 import ReportCreate from "@/pages/reports/ReportCreate";
 import ReportDetail from "@/pages/reports/ReportDetail";
 import ReportEdit from "@/pages/reports/ReportEdit";
-import DocsPage from "@/pages/ia/DocsPage";
+import DocsHome from "@/pages/docs/DocsHome";
+import DocCreate from "@/pages/docs/DocCreate";
+import DocDetail from "@/pages/docs/DocDetail";
+import DocEdit from "@/pages/docs/DocEdit";
 import FilesPage from "@/pages/files/FilesPage";
 import AutomationsPage from "@/pages/automations/AutomationsPage";
 import AutomationDetailPage from "@/pages/automations/AutomationDetailPage";
@@ -33,6 +36,21 @@ import ApprovalsPage from "@/pages/time/ApprovalsPage";
 import ProjectPeoplePage from "@/pages/projects/ProjectPeoplePage";
 import ProjectTeamsPage from "@/pages/projects/ProjectTeamsPage";
 import ProjectTimePage from "@/pages/projects/ProjectTimePage";
+ codex/implement-reports-and-docs-ui-and-backend
+import PeoplePage from "@/pages/ia/PeoplePage";
+import TimeTrackingPage from "@/pages/ia/TimeTrackingPage";
+import HelpPage from "@/pages/ia/HelpPage";
+import { AdminLayout } from "@/pages/admin/AdminLayout";
+import AdminHome from "@/pages/admin/AdminHome";
+import WorkspaceSettings from "@/pages/admin/WorkspaceSettings";
+import MembersPage from "@/pages/admin/MembersPage";
+import PermissionsPage from "@/pages/admin/PermissionsPage";
+import SecurityPage from "@/pages/admin/SecurityPage";
+import AuditLogsPage from "@/pages/admin/AuditLogsPage";
+import DataPage from "@/pages/admin/DataPage";
+import WebhooksPage from "@/pages/admin/WebhooksPage";
+import ApiExplorerPage from "@/pages/admin/ApiExplorerPage";
+import BillingPage from "@/pages/admin/BillingPage";
 import HelpHome from "@/pages/help/HelpHome";
 import HelpSearchPage from "@/pages/help/HelpSearchPage";
 import FAQPage from "@/pages/help/FAQPage";
@@ -58,7 +76,10 @@ import ProjectCalendarPage from "@/pages/ia/projects/ProjectCalendarPage";
 import ProjectTimelinePage from "@/pages/ia/projects/ProjectTimelinePage";
 import ProjectDependenciesPage from "@/pages/ia/projects/ProjectDependenciesPage";
 import ProjectReportsPage from "@/pages/ia/projects/ProjectReportsPage";
-import ProjectDocsPage from "@/pages/ia/projects/ProjectDocsPage";
+import ProjectDocsHome from "@/pages/projects/ProjectDocsHome";
+import ProjectDocCreate from "@/pages/projects/ProjectDocCreate";
+import ProjectDocDetail from "@/pages/projects/ProjectDocDetail";
+import ProjectDocEdit from "@/pages/projects/ProjectDocEdit";
 import ProjectFilesPage from "@/pages/projects/ProjectFilesPage";
 import ProjectIntegrationsPage from "@/pages/projects/ProjectIntegrationsPage";
 import ProjectAutomationsPage from "@/pages/projects/ProjectAutomationsPage";
@@ -82,7 +103,10 @@ import ConnectionsSettings from "@/pages/settings/ConnectionsSettings";
 import SearchPage from "@/pages/Search";
 import GlobalSearchPage from "@/pages/search/GlobalSearchPage";
 import NotAuthorizedPage from "@/pages/NotAuthorized";
-import { RequireAdmin } from "@/lib/auth";
+import { RequireAdmin } from "@/lib/auth"; codex/implement-reports-and-docs-ui-and-backend
+import Settings from "@/pages/Settings";
+import { NotificationSettingsPage } from "@/pages/settings/NotificationSettings";
+import SearchPage from "@/pages/Search";
 import { AdminLayout } from "@/pages/admin/AdminLayout";
 import AdminHome from "@/pages/admin/AdminHome";
 import WorkspaceSettings from "@/pages/admin/WorkspaceSettings";
@@ -127,7 +151,10 @@ export function AppRoutes() {
     { path: "projects/:projectId/timeline", element: <ProjectTimelinePage /> },
     { path: "projects/:projectId/dependencies", element: <ProjectDependenciesPage /> },
     { path: "projects/:projectId/reports", element: <ProjectReportsPage /> },
-    { path: "projects/:projectId/docs", element: <ProjectDocsPage /> },
+    { path: "projects/:projectId/docs", element: <ProjectDocsHome /> },
+    { path: "projects/:projectId/docs/new", element: <ProjectDocCreate /> },
+    { path: "projects/:projectId/docs/:docId", element: <ProjectDocDetail /> },
+    { path: "projects/:projectId/docs/:docId/edit", element: <ProjectDocEdit /> },
     { path: "projects/:projectId/files", element: <ProjectFilesPage /> },
     { path: "projects/:projectId/integrations", element: <ProjectIntegrationsPage /> },
     { path: "projects/:projectId/automations", element: <ProjectAutomationsPage /> },
@@ -143,7 +170,10 @@ export function AppRoutes() {
     { path: "reports/new", element: <ReportCreate /> },
     { path: "reports/:reportId", element: <ReportDetail /> },
     { path: "reports/:reportId/edit", element: <ReportEdit /> },
-    { path: "docs", element: <DocsPage /> },
+    { path: "docs", element: <DocsHome /> },
+    { path: "docs/new", element: <DocCreate /> },
+    { path: "docs/:docId", element: <DocDetail /> },
+    { path: "docs/:docId/edit", element: <DocEdit /> },
     { path: "files", element: <FilesPage /> },
     { path: "automations", element: <AutomationsPage /> },
     { path: "automations/:automationId", element: <AutomationDetailPage /> },
@@ -230,6 +260,122 @@ export function AppRoutes() {
           <AppLayout />
         </Suspended>
       ),
+codex/implement-reports-and-docs-ui-and-backend
+      children: [
+        { index: true, element: <HomePage /> },
+        { path: "my-work", element: <MyWorkPage /> },
+        {
+          path: "inbox",
+          element: <InboxPage tab="all" />,
+        },
+        { path: "inbox/mentions", element: <InboxPage tab="mentions" /> },
+        { path: "inbox/assigned", element: <InboxPage tab="assigned" /> },
+        { path: "inbox/following", element: <InboxPage tab="following" /> },
+        { path: "inbox/due-soon", element: <InboxPage tab="due-soon" /> },
+        { path: "inbox/unread", element: <InboxPage tab="unread" /> },
+        { path: "projects", element: <ProjectsPage /> },
+        { path: "projects/new", element: <NewProjectPage /> },
+        // Canonicalize on :projectId and keep *all* project routes
+        { path: "projects/:projectId", element: <ProjectOverviewPage /> },
+        { path: "projects/:projectId/overview", element: <ProjectOverviewPage /> },
+        { path: "projects/:projectId/list", element: <ProjectListPage /> },
+        { path: "projects/:projectId/board", element: <ProjectBoardPage /> },
+        { path: "projects/:projectId/backlog", element: <ProjectBacklogPage /> },
+        { path: "projects/:projectId/sprints", element: <ProjectSprintsPage /> },
+        { path: "projects/:projectId/calendar", element: <ProjectCalendarPage /> },
+        { path: "projects/:projectId/timeline", element: <ProjectTimelinePage /> },
+        { path: "projects/:projectId/dependencies", element: <ProjectDependenciesPage /> },
+        { path: "projects/:projectId/reports", element: <ProjectReportsPage /> },
+        { path: "projects/:projectId/docs", element: <ProjectDocsHome /> },
+        { path: "projects/:projectId/docs/new", element: <ProjectDocCreate /> },
+        { path: "projects/:projectId/docs/:docId", element: <ProjectDocDetail /> },
+        { path: "projects/:projectId/docs/:docId/edit", element: <ProjectDocEdit /> },
+        { path: "projects/:projectId/files", element: <ProjectFilesPage /> },
+        { path: "projects/:projectId/integrations", element: <ProjectIntegrationsPage /> },
+        { path: "projects/:projectId/automations", element: <ProjectAutomationsPage /> },
+        { path: "projects/:projectId/settings", element: <ProjectSettingsPage /> },
+        { path: "boards", element: <BoardsPage /> },
+        { path: "boards/new", element: <NewBoardPage /> },
+        { path: "calendar", element: <CalendarPage /> },
+        { path: "timeline", element: <TimelinePage /> },
+        { path: "workload", element: <WorkloadPage /> },
+        { path: "dashboards", element: <DashboardsPage /> },
+        { path: "dashboards/new", element: <NewDashboardPage /> },
+        { path: "reports", element: <ReportsHome /> },
+        { path: "reports/new", element: <ReportCreate /> },
+        { path: "reports/:reportId", element: <ReportDetail /> },
+        { path: "reports/:reportId/edit", element: <ReportEdit /> },
+        { path: "docs", element: <DocsHome /> },
+        { path: "docs/new", element: <DocCreate /> },
+        { path: "docs/:docId", element: <DocDetail /> },
+        { path: "docs/:docId/edit", element: <DocEdit /> },
+        { path: "files", element: <FilesPage /> },
+        { path: "automations", element: <AutomationsPage /> },
+        { path: "integrations", element: <IntegrationsPage /> },
+        { path: "projects/:projectId/integrations", element: <ProjectIntegrationsPage /> },
+        { path: "forms", element: <FormsPage /> },
+        { path: "goals", element: <GoalsPage /> },
+        { path: "templates", element: <TemplatesPage /> },
+        { path: "people", element: <PeoplePage /> },
+        { path: "time", element: <TimeTrackingPage /> },
+        { path: "tasks/new", element: <NewTaskPage /> },
+        { path: "profile", element: <Profile /> },
+        {
+          path: "settings",
+          element: <SettingsLayout />,
+          children: [
+            { index: true, element: <SettingsHome /> },
+            { path: "profile", element: <ProfileSettings /> },
+            { path: "account", element: <AccountSettings /> },
+            { path: "security", element: <SecuritySettings /> },
+            { path: "notifications", element: <NotificationSettings /> },
+            { path: "appearance", element: <AppearanceSettings /> },
+            { path: "connections", element: <ConnectionsSettings /> },
+          ],
+        },
+        { path: "search", element: <SearchPage /> },
+        {
+          path: "admin",
+          element: (
+            <RequireAdmin>
+              <AdminLayout />
+            </RequireAdmin>
+          ),
+          children: [
+            { index: true, element: <AdminHome /> },
+            { path: "workspace", element: <WorkspaceSettings /> },
+            { path: "members", element: <MembersPage /> },
+            { path: "permissions", element: <PermissionsPage /> },
+            { path: "security", element: <SecurityPage /> },
+            { path: "audit", element: <AuditLogsPage /> },
+            { path: "data", element: <DataPage /> },
+            { path: "webhooks", element: <WebhooksPage /> },
+            { path: "api", element: <ApiExplorerPage /> },
+            { path: "billing", element: <BillingPage /> },
+          ],
+        },
+        { path: "help", element: <HelpPage /> },
+        { path: "settings", element: <Settings /> },
+        { path: "settings/notifications", element: <NotificationSettingsPage /> },
+        { path: "search", element: <SearchPage /> },
+        { path: "search", element: <GlobalSearchPage /> },
+        { path: "admin", element: <AdminHomePage /> },
+        { path: "admin/workspace", element: <AdminWorkspacePage /> },
+        { path: "admin/permissions", element: <AdminPermissionsPage /> },
+        { path: "admin/security", element: <AdminSecurityPage /> },
+        { path: "admin/audit", element: <AdminAuditPage /> },
+        { path: "admin/data", element: <AdminDataPage /> },
+        { path: "admin/webhooks", element: <AdminWebhooksPage /> },
+        { path: "admin/api", element: <AdminApiPage /> },
+        { path: "admin/billing", element: <AdminBillingPage /> },
+        { path: "help", element: <HelpHome /> },
+        { path: "help/search", element: <HelpSearchPage /> },
+        { path: "help/faq", element: <FAQPage /> },
+        { path: "help/shortcuts", element: <ShortcutsPage /> },
+        { path: "help/changelog", element: <ChangelogPage /> },
+        { path: "help/contact", element: <ContactSupportPage /> },
+        { path: "help/onboarding", element: <OnboardingPage /> },
+      ],
       children,
     },
     { path: "/login", element: <Login /> },

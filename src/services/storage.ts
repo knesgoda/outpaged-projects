@@ -104,3 +104,31 @@ export async function uploadPublicImage(
 
   return { path: objectPath, publicUrl };
 }
+
+export async function uploadDocImage(file: File, userId: string): Promise<{ publicUrl: string }> {
+  if (!file.type?.startsWith("image/")) {
+    throw new Error("File must be an image.");
+  }
+
+  const sanitizedName = file.name.replace(/[^a-zA-Z0-9._-]/g, "-");
+  const objectPath = `docs/${userId}/${Date.now()}-${sanitizedName}`;
+
+  const { error } = await supabase.storage.from("docs").upload(objectPath, file, {
+    cacheControl: "3600",
+    upsert: false,
+    contentType: file.type || "application/octet-stream",
+  });
+
+  if (error) {
+    throw mapSupabaseError(error, "Unable to upload the image.");
+  }
+
+  const { data, error: urlError } = supabase.storage.from("docs").getPublicUrl(objectPath);
+  const publicUrl = data?.publicUrl;
+
+  if (urlError || !publicUrl) {
+    throw mapSupabaseError(urlError, "Unable to resolve the image URL.");
+  }
+
+  return { publicUrl };
+}

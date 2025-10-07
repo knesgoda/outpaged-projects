@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
 import { Button } from "@/components/ui/button";
@@ -21,15 +21,48 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { useReportsList } from "@/hooks/useReports";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
-import { useProjectOptions } from "@/hooks/useProjectOptions";
+import { useProjectOptions, useProjectSummary } from "@/hooks/useProjectOptions";
 
 type SortOption = "updated_desc" | "updated_asc";
 
+export type ReportsHomeProps = {
+  forcedProjectId?: string;
+  forcedProjectName?: string | null;
+};
+
 export default function ReportsHome() {
-  useDocumentTitle("Reports");
+  return <ReportsHomeView />;
+}
+
+export function ReportsHomeView({
+  forcedProjectId,
+  forcedProjectName,
+}: ReportsHomeProps = {}) {
+  const isProjectScope = Boolean(forcedProjectId);
   const [search, setSearch] = useState("");
-  const [projectId, setProjectId] = useState<string | "all">("all");
+  const [projectId, setProjectId] = useState<string | "all">(
+    forcedProjectId ?? "all"
+  );
   const [sort, setSort] = useState<SortOption>("updated_desc");
+
+  useEffect(() => {
+    if (forcedProjectId) {
+      setProjectId(forcedProjectId);
+    }
+  }, [forcedProjectId]);
+
+  const projectSummary = useProjectSummary(forcedProjectId);
+  const displayProjectName =
+    forcedProjectName || projectSummary.data?.name || forcedProjectId;
+
+  useDocumentTitle(
+    isProjectScope && displayProjectName
+      ? `Projects / ${displayProjectName} / Reports`
+      : "Reports"
+  );
+
+  const effectiveProjectId =
+    forcedProjectId ?? (projectId === "all" ? undefined : projectId);
 
   const {
     data: reports = [],
@@ -37,13 +70,9 @@ export default function ReportsHome() {
     isFetching,
     isError,
     error,
-  } = useReportsList({ projectId: projectId === "all" ? undefined : projectId });
+  } = useReportsList({ projectId: effectiveProjectId });
 
-  const {
-    data: projects = [],
-    isLoading: loadingProjects,
-    error: projectError,
-  } = useProjectOptions(true);
+  const { data: projects = [], error: projectError } = useProjectOptions(!isProjectScope);
 
   const filteredReports = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -56,8 +85,8 @@ export default function ReportsHome() {
     }
 
     if (sort === "updated_asc") {
-      return [...items].sort((a, b) =>
-        new Date(a.updated_at).getTime() - new Date(b.updated_at).getTime()
+      return [...items].sort(
+        (a, b) => new Date(a.updated_at).getTime() - new Date(b.updated_at).getTime()
       );
     }
 
@@ -65,6 +94,30 @@ export default function ReportsHome() {
       (a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
     );
   }, [reports, search, sort]);
+
+  if (isProjectScope && projectSummary.isError) {
+    const message =
+      projectSummary.error instanceof Error
+        ? projectSummary.error.message
+        : "Unable to load project.";
+    return (
+      <section className="p-6">
+        <Breadcrumb>
+          <BreadcrumbList>
+            <BreadcrumbItem>
+              <BreadcrumbLink asChild>
+                <Link to="/projects">Projects</Link>
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbItem>
+              <BreadcrumbPage>Reports</BreadcrumbPage>
+            </BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
+        <p className="mt-6 text-sm text-destructive">{message}</p>
+      </section>
+    );
+  }
 
   if (isLoading) {
     return (
@@ -86,8 +139,24 @@ export default function ReportsHome() {
         <Breadcrumb>
           <BreadcrumbList>
             <BreadcrumbItem>
-              <BreadcrumbPage>Reports</BreadcrumbPage>
+              {isProjectScope ? (
+                <BreadcrumbLink asChild>
+                  <Link to="/projects">Projects</Link>
+                </BreadcrumbLink>
+              ) : (
+                <BreadcrumbPage>Reports</BreadcrumbPage>
+              )}
             </BreadcrumbItem>
+            {isProjectScope ? (
+              <>
+                <BreadcrumbItem>
+                  <BreadcrumbPage>{displayProjectName}</BreadcrumbPage>
+                </BreadcrumbItem>
+                <BreadcrumbItem>
+                  <BreadcrumbPage>Reports</BreadcrumbPage>
+                </BreadcrumbItem>
+              </>
+            ) : null}
           </BreadcrumbList>
         </Breadcrumb>
         <p className="mt-6 text-sm text-destructive">{message}</p>
@@ -100,7 +169,11 @@ export default function ReportsHome() {
       <section className="flex h-full flex-col items-center justify-center gap-4 p-10 text-center">
         <div className="space-y-2">
           <h1 className="text-2xl font-semibold tracking-tight">Reports</h1>
-          <p className="text-muted-foreground">Create your first report to track progress.</p>
+          <p className="text-muted-foreground">
+            {isProjectScope
+              ? "No reports yet for this project."
+              : "Create your first report to track progress."}
+          </p>
         </div>
         <div className="flex flex-wrap items-center justify-center gap-2">
           <Input
@@ -110,7 +183,15 @@ export default function ReportsHome() {
             className="w-56"
           />
           <Button asChild>
-            <Link to="/reports/new">New report</Link>
+            <Link
+              to={
+                forcedProjectId
+                  ? `/reports/new?projectId=${encodeURIComponent(forcedProjectId)}`
+                  : "/reports/new"
+              }
+            >
+              New report
+            </Link>
           </Button>
         </div>
       </section>
@@ -123,19 +204,47 @@ export default function ReportsHome() {
         <Breadcrumb>
           <BreadcrumbList>
             <BreadcrumbItem>
-              <BreadcrumbPage>Reports</BreadcrumbPage>
+              {isProjectScope ? (
+                <BreadcrumbLink asChild>
+                  <Link to="/projects">Projects</Link>
+                </BreadcrumbLink>
+              ) : (
+                <BreadcrumbPage>Reports</BreadcrumbPage>
+              )}
             </BreadcrumbItem>
+            {isProjectScope ? (
+              <>
+                <BreadcrumbItem>
+                  <BreadcrumbLink asChild>
+                    <Link to={`/projects/${forcedProjectId}`}>{displayProjectName}</Link>
+                  </BreadcrumbLink>
+                </BreadcrumbItem>
+                <BreadcrumbItem>
+                  <BreadcrumbPage>Reports</BreadcrumbPage>
+                </BreadcrumbItem>
+              </>
+            ) : null}
           </BreadcrumbList>
         </Breadcrumb>
         <header className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Reports</h1>
             <p className="text-sm text-muted-foreground">
-              Review saved analytics across your workspace.
+              {isProjectScope
+                ? `Saved analytics for ${displayProjectName}.`
+                : "Review saved analytics across your workspace."}
             </p>
           </div>
           <Button asChild>
-            <Link to="/reports/new">New report</Link>
+            <Link
+              to={
+                forcedProjectId
+                  ? `/reports/new?projectId=${encodeURIComponent(forcedProjectId)}`
+                  : "/reports/new"
+              }
+            >
+              New report
+            </Link>
           </Button>
         </header>
       </div>
@@ -147,19 +256,21 @@ export default function ReportsHome() {
           placeholder="Search reports"
           className="w-full max-w-xs"
         />
-        <Select value={projectId} onValueChange={(value) => setProjectId(value)}>
-          <SelectTrigger className="w-full max-w-[220px]">
-            <SelectValue placeholder="All projects" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All projects</SelectItem>
-            {projects.map((project) => (
-              <SelectItem key={project.id} value={project.id}>
-                {project.name ?? project.id}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {isProjectScope ? null : (
+          <Select value={projectId} onValueChange={(value) => setProjectId(value)}>
+            <SelectTrigger className="w-full max-w-[220px]">
+              <SelectValue placeholder="All projects" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All projects</SelectItem>
+              {projects.map((project) => (
+                <SelectItem key={project.id} value={project.id}>
+                  {project.name ?? project.id}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
         <Select value={sort} onValueChange={(value) => setSort(value as SortOption)}>
           <SelectTrigger className="w-full max-w-[200px]">
             <SelectValue placeholder="Sort" />
