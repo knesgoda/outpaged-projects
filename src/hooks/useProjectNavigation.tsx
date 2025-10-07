@@ -3,11 +3,10 @@ import { supabase } from "@/integrations/supabase/client";
 
 export interface ProjectNavigationData {
   id: string;
-  code?: string | null;
   name: string;
 }
 
-const buildIdRoute = (projectId: string) => `/dashboard/projects/${projectId}`;
+const buildIdRoute = (projectId: string) => `/projects/${projectId}`;
 
 export function useProjectNavigation() {
   const navigate = useNavigate();
@@ -29,7 +28,7 @@ export function useProjectNavigation() {
   };
 
   const getTaskUrl = (project: ProjectNavigationData, taskNumber: number) => {
-    return `${buildIdRoute(project.id)}/tasks/${taskNumber}`;
+    return `${buildIdRoute(project.id)}`;
   };
 
   return {
@@ -51,13 +50,14 @@ export async function resolveProject(identifier: string): Promise<ProjectNavigat
 
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(trimmedIdentifier);
 
-    const query = supabase
+    const baseQuery = supabase
       .from('projects')
-      .select('id, code, name');
+      .select('id, name')
+      .limit(1);
 
     const { data, error } = await (isUuid
-      ? query.eq('id', trimmedIdentifier)
-      : query.ilike('code', trimmedIdentifier))
+      ? baseQuery.eq('id', trimmedIdentifier)
+      : baseQuery.ilike('name', trimmedIdentifier))
       .maybeSingle();
 
     if (error) {

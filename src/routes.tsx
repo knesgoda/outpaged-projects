@@ -5,7 +5,7 @@ import { ErrorBoundary } from "@/components/common/ErrorBoundary";
 import HomePage from "@/pages/ia/HomePage";
 import MyWorkPage from "@/pages/ia/MyWorkPage";
 import { InboxPage } from "@/pages/inbox/InboxPage";
-import ProjectsPage from "@/pages/ia/ProjectsPage";
+import { ProjectsListPage } from "@/pages/projects/ProjectsListPage";
 import BoardsPage from "@/pages/ia/BoardsPage";
 import CalendarPage from "@/pages/calendar/CalendarPage";
 import TimelinePage from "@/pages/ia/TimelinePage";
@@ -67,6 +67,8 @@ import AdminDataPage from "@/pages/ia/admin/AdminDataPage";
 import AdminWebhooksPage from "@/pages/ia/admin/AdminWebhooksPage";
 import AdminApiPage from "@/pages/ia/admin/AdminApiPage";
 import AdminBillingPage from "@/pages/ia/admin/AdminBillingPage";
+codex/perform-code-audit-and-fix-for-projects-area
+import { ProjectDetailPage } from "@/pages/projects/ProjectDetailPage";
 import ProjectOverviewPage from "@/pages/ia/projects/ProjectOverviewPage";
 import ProjectListPage from "@/pages/ia/projects/ProjectListPage";
 import ProjectBoardPage from "@/pages/ia/projects/ProjectBoardPage";
@@ -139,6 +141,22 @@ export function AppRoutes() {
     { path: "inbox/following", element: <InboxPage tab="following" /> },
     { path: "inbox/due-soon", element: <InboxPage tab="due-soon" /> },
     { path: "inbox/unread", element: <InboxPage tab="unread" /> },
+codex/perform-code-audit-and-fix-for-projects-area
+    { path: "projects", element: <ProjectsListPage /> },
+    { path: "projects/:projectId", element: <ProjectDetailPage tab="overview" /> },
+    { path: "projects/:projectId/overview", element: <ProjectDetailPage tab="overview" /> },
+    { path: "projects/:projectId/list", element: <ProjectDetailPage tab="list" /> },
+    { path: "projects/:projectId/board", element: <ProjectDetailPage tab="board" /> },
+    { path: "projects/:projectId/backlog", element: <ProjectDetailPage tab="backlog" /> },
+    { path: "projects/:projectId/sprints", element: <ProjectDetailPage tab="sprints" /> },
+    { path: "projects/:projectId/calendar", element: <ProjectDetailPage tab="calendar" /> },
+    { path: "projects/:projectId/timeline", element: <ProjectDetailPage tab="timeline" /> },
+    { path: "projects/:projectId/dependencies", element: <ProjectDetailPage tab="dependencies" /> },
+    { path: "projects/:projectId/reports", element: <ProjectDetailPage tab="reports" /> },
+    { path: "projects/:projectId/docs", element: <ProjectDetailPage tab="docs" /> },
+    { path: "projects/:projectId/files", element: <ProjectDetailPage tab="files" /> },
+    { path: "projects/:projectId/automations", element: <ProjectDetailPage tab="automations" /> },
+    { path: "projects/:projectId/settings", element: <ProjectDetailPage tab="settings" /> },
     { path: "projects", element: <ProjectsPage /> },
     { path: "projects/new", element: <NewProjectPage /> },
     { path: "projects/:projectId", element: <ProjectOverviewPage /> },

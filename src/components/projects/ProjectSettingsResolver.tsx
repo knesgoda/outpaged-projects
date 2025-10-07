@@ -25,12 +25,6 @@ export function ProjectSettingsResolver() {
       .then((resolvedProject) => {
         if (resolvedProject) {
           setProject(resolvedProject);
-          
-          // If accessed via UUID but has code, redirect to code-based URL
-          if (projectId && resolvedProject.code) {
-            navigate(`/dashboard/projects/code/${resolvedProject.code.toLowerCase()}/settings`, { replace: true });
-            return;
-          }
         } else {
           setError("Project not found");
         }
@@ -71,8 +65,8 @@ export function ProjectSettingsResolver() {
       <div className="text-center py-12">
         <h2 className="text-2xl font-bold text-foreground mb-2">Project Not Found</h2>
         <p className="text-muted-foreground mb-4">{error || "The requested project could not be found."}</p>
-        <button 
-          onClick={() => navigate('/dashboard/projects')}
+        <button
+          onClick={() => navigate('/projects')}
           className="text-blue-600 hover:text-blue-800"
         >
           Back to Projects
