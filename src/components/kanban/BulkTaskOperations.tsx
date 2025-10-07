@@ -56,7 +56,7 @@ export const BulkTaskOperations = ({
     if (taskIds.length === 0) return;
 
     try {
-      const { data: subscriptions, error: subsError } = await supabase
+      const { data: subscriptions, error: subsError } = await (supabase as any)
         .from("notification_subscriptions")
         .select("user_id, entity_id")
         .eq("entity_type", "task")
@@ -71,9 +71,11 @@ export const BulkTaskOperations = ({
         return;
       }
 
+      const subsTyped = (subscriptions ?? []) as Array<{ user_id: string; entity_id: string }>;
+
       const subscriberIds = Array.from(
         new Set(
-          subscriptions
+          subsTyped
             .map((subscription) => subscription.user_id)
             .filter((userId) => userId && userId !== user?.id)
         )
@@ -83,7 +85,7 @@ export const BulkTaskOperations = ({
         return;
       }
 
-      const { data: preferenceRows, error: preferenceError } = await supabase
+      const { data: preferenceRows, error: preferenceError } = await (supabase as any)
         .from("notification_preferences")
         .select("user_id, in_app")
         .in("user_id", subscriberIds);
@@ -92,9 +94,11 @@ export const BulkTaskOperations = ({
         console.warn("Unable to load status change preferences:", preferenceError);
       }
 
+      const prefsTyped = (preferenceRows ?? []) as Array<{ user_id: string; in_app: Record<string, boolean> }>;
+
       const allowed = new Set(
         subscriberIds.filter((subscriberId) => {
-          const prefs = preferenceRows?.find((row) => row.user_id === subscriberId);
+          const prefs = prefsTyped.find((row) => row.user_id === subscriberId);
           const value = (prefs?.in_app as Record<string, boolean> | null | undefined)?.status_change;
           return value !== false;
         })
@@ -117,7 +121,7 @@ export const BulkTaskOperations = ({
       const actorName = user?.user_metadata?.full_name || user?.email || "Someone";
 
       await Promise.all(
-        subscriptions.map(async (subscription) => {
+        subsTyped.map(async (subscription) => {
           if (!allowed.has(subscription.user_id)) return;
           const task = tasksData?.find((record) => record.id === subscription.entity_id);
           if (!task) return;

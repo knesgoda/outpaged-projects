@@ -11,10 +11,10 @@ export function useMentionSearch(query: string, options: Options = {}) {
   const trimmed = query.trim();
 
   return useQuery({
-    queryKey: ['mentions', trimmed, options.projectId],
+    queryKey: ["mentions", trimmed, options.projectId],
     queryFn: () => searchTeammates({ q: trimmed, projectId: options.projectId }),
     enabled: trimmed.length > 0,
     staleTime: MENTION_CACHE_TIME,
-    keepPreviousData: true,
+    placeholderData: (previous) => previous as any,
   });
 }

@@ -1,4 +1,3 @@
-codex/implement-notifications-and-inbox-functionality-g8mo3c
 import { supabase } from "@/integrations/supabase/client";
 import type { NotificationItem } from "@/types";
 

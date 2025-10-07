@@ -5,7 +5,7 @@ import { useComments, useCreateComment, useDeleteComment, useUpdateComment } fro
 import type { CommentEntityType } from '@/types';
 import { CommentBox } from './CommentBox';
 import { CommentList } from './CommentList';
-import type { CommentWithAuthor } from '@/services/comments';
+import type { CommentWithAuthor } from './CommentItem';
 
 interface CommentsSystemWithMentionsProps {
   entityType: CommentEntityType;

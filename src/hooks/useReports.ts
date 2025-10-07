@@ -30,7 +30,7 @@ export function useReportsList(options: ListOptions = {}) {
     queryFn: () => listReports(projectId),
     enabled,
     staleTime: 1000 * 60,
-    keepPreviousData: true,
+    placeholderData: (previous) => previous as any,
   });
 }
 

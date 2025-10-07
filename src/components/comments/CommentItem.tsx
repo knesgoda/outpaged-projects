@@ -1,17 +1,28 @@
-import { useMemo } from 'react';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { SafeHtml } from '@/components/ui/safe-html';
-import { markdownToHtml } from '@/lib/markdown';
-import type { CommentWithAuthor } from '@/services/comments';
-import { formatDistanceToNow } from 'date-fns';
-import { Link } from 'react-router-dom';
-import { CornerDownRight, Edit2, MoreHorizontal, Reply, Trash2 } from 'lucide-react';
+import { useMemo } from "react";
+import { Link } from "react-router-dom";
+import { CornerDownRight, Edit2, MoreHorizontal, Reply, Trash2 } from "lucide-react";
+
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { SafeHtml } from "@/components/ui/safe-html";
+import { markdownToHtml } from "@/lib/markdown";
+import type { CommentWithAuthor as ServiceCommentWithAuthor } from "@/services/comments";
+import { formatDistanceToNow } from "date-fns";
+
+export type CommentWithAuthor = ServiceCommentWithAuthor & {
+  mentions: string[];
+  replies?: CommentWithAuthor[];
+};
 
 export interface CommentItemProps {
-  comment: CommentWithAuthor & { mentions: string[]; replies?: (CommentWithAuthor & { mentions: string[] })[] };
+  comment: CommentWithAuthor;
   depth?: number;
   currentUserId?: string;
   onReply?: (comment: CommentWithAuthor) => void;
@@ -19,7 +30,7 @@ export interface CommentItemProps {
   onDelete?: (comment: CommentWithAuthor) => void;
 }
 
-export function CommentItem({
+function CommentItem({
   comment,
   depth = 0,
   currentUserId,
@@ -31,7 +42,7 @@ export function CommentItem({
 
   const html = useMemo(() => {
     if (comment.body_html) return comment.body_html;
-    return markdownToHtml(comment.body_markdown ?? '');
+    return markdownToHtml(comment.body_markdown ?? "");
   }, [comment.body_html, comment.body_markdown]);
 
   const canReply = Boolean(onReply);
@@ -39,28 +50,30 @@ export function CommentItem({
   const canDelete = isAuthor && Boolean(onDelete);
 
   return (
-    <div className={depth > 0 ? 'pl-6' : ''}>
+    <div className={depth > 0 ? "pl-6" : ""}>
       <Card className="border-border bg-card/70">
         <CardContent className="flex gap-3 p-4">
           <Avatar className="h-9 w-9">
-            <AvatarImage src={comment.author_profile.avatar_url ?? undefined} alt={comment.author_profile.full_name ?? ''} />
-            <AvatarFallback>
-              {comment.author_profile.full_name?.[0] ?? '?'}
-            </AvatarFallback>
+            <AvatarImage
+              src={comment.author_profile.avatar_url ?? undefined}
+              alt={comment.author_profile.full_name ?? ""}
+            />
+            <AvatarFallback>{comment.author_profile.full_name?.[0] ?? "?"}</AvatarFallback>
           </Avatar>
 
           <div className="flex-1 space-y-2">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-sm">
-                <Link to={`/people/${comment.author}`} className="font-medium text-foreground hover:underline">
-                  {comment.author_profile.full_name ?? 'Unknown user'}
+                <Link
+                  to={`/people/${comment.author}`}
+                  className="font-medium text-foreground hover:underline"
+                >
+                  {comment.author_profile.full_name ?? "Unknown user"}
                 </Link>
                 <span className="text-muted-foreground">
                   {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true })}
                 </span>
-                {comment.edited_at && (
-                  <span className="text-xs text-muted-foreground">Edited</span>
-                )}
+                {comment.edited_at && <span className="text-xs text-muted-foreground">Edited</span>}
               </div>
 
               {(canReply || canEdit || canDelete) && (
@@ -82,7 +95,10 @@ export function CommentItem({
                       </DropdownMenuItem>
                     )}
                     {canDelete && (
-                      <DropdownMenuItem className="text-destructive" onClick={() => onDelete?.(comment)}>
+                      <DropdownMenuItem
+                        className="text-destructive"
+                        onClick={() => onDelete?.(comment)}
+                      >
                         <Trash2 className="mr-2 h-4 w-4" /> Delete
                       </DropdownMenuItem>
                     )}
@@ -125,3 +141,5 @@ export function CommentItem({
     </div>
   );
 }
+
+export default CommentItem;

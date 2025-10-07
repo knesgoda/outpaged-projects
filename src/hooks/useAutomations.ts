@@ -32,7 +32,7 @@ export function useAutomationsList(options: ListOptions = {}) {
     queryFn: () => listAutomations(projectId),
     enabled,
     staleTime: 1000 * 30,
-    keepPreviousData: true,
+    placeholderData: (previous) => previous as any,
   });
 }
 

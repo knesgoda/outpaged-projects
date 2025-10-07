@@ -1,9 +1,4 @@
-import {
-  keepPreviousData,
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
   archiveProject,
@@ -98,7 +93,7 @@ export function useProjects(params: ProjectsQueryInput) {
   return useQuery({
     queryKey: [projectsKey[0], serviceParams],
     queryFn: () => listProjects(serviceParams),
-    placeholderData: keepPreviousData,
+    placeholderData: (previous) => previous as any,
   });
 }
 

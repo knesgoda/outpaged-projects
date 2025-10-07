@@ -1,9 +1,8 @@
-import React from 'react';
-import { CommentItem } from './CommentItem';
-import type { CommentWithAuthor } from '@/services/comments';
+import React from "react";
+import CommentItem, { CommentWithAuthor } from "./CommentItem";
 
 export interface CommentListProps {
-  comments: (CommentWithAuthor & { mentions: string[] })[];
+  comments: CommentWithAuthor[];
   currentUserId?: string;
   onReply?: (comment: CommentWithAuthor) => void;
   onEdit?: (comment: CommentWithAuthor) => void;
@@ -14,7 +13,7 @@ export interface CommentListProps {
   renderEditBox?: (comment: CommentWithAuthor) => React.ReactNode;
 }
 
-type CommentNode = CommentWithAuthor & { mentions: string[]; replies: CommentNode[] };
+type CommentNode = CommentWithAuthor & { replies: CommentNode[] };
 
 export function CommentList({
   comments,
@@ -52,7 +51,7 @@ export function CommentList({
   );
 }
 
-function buildTree(comments: (CommentWithAuthor & { mentions: string[] })[]): CommentNode[] {
+function buildTree(comments: CommentWithAuthor[]): CommentNode[] {
   const map = new Map<string, CommentNode>();
   const roots: CommentNode[] = [];
 
