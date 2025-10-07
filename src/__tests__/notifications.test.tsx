@@ -3,7 +3,7 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { InboxPage } from "@/pages/inbox/InboxPage";
-import { NotificationSettingsPage } from "@/pages/settings/NotificationSettings";
+import NotificationSettingsPage from "@/pages/settings/NotificationSettings";
 import type { NotificationItem, NotificationPreferences } from "@/types";
 
 jest.mock("@/integrations/supabase/client", () => ({

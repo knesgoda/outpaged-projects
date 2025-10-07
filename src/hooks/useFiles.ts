@@ -42,7 +42,7 @@ export function useFiles(options: UseFilesOptions = {}) {
     enabled,
     staleTime: 1000 * 30,
     gcTime: 1000 * 60 * 5,
-    keepPreviousData: true,
+    placeholderData: (previous) => previous as any,
   });
 
   const uploadMutation = useMutation({

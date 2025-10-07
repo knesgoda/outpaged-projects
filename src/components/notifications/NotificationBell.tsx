@@ -27,7 +27,7 @@ import {
 } from "lucide-react";
 import type { NotificationItem } from "@/types";
 
-const ICONS: Record<NotificationItem["type"], ReactNode> = {
+const ICONS: Partial<Record<string, ReactNode>> = {
   mention: <AtSign className="h-4 w-4" aria-hidden="true" />,
   assigned: <UserPlus className="h-4 w-4" aria-hidden="true" />,
   comment_reply: <Reply className="h-4 w-4" aria-hidden="true" />,

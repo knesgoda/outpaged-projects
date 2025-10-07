@@ -86,7 +86,7 @@ const LocationSpy = () => {
 const renderWithProviders = (initialEntries: string[]) => {
   const queryClient = new QueryClient({
     defaultOptions: {
-      queries: { retry: false, cacheTime: 0 },
+      queries: { retry: false, gcTime: 0 },
       mutations: { retry: false },
     },
   });

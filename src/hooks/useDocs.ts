@@ -48,7 +48,7 @@ export function useDocsList(options: UseDocsListOptions = {}) {
     queryFn: () => listDocs({ projectId, parentId, q }),
     enabled,
     staleTime: 1000 * 30,
-    keepPreviousData: true,
+    placeholderData: (previous) => previous as any,
   });
 }
 

@@ -5,15 +5,14 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useNotifications } from "@/hooks/useNotifications";
+import { useEnhancedNotifications } from "@/hooks/useEnhancedNotifications";
 import { useAuth } from "@/hooks/useAuth";
 import { formatDistanceToNow } from "date-fns";
-import { 
-  Bell, 
-  CheckCircle, 
-  AlertCircle, 
-  Info, 
-  UserPlus, 
+import {
+  Bell,
+  CheckCircle,
+  Info,
+  UserPlus,
   MessageSquare,
   Calendar,
   Filter,
@@ -22,37 +21,46 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const notificationIcons = {
-  info: Info,
-  success: CheckCircle,
-  warning: AlertCircle,
-  error: AlertCircle,
+const notificationIcons: Partial<Record<string, typeof Info>> = {
   mention: MessageSquare,
-  assignment: UserPlus,
-  deadline: Calendar,
+  assigned: UserPlus,
+  comment_reply: MessageSquare,
+  status_change: CheckCircle,
+  due_soon: Calendar,
+  automation: Bell,
+  file_shared: Info,
+  doc_comment: MessageSquare,
 };
 
-const notificationColors = {
-  info: "bg-blue-500/10 text-blue-600 border-blue-200",
-  success: "bg-green-500/10 text-green-600 border-green-200",
-  warning: "bg-yellow-500/10 text-yellow-600 border-yellow-200",
-  error: "bg-red-500/10 text-red-600 border-red-200",
+const notificationColors: Partial<Record<string, string>> = {
   mention: "bg-purple-500/10 text-purple-600 border-purple-200",
-  assignment: "bg-orange-500/10 text-orange-600 border-orange-200",
-  deadline: "bg-pink-500/10 text-pink-600 border-pink-200",
+  assigned: "bg-orange-500/10 text-orange-600 border-orange-200",
+  comment_reply: "bg-blue-500/10 text-blue-600 border-blue-200",
+  status_change: "bg-green-500/10 text-green-600 border-green-200",
+  due_soon: "bg-yellow-500/10 text-yellow-600 border-yellow-200",
+  automation: "bg-teal-500/10 text-teal-600 border-teal-200",
+  file_shared: "bg-pink-500/10 text-pink-600 border-pink-200",
+  doc_comment: "bg-indigo-500/10 text-indigo-600 border-indigo-200",
 };
 
 export function AdvancedNotificationCenter() {
   const { user } = useAuth();
-  const { notifications, unreadCount, isLoading, markAsRead, markAllAsRead } = useNotifications();
-  const [filter, setFilter] = useState<'all' | 'unread' | 'mentions' | 'tasks'>('all');
+  const {
+    notifications,
+    unreadCount,
+    isLoading,
+    markAsRead,
+    markAllAsRead,
+  } = useEnhancedNotifications();
+  const [filter, setFilter] = useState<"all" | "unread" | "mentions" | "tasks">("all");
   const [showArchived, setShowArchived] = useState(false);
 
-  const filteredNotifications = notifications.filter(notification => {
-    if (filter === 'unread' && notification.read) return false;
-    if (filter === 'mentions' && !notification.message.includes('@')) return false;
-    if (filter === 'tasks' && !notification.related_task_id) return false;
-    if (!showArchived && notification.read) return false;
+  const filteredNotifications = notifications.filter((notification) => {
+    const isRead = notification.read ?? Boolean(notification.read_at);
+    if (filter === "unread" && isRead) return false;
+    if (filter === "mentions" && !(notification.message ?? "").includes("@")) return false;
+    if (filter === "tasks" && !notification.related_task_id) return false;
+    if (!showArchived && isRead) return false;
     return true;
   });
 
@@ -61,10 +69,10 @@ export function AdvancedNotificationCenter() {
     const notificationDate = new Date(notification.created_at);
     const diffInDays = Math.floor((today.getTime() - notificationDate.getTime()) / (1000 * 60 * 60 * 24));
     
-    let group = 'Today';
-    if (diffInDays === 1) group = 'Yesterday';
-    else if (diffInDays > 1 && diffInDays <= 7) group = 'This Week';
-    else if (diffInDays > 7) group = 'Older';
+    let group = "Today";
+    if (diffInDays === 1) group = "Yesterday";
+    else if (diffInDays > 1 && diffInDays <= 7) group = "This Week";
+    else if (diffInDays > 7) group = "Older";
     
     if (!groups[group]) groups[group] = [];
     groups[group].push(notification);
@@ -72,7 +80,7 @@ export function AdvancedNotificationCenter() {
   }, {} as Record<string, typeof notifications>);
 
   const handleNotificationClick = (notificationId: string) => {
-    markAsRead(notificationId);
+    void markAsRead(notificationId);
   };
 
   if (isLoading) {
@@ -130,7 +138,7 @@ export function AdvancedNotificationCenter() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => markAllAsRead()}
+                onClick={() => void markAllAsRead()}
                 className="flex items-center gap-2"
               >
                 <CheckCircle className="w-4 h-4" />
@@ -191,16 +199,20 @@ export function AdvancedNotificationCenter() {
                       </h4>
                       <div className="space-y-2">
                         {groupNotifications.map((notification) => {
-                          const IconComponent = notificationIcons[notification.type as keyof typeof notificationIcons] || Info;
-                          const colorClass = notificationColors[notification.type as keyof typeof notificationColors] || notificationColors.info;
-                          
+                          const IconComponent =
+                            notificationIcons[notification.type as keyof typeof notificationIcons] || Info;
+                          const colorClass =
+                            notificationColors[notification.type as keyof typeof notificationColors] ||
+                            "bg-blue-500/10 text-blue-600 border-blue-200";
+                          const isRead = notification.read ?? Boolean(notification.read_at);
+
                           return (
                             <div
                               key={notification.id}
                               className={cn(
                                 "flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-all hover:shadow-md",
-                                !notification.read 
-                                  ? "bg-accent/50 border-accent" 
+                                !isRead
+                                  ? "bg-accent/50 border-accent"
                                   : "bg-background border-border hover:bg-accent/20"
                               )}
                               onClick={() => handleNotificationClick(notification.id)}
@@ -217,7 +229,7 @@ export function AdvancedNotificationCenter() {
                                   <div className="flex-1 min-w-0">
                                     <h5 className={cn(
                                       "text-sm font-medium truncate",
-                                      !notification.read && "font-semibold"
+                                      !isRead && "font-semibold"
                                     )}>
                                       {notification.title}
                                     </h5>
@@ -225,7 +237,7 @@ export function AdvancedNotificationCenter() {
                                       {notification.message}
                                     </p>
                                   </div>
-                                  {!notification.read && (
+                                  {!isRead && (
                                     <div className="w-2 h-2 bg-primary rounded-full ml-2 mt-1 flex-shrink-0" />
                                   )}
                                 </div>

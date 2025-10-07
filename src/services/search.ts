@@ -1,4 +1,3 @@
-codex/implement-global-search-and-command-k-palette
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabase, supabaseConfigured } from "@/integrations/supabase/client";
 import type { SearchResult } from "@/types";
@@ -460,6 +459,7 @@ const typeToSearchFn: Record<SearchResult["type"], QueryBuilder<any>> = {
   file: searchFiles,
   comment: searchComments,
   person: searchProfiles,
+  team_member: searchProfiles,
 };
 
 export const searchAll = async ({
@@ -634,69 +634,3 @@ const mapCommentRow = (row: CommentSearchRow): SearchResult => ({
   score: row.score ?? undefined,
 });
 
-export async function searchDocs(term: string, ctx: SearchContext = {}): Promise<SearchResult[]> {
-  const normalized = normalizeSearchTerm(term);
-  if (!normalized) {
-    return [];
-  }
-
-  const client = getClient(ctx);
-  const limit = getLimit(ctx);
-
-  let query = client
-    .from<DocumentSearchRow>('documents_search')
-    .select('id, title, snippet, url, project_id, updated_at, score')
-    .textSearch('content', normalized, { type: 'websearch' });
-
-  query = applyProjectFilter(query, ctx)
-    .order('score', { ascending: false })
-    .limit(limit);
-
-  const rows = await runQuery(query, 'Unable to search documents.');
-  return rows.map(mapDocumentRow);
-}
-
-export async function searchFiles(term: string, ctx: SearchContext = {}): Promise<SearchResult[]> {
-  const normalized = normalizeSearchTerm(term);
-  if (!normalized) {
-    return [];
-  }
-
-  const client = getClient(ctx);
-  const limit = getLimit(ctx);
-  const pattern = `%${escapeLikePattern(normalized)}%`;
-
-  let query = client
-    .from<FileSearchRow>('project_files')
-    .select('id, title, path, url, project_id, updated_at, size_bytes, score')
-    .or(`title.ilike.${pattern},path.ilike.${pattern}`);
-
-  query = applyProjectFilter(query, ctx)
-    .order('updated_at', { ascending: false, nullsFirst: false })
-    .limit(limit);
-
-  const rows = await runQuery(query, 'Unable to search files.');
-  return rows.map(mapFileRow);
-}
-
-export async function searchComments(term: string, ctx: SearchContext = {}): Promise<SearchResult[]> {
-  const normalized = normalizeSearchTerm(term);
-  if (!normalized) {
-    return [];
-  }
-
-  const client = getClient(ctx);
-  const limit = getLimit(ctx);
-
-  let query = client
-    .from<CommentSearchRow>('comment_search')
-    .select('id, body, url, project_id, updated_at, score')
-    .textSearch('body', normalized, { type: 'websearch' });
-
-  query = applyProjectFilter(query, ctx)
-    .order('updated_at', { ascending: false, nullsFirst: false })
-    .limit(limit);
-
-  const rows = await runQuery(query, 'Unable to search comments.');
-  return rows.map(mapCommentRow);
-}

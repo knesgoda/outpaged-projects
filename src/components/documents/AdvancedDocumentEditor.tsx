@@ -315,7 +315,6 @@ export function AdvancedDocumentEditor() {
         </div>
       )}
 
-codex/implement-integrations-with-google-and-github
       <LinkedResourcesPanel entityType="doc" entityId={document.id} projectId={null} />
       <CommentsSystemWithMentions
         entityType="doc"
