@@ -7,34 +7,28 @@ import { toCsv, downloadFile } from "@/lib/exportUtils";
 
 const TABLES = [
   {
-    id: "workspace_settings",
-    label: "Workspace settings",
-    description: "Branding, capacity defaults, and security JSON.",
-    select: "*",
-  },
-  {
-    id: "workspace_members",
-    label: "Workspace members",
-    description: "Current membership roster and roles.",
-    select: "user_id, role",
-  },
-  {
     id: "profiles",
     label: "Profiles",
-    description: "Names, titles, and personal capacity data.",
-    select: "id, full_name, title, department, timezone, capacity_hours_per_week, updated_at",
+    description: "User profiles and account information.",
+    select: "id, full_name, avatar_url, updated_at",
   },
   {
-    id: "audit_logs",
+    id: "projects",
+    label: "Projects",
+    description: "All projects in the workspace.",
+    select: "id, name, description, status, created_at",
+  },
+  {
+    id: "tasks",
+    label: "Tasks",
+    description: "All tasks across projects.",
+    select: "id, title, status, priority, created_at",
+  },
+  {
+    id: "audit_log",
     label: "Audit logs",
     description: "Recent governance events for compliance exports.",
-    select: "id, actor, action, target_type, target_id, metadata, created_at",
-  },
-  {
-    id: "webhooks",
-    label: "Webhooks",
-    description: "Endpoints and activation state for outbound calls.",
-    select: "id, owner, target_url, active, created_at",
+    select: "id, user_id, action, entity_type, entity_id, created_at",
   },
 ];
 

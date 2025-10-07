@@ -55,14 +55,14 @@ export function AdvancedNotificationCenter() {
   const [filter, setFilter] = useState<"all" | "unread" | "mentions" | "tasks">("all");
   const [showArchived, setShowArchived] = useState(false);
 
-  const filteredNotifications = notifications.filter((notification) => {
+  const filteredNotifications = Array.isArray(notifications) ? notifications.filter((notification) => {
     const isRead = notification.read ?? Boolean(notification.read_at);
     if (filter === "unread" && isRead) return false;
     if (filter === "mentions" && !(notification.message ?? "").includes("@")) return false;
     if (filter === "tasks" && !notification.related_task_id) return false;
     if (!showArchived && isRead) return false;
     return true;
-  });
+  }) : [];
 
   const groupedNotifications = filteredNotifications.reduce((groups, notification) => {
     const today = new Date();

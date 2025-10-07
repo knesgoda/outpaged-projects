@@ -14,7 +14,6 @@ import { useProjectNavigation } from "@/hooks/useProjectNavigation";
 import { validateUniqueProjectCode } from "@/lib/validation";
 import { useProjectId } from "@/hooks/useProjectId";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { useProjectId } from "@/hooks/useProjectId";
 
 export default function ProjectSettings({ overrideProjectId }: { overrideProjectId?: string }) {
   const paramsProjectId = useProjectId();

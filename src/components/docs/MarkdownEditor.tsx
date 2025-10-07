@@ -33,8 +33,13 @@ export function MarkdownEditor({ value, onChange, placeholder, disabled }: Markd
   }, [mode]);
 
   const previewHtml = useMemo(() => {
-    const rendered = marked.parse(value || "");
-    return DOMPurify.sanitize(rendered);
+    if (!value) return "";
+    const rendered = marked.parse(value);
+    if (typeof rendered === 'string') {
+      return DOMPurify.sanitize(rendered);
+    }
+    // marked.parse can return a Promise in some configurations
+    return "";
   }, [value]);
 
   const handleInsertAtCursor = (snippet: string) => {

@@ -110,7 +110,7 @@ export const BulkTaskOperations = ({
 
       const { data: tasksData, error: taskError } = await supabase
         .from("tasks")
-        .select("id, title, name, project_id")
+        .select("id, title, project_id")
         .in("id", taskIds);
 
       if (taskError) {
@@ -125,7 +125,7 @@ export const BulkTaskOperations = ({
           if (!allowed.has(subscription.user_id)) return;
           const task = tasksData?.find((record) => record.id === subscription.entity_id);
           if (!task) return;
-          const taskTitle = (task as any).title || (task as any).name || "task";
+          const taskTitle = task.title || "task";
           await createNotification({
             user_id: subscription.user_id,
             type: "status_change",
@@ -133,7 +133,7 @@ export const BulkTaskOperations = ({
             body: `${actorName} moved "${taskTitle}" to ${newStatus}`,
             entity_type: "task",
             entity_id: subscription.entity_id,
-            project_id: (task as any).project_id,
+            project_id: task.project_id || null,
             link: `/tasks/${subscription.entity_id}`,
           });
         })

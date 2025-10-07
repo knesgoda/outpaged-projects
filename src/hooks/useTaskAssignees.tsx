@@ -66,9 +66,9 @@ export function useTaskAssignees(taskId?: string) {
       try {
         const { data: taskData, error: taskErr } = await supabase
           .from('tasks')
-          .select('project_id, title, name')
+          .select('project_id, title')
           .eq('id', taskId)
-          .single();
+          .maybeSingle();
 
         if (taskErr) {
           console.warn('Could not fetch task metadata for notification:', taskErr);
@@ -76,8 +76,8 @@ export function useTaskAssignees(taskId?: string) {
 
         if (userId !== user.id) {
           const { data: preferenceRow, error: preferenceError } = await supabase
-            .from('notification_preferences')
-            .select('in_app, email')
+            .from('user_notification_preferences')
+            .select('in_app_task_updates, email_task_updates')
             .eq('user_id', userId)
             .maybeSingle();
 
@@ -85,10 +85,10 @@ export function useTaskAssignees(taskId?: string) {
             console.warn('Could not load assignment preferences:', preferenceError);
           }
 
-          const inAppPref = (preferenceRow?.in_app as Record<string, boolean> | null | undefined)?.assigned;
-          const emailPref = (preferenceRow?.email as Record<string, boolean> | null | undefined)?.assigned;
+          const inAppPref = preferenceRow?.in_app_task_updates;
+          const emailPref = preferenceRow?.email_task_updates;
 
-          const taskTitle = (taskData as any)?.title || (taskData as any)?.name || 'task';
+          const taskTitle = taskData?.title || 'task';
           const actorName = user?.user_metadata?.full_name || user?.email || 'Someone';
 
           if (inAppPref !== false) {
@@ -99,7 +99,7 @@ export function useTaskAssignees(taskId?: string) {
               body: `${actorName} assigned you "${taskTitle}"`,
               entity_type: 'task',
               entity_id: taskId,
-              project_id: taskData?.project_id,
+              project_id: taskData?.project_id || null,
               link: `/tasks/${taskId}`,
             });
           }

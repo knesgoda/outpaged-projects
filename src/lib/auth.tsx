@@ -36,7 +36,7 @@ export async function getWorkspaceRole(userId: string): Promise<Role | null> {
   }
 
   const { data, error } = await supabase
-    .from("workspace_members")
+    .from("profiles")
     .select("role")
     .eq("user_id", userId)
     .maybeSingle();
@@ -50,7 +50,7 @@ export async function getWorkspaceRole(userId: string): Promise<Role | null> {
     throw new Error(error.message);
   }
 
-  const normalized = normalizeRole((data as Pick<WorkspaceMember, "role"> | null)?.role);
+  const normalized = normalizeRole(data?.role);
   roleCache.set(userId, normalized ?? null);
   return normalized ?? null;
 }
