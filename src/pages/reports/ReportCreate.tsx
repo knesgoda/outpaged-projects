@@ -1,5 +1,5 @@
 import { FormEvent, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -27,11 +27,15 @@ import { useProjectOptions } from "@/hooks/useProjectOptions";
 export default function ReportCreate() {
   useDocumentTitle("Reports / New");
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const initialProject = searchParams.get("projectId")?.trim() ?? "";
   const createReport = useCreateReport();
   const { data: projects = [], isLoading: loadingProjects } = useProjectOptions(true);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [projectId, setProjectId] = useState<string | "none">("none");
+  const [projectId, setProjectId] = useState<string | "none">(
+    initialProject ? initialProject : "none"
+  );
   const [config, setConfig] = useState("{\n  \"source\": \"tasks\",\n  \"limit\": 100\n}");
   const [isConfigValid, setIsConfigValid] = useState(true);
   const [formError, setFormError] = useState<string | null>(null);

@@ -15,7 +15,10 @@ import ReportsHome from "@/pages/reports/ReportsHome";
 import ReportCreate from "@/pages/reports/ReportCreate";
 import ReportDetail from "@/pages/reports/ReportDetail";
 import ReportEdit from "@/pages/reports/ReportEdit";
-import DocsPage from "@/pages/ia/DocsPage";
+import DocsHome from "@/pages/docs/DocsHome";
+import DocCreate from "@/pages/docs/DocCreate";
+import DocDetail from "@/pages/docs/DocDetail";
+import DocEdit from "@/pages/docs/DocEdit";
 import FilesPage from "@/pages/files/FilesPage";
 import AutomationsPage from "@/pages/automations/AutomationsPage";
 import AutomationDetailPage from "@/pages/automations/AutomationDetailPage";
@@ -23,7 +26,6 @@ import IntegrationsPage from "@/pages/integrations/IntegrationsPage";
 import FormsPage from "@/pages/ia/FormsPage";
 import GoalsPage from "@/pages/ia/GoalsPage";
 import TemplatesPage from "@/pages/ia/TemplatesPage";
-codex/implement-people,-teams-and-time-tracking
 import PeoplePage from "@/pages/people/PeoplePage";
 import ProfilePage from "@/pages/people/ProfilePage";
 import TeamsPage from "@/pages/teams/TeamsPage";
@@ -34,10 +36,8 @@ import ApprovalsPage from "@/pages/time/ApprovalsPage";
 import ProjectPeoplePage from "@/pages/projects/ProjectPeoplePage";
 import ProjectTeamsPage from "@/pages/projects/ProjectTeamsPage";
 import ProjectTimePage from "@/pages/projects/ProjectTimePage";
-=======
 import PeoplePage from "@/pages/ia/PeoplePage";
 import TimeTrackingPage from "@/pages/ia/TimeTrackingPage";
-codex/perform-deep-dive-on-settings-and-admin
 import HelpPage from "@/pages/ia/HelpPage";
 import { AdminLayout } from "@/pages/admin/AdminLayout";
 import AdminHome from "@/pages/admin/AdminHome";
@@ -50,7 +50,6 @@ import DataPage from "@/pages/admin/DataPage";
 import WebhooksPage from "@/pages/admin/WebhooksPage";
 import ApiExplorerPage from "@/pages/admin/ApiExplorerPage";
 import BillingPage from "@/pages/admin/BillingPage";
-=======
 import HelpHome from "@/pages/help/HelpHome";
 import HelpSearchPage from "@/pages/help/HelpSearchPage";
 import FAQPage from "@/pages/help/FAQPage";
@@ -76,7 +75,10 @@ import ProjectCalendarPage from "@/pages/ia/projects/ProjectCalendarPage";
 import ProjectTimelinePage from "@/pages/ia/projects/ProjectTimelinePage";
 import ProjectDependenciesPage from "@/pages/ia/projects/ProjectDependenciesPage";
 import ProjectReportsPage from "@/pages/ia/projects/ProjectReportsPage";
-import ProjectDocsPage from "@/pages/ia/projects/ProjectDocsPage";
+import ProjectDocsHome from "@/pages/projects/ProjectDocsHome";
+import ProjectDocCreate from "@/pages/projects/ProjectDocCreate";
+import ProjectDocDetail from "@/pages/projects/ProjectDocDetail";
+import ProjectDocEdit from "@/pages/projects/ProjectDocEdit";
 import ProjectFilesPage from "@/pages/projects/ProjectFilesPage";
 import ProjectIntegrationsPage from "@/pages/projects/ProjectIntegrationsPage";
 import ProjectAutomationsPage from "@/pages/projects/ProjectAutomationsPage";
@@ -89,7 +91,6 @@ import Login from "@/pages/Login";
 import AuthCallback from "@/pages/AuthCallback";
 import NotFound from "@/pages/NotFound";
 import Profile from "@/pages/Profile";
-codex/perform-deep-dive-on-settings-and-admin
 import { SettingsLayout } from "@/pages/settings/SettingsLayout";
 import SettingsHome from "@/pages/settings/SettingsHome";
 import ProfileSettings from "@/pages/settings/ProfileSettings";
@@ -101,12 +102,9 @@ import ConnectionsSettings from "@/pages/settings/ConnectionsSettings";
 import SearchPage from "@/pages/Search";
 import NotAuthorizedPage from "@/pages/NotAuthorized";
 import { RequireAdmin } from "@/lib/auth";
-=======
 import Settings from "@/pages/Settings";
-codex/implement-notifications-and-inbox-functionality-g8mo3c
 import { NotificationSettingsPage } from "@/pages/settings/NotificationSettings";
 import SearchPage from "@/pages/Search";
-codex/implement-people,-teams-and-time-tracking
 import { FEATURE_PEOPLE_TEAMS, FEATURE_TIME_TRACKING } from "@/lib/featureFlags";
 import GlobalSearchPage from "@/pages/search/GlobalSearchPage";
 
@@ -133,7 +131,10 @@ export function AppRoutes() {
     { path: "projects/:projectId/timeline", element: <ProjectTimelinePage /> },
     { path: "projects/:projectId/dependencies", element: <ProjectDependenciesPage /> },
     { path: "projects/:projectId/reports", element: <ProjectReportsPage /> },
-    { path: "projects/:projectId/docs", element: <ProjectDocsPage /> },
+    { path: "projects/:projectId/docs", element: <ProjectDocsHome /> },
+    { path: "projects/:projectId/docs/new", element: <ProjectDocCreate /> },
+    { path: "projects/:projectId/docs/:docId", element: <ProjectDocDetail /> },
+    { path: "projects/:projectId/docs/:docId/edit", element: <ProjectDocEdit /> },
     { path: "projects/:projectId/files", element: <ProjectFilesPage /> },
     { path: "projects/:projectId/integrations", element: <ProjectIntegrationsPage /> },
     { path: "projects/:projectId/automations", element: <ProjectAutomationsPage /> },
@@ -149,7 +150,10 @@ export function AppRoutes() {
     { path: "reports/new", element: <ReportCreate /> },
     { path: "reports/:reportId", element: <ReportDetail /> },
     { path: "reports/:reportId/edit", element: <ReportEdit /> },
-    { path: "docs", element: <DocsPage /> },
+    { path: "docs", element: <DocsHome /> },
+    { path: "docs/new", element: <DocCreate /> },
+    { path: "docs/:docId", element: <DocDetail /> },
+    { path: "docs/:docId/edit", element: <DocEdit /> },
     { path: "files", element: <FilesPage /> },
     { path: "automations", element: <AutomationsPage /> },
     { path: "automations/:automationId", element: <AutomationDetailPage /> },
@@ -207,8 +211,6 @@ export function AppRoutes() {
           <AppLayout />
         </Suspended>
       ),
-codex/implement-people,-teams-and-time-tracking
-      children,
       children: [
         { index: true, element: <HomePage /> },
         { path: "my-work", element: <MyWorkPage /> },
@@ -234,7 +236,10 @@ codex/implement-people,-teams-and-time-tracking
         { path: "projects/:projectId/timeline", element: <ProjectTimelinePage /> },
         { path: "projects/:projectId/dependencies", element: <ProjectDependenciesPage /> },
         { path: "projects/:projectId/reports", element: <ProjectReportsPage /> },
-        { path: "projects/:projectId/docs", element: <ProjectDocsPage /> },
+        { path: "projects/:projectId/docs", element: <ProjectDocsHome /> },
+        { path: "projects/:projectId/docs/new", element: <ProjectDocCreate /> },
+        { path: "projects/:projectId/docs/:docId", element: <ProjectDocDetail /> },
+        { path: "projects/:projectId/docs/:docId/edit", element: <ProjectDocEdit /> },
         { path: "projects/:projectId/files", element: <ProjectFilesPage /> },
         { path: "projects/:projectId/integrations", element: <ProjectIntegrationsPage /> },
         { path: "projects/:projectId/automations", element: <ProjectAutomationsPage /> },
@@ -250,7 +255,10 @@ codex/implement-people,-teams-and-time-tracking
         { path: "reports/new", element: <ReportCreate /> },
         { path: "reports/:reportId", element: <ReportDetail /> },
         { path: "reports/:reportId/edit", element: <ReportEdit /> },
-        { path: "docs", element: <DocsPage /> },
+        { path: "docs", element: <DocsHome /> },
+        { path: "docs/new", element: <DocCreate /> },
+        { path: "docs/:docId", element: <DocDetail /> },
+        { path: "docs/:docId/edit", element: <DocEdit /> },
         { path: "files", element: <FilesPage /> },
         { path: "automations", element: <AutomationsPage /> },
         { path: "integrations", element: <IntegrationsPage /> },
@@ -262,7 +270,6 @@ codex/implement-people,-teams-and-time-tracking
         { path: "time", element: <TimeTrackingPage /> },
         { path: "tasks/new", element: <NewTaskPage /> },
         { path: "profile", element: <Profile /> },
-codex/perform-deep-dive-on-settings-and-admin
         {
           path: "settings",
           element: <SettingsLayout />,
@@ -299,7 +306,6 @@ codex/perform-deep-dive-on-settings-and-admin
         },
         { path: "help", element: <HelpPage /> },
         { path: "settings", element: <Settings /> },
-codex/implement-notifications-and-inbox-functionality-g8mo3c
         { path: "settings/notifications", element: <NotificationSettingsPage /> },
         { path: "search", element: <SearchPage /> },
         { path: "search", element: <GlobalSearchPage /> },

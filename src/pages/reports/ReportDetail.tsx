@@ -256,6 +256,9 @@ export default function ReportDetail() {
             {lastRunAt ? (
               <p className="text-sm text-muted-foreground">
                 Last ran {new Date(lastRunAt).toLocaleString()}
+                {typeof runResult?.meta?.total === "number"
+                  ? ` • ${runResult.meta.total} row${runResult.meta.total === 1 ? "" : "s"}`
+                  : null}
               </p>
             ) : (
               <p className="text-sm text-muted-foreground">Run the report to view data.</p>
@@ -307,7 +310,9 @@ export default function ReportDetail() {
               </Table>
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground">No rows returned yet.</p>
+            <p className="text-sm text-muted-foreground">
+              {lastRunAt ? "No data" : "Results will appear after running the report."}
+            </p>
           )}
 
           {runResult?.meta?.groupCounts &&
