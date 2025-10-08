@@ -19,9 +19,9 @@ export type ListDocsParams = {
 export async function listDocs(params: ListDocsParams = {}): Promise<DocPage[]> {
   const { projectId, parentId, q } = params;
   let query = supabase
-    .from("doc_pages")
+    .from("doc_pages" as any)
     .select(DOC_FIELDS)
-    .order("title", { ascending: true });
+    .order("title", { ascending: true }) as any;
 
   if (projectId) {
     query = query.eq("project_id", projectId);
@@ -63,10 +63,10 @@ export async function getDoc(id: string): Promise<DocPage | null> {
   }
 
   const { data, error } = await supabase
-    .from("doc_pages")
+    .from("doc_pages" as any)
     .select(DOC_FIELDS)
     .eq("id", id)
-    .maybeSingle();
+    .maybeSingle() as any;
 
   if (error && error.code !== "PGRST116") {
     throw mapSupabaseError(error, "Unable to load the doc.");
@@ -95,10 +95,10 @@ async function resolveUniqueSlug(
   // eslint-disable-next-line no-constant-condition
   while (true) {
     let check = supabase
-      .from("doc_pages")
+      .from("doc_pages" as any)
       .select("id")
       .eq("slug", candidate)
-      .limit(1);
+      .limit(1) as any;
 
     if (projectId) {
       check = check.eq("project_id", projectId);
@@ -154,10 +154,10 @@ export async function createDoc(input: CreateDocInput): Promise<DocPage> {
   } as Record<string, unknown>;
 
   const { data, error } = await supabase
-    .from("doc_pages")
+    .from("doc_pages" as any)
     .insert(payload)
     .select(DOC_FIELDS)
-    .single();
+    .single() as any;
 
   if (error) {
     throw mapSupabaseError(error, "Unable to create the doc.");
@@ -165,14 +165,14 @@ export async function createDoc(input: CreateDocInput): Promise<DocPage> {
 
   const doc = data as DocPage;
 
-  await supabase.from("doc_versions").insert({
+  await supabase.from("doc_versions" as any).insert({
     doc_id: doc.id,
     version: doc.version,
     title: doc.title,
     body_markdown: doc.body_markdown,
     body_html: doc.body_html,
     created_by: ownerId,
-  });
+  } as any) as any;
 
   return doc;
 }
@@ -189,10 +189,10 @@ export async function updateDoc(id: string, patch: UpdateDocInput): Promise<DocP
   const userId = await requireUserId();
 
   const { data: existing, error: fetchError } = await supabase
-    .from("doc_pages")
+    .from("doc_pages" as any)
     .select("project_id")
     .eq("id", id)
-    .maybeSingle();
+    .maybeSingle() as any;
 
   if (fetchError || !existing) {
     throw mapSupabaseError(fetchError, "Doc not found.");
@@ -227,11 +227,11 @@ export async function updateDoc(id: string, patch: UpdateDocInput): Promise<DocP
   }
 
   const { data, error } = await supabase
-    .from("doc_pages")
+    .from("doc_pages" as any)
     .update(updates)
     .eq("id", id)
     .select(DOC_FIELDS)
-    .single();
+    .single() as any;
 
   if (error) {
     throw mapSupabaseError(error, "Unable to update the doc.");
@@ -245,7 +245,7 @@ export async function deleteDoc(id: string): Promise<void> {
     throw new Error("Doc id is required.");
   }
 
-  const { error } = await supabase.from("doc_pages").delete().eq("id", id);
+  const { error } = await supabase.from("doc_pages" as any).delete().eq("id", id) as any;
 
   if (error) {
     throw mapSupabaseError(error, "Unable to delete the doc.");
@@ -260,10 +260,10 @@ export async function listDocVersions(
   }
 
   const { data, error } = await supabase
-    .from("doc_versions")
+    .from("doc_versions" as any)
     .select("version, created_at, created_by")
     .eq("doc_id", docId)
-    .order("version", { ascending: false });
+    .order("version", { ascending: false }) as any;
 
   if (error) {
     throw mapSupabaseError(error, "Unable to load versions.");
@@ -280,10 +280,10 @@ export async function createDocVersionFromCurrent(docId: string): Promise<void> 
   const userId = await requireUserId();
 
   const { data: doc, error } = await supabase
-    .from("doc_pages")
+    .from("doc_pages" as any)
     .select("id, title, body_markdown, body_html, version")
     .eq("id", docId)
-    .maybeSingle();
+    .maybeSingle() as any;
 
   if (error || !doc) {
     throw mapSupabaseError(error, "Unable to snapshot the doc.");
@@ -292,23 +292,23 @@ export async function createDocVersionFromCurrent(docId: string): Promise<void> 
   const currentVersion = Number(doc.version) || 1;
   const nextVersion = currentVersion + 1;
 
-  const { error: insertError } = await supabase.from("doc_versions").insert({
+  const { error: insertError } = await supabase.from("doc_versions" as any).insert({
     doc_id: docId,
     version: nextVersion,
     title: doc.title,
     body_markdown: doc.body_markdown,
     body_html: doc.body_html,
     created_by: userId,
-  });
+  } as any) as any;
 
   if (insertError) {
     throw mapSupabaseError(insertError, "Unable to record version.");
   }
 
   const { error: updateError } = await supabase
-    .from("doc_pages")
+    .from("doc_pages" as any)
     .update({ version: nextVersion })
-    .eq("id", docId);
+    .eq("id", docId) as any;
 
   if (updateError) {
     throw mapSupabaseError(updateError, "Unable to bump doc version.");
@@ -323,18 +323,18 @@ export async function restoreDocVersion(docId: string, version: number): Promise
   const userId = await requireUserId();
 
   const { data: versionRow, error: versionError } = await supabase
-    .from("doc_versions")
+    .from("doc_versions" as any)
     .select("title, body_markdown, body_html")
     .eq("doc_id", docId)
     .eq("version", version)
-    .maybeSingle();
+    .maybeSingle() as any;
 
   if (versionError || !versionRow) {
     throw mapSupabaseError(versionError, "Version not found.");
   }
 
   const { data, error } = await supabase
-    .from("doc_pages")
+    .from("doc_pages" as any)
     .update({
       title: versionRow.title,
       body_markdown: versionRow.body_markdown,
@@ -344,7 +344,7 @@ export async function restoreDocVersion(docId: string, version: number): Promise
     })
     .eq("id", docId)
     .select(DOC_FIELDS)
-    .single();
+    .single() as any;
 
   if (error) {
     throw mapSupabaseError(error, "Unable to restore the doc.");
@@ -353,5 +353,5 @@ export async function restoreDocVersion(docId: string, version: number): Promise
   await createDocVersionFromCurrent(docId);
 
   const refreshed = await getDoc(docId);
-  return refreshed ?? (data as DocPage);
+  return refreshed ?? (data as any);
 }
