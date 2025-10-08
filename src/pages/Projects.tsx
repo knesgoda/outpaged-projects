@@ -1,72 +1,52 @@
-
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Plus, MoreHorizontal, FolderOpen, Calendar, Users, CheckSquare2, Loader2, Settings, Edit, Trash2 } from "lucide-react";
 import { ProjectDialog } from "@/components/projects/ProjectDialog";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { useProjectNavigation } from "@/hooks/useProjectNavigation";
+import { useProjects, useDeleteProject } from "@/hooks/useProjects";
 import { format } from "date-fns";
 
-interface ProjectListItem {
-  id: string;
-  name: string;
-  code?: string | null;
-  description?: string | null;
-  status?: string | null;
-  created_at?: string;
-  end_date?: string | null;
-}
-
 export default function Projects() {
-  const { user } = useAuth();
   const { toast } = useToast();
   const { navigateToProject, navigateToProjectSettings, getProjectUrl } = useProjectNavigation();
   const [isProjectDialogOpen, setIsProjectDialogOpen] = useState(false);
-  const [projects, setProjects] = useState<ProjectListItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  
+  const { data: projectsData, isLoading } = useProjects({ status: "all", sort: "updated_at", dir: "desc" });
+  const deleteProjectMutation = useDeleteProject();
 
-  const fetchProjects = async () => {
-    if (!user) return;
-
-    try {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from('projects')
-        .select('id, name, code, description, status, created_at, end_date')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-
-      setProjects((data as ProjectListItem[]) || []);
-    } catch (error: any) {
-      console.error('Error fetching projects:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load projects. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchProjects();
-  }, [user]);
+  const projects = projectsData?.data || [];
 
   const handleProjectSuccess = () => {
-    fetchProjects(); // Refresh the projects list
+    // The query will automatically refetch
   };
 
-  const handleProjectClick = (project: ProjectListItem) => {
+  const handleProjectClick = (project: any) => {
     navigateToProject(project);
+  };
+
+  const handleDeleteProject = async (projectId: string, projectName: string) => {
+    if (!confirm(`Are you sure you want to delete "${projectName}"?`)) {
+      return;
+    }
+
+    try {
+      await deleteProjectMutation.mutateAsync({ id: projectId });
+      toast({
+        title: "Success",
+        description: "Project deleted successfully",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete project",
+        variant: "destructive",
+      });
+    }
   };
 
   const getStatusVariant = (status: string) => {
@@ -97,7 +77,7 @@ export default function Projects() {
     }
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
@@ -195,8 +175,7 @@ export default function Projects() {
                     <DropdownMenuItem
                       onClick={(e) => {
                         e.stopPropagation();
-                        // Handle delete action
-                        console.log('Delete project:', project.id);
+                        handleDeleteProject(project.id, project.name);
                       }}
                       className="text-destructive"
                     >
@@ -211,16 +190,12 @@ export default function Projects() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {/* Status and dates */}
-              <div className="flex items-center justify-between">
-                <Badge variant={getStatusVariant(project.status)}>
-                  {formatStatus(project.status)}
-                </Badge>
-                {project.end_date && (
-                  <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                    <Calendar className="w-4 h-4" />
-                    {format(new Date(project.end_date), "MMM dd, yyyy")}
-                  </div>
+              {/* Status */}
+              <div className="flex items-center">
+                {project.status && (
+                  <Badge variant={getStatusVariant(project.status)}>
+                    {formatStatus(project.status)}
+                  </Badge>
                 )}
               </div>
 
