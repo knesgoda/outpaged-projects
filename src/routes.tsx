@@ -5,7 +5,10 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { ErrorBoundary } from "@/components/common/ErrorBoundary";
 import { InboxPage, type InboxTab } from "@/pages/inbox/InboxPage";
 import HomePage from "@/pages/ia/HomePage";
+import TimelinePage from "@/pages/ia/TimelinePage";
 import MyWorkPage from "@/pages/ia/MyWorkPage";
+import KanbanBoard from "@/pages/KanbanBoard";
+import CalendarPage from "@/pages/calendar/CalendarPage";
 import Projects from "@/pages/Projects";
 import ProjectDetails from "@/pages/ProjectDetails";
 import TasksPage from "@/pages/Tasks";
@@ -16,6 +19,20 @@ import NotificationsPage from "@/pages/Notifications";
 import ProfilePage from "@/pages/Profile";
 import TeamDirectoryPage from "@/pages/TeamDirectory";
 import TeamMemberProfilePage from "@/pages/TeamMemberProfile";
+import DocsHome from "@/pages/docs/DocsHome";
+import DocCreate from "@/pages/docs/DocCreate";
+import DocDetail from "@/pages/docs/DocDetail";
+import DocEdit from "@/pages/docs/DocEdit";
+import TimeHomePage from "@/pages/time/TimeHomePage";
+import MyTimePage from "@/pages/time/MyTimePage";
+import ApprovalsPage from "@/pages/time/ApprovalsPage";
+import HelpHome from "@/pages/help/HelpHome";
+import FAQPage from "@/pages/help/FAQPage";
+import ShortcutsPage from "@/pages/help/ShortcutsPage";
+import ChangelogPage from "@/pages/help/ChangelogPage";
+import ContactSupportPage from "@/pages/help/ContactSupportPage";
+import HelpSearchPage from "@/pages/help/HelpSearchPage";
+import OnboardingPage from "@/pages/help/OnboardingPage";
 import Login from "@/pages/Login";
 import AuthCallback from "@/pages/AuthCallback";
 import NotAuthorizedPage from "@/pages/NotAuthorized";
@@ -43,6 +60,9 @@ export function AppRoutes() {
       children: [
         { index: true, element: <HomePage /> },
         { path: "my-work", element: <MyWorkPage /> },
+        { path: "boards", element: <KanbanBoard /> },
+        { path: "calendar", element: <CalendarPage /> },
+        { path: "timeline", element: <TimelinePage /> },
         { path: "inbox", element: <InboxRoute tab="all" /> },
         { path: "inbox/mentions", element: <InboxRoute tab="mentions" /> },
         { path: "inbox/assigned", element: <InboxRoute tab="assigned" /> },
@@ -54,7 +74,37 @@ export function AppRoutes() {
         { path: "tasks", element: <TasksPage /> },
         { path: "reports", element: <ReportsPage /> },
         { path: "documents", element: <DocumentsPage /> },
+        {
+          path: "docs",
+          children: [
+            { index: true, element: <DocsHome /> },
+            { path: "new", element: <DocCreate /> },
+            { path: ":docId", element: <DocDetail /> },
+            { path: ":docId/edit", element: <DocEdit /> },
+          ],
+        },
         { path: "files", element: <FilesPage /> },
+        {
+          path: "time",
+          element: <TimeHomePage />,
+          children: [
+            { index: true, element: <Navigate to="my" replace /> },
+            { path: "my", element: <MyTimePage /> },
+            { path: "approvals", element: <ApprovalsPage /> },
+          ],
+        },
+        {
+          path: "help",
+          children: [
+            { index: true, element: <HelpHome /> },
+            { path: "faq", element: <FAQPage /> },
+            { path: "shortcuts", element: <ShortcutsPage /> },
+            { path: "changelog", element: <ChangelogPage /> },
+            { path: "contact", element: <ContactSupportPage /> },
+            { path: "search", element: <HelpSearchPage /> },
+            { path: "onboarding", element: <OnboardingPage /> },
+          ],
+        },
         { path: "notifications", element: <NotificationsPage /> },
         { path: "profile", element: <ProfilePage /> },
         { path: "team", element: <TeamDirectoryPage /> },
