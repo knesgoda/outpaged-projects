@@ -7,8 +7,8 @@ const WORKSPACE_FIELDS =
   "id, owner, brand_name, name, brand_logo_url, default_timezone, default_capacity_hours_per_week, allowed_email_domain, features, security, billing, updated_at";
 
 export async function getWorkspaceSettings(): Promise<WorkspaceSettings | null> {
-  const { data, error } = await supabase
-    .from("workspace_settings")
+  const { data, error } = await (supabase
+    .from("workspace_settings") as any)
     .select(WORKSPACE_FIELDS)
     .limit(1)
     .maybeSingle();
@@ -32,8 +32,8 @@ export async function upsertWorkspaceSettings(patch: Partial<WorkspaceSettings>)
     payload.id = existing.id;
   }
 
-  const { data, error } = await supabase
-    .from("workspace_settings")
+  const { data, error } = await (supabase
+    .from("workspace_settings") as any)
     .upsert(payload, { onConflict: "id" })
     .select(WORKSPACE_FIELDS)
     .single();
@@ -46,8 +46,8 @@ export async function upsertWorkspaceSettings(patch: Partial<WorkspaceSettings>)
 }
 
 export async function listMembers(): Promise<WorkspaceMember[]> {
-  const { data, error } = await supabase
-    .from("workspace_members")
+  const { data, error } = await (supabase
+    .from("workspace_members") as any)
     .select("user_id, role")
     .order("user_id", { ascending: true });
 
@@ -59,8 +59,8 @@ export async function listMembers(): Promise<WorkspaceMember[]> {
 }
 
 export async function setMemberRole(userId: string, role: WorkspaceMember["role"]): Promise<void> {
-  const { error } = await supabase
-    .from("workspace_members")
+  const { error } = await (supabase
+    .from("workspace_members") as any)
     .update({ role })
     .eq("user_id", userId);
 
@@ -70,8 +70,8 @@ export async function setMemberRole(userId: string, role: WorkspaceMember["role"
 }
 
 export async function removeMember(userId: string): Promise<void> {
-  const { error } = await supabase
-    .from("workspace_members")
+  const { error } = await (supabase
+    .from("workspace_members") as any)
     .delete()
     .eq("user_id", userId);
 
@@ -103,8 +103,8 @@ export async function uploadBrandLogo(file: File): Promise<string> {
     payload.id = existing.id;
   }
 
-  const { error: updateError } = await supabase
-    .from("workspace_settings")
+  const { error: updateError } = await (supabase
+    .from("workspace_settings") as any)
     .upsert(payload, { onConflict: "id" });
 
   if (updateError) {

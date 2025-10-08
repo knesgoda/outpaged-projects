@@ -95,11 +95,11 @@ export async function uploadPublicImage(
     throw mapSupabaseError(error, "Unable to upload file.");
   }
 
-  const { data, error: urlError } = supabase.storage.from(bucket).getPublicUrl(objectPath);
+  const { data } = supabase.storage.from(bucket).getPublicUrl(objectPath);
   const publicUrl = data?.publicUrl;
 
-  if (urlError || !publicUrl) {
-    throw mapSupabaseError(urlError, "Unable to generate file URL.");
+  if (!publicUrl) {
+    throw mapSupabaseError(null, "Unable to generate file URL.");
   }
 
   return { path: objectPath, publicUrl };
@@ -123,11 +123,11 @@ export async function uploadDocImage(file: File, userId: string): Promise<{ publ
     throw mapSupabaseError(error, "Unable to upload the image.");
   }
 
-  const { data, error: urlError } = supabase.storage.from("docs").getPublicUrl(objectPath);
+  const { data } = supabase.storage.from("docs").getPublicUrl(objectPath);
   const publicUrl = data?.publicUrl;
 
-  if (urlError || !publicUrl) {
-    throw mapSupabaseError(urlError, "Unable to resolve the image URL.");
+  if (!publicUrl) {
+    throw mapSupabaseError(null, "Unable to resolve the image URL.");
   }
 
   return { publicUrl };

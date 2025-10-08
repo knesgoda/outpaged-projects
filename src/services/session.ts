@@ -8,7 +8,7 @@ export async function requireUserId() {
     return data.user.id;
   }
 
-  const fallback = getCurrentUser();
+  const fallback = await getCurrentUser();
   if (fallback?.id) {
     return fallback.id;
   }

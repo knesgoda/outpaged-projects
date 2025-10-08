@@ -12,8 +12,8 @@ function ensureValidUrl(url: string) {
 }
 
 export async function listWebhooks(): Promise<Webhook[]> {
-  const { data, error } = await supabase
-    .from("webhooks")
+  const { data, error } = await (supabase
+    .from("webhooks") as any)
     .select("id, owner, target_url, secret, active, created_at")
     .order("created_at", { ascending: false });
 
@@ -32,8 +32,8 @@ export async function createWebhook(input: {
   ensureValidUrl(input.target_url);
   const owner = await requireUserId();
 
-  const { data, error } = await supabase
-    .from("webhooks")
+  const { data, error } = await (supabase
+    .from("webhooks") as any)
     .insert({
       owner,
       target_url: input.target_url.trim(),
@@ -66,8 +66,8 @@ export async function updateWebhook(
     payload.active = patch.active;
   }
 
-  const { data, error } = await supabase
-    .from("webhooks")
+  const { data, error } = await (supabase
+    .from("webhooks") as any)
     .update(payload)
     .eq("id", id)
     .select("id, owner, target_url, secret, active, created_at")
@@ -81,7 +81,7 @@ export async function updateWebhook(
 }
 
 export async function deleteWebhook(id: string): Promise<void> {
-  const { error } = await supabase.from("webhooks").delete().eq("id", id);
+  const { error } = await (supabase.from("webhooks") as any).delete().eq("id", id);
 
   if (error) {
     handleSupabaseError(error, "Failed to delete webhook.");
