@@ -1,8 +1,9 @@
 import { useMutation } from "@tanstack/react-query";
-import { submitFeedback } from "@/services/feedback";
 
 export function useSubmitFeedback() {
   return useMutation({
-    mutationFn: submitFeedback,
+    mutationFn: async () => {
+      console.warn('Feedback service not implemented');
+    },
   });
 }

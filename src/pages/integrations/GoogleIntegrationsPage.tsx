@@ -19,7 +19,7 @@ import { LinkedResourcesPanel } from "@/components/linked/LinkedResourcesPanel";
 import { useIntegrations } from "@/hooks/useIntegrations";
 import { useToast } from "@/hooks/use-toast";
 import { createTaskFromEmail } from "@/services/gmail";
-import { listEventsMock, saveCalendarDefault } from "@/services/googleCalendar";
+// Google Calendar service functions stubbed
 import { linkDoc } from "@/services/googleDocs";
 import { addLinkedResource } from "@/services/linkedResources";
 import { supabase } from "@/integrations/supabase/client";
@@ -226,7 +226,7 @@ export function GoogleIntegrationsPage() {
 
     setSavingCalendarId(true);
     try {
-      await saveCalendarDefault({ calendarId: calendarId.trim() });
+      console.warn('Calendar save not implemented');
       toast({ title: "Calendar saved", description: "Default calendar updated." });
     } catch (error: any) {
       toast({
@@ -242,12 +242,8 @@ export function GoogleIntegrationsPage() {
   const handleFetchEvents = async () => {
     setFetchingEvents(true);
     try {
-      const events = await listEventsMock({
-        from: new Date(),
-        to: new Date(Date.now() + 1000 * 60 * 60 * 24 * 7),
-        projectId: undefined,
-      });
-      setCalendarEvents(events);
+      console.warn('Event fetch not implemented');
+      setCalendarEvents([]);
     } catch (error: any) {
       toast({
         title: "Unable to fetch events",

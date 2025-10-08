@@ -17,7 +17,7 @@ export async function listLinkedResources(entity: {
   id: string;
 }): Promise<LinkedResource[]> {
   const { data, error } = await supabase
-    .from("linked_resources")
+    .from("linked_resources" as any)
     .select("*")
     .eq("entity_type", entity.type)
     .eq("entity_id", entity.id)
@@ -27,7 +27,7 @@ export async function listLinkedResources(entity: {
     throw new Error(error.message || "Failed to load linked resources");
   }
 
-  return (data ?? []) as LinkedResource[];
+  return (data as any ?? []) as LinkedResource[];
 }
 
 export async function addLinkedResource(
@@ -57,8 +57,8 @@ export async function addLinkedResource(
   };
 
   const { data, error } = await supabase
-    .from("linked_resources")
-    .insert(payload)
+    .from("linked_resources" as any)
+    .insert(payload as any)
     .select("*")
     .single();
 
@@ -66,12 +66,12 @@ export async function addLinkedResource(
     throw new Error(error.message || "Failed to save linked resource");
   }
 
-  return data as LinkedResource;
+  return data as any as LinkedResource;
 }
 
 export async function removeLinkedResource(id: string): Promise<void> {
   const { error } = await supabase
-    .from("linked_resources")
+    .from("linked_resources" as any)
     .delete()
     .eq("id", id);
 

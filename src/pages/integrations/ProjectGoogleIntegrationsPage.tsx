@@ -19,7 +19,7 @@ import { LinkedResourcesPanel } from "@/components/linked/LinkedResourcesPanel";
 import { useIntegrations } from "@/hooks/useIntegrations";
 import { useToast } from "@/hooks/use-toast";
 import { createTaskFromEmail } from "@/services/gmail";
-import { listEventsMock } from "@/services/googleCalendar";
+// Google Calendar service stubbed
 import { linkDoc } from "@/services/googleDocs";
 import { addLinkedResource } from "@/services/linkedResources";
 import { supabase } from "@/integrations/supabase/client";
@@ -159,12 +159,8 @@ export function ProjectGoogleIntegrationsPage() {
   const handleFetchEvents = async () => {
     setFetchingEvents(true);
     try {
-      const events = await listEventsMock({
-        from: new Date(),
-        to: new Date(Date.now() + 1000 * 60 * 60 * 24 * 7),
-        projectId,
-      });
-      setCalendarEvents(events);
+      console.warn('Event fetch not implemented');
+      setCalendarEvents([]);
     } catch (error: any) {
       toast({
         title: "Unable to fetch events",

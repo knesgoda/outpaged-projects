@@ -3,7 +3,7 @@ import type { NotificationPreferences } from "@/types";
 
 export async function getMyNotificationPreferences(): Promise<NotificationPreferences | null> {
   const { data, error, status } = await supabase
-    .from("notification_preferences")
+    .from("user_notification_preferences" as any)
     .select("*")
     .maybeSingle();
 
@@ -11,7 +11,7 @@ export async function getMyNotificationPreferences(): Promise<NotificationPrefer
     throw new Error(error.message || "Failed to load notification preferences");
   }
 
-  return (data as NotificationPreferences | null) ?? null;
+  return (data as any as NotificationPreferences | null) ?? null;
 }
 
 export async function upsertMyNotificationPreferences(
@@ -48,8 +48,8 @@ export async function upsertMyNotificationPreferences(
   }
 
   const { data, error } = await supabase
-    .from("notification_preferences")
-    .upsert(payload, { onConflict: "user_id" })
+    .from("user_notification_preferences" as any)
+    .upsert(payload as any, { onConflict: "user_id" })
     .select("*")
     .single();
 
@@ -57,5 +57,5 @@ export async function upsertMyNotificationPreferences(
     throw new Error(error.message || "Failed to update notification preferences");
   }
 
-  return data as NotificationPreferences;
+  return data as any as NotificationPreferences;
 }
