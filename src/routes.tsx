@@ -20,6 +20,17 @@ import Login from "@/pages/Login";
 import AuthCallback from "@/pages/AuthCallback";
 import NotAuthorizedPage from "@/pages/NotAuthorized";
 import NotFound from "@/pages/NotFound";
+import { AdminLayout } from "@/pages/admin/AdminLayout";
+import AdminHome from "@/pages/admin/AdminHome";
+import WorkspaceSettings from "@/pages/admin/WorkspaceSettings";
+import MembersPage from "@/pages/admin/MembersPage";
+import PermissionsPage from "@/pages/admin/PermissionsPage";
+import SecurityPage from "@/pages/admin/SecurityPage";
+import AuditLogsPage from "@/pages/admin/AuditLogsPage";
+import DataPage from "@/pages/admin/DataPage";
+import WebhooksPage from "@/pages/admin/WebhooksPage";
+import ApiExplorerPage from "@/pages/admin/ApiExplorerPage";
+import BillingPage from "@/pages/admin/BillingPage";
 
 function InboxRoute({ tab }: { tab: InboxTab }) {
   return <InboxPage tab={tab} />;
@@ -59,6 +70,22 @@ export function AppRoutes() {
         { path: "profile", element: <ProfilePage /> },
         { path: "team", element: <TeamDirectoryPage /> },
         { path: "team/:memberId", element: <TeamMemberProfilePage /> },
+        {
+          path: "admin",
+          element: <AdminLayout />,
+          children: [
+            { index: true, element: <AdminHome /> },
+            { path: "workspace", element: <WorkspaceSettings /> },
+            { path: "members", element: <MembersPage /> },
+            { path: "permissions", element: <PermissionsPage /> },
+            { path: "security", element: <SecurityPage /> },
+            { path: "audit", element: <AuditLogsPage /> },
+            { path: "data", element: <DataPage /> },
+            { path: "webhooks", element: <WebhooksPage /> },
+            { path: "api", element: <ApiExplorerPage /> },
+            { path: "billing", element: <BillingPage /> },
+          ],
+        },
       ],
     },
     { path: "/login", element: <Login /> },

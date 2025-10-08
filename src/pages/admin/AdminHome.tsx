@@ -5,6 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { useWorkspaceMembers, useWorkspaceSettings } from "@/hooks/useWorkspace";
 import { useAuditLogs } from "@/hooks/useAudit";
 import { Link } from "react-router-dom";
+import { enableOutpagedBrand } from "@/lib/featureFlags";
+import { AdminConsoleShowcase } from "./AdminConsoleShowcase";
 
 type SecuritySettings = {
   mfa_required?: boolean;
@@ -44,6 +46,10 @@ export default function AdminHome() {
     }
     return settings.security as SecuritySettings;
   }, [settings]);
+
+  if (enableOutpagedBrand) {
+    return <AdminConsoleShowcase />;
+  }
 
   return (
     <section className="space-y-8">

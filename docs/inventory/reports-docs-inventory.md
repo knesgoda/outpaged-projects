@@ -9,7 +9,7 @@
 - src/pages/reports/ReportEdit.tsx
 - src/pages/ia/projects/ProjectReportsPage.tsx (legacy project-level wrapper)
 - src/pages/ia/ReportsPage.tsx (legacy stub)
-- src/pages/Reports.tsx (legacy analytics dashboard)
+- src/pages/Reports.tsx (feature-flagged analytics dashboard)
 - src/components/analytics/ReportsGenerator.tsx (legacy component)
 - src/components/analytics/ReportScheduler.tsx (legacy component)
 
@@ -40,7 +40,7 @@
 
 ## Observations
 - src/routes.tsx includes duplicate default imports for `PeoplePage` and `SearchPage`, which currently break type-checking.
-- Legacy pages (src/pages/Reports.tsx, src/pages/ia/ReportsPage.tsx, src/pages/ia/DocsPage.tsx) are still present but unused by the active router.
+- Legacy pages (src/pages/ia/ReportsPage.tsx, src/pages/ia/DocsPage.tsx) are still present but unused by the active router; `/reports` now points at the feature-flagged dashboard in `src/pages/Reports.tsx`.
 - ProjectDocDetail renders raw markdown and lacks the restore/version plumbing added to DocDetail.
 - DocsHome and ProjectDocsHome preview panes show raw markdown instead of sanitized HTML.
 - Docs navigation entry in src/lib/navConfig.tsx does not provide matchPaths for nested project doc routes, so active styling will miss project views.

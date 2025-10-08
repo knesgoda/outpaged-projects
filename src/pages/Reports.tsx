@@ -12,7 +12,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { enableOutpagedBrand } from '@/lib/featureFlags';
-import { StatusChip } from '@/components/outpaged/StatusChip';
 import {
   BarChart,
   Bar,
@@ -21,13 +20,9 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  LineChart,
-  Line,
   PieChart,
   Pie,
   Cell,
-  AreaChart,
-  Area
 } from 'recharts';
 import {
   TrendingUp,
@@ -68,7 +63,10 @@ interface TeamMember {
   efficiency: number;
 }
 
-function LegacyReports() {
+type ReportsVariant = 'legacy' | 'outpaged';
+
+function ReportsDashboard({ variant }: { variant: ReportsVariant }) {
+  const isOutpaged = variant === 'outpaged';
   const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({
     from: startOfMonth(subMonths(new Date(), 1)),
     to: new Date(),
@@ -274,27 +272,65 @@ function LegacyReports() {
     toast({
       title: "Export Report",
       description: "Report export functionality coming soon!",
+      variant: isOutpaged ? "default" : "destructive",
     });
   };
 
+  const containerClasses = cn("space-y-6", isOutpaged && "space-y-8");
+  const cardClassName = isOutpaged
+    ? "rounded-3xl border-none bg-[hsl(var(--card))]/95 shadow-soft"
+    : undefined;
+
   return (
-    <div className="space-y-6">
+    <div className={containerClasses}>
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Analytics & Reports</h1>
-          <p className="text-muted-foreground text-sm sm:text-base">
-            Comprehensive insights into project and team performance
-          </p>
+      {isOutpaged ? (
+        <Card className="overflow-hidden rounded-3xl border-none bg-gradient-to-br from-primary/10 via-background to-background shadow-soft">
+          <CardContent className="flex flex-col gap-6 p-6 sm:flex-row sm:items-center sm:justify-between">
+            <div className="space-y-3">
+              <Badge variant="secondary" className="w-fit rounded-full px-3 py-1 text-xs uppercase tracking-wide">
+                Workspace insights
+              </Badge>
+              <div className="space-y-2">
+                <h1 className="text-3xl font-semibold leading-tight text-foreground md:text-4xl">
+                  Reports & intelligence hub
+                </h1>
+                <p className="max-w-xl text-sm text-muted-foreground md:text-base">
+                  Monitor delivery health across teams, track project throughput, and export curated snapshots with a single click.
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-col gap-3 sm:items-end">
+              <div className="rounded-xl border border-primary/30 bg-primary/10 px-4 py-2 text-xs uppercase tracking-wide text-primary">
+                Updated {format(new Date(), "MMM d, yyyy")}
+              </div>
+              <Button
+                onClick={handleExport}
+                className="w-full rounded-full bg-primary px-6 py-5 text-base font-semibold text-primary-foreground shadow-lg shadow-primary/30 transition-transform hover:-translate-y-0.5 hover:shadow-xl sm:w-auto"
+              >
+                <Download className="mr-2 h-5 w-5" />
+                Export executive summary
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Analytics & Reports</h1>
+            <p className="text-muted-foreground text-sm sm:text-base">
+              Comprehensive insights into project and team performance
+            </p>
+          </div>
+          <Button onClick={handleExport} className="w-full bg-gradient-primary hover:opacity-90 sm:w-auto">
+            <Download className="mr-2 h-4 w-4" />
+            Export Report
+          </Button>
         </div>
-        <Button onClick={handleExport} className="bg-gradient-primary hover:opacity-90 w-full sm:w-auto">
-          <Download className="w-4 h-4 mr-2" />
-          Export Report
-        </Button>
-      </div>
+      )}
 
       {/* Filters */}
-      <Card>
+      <Card className={cn(cardClassName)}>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Filter className="w-5 h-5" />
@@ -391,7 +427,7 @@ function LegacyReports() {
 
       {/* Key Metrics */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card>
+        <Card className={cn(cardClassName)}>
           <CardContent className="p-6">
             <div className="flex items-center gap-4">
               <div className="p-3 bg-primary/10 rounded-full">
@@ -428,7 +464,7 @@ function LegacyReports() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className={cn(cardClassName)}>
           <CardContent className="p-6">
             <div className="flex items-center gap-4">
               <div className="p-3 bg-warning/10 rounded-full">
@@ -465,7 +501,7 @@ function LegacyReports() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className={cn(cardClassName)}>
           <CardContent className="p-6">
             <div className="flex items-center gap-4">
               <div className="p-3 bg-success/10 rounded-full">
@@ -502,7 +538,7 @@ function LegacyReports() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className={cn(cardClassName)}>
           <CardContent className="p-6">
             <div className="flex items-center gap-4">
               <div className="p-3 bg-destructive/10 rounded-full">
@@ -542,16 +578,53 @@ function LegacyReports() {
 
       {/* Charts and Analytics */}
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="performance">Performance</TabsTrigger>
-          <TabsTrigger value="burndown">Burndown</TabsTrigger>
-          <TabsTrigger value="velocity">Velocity</TabsTrigger>
+        <TabsList
+          className={cn(
+            "grid w-full grid-cols-2 sm:grid-cols-4",
+            isOutpaged && "rounded-full bg-muted/40 p-1 backdrop-blur"
+          )}
+        >
+          <TabsTrigger
+            value="overview"
+            className={cn(
+              isOutpaged &&
+                "rounded-full data-[state=active]:bg-background data-[state=active]:shadow-sm"
+            )}
+          >
+            Overview
+          </TabsTrigger>
+          <TabsTrigger
+            value="performance"
+            className={cn(
+              isOutpaged &&
+                "rounded-full data-[state=active]:bg-background data-[state=active]:shadow-sm"
+            )}
+          >
+            Performance
+          </TabsTrigger>
+          <TabsTrigger
+            value="burndown"
+            className={cn(
+              isOutpaged &&
+                "rounded-full data-[state=active]:bg-background data-[state=active]:shadow-sm"
+            )}
+          >
+            Burndown
+          </TabsTrigger>
+          <TabsTrigger
+            value="velocity"
+            className={cn(
+              isOutpaged &&
+                "rounded-full data-[state=active]:bg-background data-[state=active]:shadow-sm"
+            )}
+          >
+            Velocity
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card>
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <Card className={cn(cardClassName)}>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <BarChart3 className="w-5 h-5" />
@@ -584,7 +657,7 @@ function LegacyReports() {
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className={cn(cardClassName)}>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <PieChartIcon className="w-5 h-5" />
@@ -628,7 +701,7 @@ function LegacyReports() {
         </TabsContent>
 
         <TabsContent value="performance" className="space-y-6">
-          <Card>
+          <Card className={cn(cardClassName)}>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Activity className="w-5 h-5" />
@@ -644,7 +717,13 @@ function LegacyReports() {
               ) : teamMembers.length > 0 ? (
                 <div className="space-y-4">
                   {teamMembers.map((member) => (
-                    <div key={member.id} className="flex items-center justify-between p-4 border rounded-lg">
+                    <div
+                      key={member.id}
+                      className={cn(
+                        "flex items-center justify-between rounded-lg border p-4",
+                        isOutpaged && "rounded-2xl border-border/40 bg-muted/40 backdrop-blur"
+                      )}
+                    >
                       <div className="space-y-1">
                         <h4 className="font-medium">{member.name}</h4>
                         <div className="flex gap-4 text-sm text-muted-foreground">
@@ -672,7 +751,7 @@ function LegacyReports() {
         </TabsContent>
 
         <TabsContent value="burndown" className="space-y-6">
-          <Card>
+          <Card className={cn(cardClassName)}>
             <CardHeader>
               <CardTitle>Sprint Burndown Chart</CardTitle>
               <CardDescription>Progress tracking for current sprint</CardDescription>
@@ -690,7 +769,7 @@ function LegacyReports() {
         </TabsContent>
 
         <TabsContent value="velocity" className="space-y-6">
-          <Card>
+          <Card className={cn(cardClassName)}>
             <CardHeader>
               <CardTitle>Team Velocity</CardTitle>
               <CardDescription>Sprint velocity and commitment tracking</CardDescription>
@@ -711,80 +790,14 @@ function LegacyReports() {
   );
 }
 
-function OutpagedAdminConsole() {
-  const cards = [
-    {
-      title: 'Teams',
-      description: 'Design • Mobile Dev • Backend Dev • AI • Operations',
-      body: (
-        <div className="flex flex-wrap gap-2 text-sm text-[hsl(var(--muted-foreground))]">
-          {['Design', 'Mobile Dev', 'Backend Dev', 'AI', 'Operations'].map((team) => (
-            <StatusChip key={team} variant="neutral">
-              {team}
-            </StatusChip>
-          ))}
-        </div>
-      ),
-    },
-    {
-      title: 'Single Sign-On',
-      description: 'outpaged.com',
-      body: (
-        <div className="space-y-2 text-sm text-[hsl(var(--muted-foreground))]">
-          <p>Google Workspace enforced</p>
-          <StatusChip variant="accent">All users</StatusChip>
-        </div>
-      ),
-    },
-    {
-      title: 'Workflow Library',
-      description: 'A collection of predefined workflows',
-      body: (
-        <div className="space-y-2 text-sm text-[hsl(var(--muted-foreground))]">
-          <p>Design → Software handoff</p>
-          <p>Marketing launch QA</p>
-        </div>
-      ),
-    },
-    {
-      title: 'Backups',
-      description: 'Nightly snapshots & exports',
-      body: (
-        <div className="space-y-2 text-sm text-[hsl(var(--muted-foreground))]">
-          <p>Last export: 2 hours ago</p>
-          <StatusChip variant="success">Healthy</StatusChip>
-        </div>
-      ),
-    },
-  ];
+function LegacyReports() {
+  return <ReportsDashboard variant="legacy" />;
+}
 
-  return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-8">
-      <div className="space-y-2 text-[hsl(var(--foreground))]">
-        <StatusChip variant="accent">Admin</StatusChip>
-        <h1 className="text-4xl font-semibold tracking-tight">Admin Console</h1>
-        <p className="text-sm text-[hsl(var(--muted-foreground))]">Teams & Workflows</p>
-      </div>
-
-      <div className="grid gap-6 md:grid-cols-2">
-        {cards.map((card) => (
-          <Card key={card.title} className="rounded-3xl border-none bg-[hsl(var(--card))]/95 shadow-soft">
-            <CardHeader className="space-y-1">
-              <CardTitle className="text-lg font-semibold text-[hsl(var(--foreground))]">{card.title}</CardTitle>
-              <CardDescription className="text-sm text-[hsl(var(--muted-foreground))]">{card.description}</CardDescription>
-            </CardHeader>
-            <CardContent>{card.body}</CardContent>
-          </Card>
-        ))}
-      </div>
-    </div>
-  );
+function OutpagedReportsDashboard() {
+  return <ReportsDashboard variant="outpaged" />;
 }
 
 export default function Reports() {
-  if (enableOutpagedBrand) {
-    return <OutpagedAdminConsole />;
-  }
-
-  return <LegacyReports />;
+  return enableOutpagedBrand ? <OutpagedReportsDashboard /> : <LegacyReports />;
 }
