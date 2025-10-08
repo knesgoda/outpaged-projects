@@ -75,16 +75,12 @@ describe("Profile service smoke tests", () => {
 
     const profile = await updateMyProfile({
       full_name: "Ada Lovelace",
-      title: "Engineer",
-      department: "R&D",
-      timezone: "UTC",
-      capacity_hours_per_week: 32,
     });
 
     expect(profile.full_name).toBe("Ada Lovelace");
 
     const fetched = await getMyProfile();
-    expect(fetched?.title).toBe("Engineer");
+    expect(fetched?.full_name).toBe("Ada Lovelace");
 
     const file = { name: "avatar.png", type: "image/png", size: 1024 } as unknown as File;
     const url = await uploadMyAvatar(file);

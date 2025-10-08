@@ -39,31 +39,23 @@ function dedupeMentions(mentions?: string[]): string[] {
 
 export async function listComments(entity: CommentEntity): Promise<(CommentWithAuthor & { mentions: string[] })[]> {
   const { data, error } = await supabase
-    .from('comments')
+    .from('comments' as any)
     .select(`
       id,
-      entity_type,
-      entity_id,
-      author,
-      parent_id,
-      body_markdown,
-      body_html,
+      task_id,
+      author_id,
+      content,
       created_at,
       updated_at,
-      edited_at,
       author_profile:profiles!inner (
         user_id,
         full_name,
         avatar_url,
         email
-      ),
-      comment_mentions (
-        mentioned_user
       )
     `)
-    .eq('entity_type', entity.type)
-    .eq('entity_id', entity.id)
-    .order('created_at', { ascending: true });
+    .eq('task_id', entity.id)
+    .order('created_at', { ascending: true }) as any;
 
   if (error) {
     throw error;
@@ -71,22 +63,22 @@ export async function listComments(entity: CommentEntity): Promise<(CommentWithA
 
   return (data ?? []).map((row: any) => ({
     id: row.id,
-    entity_type: row.entity_type,
-    entity_id: row.entity_id,
-    author: row.author,
-    parent_id: row.parent_id,
-    body_markdown: row.body_markdown ?? '',
-    body_html: row.body_html,
+    entity_type: 'task',
+    entity_id: row.task_id,
+    author: row.author_id,
+    parent_id: null,
+    body_markdown: row.content ?? '',
+    body_html: null,
     created_at: row.created_at,
     updated_at: row.updated_at,
-    edited_at: row.edited_at,
+    edited_at: null,
     author_profile: {
-      id: row.author_profile?.user_id ?? row.author,
+      id: row.author_profile?.user_id ?? row.author_id,
       full_name: row.author_profile?.full_name,
       avatar_url: row.author_profile?.avatar_url,
       email: row.author_profile?.email,
     },
-    mentions: (row.comment_mentions ?? []).map((mention: any) => mention.mentioned_user),
+    mentions: [],
   }));
 }
 
@@ -105,26 +97,19 @@ export async function createComment(input: CreateCommentInput): Promise<CommentW
   }
 
   const { data, error } = await supabase
-    .from('comments')
+    .from('comments' as any)
     .insert({
-      entity_type: input.entity_type,
-      entity_id: input.entity_id,
-      parent_id: input.parent_id ?? null,
-      body_markdown: input.body_markdown,
-      body_html: input.body_html ?? null,
-      author: user.id,
+      task_id: input.entity_id,
+      author_id: user.id,
+      content: input.body_markdown,
     })
     .select(`
       id,
-      entity_type,
-      entity_id,
-      author,
-      parent_id,
-      body_markdown,
-      body_html,
+      task_id,
+      author_id,
+      content,
       created_at,
       updated_at,
-      edited_at,
       author_profile:profiles!inner (
         user_id,
         full_name,
@@ -132,7 +117,7 @@ export async function createComment(input: CreateCommentInput): Promise<CommentW
         email
       )
     `)
-    .single();
+    .single() as any;
 
   if (error) {
     throw error;
@@ -140,17 +125,17 @@ export async function createComment(input: CreateCommentInput): Promise<CommentW
 
   const newComment: CommentWithAuthor & { mentions: string[] } = {
     id: data.id,
-    entity_type: data.entity_type,
-    entity_id: data.entity_id,
-    author: data.author,
-    parent_id: data.parent_id,
-    body_markdown: data.body_markdown ?? '',
-    body_html: data.body_html,
+    entity_type: input.entity_type,
+    entity_id: data.task_id,
+    author: data.author_id,
+    parent_id: null,
+    body_markdown: data.content ?? '',
+    body_html: null,
     created_at: data.created_at,
     updated_at: data.updated_at,
-    edited_at: data.edited_at,
+    edited_at: null,
     author_profile: {
-      id: data.author_profile?.user_id ?? data.author,
+      id: data.author_profile?.user_id ?? data.author_id,
       full_name: data.author_profile?.full_name,
       avatar_url: data.author_profile?.avatar_url,
       email: data.author_profile?.email,
@@ -175,10 +160,10 @@ export async function createComment(input: CreateCommentInput): Promise<CommentW
 
 export async function updateComment(id: string, patch: UpdateCommentInput): Promise<CommentWithAuthor & { mentions: string[] }> {
   const { data: comment, error: commentError } = await supabase
-    .from('comments')
-    .select('id, author, entity_type, entity_id')
+    .from('comments' as any)
+    .select('id, author_id, task_id')
     .eq('id', id)
-    .maybeSingle();
+    .maybeSingle() as any;
 
   if (commentError) {
     throw commentError;
@@ -189,24 +174,18 @@ export async function updateComment(id: string, patch: UpdateCommentInput): Prom
   }
 
   const { data, error } = await supabase
-    .from('comments')
+    .from('comments' as any)
     .update({
-      body_markdown: patch.body_markdown,
-      body_html: patch.body_html ?? null,
-      edited_at: new Date().toISOString(),
+      content: patch.body_markdown,
     })
     .eq('id', id)
     .select(`
       id,
-      entity_type,
-      entity_id,
-      author,
-      parent_id,
-      body_markdown,
-      body_html,
+      task_id,
+      author_id,
+      content,
       created_at,
       updated_at,
-      edited_at,
       author_profile:profiles!inner (
         user_id,
         full_name,
@@ -214,47 +193,38 @@ export async function updateComment(id: string, patch: UpdateCommentInput): Prom
         email
       )
     `)
-    .single();
+    .single() as any;
 
   if (error) {
     throw error;
   }
 
-  const mentionIds = dedupeMentions(patch.mentions);
-  await syncMentions({
-    commentId: id,
-    newMentionIds: mentionIds,
-    authorId: comment.author,
-    entityType: comment.entity_type,
-    entityId: comment.entity_id,
-  });
-
   return {
     id: data.id,
-    entity_type: data.entity_type,
-    entity_id: data.entity_id,
-    author: data.author,
-    parent_id: data.parent_id,
-    body_markdown: data.body_markdown ?? '',
-    body_html: data.body_html,
+    entity_type: 'task',
+    entity_id: data.task_id,
+    author: data.author_id,
+    parent_id: null,
+    body_markdown: data.content ?? '',
+    body_html: null,
     created_at: data.created_at,
     updated_at: data.updated_at,
-    edited_at: data.edited_at,
+    edited_at: null,
     author_profile: {
-      id: data.author_profile?.user_id ?? data.author,
+      id: data.author_profile?.user_id ?? data.author_id,
       full_name: data.author_profile?.full_name,
       avatar_url: data.author_profile?.avatar_url,
       email: data.author_profile?.email,
     },
-    mentions: mentionIds,
+    mentions: [],
   };
 }
 
 export async function deleteComment(id: string): Promise<void> {
   const { error } = await supabase
-    .from('comments')
+    .from('comments' as any)
     .delete()
-    .eq('id', id);
+    .eq('id', id) as any;
 
   if (error) {
     throw error;
@@ -270,30 +240,8 @@ type PersistMentionsArgs = {
 };
 
 async function persistMentions({ commentId, mentionIds, entityType, entityId, authorId }: PersistMentionsArgs) {
-  if (mentionIds.length === 0) return;
-
-  const uniqueMentionRows = mentionIds
-    .filter(mentionedUser => mentionedUser !== authorId)
-    .map(mentionedUser => ({ comment_id: commentId, mentioned_user: mentionedUser }));
-
-  if (uniqueMentionRows.length === 0) return;
-
-  const { error: mentionError } = await supabase
-    .from('comment_mentions')
-    .insert(uniqueMentionRows)
-    .onConflict('comment_id,mentioned_user');
-
-  if (mentionError && mentionError.code !== '23505') {
-    throw mentionError;
-  }
-
-  await createMentionNotifications({
-    userIds: uniqueMentionRows.map(row => row.mentioned_user),
-    entityType,
-    entityId,
-    authorId,
-    commentId,
-  });
+  // Mentions not supported in current schema
+  return;
 }
 
 type SyncMentionsArgs = {
@@ -305,42 +253,8 @@ type SyncMentionsArgs = {
 };
 
 async function syncMentions({ commentId, newMentionIds, authorId, entityType, entityId }: SyncMentionsArgs) {
-  const { data: existing, error: existingError } = await supabase
-    .from('comment_mentions')
-    .select('mentioned_user')
-    .eq('comment_id', commentId);
-
-  if (existingError) {
-    throw existingError;
-  }
-
-  const existingIds = new Set((existing ?? []).map(row => row.mentioned_user));
-  const nextIds = new Set(newMentionIds);
-
-  const toInsert = Array.from(nextIds).filter(id => !existingIds.has(id));
-  const toDelete = Array.from(existingIds).filter(id => !nextIds.has(id));
-
-  if (toInsert.length > 0) {
-    await persistMentions({
-      commentId,
-      mentionIds: toInsert,
-      entityType,
-      entityId,
-      authorId,
-    });
-  }
-
-  if (toDelete.length > 0) {
-    const { error: deleteError } = await supabase
-      .from('comment_mentions')
-      .delete()
-      .eq('comment_id', commentId)
-      .in('mentioned_user', toDelete);
-
-    if (deleteError) {
-      throw deleteError;
-    }
-  }
+  // Mentions not supported in current schema
+  return;
 }
 
 type CreateMentionNotificationsArgs = {
@@ -352,36 +266,6 @@ type CreateMentionNotificationsArgs = {
 };
 
 async function createMentionNotifications({ userIds, entityType, entityId, authorId, commentId }: CreateMentionNotificationsArgs) {
-  if (userIds.length === 0) return;
-
-  const cleanUserIds = Array.from(new Set(userIds.filter(id => id !== authorId)));
-  if (cleanUserIds.length === 0) return;
-
-  const { data: authorProfile } = await supabase
-    .from('profiles')
-    .select('full_name')
-    .eq('user_id', authorId)
-    .maybeSingle();
-
-  const title = 'New mention';
-  const displayName = authorProfile?.full_name ?? 'Someone';
-  const body = `${displayName} mentioned you in a comment`;
-
-  const rows = cleanUserIds.map(userId => ({
-    user_id: userId,
-    type: 'mention' as const,
-    title,
-    body,
-    entity_type: entityType,
-    entity_id: entityId,
-    comment_id: commentId,
-  }));
-
-  const { error } = await supabase
-    .from('notifications')
-    .insert(rows.map(({ comment_id, ...rest }) => rest));
-
-  if (error) {
-    throw error;
-  }
+  // Mentions not supported in current schema
+  return;
 }

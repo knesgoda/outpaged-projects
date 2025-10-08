@@ -232,7 +232,7 @@ const searchProjects = async (
   }));
 };
 
-const searchDocs = async (
+export const searchDocs = async (
   client: SupabaseClient<any>,
   ctx: QueryContext
 ): Promise<SearchResult[]> => {
@@ -281,7 +281,7 @@ const searchDocs = async (
   });
 };
 
-const searchFiles = async (
+export const searchFiles = async (
   client: SupabaseClient<any>,
   ctx: QueryContext
 ): Promise<SearchResult[]> => {
@@ -353,7 +353,7 @@ const resolveCommentUrl = (row: any): string | null => {
   }
 };
 
-const searchComments = async (
+export const searchComments = async (
   client: SupabaseClient<any>,
   ctx: QueryContext
 ): Promise<SearchResult[]> => {

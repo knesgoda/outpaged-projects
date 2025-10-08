@@ -154,17 +154,17 @@ export async function listAutomationRuns(automationId: string): Promise<Automati
   }
 
   const { data, error } = await supabase
-    .from("automation_runs")
-    .select(RUN_FIELDS)
-    .eq("automation_id", automationId)
-    .order("created_at", { ascending: false })
-    .limit(50);
+    .from("automation_executions" as any)
+    .select('*')
+    .eq("rule_id", automationId)
+    .order("executed_at", { ascending: false })
+    .limit(50) as any;
 
   if (error) {
     throw mapSupabaseError(error, "Unable to load automation runs.");
   }
 
-  return (data as AutomationRun[]) ?? [];
+  return (data as any) ?? [];
 }
 
 export async function enqueueTestRun(automationId: string): Promise<void> {
