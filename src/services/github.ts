@@ -1,20 +1,19 @@
-import type { GitHubRepository } from "@/types";
+// GitHub integration service - not fully implemented
 
-export async function listGitHubRepos(): Promise<GitHubRepository[]> {
+export const listGitHubRepos = async (): Promise<any[]> => {
   console.warn('GitHub integration not fully implemented');
   return [];
-}
+};
 
-export async function saveRepoDefault(): Promise<void> {
+export const saveRepoDefault = async (_projectId: string, _config: any) => {
   console.warn('GitHub integration not fully implemented');
-}
+};
 
-export async function listIssuesMock(): Promise<any[]> {
+export const listIssuesMock = async (_projectId?: string) => {
   console.warn('GitHub integration not fully implemented');
   return [];
-}
+};
 
-export async function linkIssue(): Promise<any> {
+export const linkIssue = async (_projectId: string, _config: any) => {
   console.warn('GitHub integration not fully implemented');
-  return null;
-}
+};

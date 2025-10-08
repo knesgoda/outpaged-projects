@@ -56,10 +56,10 @@ export async function listProjects(params: ProjectListParams = {}): Promise<Proj
 
   const { start, end } = normalizePagination(page, pageSize);
 
-  let query = supabase
+  let query = (supabase
     .from("projects")
     .select("id, name, description, status, updated_at, created_at", { count: "exact" })
-    .order(sort, { ascending: dir === "asc" });
+    .order(sort, { ascending: dir === "asc" }) as any);
 
   if (status) {
     query = query.eq("status", status);
@@ -100,7 +100,7 @@ export async function getProject(id: string): Promise<ProjectRecord | null> {
     throw error;
   }
 
-  return data as ProjectRecord;
+  return data as any as ProjectRecord;
 }
 
 export interface CreateProjectInput {
@@ -124,21 +124,21 @@ export async function createProject(input: CreateProjectInput): Promise<ProjectR
     throw new Error("Project name is required");
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await (supabase
     .from("projects")
     .insert({
       name: trimmedName,
       description: input.description?.trim() || null,
-      owner: ownerId,
+      owner_id: ownerId,
     })
     .select()
-    .single();
+    .single() as any);
 
   if (error) {
     throw error;
   }
 
-  return data as ProjectRecord;
+  return data as any as ProjectRecord;
 }
 
 export type UpdateProjectInput = Partial<Pick<ProjectRecord, "name" | "description" | "status" >>;
@@ -168,18 +168,18 @@ export async function updateProject(id: string, patch: UpdateProjectInput): Prom
     updated_at: new Date().toISOString(),
   };
 
-  const { data, error } = await supabase
+  const { data, error } = await (supabase
     .from("projects")
-    .update(payload)
+    .update(payload as any)
     .eq("id", id)
     .select()
-    .single();
+    .single() as any);
 
   if (error) {
     throw error;
   }
 
-  return data as ProjectRecord;
+  return data as any as ProjectRecord;
 }
 
 export async function archiveProject(id: string): Promise<ProjectRecord> {

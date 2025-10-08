@@ -45,11 +45,11 @@ export async function searchTeammates({ q, projectId }: SearchParams): Promise<P
     }
 
     if (project?.owner_id) {
-      const { data: ownerProfile, error: ownerError } = await supabase
+      const { data: ownerProfile, error: ownerError } = await (supabase
         .from('profiles')
-        .select('user_id, full_name, avatar_url, email')
+        .select('user_id, full_name, avatar_url')
         .eq('user_id', project.owner_id)
-        .maybeSingle();
+        .maybeSingle() as any);
 
       if (ownerError) {
         throw ownerError;
@@ -60,7 +60,7 @@ export async function searchTeammates({ q, projectId }: SearchParams): Promise<P
           id: ownerProfile.user_id,
           full_name: ownerProfile.full_name,
           avatar_url: ownerProfile.avatar_url,
-          email: ownerProfile.email ?? null,
+          email: null,
         });
       }
     }
@@ -85,12 +85,12 @@ export async function searchTeammates({ q, projectId }: SearchParams): Promise<P
     return filtered.slice(0, MAX_RESULTS);
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await (supabase
     .from('profiles')
-    .select('user_id, full_name, avatar_url, email')
+    .select('user_id, full_name, avatar_url')
     .ilike('full_name', `%${query}%`)
     .order('full_name', { ascending: true })
-    .limit(MAX_RESULTS);
+    .limit(MAX_RESULTS) as any);
 
   if (error) {
     throw error;
@@ -100,6 +100,6 @@ export async function searchTeammates({ q, projectId }: SearchParams): Promise<P
     id: person.user_id,
     full_name: person.full_name,
     avatar_url: person.avatar_url,
-    email: person.email,
+    email: null,
   }));
 }

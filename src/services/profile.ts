@@ -5,11 +5,11 @@ import { uploadPublicImage } from "./storage";
 
 export async function getMyProfile(): Promise<Profile | null> {
   const userId = await requireUserId();
-  const { data, error } = await supabase
+  const { data, error } = await (supabase
     .from("profiles")
-    .select("id, full_name, avatar_url, updated_at")
-    .eq("id", userId)
-    .maybeSingle();
+    .select("user_id, full_name, avatar_url, updated_at")
+    .eq("user_id", userId)
+    .maybeSingle() as any);
 
   if (error && error.code !== "PGRST116") {
     throw new Error(error.message);
@@ -23,16 +23,16 @@ export async function updateMyProfile(
 ): Promise<Profile> {
   const userId = await requireUserId();
   const payload = {
-    id: userId,
+    user_id: userId,
     ...patch,
     updated_at: new Date().toISOString(),
   };
 
-  const { data, error } = await supabase
+  const { data, error } = await (supabase
     .from("profiles")
-    .upsert(payload, { onConflict: "id" })
-    .select("id, full_name, avatar_url, updated_at")
-    .single();
+    .upsert(payload, { onConflict: "user_id" })
+    .select("user_id, full_name, avatar_url, updated_at")
+    .single() as any);
 
   if (error) {
     throw new Error(error.message);
@@ -54,9 +54,9 @@ export async function uploadMyAvatar(file: File): Promise<string> {
   const userId = await requireUserId();
   const { publicUrl } = await uploadPublicImage("avatars", file, `avatars/${userId}/avatar-${Date.now()}`);
 
-  const { error: updateError } = await supabase
+  const { error: updateError } = await (supabase
     .from("profiles")
-    .upsert({ id: userId, avatar_url: publicUrl, updated_at: new Date().toISOString() }, { onConflict: "id" });
+    .upsert({ user_id: userId, avatar_url: publicUrl, updated_at: new Date().toISOString() }, { onConflict: "user_id" }) as any);
 
   if (updateError) {
     throw new Error(updateError.message);
