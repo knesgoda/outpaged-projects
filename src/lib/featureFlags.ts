@@ -2,21 +2,10 @@ const truthy = new Set(["true", "1", "on", "yes"]);
 const falsy = new Set(["false", "0", "off", "no"]);
 
 function readEnv(key: string): string | undefined {
-  if (typeof process !== "undefined" && process.env?.[key]) {
-    return process.env[key];
-  }
-
   try {
-    const getImportMetaEnv = new Function(
-      "return typeof import.meta !== 'undefined' ? import.meta.env : undefined;",
-    );
-    const env = getImportMetaEnv() as ImportMetaEnv | undefined;
-    return env?.[key as keyof ImportMetaEnv];
+    return import.meta.env?.[key as keyof ImportMetaEnv];
   } catch (error) {
-    if (process.env?.NODE_ENV !== "test") {
-      // eslint-disable-next-line no-console
-      console.warn("Failed to read Vite env variable", { key, error });
-    }
+    console.warn("Failed to read env variable", { key, error });
     return undefined;
   }
 }
