@@ -4,8 +4,8 @@ import type { Subscription } from "@/types";
 type EntityRef = { type: Subscription["entity_type"]; id: string };
 
 export async function listSubscriptions(): Promise<Subscription[]> {
-  const { data, error } = await (supabase
-    .from("notification_subscriptions") as any)
+  const { data, error } = await (supabase as any)
+    .from("notification_subscriptions")
     .select("*")
     .order("created_at", { ascending: false });
 
@@ -30,8 +30,8 @@ export async function toggleSubscription(entity: EntityRef): Promise<boolean> {
     throw new Error("Not authenticated");
   }
 
-  const { data: existing, error: fetchError } = await (supabase
-    .from("notification_subscriptions") as any)
+  const { data: existing, error: fetchError } = await (supabase as any)
+    .from("notification_subscriptions")
     .select("id")
     .eq("user_id", user.id)
     .eq("entity_type", entity.type)
@@ -43,8 +43,8 @@ export async function toggleSubscription(entity: EntityRef): Promise<boolean> {
   }
 
   if (existing) {
-    const { error } = await (supabase
-      .from("notification_subscriptions") as any)
+    const { error } = await (supabase as any)
+      .from("notification_subscriptions")
       .delete()
       .eq("id", existing.id);
 
@@ -55,8 +55,8 @@ export async function toggleSubscription(entity: EntityRef): Promise<boolean> {
     return false;
   }
 
-  const { error: insertError } = await (supabase
-    .from("notification_subscriptions") as any)
+  const { error: insertError } = await (supabase as any)
+    .from("notification_subscriptions")
     .insert({
       user_id: user.id,
       entity_type: entity.type,

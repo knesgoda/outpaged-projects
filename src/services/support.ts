@@ -9,8 +9,8 @@ const TICKET_SELECT =
 export async function listMyTickets(): Promise<SupportTicket[]> {
   const userId = await requireUserId();
 
-  const { data, error } = await (supabase
-    .from("support_tickets") as any)
+  const { data, error } = await (supabase as any)
+    .from("support_tickets")
     .select(TICKET_SELECT)
     .eq("user_id", userId)
     .order("created_at", { ascending: false });
@@ -27,8 +27,8 @@ export async function createTicket(
 ): Promise<SupportTicket> {
   const userId = await requireUserId();
 
-  const { data, error } = await (supabase
-    .from("support_tickets") as any)
+  const { data, error } = await (supabase as any)
+    .from("support_tickets")
     .insert({ ...input, user_id: userId })
     .select(TICKET_SELECT)
     .single();
@@ -41,8 +41,8 @@ export async function createTicket(
 }
 
 export async function getTicket(id: string): Promise<SupportTicket | null> {
-  const { data, error } = await (supabase
-    .from("support_tickets") as any)
+  const { data, error } = await (supabase as any)
+    .from("support_tickets")
     .select(TICKET_SELECT)
     .eq("id", id)
     .maybeSingle();
@@ -58,8 +58,8 @@ export async function updateTicketStatus(
   id: string,
   status: SupportTicket["status"]
 ): Promise<SupportTicket> {
-  const { data, error } = await (supabase
-    .from("support_tickets") as any)
+  const { data, error } = await (supabase as any)
+    .from("support_tickets")
     .update({ status, updated_at: new Date().toISOString() })
     .eq("id", id)
     .select(TICKET_SELECT)
