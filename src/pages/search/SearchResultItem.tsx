@@ -11,6 +11,7 @@ const TYPE_LABELS: Record<SearchResult["type"], string> = {
   file: "File",
   comment: "Comment",
   person: "Person",
+  team_member: "Team Member",
 };
 
 const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");

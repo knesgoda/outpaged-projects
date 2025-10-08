@@ -43,6 +43,7 @@ const TYPE_LABELS: Record<SearchResult["type"], string> = {
   file: "Files",
   comment: "Comments",
   person: "People",
+  team_member: "Team Members",
 };
 
 const TYPE_ICONS: Record<SearchResult["type"], LucideIcon> = {
@@ -52,6 +53,7 @@ const TYPE_ICONS: Record<SearchResult["type"], LucideIcon> = {
   file: File,
   comment: MessageSquare,
   person: User,
+  team_member: User,
 };
 
 type QuickAction = {

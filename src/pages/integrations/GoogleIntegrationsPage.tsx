@@ -54,6 +54,7 @@ const providerNames: Record<IntegrationKey, string> = {
   google_calendar: "Google Calendar",
   google_docs: "Google Docs",
   github: "GitHub",
+  webhooks: "Webhooks",
 };
 
 export function GoogleIntegrationsPage() {

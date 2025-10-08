@@ -7,7 +7,7 @@ const ANNOUNCEMENT_SELECT =
 
 export async function listAnnouncements(): Promise<Announcement[]> {
   const { data, error } = await supabase
-    .from("announcements")
+    .from("announcements" as any)
     .select(ANNOUNCEMENT_SELECT)
     .order("published_at", { ascending: false });
 
@@ -15,7 +15,7 @@ export async function listAnnouncements(): Promise<Announcement[]> {
     throw mapSupabaseError(error, "Unable to load announcements.");
   }
 
-  return data ?? [];
+  return (data as any) ?? [];
 }
 
 export async function getAnnouncement(id: string): Promise<Announcement | null> {

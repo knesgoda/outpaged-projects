@@ -41,7 +41,7 @@ async function hashToken(token: string) {
 
 export async function listApiTokens(): Promise<ApiToken[]> {
   const { data, error } = await supabase
-    .from("api_tokens")
+    .from("api_tokens" as any)
     .select("id, user_id, name, token_prefix, last_four, created_at, revoked_at")
     .order("created_at", { ascending: false });
 
@@ -49,7 +49,7 @@ export async function listApiTokens(): Promise<ApiToken[]> {
     handleSupabaseError(error, "Failed to load API tokens.");
   }
 
-  return (data as ApiToken[]) ?? [];
+  return (data as any) ?? [];
 }
 
 export async function createApiToken(name: string): Promise<{ token: string; tokenRow: ApiToken }> {
@@ -64,14 +64,14 @@ export async function createApiToken(name: string): Promise<{ token: string; tok
   const last_four = token.slice(-4);
 
   const { data, error } = await supabase
-    .from("api_tokens")
+    .from("api_tokens" as any)
     .insert({
       user_id: userId,
       name: name.trim(),
       token_prefix,
       token_hash,
       last_four,
-    })
+    } as any)
     .select("id, user_id, name, token_prefix, last_four, created_at, revoked_at")
     .single();
 
@@ -79,13 +79,13 @@ export async function createApiToken(name: string): Promise<{ token: string; tok
     handleSupabaseError(error, "Failed to create API token.");
   }
 
-  return { token, tokenRow: data as ApiToken };
+  return { token, tokenRow: data as any };
 }
 
 export async function revokeApiToken(id: string): Promise<void> {
   const { error } = await supabase
-    .from("api_tokens")
-    .update({ revoked_at: new Date().toISOString() })
+    .from("api_tokens" as any)
+    .update({ revoked_at: new Date().toISOString() } as any)
     .eq("id", id);
 
   if (error) {

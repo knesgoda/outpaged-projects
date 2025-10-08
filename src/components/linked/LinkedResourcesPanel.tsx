@@ -1,5 +1,5 @@
 import { Fragment, useMemo, type ComponentType } from "react";
-import { ExternalLink, Link as LinkIcon, Mail, Calendar, FileText, GitBranch, Trash2 } from "lucide-react";
+import { ExternalLink, Link as LinkIcon, Mail, Calendar, FileText, GitBranch, Trash2, Webhook } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +15,7 @@ const providerInfo: Record<LinkedResource["provider"], { label: string; icon: Co
   google_calendar: { label: "Calendar", icon: Calendar },
   google_docs: { label: "Docs", icon: FileText },
   github: { label: "GitHub", icon: GitBranch },
+  webhooks: { label: "Webhooks", icon: Webhook },
 };
 
 type LinkedResourcesPanelProps = {
