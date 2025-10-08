@@ -52,7 +52,7 @@ export default function DataPage() {
 
     setExporting({ table: tableId, format });
 
-    const { data, error } = await supabase.from(table.id).select(table.select);
+    const { data, error } = await supabase.from(table.id as any).select(table.select);
 
     if (error) {
       const message = error.code === "42501" || error.code === "PGRST301" ? "You do not have access" : error.message;
@@ -61,7 +61,7 @@ export default function DataPage() {
       return;
     }
 
-    const rows = (data as Array<Record<string, unknown>>) ?? [];
+    const rows = (data as any[]) ?? [];
     if (rows.length === 0) {
       toast({ title: "No data", description: "This table is empty." });
       setExporting(null);

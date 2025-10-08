@@ -45,7 +45,8 @@ export default function DocDetail() {
   const doc = docQuery.data ?? null;
   const previewHtml = useMemo(() => {
     if (!doc) return "";
-    return DOMPurify.sanitize(marked.parse(doc.body_markdown ?? ""));
+    const parsed = marked.parse(doc.body_markdown ?? "");
+    return DOMPurify.sanitize(typeof parsed === 'string' ? parsed : '');
   }, [doc]);
 
   const handleDelete = async () => {

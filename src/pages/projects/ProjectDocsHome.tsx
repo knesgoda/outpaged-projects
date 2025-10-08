@@ -34,7 +34,8 @@ export default function ProjectDocsHome() {
   const selectedDoc = docQuery.data ?? null;
   const previewHtml = useMemo(() => {
     if (!selectedDoc) return "";
-    return DOMPurify.sanitize(marked.parse(selectedDoc.body_markdown ?? ""));
+    const parsed = marked.parse(selectedDoc.body_markdown ?? "");
+    return DOMPurify.sanitize(typeof parsed === 'string' ? parsed : '');
   }, [selectedDoc]);
 
   const projectName = project.data?.name ?? projectId ?? "Project";

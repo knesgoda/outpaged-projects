@@ -199,14 +199,14 @@ export function useEnhancedNotifications() {
 
   const markAsRead = async (id: string) => {
     const now = new Date().toISOString();
-    await supabase.from("notifications").update({ read_at: now }).eq("id", id);
+    await supabase.from("notifications").update({ read_at: now } as any).eq("id", id);
     await queryClient.invalidateQueries({ queryKey: ["notifications"] });
   };
 
   const markAllAsRead = async () => {
     const now = new Date().toISOString();
     if (!user) return;
-    await supabase.from("notifications").update({ read_at: now }).eq("user_id", user.id).is("read_at", null);
+    await supabase.from("notifications").update({ read_at: now } as any).eq("user_id", user.id).is("read_at", null);
     await queryClient.invalidateQueries({ queryKey: ["notifications"] });
   };
 

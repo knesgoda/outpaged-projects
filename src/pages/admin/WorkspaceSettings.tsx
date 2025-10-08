@@ -195,7 +195,7 @@ export default function WorkspaceSettings() {
                 onChange={handleChange("allowed_email_domain")}
                 placeholder="example.com"
               />
-              <Alert variant="warning" className="mt-2">
+              <Alert variant="destructive" className="mt-2">
                 <AlertTitle>Heads up</AlertTitle>
                 <AlertDescription>
                   Only teammates with this domain will be able to join when this is set.

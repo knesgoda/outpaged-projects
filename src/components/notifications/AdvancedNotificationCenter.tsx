@@ -198,7 +198,7 @@ export function AdvancedNotificationCenter() {
                         {group}
                       </h4>
                       <div className="space-y-2">
-                        {groupNotifications.map((notification) => {
+                        {Array.isArray(groupNotifications) && groupNotifications.map((notification) => {
                           const IconComponent =
                             notificationIcons[notification.type as keyof typeof notificationIcons] || Info;
                           const colorClass =

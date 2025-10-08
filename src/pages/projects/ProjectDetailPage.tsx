@@ -17,7 +17,7 @@ import {
   ListTodo,
   Settings,
   Sparkles,
-  Unarchive,
+  ArchiveRestore,
 } from "lucide-react";
 
 import { Helmet } from "react-helmet-async";
@@ -221,7 +221,7 @@ export function ProjectDetailPage({ tab = "overview" }: ProjectDetailPageProps) 
           >
             {project.status === "archived" ? (
               <>
-                <Unarchive className="mr-2 h-4 w-4" />
+                <ArchiveRestore className="mr-2 h-4 w-4" />
                 Unarchive
               </>
             ) : (

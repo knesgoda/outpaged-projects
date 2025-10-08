@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import type { WorkspaceMember } from "@/types";
+import type { WorkspaceMember } from "@/types/workspace";
 
 export type Role = WorkspaceMember["role"] | "viewer";
 
