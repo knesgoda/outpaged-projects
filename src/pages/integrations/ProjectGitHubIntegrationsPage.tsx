@@ -35,7 +35,7 @@ export function ProjectGitHubIntegrationsPage() {
     isDisconnecting,
     connectIntegration,
     disconnectIntegration,
-  } = useIntegrations(projectId);
+  } = useIntegrations({ projectId });
 
   const connection = useMemo(() => {
     return userIntegrations.find((item) => item.provider === "github" && item.project_id === projectId);

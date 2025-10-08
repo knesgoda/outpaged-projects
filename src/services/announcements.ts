@@ -20,7 +20,7 @@ export async function listAnnouncements(): Promise<Announcement[]> {
 
 export async function getAnnouncement(id: string): Promise<Announcement | null> {
   const { data, error } = await supabase
-    .from("announcements")
+    .from("announcements" as any)
     .select(ANNOUNCEMENT_SELECT)
     .eq("id", id)
     .maybeSingle();
@@ -29,5 +29,5 @@ export async function getAnnouncement(id: string): Promise<Announcement | null> 
     throw mapSupabaseError(error, "Unable to load the announcement.");
   }
 
-  return data ?? null;
+  return (data as any) ?? null;
 }

@@ -30,7 +30,6 @@ export function GitHubIntegrationsPage() {
     userIntegrations,
     isConnecting,
     isDisconnecting,
-    isUpdatingConfig,
     connectIntegration,
     disconnectIntegration,
   } = useIntegrations();
@@ -297,7 +296,7 @@ export function GitHubIntegrationsPage() {
               value={defaultRepo}
               onChange={(event) => setDefaultRepo(event.target.value)}
               placeholder="owner/name"
-              disabled={isUpdatingConfig}
+              disabled={savingRepo}
             />
           </div>
           <Button onClick={handleSaveRepo} disabled={savingRepo}>

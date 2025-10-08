@@ -83,7 +83,7 @@ export function IntegrationsHome() {
 
   const handleConnect = async (provider: IntegrationKey, displayName?: string) => {
     try {
-      await connectIntegration({ provider, displayName: displayName ?? undefined, accessData: { mock: true } });
+      await connectIntegration({ provider: provider as any, displayName: displayName ?? undefined, accessData: { mock: true } });
       toast({ title: "Connected", description: `${providers.find((p) => p.key === provider)?.title ?? "Provider"} ready to use.` });
     } catch (error: any) {
       toast({

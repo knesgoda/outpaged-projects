@@ -315,7 +315,7 @@ function filterItems(items: NavItem[], role: Role): NavItem[] {
       }
       return { ...item, children };
     })
-    .filter((item): item is NavItem => item !== null);
+    .filter((item): item is NonNullable<typeof item> => item !== null);
 }
 
 export function getNavForRole(role: Role) {

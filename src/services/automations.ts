@@ -8,9 +8,9 @@ const RUN_FIELDS = "id, automation_id, status, message, payload, created_at";
 
 export async function listAutomations(projectId?: string): Promise<Automation[]> {
   let query = supabase
-    .from("automations")
-    .select(AUTOMATION_FIELDS)
-    .order("updated_at", { ascending: false });
+    .from("automation_rules" as any)
+    .select("id, project_id, name, description, is_active, trigger_type, execution_count, last_executed_at, created_at, created_by")
+    .order("created_at", { ascending: false });
 
   if (projectId) {
     query = query.eq("project_id", projectId);
@@ -22,7 +22,7 @@ export async function listAutomations(projectId?: string): Promise<Automation[]>
     throw mapSupabaseError(error, "Unable to load automations.");
   }
 
-  return (data as Automation[]) ?? [];
+  return (data as any) ?? [];
 }
 
 export async function getAutomation(id: string): Promise<Automation | null> {
@@ -31,8 +31,8 @@ export async function getAutomation(id: string): Promise<Automation | null> {
   }
 
   const { data, error } = await supabase
-    .from("automations")
-    .select(AUTOMATION_FIELDS)
+    .from("automation_rules" as any)
+    .select("id, project_id, name, description, is_active, trigger_type, execution_count, last_executed_at, created_at, created_by")
     .eq("id", id)
     .maybeSingle();
 
@@ -40,7 +40,7 @@ export async function getAutomation(id: string): Promise<Automation | null> {
     throw mapSupabaseError(error, "Unable to load automation.");
   }
 
-  return (data as Automation | null) ?? null;
+  return (data as any) ?? null;
 }
 
 export async function createAutomation(
@@ -60,19 +60,19 @@ export async function createAutomation(
   }
 
   const { data, error } = await supabase
-    .from("automations")
+    .from("automation_rules" as any)
     .insert({
       ...payload,
       name: payload.name.trim(),
-    })
-    .select(AUTOMATION_FIELDS)
+    } as any)
+    .select("id, project_id, name, description, is_active, trigger_type, execution_count, last_executed_at, created_at, created_by")
     .single();
 
   if (error) {
     throw mapSupabaseError(error, "Unable to create automation.");
   }
 
-  return data as Automation;
+  return data as any;
 }
 
 export async function updateAutomation(
@@ -123,17 +123,17 @@ export async function updateAutomation(
   }
 
   const { data, error } = await supabase
-    .from("automations")
-    .update(updates)
+    .from("automation_rules" as any)
+    .update(updates as any)
     .eq("id", id)
-    .select(AUTOMATION_FIELDS)
+    .select("id, project_id, name, description, is_active, trigger_type, execution_count, last_executed_at, created_at, created_by")
     .single();
 
   if (error) {
     throw mapSupabaseError(error, "Unable to update automation.");
   }
 
-  return data as Automation;
+  return data as any;
 }
 
 export async function deleteAutomation(id: string): Promise<void> {
@@ -141,7 +141,7 @@ export async function deleteAutomation(id: string): Promise<void> {
     throw new Error("Automation id is required.");
   }
 
-  const { error } = await supabase.from("automations").delete().eq("id", id);
+  const { error } = await supabase.from("automation_rules" as any).delete().eq("id", id);
 
   if (error) {
     throw mapSupabaseError(error, "Unable to delete automation.");
@@ -173,13 +173,12 @@ export async function enqueueTestRun(automationId: string): Promise<void> {
   }
 
   const { data, error } = await supabase
-    .from("automation_runs")
+    .from("automation_executions" as any)
     .insert({
-      automation_id: automationId,
-      status: "success",
-      message: "Test run executed",
-      payload: { triggered_at: new Date().toISOString(), test: true },
-    })
+      rule_id: automationId,
+      success: true,
+      trigger_data: { triggered_at: new Date().toISOString(), test: true },
+    } as any)
     .select("id")
     .single();
 

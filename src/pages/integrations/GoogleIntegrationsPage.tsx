@@ -83,7 +83,6 @@ export function GoogleIntegrationsPage() {
     userIntegrations,
     isConnecting,
     isDisconnecting,
-    isUpdatingConfig,
     connectIntegration,
     disconnectIntegration,
   } = useIntegrations();
@@ -112,7 +111,7 @@ export function GoogleIntegrationsPage() {
   const [gmailProjectId, setGmailProjectId] = useState<string>("");
   const [creatingTask, setCreatingTask] = useState(false);
 
-  const calendarRecord = integrations.find((item) => item.key === "google_calendar");
+  const calendarRecord = integrations.find((item) => item.key === "google_drive");
   const [calendarId, setCalendarId] = useState<string>(
     calendarRecord?.config?.calendar_id_default ?? ""
   );
@@ -146,7 +145,7 @@ export function GoogleIntegrationsPage() {
 
   const handleConnect = async (provider: IntegrationKey) => {
     try {
-      await connectIntegration({ provider, accessData: { mock: true } });
+      await connectIntegration({ provider: provider as any, accessData: { mock: true } });
       toast({
         title: "Connected",
         description: `${providerNames[provider]} ready to use.`,
@@ -464,7 +463,7 @@ export function GoogleIntegrationsPage() {
                   value={calendarId}
                   onChange={(event) => setCalendarId(event.target.value)}
                   placeholder="Primary calendar ID or ICS URL"
-                  disabled={isUpdatingConfig}
+                  disabled={savingCalendarId}
                 />
                 <Button onClick={handleSaveCalendarId} disabled={savingCalendarId}>
                   {savingCalendarId ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}

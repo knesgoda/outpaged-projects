@@ -62,7 +62,7 @@ export function ProjectIntegrationsPage() {
     isDisconnecting,
     connectIntegration,
     disconnectIntegration,
-  } = useIntegrations(projectId);
+  } = useIntegrations({ projectId });
 
   const { data: project } = useQuery({
     queryKey: ["project", projectId],
@@ -104,7 +104,7 @@ export function ProjectIntegrationsPage() {
 
   const handleConnect = async (provider: IntegrationKey) => {
     try {
-      await connectIntegration({ provider, projectId, accessData: { mock: true } });
+      await connectIntegration({ provider: provider as any, projectId, accessData: { mock: true } });
       toast({ title: "Connected", description: `${providers.find((p) => p.key === provider)?.title ?? "Provider"} connected.` });
     } catch (error: any) {
       toast({

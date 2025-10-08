@@ -203,7 +203,7 @@ export const GlobalSearchPage = () => {
       groups.set(item.type, existing);
     });
     return TYPE_FILTERS.filter((filter) => filter.value !== "all")
-      .map((filter) => [filter.value, groups.get(filter.value) ?? []] as [
+      .map((filter) => [filter.value, groups.get(filter.value as any) ?? []] as [
         SearchResult["type"],
         SearchResult[]
       ])

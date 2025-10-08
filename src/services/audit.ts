@@ -12,8 +12,8 @@ type AuditListParams = {
 
 export async function listAuditLogs(params?: AuditListParams): Promise<AuditLog[]> {
   let query = supabase
-    .from("audit_logs")
-    .select("id, actor, action, target_type, target_id, metadata, created_at")
+    .from("audit_log" as any)
+    .select("id, user_id, action, entity_type, entity_id, changes, metadata, created_at")
     .order("created_at", { ascending: false });
 
   if (params?.action) {
@@ -38,8 +38,8 @@ export async function listAuditLogs(params?: AuditListParams): Promise<AuditLog[
     query = query.or(
       [
         `action.ilike.${ilike}`,
-        `target_type.ilike.${ilike}`,
-        `target_id.ilike.${ilike}`,
+        `entity_type.ilike.${ilike}`,
+        `entity_id.ilike.${ilike}`,
       ].join(",")
     );
   }
@@ -50,7 +50,7 @@ export async function listAuditLogs(params?: AuditListParams): Promise<AuditLog[
     handleSupabaseError(error, "Failed to load audit logs.");
   }
 
-  return (data as AuditLog[]) ?? [];
+  return (data as any) ?? [];
 }
 
 export async function recordAudit(
@@ -58,16 +58,17 @@ export async function recordAudit(
   target?: { type?: string; id?: string },
   metadata?: any
 ): Promise<void> {
-  const actor = await requireUserId();
+  const user_id = await requireUserId();
   const payload = {
-    actor,
+    user_id,
     action,
-    target_type: target?.type ?? null,
-    target_id: target?.id ?? null,
+    entity_type: target?.type ?? null,
+    entity_id: target?.id ?? null,
+    changes: {},
     metadata: metadata ?? null,
   };
 
-  const { error } = await supabase.from("audit_logs").insert(payload);
+  const { error } = await supabase.from("audit_log" as any).insert(payload as any);
 
   if (error) {
     handleSupabaseError(error, "Failed to record audit log.");
