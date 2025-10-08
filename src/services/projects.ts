@@ -106,6 +106,10 @@ export async function getProject(id: string): Promise<ProjectRecord | null> {
 export interface CreateProjectInput {
   name: string;
   description?: string;
+  code?: string;
+  status?: "planning" | "active" | "completed" | "on_hold";
+  start_date?: string;
+  end_date?: string;
 }
 
 export async function createProject(input: CreateProjectInput): Promise<ProjectRecord> {
@@ -129,6 +133,10 @@ export async function createProject(input: CreateProjectInput): Promise<ProjectR
     .insert({
       name: trimmedName,
       description: input.description?.trim() || null,
+      code: input.code?.trim() || null,
+      status: input.status || "planning",
+      start_date: input.start_date || null,
+      end_date: input.end_date || null,
       owner_id: ownerId,
     })
     .select()

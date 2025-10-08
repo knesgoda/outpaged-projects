@@ -10,9 +10,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
-import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useCreateProject } from "@/hooks/useProjects";
 
 interface ProjectDialogProps {
   open: boolean;
@@ -21,9 +20,8 @@ interface ProjectDialogProps {
 }
 
 export function ProjectDialog({ open, onOpenChange, onSuccess }: ProjectDialogProps) {
-  const { user } = useAuth();
   const { toast } = useToast();
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const createProject = useCreateProject();
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -35,42 +33,31 @@ export function ProjectDialog({ open, onOpenChange, onSuccess }: ProjectDialogPr
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) return;
 
-    setIsSubmitting(true);
     try {
-      const { data, error } = await supabase
-        .from('projects')
-        .insert({
-          name: formData.name,
-          description: formData.description || null,
-          code: formData.code || null,
-          status: formData.status,
-          start_date: formData.startDate ? formData.startDate.toISOString().split('T')[0] : null,
-          end_date: formData.endDate ? formData.endDate.toISOString().split('T')[0] : null,
-          owner_id: user.id,
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
+      const project = await createProject.mutateAsync({
+        name: formData.name,
+        description: formData.description || undefined,
+        code: formData.code || undefined,
+        status: formData.status,
+        start_date: formData.startDate ? formData.startDate.toISOString().split('T')[0] : undefined,
+        end_date: formData.endDate ? formData.endDate.toISOString().split('T')[0] : undefined,
+      });
 
       toast({
         title: "Project Created",
         description: `${formData.name} has been created successfully.`,
       });
 
-      onSuccess?.(data);
+      onSuccess?.(project);
       handleClose();
     } catch (error: any) {
       console.error('Error creating project:', error);
       toast({
         title: "Error",
-        description: "Failed to create project. Please try again.",
+        description: error.message || "Failed to create project. Please try again.",
         variant: "destructive",
       });
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
@@ -218,8 +205,8 @@ export function ProjectDialog({ open, onOpenChange, onSuccess }: ProjectDialogPr
             <Button type="button" variant="outline" onClick={handleClose}>
               Cancel
             </Button>
-            <Button type="submit" disabled={!formData.name.trim() || isSubmitting}>
-              {isSubmitting ? "Creating..." : "Create Project"}
+            <Button type="submit" disabled={!formData.name.trim() || createProject.isPending}>
+              {createProject.isPending ? "Creating..." : "Create Project"}
             </Button>
           </div>
         </form>
