@@ -40,7 +40,7 @@ export const FEATURE_FLAGS = {
 export type FeatureFlagKey = keyof typeof FEATURE_FLAGS;
 
 // Legacy flags kept for backward compatibility with existing modules.
-export const enableOutpagedBrand = true;
+export const enableOutpagedBrand = getBooleanFlag("ENABLE_OUTPAGED_BRAND", false);
 export const enableGoogleSSO = true;
 export const enableDomainAllowlist = false;
 export const enableTeamsAndRoles = true;
