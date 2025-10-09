@@ -27,6 +27,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useCommandK } from "@/components/command/useCommandK";
 import { useMyProfile } from "@/hooks/useProfile";
 import { useWorkspaceSettings } from "@/hooks/useWorkspace";
+import { ThemeToggle } from "@/components/theme/ThemeToggle";
 
 function findNavLabel(path: string) {
   const walk = (items = NAV): string | undefined => {
@@ -269,6 +270,8 @@ export function Topbar({ onToggleSidebar, onOpenShortcuts }: TopbarProps) {
       </div>
 
       <div className="ml-auto flex items-center gap-2">
+        <ThemeToggle />
+        
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" aria-label="Help and shortcuts">
