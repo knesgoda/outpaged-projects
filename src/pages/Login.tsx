@@ -65,7 +65,7 @@ export default function Login() {
 
   return (
     <main className="min-h-screen grid place-items-center bg-neutral-50 px-4 py-12">
-      <div className="w-full max-w-md rounded-2xl border border-neutral-200 bg-white p-8 shadow-xl">
+      <div className="w-full max-w-md rounded-2xl border bg-card p-8 shadow-xl">
         <div className="mb-6 flex flex-col items-center gap-2 text-center">
           <span className="text-2xl font-bold text-neutral-900">OutPaged</span>
           <p className="text-sm text-neutral-500">Use your outpaged.com Google account</p>
@@ -81,7 +81,7 @@ export default function Login() {
           <>
             <button
               onClick={handleGoogleSignIn}
-              className="flex h-11 w-full items-center justify-center rounded-md bg-[#0B3D91] text-sm font-medium text-white transition hover:bg-[#0A367F] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0B3D91]/50 focus-visible:ring-offset-2"
+              className="flex h-11 w-full items-center justify-center rounded-md bg-accent text-accent-foreground text-sm font-medium transition hover:bg-accent/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               disabled={!supabaseConfigured}
             >
               Continue with Google

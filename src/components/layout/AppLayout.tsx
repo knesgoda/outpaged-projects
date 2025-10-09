@@ -83,7 +83,7 @@ export function AppLayout() {
           <div className="fixed inset-0 z-50 flex lg:hidden">
             <button
               type="button"
-              className="absolute inset-0 bg-black/40"
+              className="absolute inset-0 bg-background/40 backdrop-blur-sm"
               onClick={closeMobile}
               aria-label="Close navigation"
             />

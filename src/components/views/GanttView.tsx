@@ -126,7 +126,7 @@ export function GanttView({ tasks, onTaskClick }: GanttViewProps) {
                     style={getBarPosition(task.start_date!, task.end_date!)}
                     onClick={() => onTaskClick?.(task.id)}
                   >
-                    <span className="text-xs text-white font-medium truncate">
+                    <span className="text-xs text-primary-foreground font-medium truncate">
                       {differenceInDays(new Date(task.end_date!), new Date(task.start_date!))}d
                     </span>
                   </div>

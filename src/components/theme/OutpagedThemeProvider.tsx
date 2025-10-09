@@ -7,10 +7,6 @@ type OutpagedThemeProviderProps = {
 };
 
 export function OutpagedThemeProvider({ children }: OutpagedThemeProviderProps) {
-  if (!enableOutpagedBrand) {
-    return <>{children}</>;
-  }
-
   return (
     <NextThemeProvider
       attribute="data-theme"

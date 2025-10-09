@@ -122,7 +122,7 @@ export function EstimationTools() {
             <div className="pt-4 border-t">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium">RICE Score:</span>
-                <Badge className={`${getRiceColor(riceScore)} text-white text-lg px-4 py-2`}>
+                <Badge className={`${getRiceColor(riceScore)} text-primary-foreground text-lg px-4 py-2`}>
                   {riceScore.toFixed(2)}
                 </Badge>
               </div>
@@ -205,7 +205,7 @@ export function EstimationTools() {
             <div className="pt-4 border-t">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium">WSJF Score:</span>
-                <Badge className={`${getWsjfColor(wsjfScore)} text-white text-lg px-4 py-2`}>
+                <Badge className={`${getWsjfColor(wsjfScore)} text-primary-foreground text-lg px-4 py-2`}>
                   {wsjfScore.toFixed(2)}
                 </Badge>
               </div>

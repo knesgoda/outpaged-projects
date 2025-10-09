@@ -526,7 +526,7 @@ function OutpagedRoadmap() {
                   {lane.bars.map((bar) => (
                     <div
                       key={bar.label}
-                      className="absolute top-1/2 flex h-8 -translate-y-1/2 items-center rounded-full px-4 text-xs font-semibold text-white shadow-soft"
+                      className="absolute top-1/2 flex h-8 -translate-y-1/2 items-center rounded-full px-4 text-xs font-semibold text-primary-foreground shadow-soft"
                       style={{
                         left: `calc(${bar.start * 25}% + 0.25rem)`,
                         width: `calc(${bar.span * 25}% - 0.5rem)`,

@@ -121,7 +121,7 @@ function PreferenceToggle({ label, description, checked, onToggle }: PreferenceT
       <span
         className={
           checked
-            ? "grid h-7 w-7 place-items-center rounded-lg bg-[hsl(var(--accent))] text-white shadow-soft"
+            ? "grid h-7 w-7 place-items-center rounded-lg bg-accent text-accent-foreground shadow-soft"
             : "grid h-7 w-7 place-items-center rounded-lg border border-[hsl(var(--chip-neutral))] text-[hsl(var(--muted-foreground))]"
         }
       >

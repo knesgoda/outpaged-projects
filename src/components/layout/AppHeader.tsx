@@ -109,7 +109,7 @@ export function AppHeader() {
                     className={cn(
                       "rounded-full px-4 py-2 text-sm font-semibold transition-colors",
                       isActive
-                        ? "bg-[hsl(var(--accent))] text-white shadow-soft"
+                        ? "bg-accent text-accent-foreground shadow-soft"
                         : "text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--chip-accent))] hover:text-[hsl(var(--chip-accent-foreground))]"
                     )}
                     aria-current={isActive ? "page" : undefined}
@@ -220,7 +220,7 @@ export function AppHeader() {
             onClick={() => navigate("/")}
           >
             <div className="w-8 h-8 bg-gradient-primary rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-sm">PM</span>
+              <span className="text-primary-foreground font-bold text-sm">PM</span>
             </div>
             <span className="font-semibold text-lg hidden sm:block">
               Project Manager

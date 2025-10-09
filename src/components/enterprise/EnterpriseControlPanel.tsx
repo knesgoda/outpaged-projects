@@ -109,7 +109,7 @@ export function EnterpriseControlPanel() {
             <p className="text-muted-foreground">Manage enterprise features and configurations</p>
           </div>
           <div className="flex items-center space-x-2">
-            <Badge variant="outline" className="bg-gradient-primary text-white">
+            <Badge variant="outline" className="bg-gradient-primary text-primary-foreground border-0">
               <Shield className="h-3 w-3 mr-1" />
               Enterprise
             </Badge>

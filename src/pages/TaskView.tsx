@@ -232,13 +232,13 @@ export default function TaskView() {
               <div className="flex items-center gap-3 flex-wrap">
                 <Badge 
                   variant="secondary" 
-                  className={`text-white ${getStatusColor(task.status)}`}
+                  className={`text-primary-foreground ${getStatusColor(task.status)}`}
                 >
                   {task.status?.replace('_', ' ')}
                 </Badge>
                 <Badge 
                   variant="secondary" 
-                  className={`text-white ${getPriorityColor(task.priority)}`}
+                  className={`text-primary-foreground ${getPriorityColor(task.priority)}`}
                 >
                   {task.priority}
                 </Badge>
@@ -389,7 +389,7 @@ function OutpagedTaskDetail({ task, checklist, approvals, onBack, onEdit }: Outp
                 <p className="text-sm text-[hsl(var(--muted-foreground))]">{task.id}</p>
               </div>
               <Button
-                className="rounded-full bg-[hsl(var(--accent))] px-6 py-2 text-sm font-semibold text-white shadow-soft hover:bg-[hsl(var(--accent))]/90"
+                className="rounded-full bg-accent px-6 py-2 text-sm font-semibold text-accent-foreground shadow-soft hover:bg-accent/90"
                 onClick={onEdit}
               >
                 {ctaLabel}

@@ -105,7 +105,7 @@ export function OnboardingFlow() {
         return (
           <div className="text-center space-y-6">
             <div className="w-16 h-16 mx-auto bg-gradient-primary rounded-full flex items-center justify-center">
-              <Rocket className="w-8 h-8 text-white" />
+              <Rocket className="w-8 h-8 text-primary-foreground" />
             </div>
             <div className="space-y-2">
               <h2 className="text-2xl font-bold">Welcome to ProjectFlow! 🎉</h2>
@@ -280,7 +280,7 @@ export function OnboardingFlow() {
         return (
           <div className="text-center space-y-6">
             <div className="w-16 h-16 mx-auto bg-gradient-primary rounded-full flex items-center justify-center">
-              <Trophy className="w-8 h-8 text-white" />
+              <Trophy className="w-8 h-8 text-primary-foreground" />
             </div>
             <div className="space-y-2">
               <h2 className="text-2xl font-bold">Congratulations! 🎉</h2>

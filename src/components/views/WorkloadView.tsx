@@ -143,7 +143,7 @@ export function WorkloadView({ projectId }: WorkloadViewProps) {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Badge className={`${getWorkloadColor(user.total_story_points)} text-white`}>
+                    <Badge className={`${getWorkloadColor(user.total_story_points)} text-primary-foreground`}>
                       {user.total_story_points} pts
                     </Badge>
                     <Badge variant="outline">

@@ -98,7 +98,7 @@ export function QuickActions() {
               onClick={action.action}
             >
               <div className={`w-8 h-8 rounded-full ${action.color} flex items-center justify-center`}>
-                <action.icon className="w-4 h-4 text-white" />
+                <action.icon className="w-4 h-4 text-primary-foreground" />
               </div>
               <div className="text-center">
                 <div className="font-medium text-sm">{action.title}</div>

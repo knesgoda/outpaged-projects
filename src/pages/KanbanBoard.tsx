@@ -162,7 +162,7 @@ function OutpagedKanbanBoard() {
           </p>
           <h1 className="text-4xl font-semibold tracking-tight text-[hsl(var(--foreground))]">Design Board</h1>
         </div>
-        <Button className="rounded-full bg-[hsl(var(--accent))] px-5 py-2 text-sm font-semibold text-white shadow-soft hover:bg-[hsl(var(--accent))]/90">
+        <Button className="rounded-full bg-accent px-5 py-2 text-sm font-semibold text-accent-foreground shadow-soft hover:bg-accent/90">
           New card
         </Button>
       </div>
@@ -184,13 +184,13 @@ function OutpagedKanbanBoard() {
         <TabsList className="h-auto w-full justify-start gap-2 rounded-full bg-[hsl(var(--chip-neutral))]/40 p-1">
           <TabsTrigger
             value="design"
-            className="rounded-full px-4 py-2 text-sm font-semibold data-[state=active]:bg-white data-[state=active]:shadow-soft"
+            className="rounded-full px-4 py-2 text-sm font-semibold data-[state=active]:bg-card data-[state=active]:shadow-soft"
           >
             Design
           </TabsTrigger>
           <TabsTrigger
             value="software"
-            className="rounded-full px-4 py-2 text-sm font-semibold data-[state=active]:bg-white data-[state=active]:shadow-soft"
+            className="rounded-full px-4 py-2 text-sm font-semibold data-[state=active]:bg-card data-[state=active]:shadow-soft"
           >
             Software
           </TabsTrigger>

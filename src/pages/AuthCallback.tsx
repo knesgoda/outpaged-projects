@@ -51,7 +51,7 @@ export default function AuthCallback() {
 
   return (
     <div className="min-h-screen grid place-items-center bg-neutral-50 px-4 py-12">
-      <div className="rounded-xl border border-neutral-200 bg-white px-6 py-8 text-center shadow-lg">
+      <div className="rounded-xl border bg-card px-6 py-8 text-center shadow-lg">
         <p className="text-sm font-medium text-neutral-600">Finalizing sign-in…</p>
       </div>
     </div>

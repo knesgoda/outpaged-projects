@@ -80,7 +80,7 @@ export function SankeyDiagram({ projectId }: SankeyDiagramProps) {
                         }}
                       >
                         <div className="absolute inset-0 flex items-center justify-center">
-                          <div className="flex items-center gap-2 text-white text-xs font-semibold">
+                          <div className="flex items-center gap-2 text-primary-foreground text-xs font-semibold">
                             <span>{flow.value}</span>
                             <ArrowRight className="h-3 w-3" />
                             <span>{flow.avgLatency}d</span>

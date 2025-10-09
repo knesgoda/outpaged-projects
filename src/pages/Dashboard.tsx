@@ -108,7 +108,7 @@ function OutpagedDashboard() {
             <h1 className="text-4xl font-semibold tracking-tight text-[hsl(var(--foreground))]">My Work</h1>
           </div>
           <Button 
-            className="rounded-full bg-[hsl(var(--accent))] px-6 py-2 text-sm font-semibold text-white shadow-soft hover:bg-[hsl(var(--accent))]/90"
+            className="rounded-full bg-accent px-6 py-2 text-sm font-semibold text-accent-foreground shadow-soft hover:bg-accent/90"
             onClick={() => setShowCreateTask(true)}
             disabled={!defaultProjectId}
           >
@@ -125,19 +125,19 @@ function OutpagedDashboard() {
               <TabsList className="h-auto w-full justify-start gap-2 rounded-full bg-[hsl(var(--chip-neutral))]/40 p-1">
                 <TabsTrigger
                   value="assigned"
-                  className="rounded-full px-4 py-2 text-sm font-semibold data-[state=active]:bg-white data-[state=active]:shadow-soft"
+                  className="rounded-full px-4 py-2 text-sm font-semibold data-[state=active]:bg-card data-[state=active]:shadow-soft"
                 >
                   Assigned
                 </TabsTrigger>
                 <TabsTrigger
                   value="approvals"
-                  className="rounded-full px-4 py-2 text-sm font-semibold data-[state=active]:bg-white data-[state=active]:shadow-soft"
+                  className="rounded-full px-4 py-2 text-sm font-semibold data-[state=active]:bg-card data-[state=active]:shadow-soft"
                 >
                   Approvals
                 </TabsTrigger>
                 <TabsTrigger
                   value="handoffs"
-                  className="rounded-full px-4 py-2 text-sm font-semibold data-[state=active]:bg-white data-[state=active]:shadow-soft"
+                  className="rounded-full px-4 py-2 text-sm font-semibold data-[state=active]:bg-card data-[state=active]:shadow-soft"
                 >
                   Handoffs
                 </TabsTrigger>
