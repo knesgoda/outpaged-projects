@@ -14,6 +14,16 @@ import {
   Filter,
   Layers,
   RefreshCcw,
+  Flag,
+  Globe2,
+  Layers,
+  RefreshCcw,
+  Rocket,
+  ShieldCheck,
+  GitBranch,
+  Layers,
+  RefreshCcw,
+  SquareStack,
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
@@ -37,11 +47,13 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import {
   TimelineProvider,
   type TimelineDependency,
   type TimelineProviderProps,
+  type TimelineMilestone,
   type TimelineRowModel,
   type TimelineScale,
   useTimelineInteractions,
@@ -67,7 +79,9 @@ const rowHeightByDensity = {
 
 type Virtualizer = ReturnType<typeof useVirtualizer>;
 
-function getPixelsPerDay(scale: TimelineScale, zoomLevel: number) {
+const MILESTONE_LABEL_SAFE_MARGIN = 180;
+
+export function getPixelsPerDay(scale: TimelineScale, zoomLevel: number) {
   const base =
     scale === "hour"
       ? 24 * 32
@@ -88,6 +102,67 @@ function safeParseIso(value: string | null | undefined): Date | null {
   const parsed = parseISO(value);
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
+
+type MilestoneLabelSide = "left" | "right";
+
+export interface MilestoneLayoutInput {
+  milestoneDate: Date;
+  startDate: Date;
+  pixelsPerDay: number;
+  gridWidth: number;
+}
+
+export interface MilestoneLayoutResult {
+  x: number;
+  labelSide: MilestoneLabelSide;
+}
+
+export function computeMilestoneLayout({
+  milestoneDate,
+  startDate,
+  pixelsPerDay,
+  gridWidth,
+}: MilestoneLayoutInput): MilestoneLayoutResult {
+  const dayMs = 24 * 60 * 60 * 1000;
+  const offsetDays = (milestoneDate.getTime() - startDate.getTime()) / dayMs;
+  const x = offsetDays * pixelsPerDay;
+  const safeX = Number.isFinite(x) ? x : 0;
+  const labelSide: MilestoneLabelSide = safeX > gridWidth - MILESTONE_LABEL_SAFE_MARGIN ? "left" : "right";
+  return { x: safeX, labelSide };
+}
+
+const milestoneTypeConfig = {
+  release: {
+    colorClass: "bg-blue-500",
+    textClass: "text-blue-600",
+    borderClass: "shadow-[0_0_0_1.5px_rgba(37,99,235,0.2)]",
+    icon: Rocket,
+    label: "Release milestone",
+  },
+  gate: {
+    colorClass: "bg-purple-500",
+    textClass: "text-purple-600",
+    borderClass: "shadow-[0_0_0_1.5px_rgba(147,51,234,0.2)]",
+    icon: ShieldCheck,
+    label: "Gate milestone",
+  },
+  external: {
+    colorClass: "bg-amber-500",
+    textClass: "text-amber-600",
+    borderClass: "shadow-[0_0_0_1.5px_rgba(245,158,11,0.2)]",
+    icon: Globe2,
+    label: "External dependency",
+  },
+  internal: {
+    colorClass: "bg-slate-500",
+    textClass: "text-slate-600",
+    borderClass: "shadow-[0_0_0_1.5px_rgba(100,116,139,0.2)]",
+    icon: Flag,
+    label: "Internal checkpoint",
+  },
+} as const;
+
+type MilestoneTypeKey = keyof typeof milestoneTypeConfig;
 
 interface TimelineSurfaceProps {
   className?: string;
@@ -249,6 +324,21 @@ function TimelineSurface({ className, height = "100%" }: TimelineSurfaceProps) {
                       dependencies={dependencies}
                       criticalPath={criticalPath}
                     />
+                  <div ref={gridScrollRef} className="relative h-full w-full overflow-x-auto">
+                  <TimelineGrid
+                    rows={rows}
+                    virtualizer={virtualizer}
+                    rowHeight={rowHeight}
+                    startDate={startDate}
+                    pixelsPerDay={pixelsPerDay}
+                    gridWidth={gridWidth}
+                    showWeekends={preferences.showWeekends}
+                    showBaselines={preferences.showBaselines}
+                    showDependencies={preferences.showDependencies}
+                    dependencies={dependencies}
+                    criticalPath={criticalPath}
+                    milestones={snapshot?.milestones ?? []}
+                  />
                   </div>
                 </div>
               </div>
@@ -265,7 +355,7 @@ interface TimelineToolbarProps {
   onFitToRange?: () => void;
 }
 
-function TimelineToolbar({ onFitToRange }: TimelineToolbarProps) {
+export function TimelineToolbar({ onFitToRange }: TimelineToolbarProps) {
   const { preferences, updatePreferences } = useTimelinePreferences();
   const { refresh } = useTimelineState();
 
@@ -352,6 +442,12 @@ function TimelineToolbar({ onFitToRange }: TimelineToolbarProps) {
           </ToggleGroupItem>
           <ToggleGroupItem value="baselines" aria-label="Toggle baselines">
             <Layers className="h-4 w-4" />
+          </ToggleGroupItem>
+          <ToggleGroupItem value="dependencies" aria-label="Toggle dependencies">
+            <GitBranch className="h-4 w-4" />
+          </ToggleGroupItem>
+          <ToggleGroupItem value="overlays" aria-label="Toggle overlays">
+            <SquareStack className="h-4 w-4" />
           </ToggleGroupItem>
           <ToggleGroupItem value="legend" aria-label="Toggle legend">
             <Filter className="h-4 w-4" />
@@ -493,6 +589,7 @@ interface TimelineGridProps {
   showDependencies: boolean;
   dependencies: TimelineDependency[];
   criticalPath: Set<string>;
+  milestones: TimelineMilestone[];
 }
 
 type TimelineContextMenuInfo =
@@ -512,6 +609,7 @@ function TimelineGrid({
   showDependencies,
   dependencies,
   criticalPath,
+  milestones,
 }: TimelineGridProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const overlayRef = useRef<HTMLDivElement | null>(null);
@@ -526,6 +624,7 @@ function TimelineGrid({
     });
     return map;
   }, [rows]);
+  const milestonesById = useMemo(() => new Map(milestones.map(milestone => [milestone.id, milestone])), [milestones]);
 
   const interactions = useTimelineInteractions({ rows, pixelsPerDay });
   const [pointerState, setPointerState] = useState<{
@@ -1034,10 +1133,132 @@ function TimelineGrid({
         </ContextMenuContent>
       </ContextMenu>
     </div>
+    <TooltipProvider delayDuration={100}>
+      <div className="relative" style={{ width: gridWidth, height: totalHeight }}>
+        <canvas ref={canvasRef} className="absolute left-0 top-0" />
+        {virtualItems.map(virtualRow => {
+          const row = rows[virtualRow.index];
+          const y = virtualRow.start;
+          return (
+            <div
+              key={`background-${row?.id ?? virtualRow.key}`}
+              className={cn(
+                "absolute inset-x-0 border-b border-border/40",
+                virtualRow.index % 2 === 0 ? "bg-transparent" : "bg-muted/20"
+              )}
+              style={{ top: y, height: virtualRow.size }}
+            />
+          );
+        })}
+        {virtualItems.map(virtualRow => {
+          const row = rows[virtualRow.index];
+          if (!row || row.type !== "milestone") return null;
+
+          const milestone =
+            (row.milestoneId ? milestonesById.get(row.milestoneId) : null) ??
+            (row.itemId ? milestonesById.get(row.itemId) : null) ??
+            null;
+          const milestoneDate =
+            safeParseIso(row.start) ??
+            safeParseIso(row.end) ??
+            (milestone ? safeParseIso(milestone.date) : null);
+          if (!milestoneDate) return null;
+
+          const { x, labelSide } = computeMilestoneLayout({
+            milestoneDate,
+            startDate,
+            pixelsPerDay,
+            gridWidth,
+          });
+          const clampedX = Math.max(0, Math.min(gridWidth, x));
+          const label = row.label || milestone?.name || "Milestone";
+          const milestoneType = (milestone?.type ?? "internal") as MilestoneTypeKey;
+          const config =
+            milestoneTypeConfig[milestoneType] ?? milestoneTypeConfig.internal;
+          const Icon = config.icon;
+          const tooltipDate = format(milestoneDate, "PP");
+          const tooltipTitle = label;
+
+          const transform =
+            labelSide === "left"
+              ? "translateX(calc(-100% + 8px)) translateY(-50%)"
+              : "translateX(-8px) translateY(-50%)";
+
+          const labelClasses = cn(
+            "max-w-[180px] truncate rounded border border-border/60 bg-background/90 px-2 py-0.5 text-xs font-medium shadow-sm backdrop-blur",
+            config.textClass,
+            labelSide === "left" ? "text-right" : "text-left"
+          );
+
+          return (
+            <div
+              key={`milestone-${row.id}`}
+              className="pointer-events-none absolute"
+              style={{
+                left: clampedX,
+                top: virtualRow.start + rowHeight / 2,
+              }}
+            >
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div
+                    className="pointer-events-auto inline-flex min-w-0 items-center gap-2"
+                    style={{ transform }}
+                  >
+                    {labelSide === "left" ? (
+                      <>
+                        <span className={labelClasses}>{label}</span>
+                        <div
+                          className={cn(
+                            "relative h-4 w-4 rotate-45 rounded-sm border border-white/70",
+                            config.colorClass,
+                            config.borderClass
+                          )}
+                        >
+                          <Icon className="absolute left-1/2 top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 -rotate-45 text-white" />
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div
+                          className={cn(
+                            "relative h-4 w-4 rotate-45 rounded-sm border border-white/70",
+                            config.colorClass,
+                            config.borderClass
+                          )}
+                        >
+                          <Icon className="absolute left-1/2 top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 -rotate-45 text-white" />
+                        </div>
+                        <span className={labelClasses}>{label}</span>
+                      </>
+                    )}
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <div className="flex min-w-[160px] flex-col gap-1">
+                    <span className="font-semibold text-foreground">{tooltipTitle}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {config.label} · {tooltipDate}
+                    </span>
+                  </div>
+                </TooltipContent>
+              </Tooltip>
+            </div>
+          );
+        })}
+      </div>
+    </TooltipProvider>
   );
 }
 
 function TimelineLegend() {
+  const milestoneEntries: Array<{ key: MilestoneTypeKey; label: string; Icon: typeof Rocket; colorClass: string }> = [
+    { key: "release", label: milestoneTypeConfig.release.label, Icon: milestoneTypeConfig.release.icon, colorClass: milestoneTypeConfig.release.colorClass },
+    { key: "gate", label: milestoneTypeConfig.gate.label, Icon: milestoneTypeConfig.gate.icon, colorClass: milestoneTypeConfig.gate.colorClass },
+    { key: "external", label: milestoneTypeConfig.external.label, Icon: milestoneTypeConfig.external.icon, colorClass: milestoneTypeConfig.external.colorClass },
+    { key: "internal", label: milestoneTypeConfig.internal.label, Icon: milestoneTypeConfig.internal.icon, colorClass: milestoneTypeConfig.internal.colorClass },
+  ];
+
   return (
     <aside className="hidden w-64 border-l bg-background/90 p-4 text-sm text-muted-foreground lg:block">
       <h3 className="text-sm font-semibold text-foreground">Legend</h3>
@@ -1058,6 +1279,14 @@ function TimelineLegend() {
           <span className="mr-2 inline-block h-3 w-3 rounded bg-rose-500/70 align-middle" />
           Today marker
         </li>
+        {milestoneEntries.map(({ key, label, Icon, colorClass }) => (
+          <li key={key} className="flex items-center gap-2">
+            <span className={cn("flex h-4 w-4 items-center justify-center rounded-full border border-border/50", colorClass)}>
+              <Icon className="h-3 w-3 text-white" />
+            </span>
+            <span className="text-xs text-foreground">{label}</span>
+          </li>
+        ))}
       </ul>
     </aside>
   );
