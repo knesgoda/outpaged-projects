@@ -108,11 +108,25 @@ export async function markAllRead(): Promise<void> {
 }
 
 export async function archive(id: string): Promise<void> {
-  console.warn('Archive not implemented - notifications table does not have archived_at column');
+  const { error } = await supabase
+    .from("notifications")
+    .update({ archived_at: new Date().toISOString() } as any)
+    .eq("id", id);
+
+  if (error) {
+    throw new Error(error.message || "Failed to archive notification");
+  }
 }
 
 export async function unarchive(id: string): Promise<void> {
-  console.warn('Unarchive not implemented - notifications table does not have archived_at column');
+  const { error } = await supabase
+    .from("notifications")
+    .update({ archived_at: null } as any)
+    .eq("id", id);
+
+  if (error) {
+    throw new Error(error.message || "Failed to unarchive notification");
+  }
 }
 
 type CreateNotificationInput = Omit<
