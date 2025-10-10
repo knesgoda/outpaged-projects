@@ -997,6 +997,71 @@ export type Database = {
         }
         Relationships: []
       }
+      organization_members: {
+        Row: {
+          created_at: string
+          id: string
+          organization_id: string
+          role: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          organization_id: string
+          role?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          organization_id?: string
+          role?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_members_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      organizations: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          settings: Json | null
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          settings?: Json | null
+          slug: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          settings?: Json | null
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       password_history: {
         Row: {
           created_at: string
@@ -2935,9 +3000,14 @@ export type Database = {
           created_by: string | null
           description: string | null
           id: string
+          organization_id: string | null
           name: string
           settings: Json | null
           slug: string
+          icon: string | null
+          color: string | null
+          archived_at: string | null
+          position: number | null
           updated_at: string
         }
         Insert: {
@@ -2945,9 +3015,14 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           id?: string
+          organization_id?: string | null
           name: string
           settings?: Json | null
           slug: string
+          icon?: string | null
+          color?: string | null
+          archived_at?: string | null
+          position?: number | null
           updated_at?: string
         }
         Update: {
@@ -2955,9 +3030,14 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           id?: string
+          organization_id?: string | null
           name?: string
           settings?: Json | null
           slug?: string
+          icon?: string | null
+          color?: string | null
+          archived_at?: string | null
+          position?: number | null
           updated_at?: string
         }
         Relationships: []

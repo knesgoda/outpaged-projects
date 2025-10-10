@@ -20,7 +20,12 @@ export type WorkspaceSummary = {
   name: string;
   slug: string;
   description?: string | null;
+  organization_id?: ID | null;
   settings?: Record<string, unknown> | null;
+  icon?: string | null;
+  color?: string | null;
+  position?: number | null;
+  archived_at?: string | null;
   created_at?: string;
   updated_at?: string;
 };

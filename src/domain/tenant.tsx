@@ -33,11 +33,12 @@ const DEFAULT_TENANT: TenantContext = {
 const TenantContextInstance = createContext<TenantContext>(DEFAULT_TENANT);
 
 export function TenantProvider({ children }: { children: ReactNode }) {
-  const { currentWorkspace, currentSpace } = useWorkspaceContext();
+  const { currentWorkspace, currentSpace, currentOrganization } = useWorkspaceContext();
   const { user } = useAuth();
 
   const value = useMemo<TenantContext>(() => {
     const organizationId =
+      currentOrganization?.id ??
       (currentWorkspace?.settings as { organization_id?: string } | undefined)?.organization_id ??
       (currentWorkspace?.id ? `org-${currentWorkspace.id.slice(0, 8)}` : DEFAULT_TENANT.organizationId);
 
@@ -53,7 +54,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
       userId: user?.id ?? null,
       environment,
     };
-  }, [currentWorkspace, currentSpace, user]);
+  }, [currentWorkspace, currentSpace, currentOrganization, user]);
 
   useEffect(() => {
     domainEventBus.publish({

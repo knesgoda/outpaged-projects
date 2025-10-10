@@ -1,11 +1,19 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { SpaceSummary, WorkspaceSummary } from "@/types/workspace";
 
-export async function fetchWorkspaces(): Promise<WorkspaceSummary[]> {
-  const { data, error } = await (supabase as any)
+export async function fetchWorkspaces(organizationId?: string | null): Promise<WorkspaceSummary[]> {
+  let query = (supabase as any)
     .from("workspaces")
-    .select("id, name, slug, description, settings, created_at, updated_at")
+    .select(
+      "id, name, slug, description, settings, organization_id, icon, color, position, archived_at, created_at, updated_at"
+    )
     .order("name", { ascending: true });
+
+  if (organizationId) {
+    query = query.eq("organization_id", organizationId);
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     throw new Error(error.message);

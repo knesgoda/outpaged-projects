@@ -17,6 +17,7 @@ const WORKSPACE_SCOPED_TABLES: Record<string, string> = {
 
 const ORGANIZATION_SCOPED_TABLES: Record<string, string> = {
   workspaces: "organization_id",
+  organization_members: "organization_id",
 };
 
 export interface DomainTelemetry {

@@ -19,7 +19,19 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { HelpCircle, Keyboard, Menu, Plus, Search, Building2, ChevronsUpDown, Loader2, Settings2 } from "lucide-react";
+import {
+  HelpCircle,
+  Keyboard,
+  Menu,
+  Plus,
+  Search,
+  Building2,
+  Briefcase,
+  Layers,
+  ChevronsUpDown,
+  Loader2,
+  Settings2,
+} from "lucide-react";
 import { NAV } from "@/lib/navConfig";
 import { getWorkspaceRole, type Role } from "@/lib/auth";
 import { PROJECT_TABS } from "@/components/common/TabBar";
@@ -116,10 +128,18 @@ export function Topbar({ onToggleSidebar, onOpenShortcuts }: TopbarProps) {
   const profileError = (profileQuery.error as Error | null) ?? null;
   const { data: workspaceSettings } = useWorkspaceSettings();
   const {
+    organizations,
+    currentOrganization,
+    setOrganization,
+    loadingOrganizations,
     workspaces,
     currentWorkspace,
     setWorkspace,
     loadingWorkspaces,
+    spaces,
+    currentSpace,
+    setSpace,
+    loadingSpaces,
   } = useWorkspaceContext();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const { openPalette } = useCommandK();
@@ -171,7 +191,48 @@ export function Topbar({ onToggleSidebar, onOpenShortcuts }: TopbarProps) {
   const brandName =
     workspaceSettings?.brand_name?.trim() || workspaceSettings?.name?.trim() || "OutPaged";
   const brandLogo = workspaceSettings?.brand_logo_url ?? null;
-  const workspaceLabel = currentWorkspace?.name ?? (loadingWorkspaces ? "Loading…" : "Select workspace");
+  const organizationLabel =
+    currentOrganization?.name ??
+    (loadingOrganizations ? "Loading…" : organizations.length > 0 ? "Select organization" : "No organizations");
+  const workspaceLabel =
+    currentWorkspace?.name ??
+    (loadingWorkspaces ? "Loading…" : workspaces.length > 0 ? "Select workspace" : "No workspaces");
+  const spaceLabel =
+    currentSpace?.name ??
+    (loadingSpaces ? "Loading…" : spaces.length > 0 ? "Select space" : "No spaces");
+
+  const organizationMenuBody = (
+    <>
+      <DropdownMenuLabel>Organizations</DropdownMenuLabel>
+      <DropdownMenuSeparator />
+      {loadingOrganizations ? (
+        <div className="flex items-center gap-2 px-3 py-2 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+          <span>Loading organizations…</span>
+        </div>
+      ) : organizations.length === 0 ? (
+        <div className="px-3 py-2 text-sm text-muted-foreground">No organizations available.</div>
+      ) : (
+        organizations.map((organization) => (
+          <DropdownMenuItem
+            key={organization.id}
+            onSelect={(event) => {
+              event.preventDefault();
+              setOrganization(organization.id);
+            }}
+            className="flex flex-col items-start gap-0.5"
+            aria-current={organization.id === currentOrganization?.id ? "true" : undefined}
+          >
+            <span className="text-sm font-medium text-foreground">{organization.name}</span>
+            {organization.description ? (
+              <span className="text-xs text-muted-foreground">{organization.description}</span>
+            ) : null}
+          </DropdownMenuItem>
+        ))
+      )}
+    </>
+  );
+
   const workspaceMenuBody = (
     <>
       <DropdownMenuLabel>Workspaces</DropdownMenuLabel>
@@ -211,6 +272,38 @@ export function Topbar({ onToggleSidebar, onOpenShortcuts }: TopbarProps) {
       >
         <Settings2 className="mr-2 h-4 w-4" aria-hidden="true" /> Manage workspace settings
       </DropdownMenuItem>
+    </>
+  );
+
+  const spaceMenuBody = (
+    <>
+      <DropdownMenuLabel>Spaces</DropdownMenuLabel>
+      <DropdownMenuSeparator />
+      {loadingSpaces ? (
+        <div className="flex items-center gap-2 px-3 py-2 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+          <span>Loading spaces…</span>
+        </div>
+      ) : spaces.length === 0 ? (
+        <div className="px-3 py-2 text-sm text-muted-foreground">No spaces available.</div>
+      ) : (
+        spaces.map((space) => (
+          <DropdownMenuItem
+            key={space.id}
+            onSelect={(event) => {
+              event.preventDefault();
+              setSpace(space.id);
+            }}
+            className="flex flex-col items-start gap-0.5"
+            aria-current={space.id === currentSpace?.id ? "true" : undefined}
+          >
+            <span className="text-sm font-medium text-foreground">{space.name}</span>
+            {space.description ? (
+              <span className="text-xs text-muted-foreground">{space.description}</span>
+            ) : null}
+          </DropdownMenuItem>
+        ))
+      )}
     </>
   );
 
@@ -291,12 +384,52 @@ export function Topbar({ onToggleSidebar, onOpenShortcuts }: TopbarProps) {
               variant="outline"
               size="sm"
               className="hidden items-center gap-2 whitespace-nowrap sm:inline-flex"
+              aria-label="Select organization"
+            >
+              {loadingOrganizations ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Building2 className="h-4 w-4" />
+              )}
+              <span className="max-w-[160px] truncate">{organizationLabel}</span>
+              <ChevronsUpDown className="h-3.5 w-3.5 opacity-60" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-64">
+            {organizationMenuBody}
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="sm:hidden"
+              aria-label="Select organization"
+            >
+              {loadingOrganizations ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <Building2 className="h-5 w-5" />
+              )}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-64">
+            {organizationMenuBody}
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              className="hidden items-center gap-2 whitespace-nowrap sm:inline-flex"
               aria-label="Select workspace"
             >
               {loadingWorkspaces ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
-                <Building2 className="h-4 w-4" />
+                <Briefcase className="h-4 w-4" />
               )}
               <span className="max-w-[160px] truncate">{workspaceLabel}</span>
               <ChevronsUpDown className="h-3.5 w-3.5 opacity-60" />
@@ -312,17 +445,44 @@ export function Topbar({ onToggleSidebar, onOpenShortcuts }: TopbarProps) {
               variant="ghost"
               size="icon"
               className="sm:hidden"
-              aria-label="Select workspace"
+            aria-label="Select workspace"
+          >
+            {loadingWorkspaces ? (
+              <Loader2 className="h-5 w-5 animate-spin" />
+            ) : (
+              <Briefcase className="h-5 w-5" />
+            )}
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="w-64">
+          {workspaceMenuBody}
+        </DropdownMenuContent>
+      </DropdownMenu>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              className="hidden items-center gap-2 whitespace-nowrap lg:inline-flex"
+              aria-label="Select space"
             >
-              {loadingWorkspaces ? (
-                <Loader2 className="h-5 w-5 animate-spin" />
-              ) : (
-                <Building2 className="h-5 w-5" />
-              )}
+              {loadingSpaces ? <Loader2 className="h-4 w-4 animate-spin" /> : <Layers className="h-4 w-4" />}
+              <span className="max-w-[160px] truncate">{spaceLabel}</span>
+              <ChevronsUpDown className="h-3.5 w-3.5 opacity-60" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-64">
-            {workspaceMenuBody}
+            {spaceMenuBody}
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="lg:hidden" aria-label="Select space">
+              {loadingSpaces ? <Loader2 className="h-5 w-5 animate-spin" /> : <Layers className="h-5 w-5" />}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-64">
+            {spaceMenuBody}
           </DropdownMenuContent>
         </DropdownMenu>
         <Breadcrumb>
