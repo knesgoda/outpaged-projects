@@ -54,6 +54,8 @@ export async function listProjects(params: ProjectListParams = {}): Promise<Proj
     dir = "desc",
   } = params;
 
+  console.log('listProjects called with params:', { q, status, page, pageSize, sort, dir });
+
   const { start, end } = normalizePagination(page, pageSize);
 
   let query = (supabase
@@ -73,7 +75,15 @@ export async function listProjects(params: ProjectListParams = {}): Promise<Proj
 
   const { data, error, count } = await query.range(start, end);
 
+  console.log('listProjects result:', { 
+    dataCount: data?.length, 
+    totalCount: count, 
+    hasError: !!error,
+    errorMessage: error?.message 
+  });
+
   if (error) {
+    console.error('listProjects error:', error);
     throw error;
   }
 
