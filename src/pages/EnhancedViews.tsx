@@ -4,7 +4,7 @@ import { TableView } from "@/components/views/TableView";
 import { SprintBoard } from "@/components/views/SprintBoard";
 import { StoryMap } from "@/components/views/StoryMap";
 import { CalendarView } from "@/components/views/CalendarView";
-import { GanttView } from "@/components/views/GanttView";
+import { TimelineView } from "@/components/timeline/TimelineView";
 import { WorkloadView } from "@/components/views/WorkloadView";
 import { PlanningPoker } from "@/components/planning/PlanningPoker";
 import { Table, Calendar, GitBranch, Map, GanttChart, Users, Sparkles } from "lucide-react";
@@ -99,7 +99,7 @@ export default function EnhancedViews() {
       </div>
 
       <Tabs defaultValue="table" className="space-y-6">
-        <TabsList className="grid grid-cols-7 w-full">
+        <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="table" className="flex items-center gap-2">
             <Table className="h-4 w-4" />
             <span className="hidden sm:inline">Table</span>
@@ -116,9 +116,9 @@ export default function EnhancedViews() {
             <Calendar className="h-4 w-4" />
             <span className="hidden sm:inline">Calendar</span>
           </TabsTrigger>
-          <TabsTrigger value="gantt" className="flex items-center gap-2">
+          <TabsTrigger value="timeline" className="flex items-center gap-2">
             <GanttChart className="h-4 w-4" />
-            <span className="hidden sm:inline">Gantt</span>
+            <span className="hidden sm:inline">Timeline</span>
           </TabsTrigger>
           <TabsTrigger value="workload" className="flex items-center gap-2">
             <Users className="h-4 w-4" />
@@ -160,15 +160,8 @@ export default function EnhancedViews() {
           />
         </TabsContent>
 
-        <TabsContent value="gantt">
-          <GanttView 
-            tasks={mockTasks.map(t => ({
-              ...t,
-              start_date: "2025-10-01",
-              end_date: "2025-10-10",
-            }))}
-            onTaskClick={setSelectedTask}
-          />
+        <TabsContent value="timeline">
+          <TimelineView className="min-h-[400px]" height={"60vh"} projectId="enhanced-demo" />
         </TabsContent>
 
         <TabsContent value="workload">
