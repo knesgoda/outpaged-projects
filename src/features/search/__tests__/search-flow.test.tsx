@@ -5,36 +5,59 @@ import { CommandPalette } from "@/components/command/CommandPalette";
 import { CommandKProvider } from "@/components/command/CommandKProvider";
 import GlobalSearchPage from "@/pages/search/GlobalSearchPage";
 import { act } from "react";
+import type {
+  CreateSavedSearchInput,
+  SavedSearch,
+} from "@/services/savedSearches";
 
 jest.mock("@/services/search", () => ({
   searchAll: jest.fn(),
   searchSuggest: jest.fn(() => Promise.resolve([])),
 }));
 
-const saved: any[] = [];
+const seededSavedSearches: SavedSearch[] = [
+  {
+    id: "seed-1",
+    name: "My open tasks",
+    query: "status:open assignee:me",
+    filters: { type: "task" },
+    created_at: "2024-02-01T09:00:00.000Z",
+  },
+  {
+    id: "seed-2",
+    name: "Product docs",
+    query: "product spec",
+    filters: { type: "doc" },
+    created_at: "2024-02-02T09:00:00.000Z",
+  },
+];
+
+const saved: SavedSearch[] = [];
 
 jest.mock("@/services/savedSearches", () => ({
-  listSavedSearches: jest.fn(() => Promise.resolve([...saved])),
-  createSavedSearch: jest.fn(({ name, query, filters }) => {
-    const entry = {
-      id: `${saved.length + 1}`,
-      name,
-      query,
-      filters: filters ?? {},
-      created_at: new Date().toISOString(),
-    };
-    saved.unshift(entry);
-    return Promise.resolve(entry);
-  }),
-  deleteSavedSearch: jest.fn((id: string) => {
+  listSavedSearches: jest.fn(async () => [...saved]),
+  createSavedSearch: jest.fn(
+    ({ name, query, filters }: CreateSavedSearchInput) => {
+      const entry: SavedSearch = {
+        id: `${Date.now()}`,
+        name,
+        query,
+        filters: filters ?? {},
+        created_at: new Date().toISOString(),
+      };
+      saved.unshift(entry);
+      return Promise.resolve(entry);
+    }
+  ),
+  deleteSavedSearch: jest.fn(async (id: string) => {
     const index = saved.findIndex((item) => item.id === id);
     if (index >= 0) {
       saved.splice(index, 1);
     }
-    return Promise.resolve();
   }),
-  __reset: () => {
+  __seed: (items: SavedSearch[]) => {
     saved.length = 0;
+    saved.push(...items.map((item) => ({ ...item })));
   },
 }));
 
@@ -72,7 +95,7 @@ const searchModule = jest.requireMock("@/services/search") as {
 };
 
 const savedSearchModule = jest.requireMock("@/services/savedSearches") as {
-  __reset: () => void;
+  __seed: (items: SavedSearch[]) => void;
 };
 
 let latestLocation: ReturnType<typeof useLocation>;
@@ -109,11 +132,26 @@ const renderWithProviders = (initialEntries: string[]) => {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  savedSearchModule.__reset();
+  savedSearchModule.__seed(seededSavedSearches);
   searchModule.searchSuggest.mockResolvedValue([]);
 });
 
 describe("Command palette", () => {
+  it("renders seeded saved searches when opened", async () => {
+    searchModule.searchAll.mockResolvedValue([]);
+    renderWithProviders(["/search?q=alpha"]);
+
+    act(() => {
+      const event = new KeyboardEvent("keydown", { key: "k", ctrlKey: true });
+      window.dispatchEvent(event);
+    });
+
+    const seededAction = await screen.findByRole("option", {
+      name: /my open tasks/i,
+    });
+    expect(seededAction).toBeInTheDocument();
+  });
+
   it("opens with cmd+k and navigates to full search on enter", async () => {
     searchModule.searchAll.mockResolvedValue([]);
     renderWithProviders(["/search?q=alpha"]);
@@ -176,6 +214,7 @@ describe("Global search page", () => {
 
 describe("Saved searches", () => {
   it("appear as palette actions after saving", async () => {
+    savedSearchModule.__seed([]);
     searchModule.searchAll.mockResolvedValue([
       {
         id: "p1",
