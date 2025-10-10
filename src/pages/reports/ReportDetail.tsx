@@ -23,11 +23,7 @@ import { useDeleteReport, useDuplicateReport, useReport, useRunReport } from "@/
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { useProjectSummary } from "@/hooks/useProjectOptions";
 import { useToast } from "@/hooks/use-toast";
-
-type RunResult = {
-  rows: any[];
-  meta: { total?: number; groupCounts?: Record<string, Record<string, number>> };
-};
+import type { ReportColumn, ReportResult } from "@/types";
 
 function downloadBlob(content: string, filename: string, type: string) {
   const blob = new Blob([content], { type });
@@ -77,7 +73,7 @@ export default function ReportDetail() {
   const deleteReport = useDeleteReport();
   const duplicateReport = useDuplicateReport();
   const runReport = useRunReport();
-  const [runResult, setRunResult] = useState<RunResult | null>(null);
+  const [runResult, setRunResult] = useState<ReportResult | null>(null);
   const [lastRunAt, setLastRunAt] = useState<string | null>(null);
   const [runError, setRunError] = useState<string | null>(null);
 
@@ -99,15 +95,25 @@ export default function ReportDetail() {
     }
   }, [report]);
 
-  const columns = useMemo(() => {
-    if (!runResult?.rows?.length) {
-      return [] as string[];
+  const columns = useMemo<ReportColumn[]>(() => {
+    if (!runResult) {
+      return [];
     }
+
+    if (runResult.columns.length) {
+      return runResult.columns;
+    }
+
+    if (!runResult.rows.length) {
+      return [];
+    }
+
     const set = new Set<string>();
     runResult.rows.forEach((row) => {
       Object.keys(row ?? {}).forEach((key) => set.add(key));
     });
-    return Array.from(set);
+
+    return Array.from(set).map((key) => ({ key, label: key })) satisfies ReportColumn[];
   }, [runResult]);
 
   if (isLoading) {
@@ -170,7 +176,7 @@ export default function ReportDetail() {
     if (!report) return;
     setRunError(null);
     try {
-      const result = await runReport.mutateAsync(report.config ?? {});
+      const result = await runReport.mutateAsync({ reportId: report.id });
       setRunResult(result);
       setLastRunAt(new Date().toISOString());
     } catch (runErr) {
@@ -285,8 +291,8 @@ export default function ReportDetail() {
                 <TableHeader>
                   <TableRow>
                     {columns.map((column) => (
-                      <TableHead key={column} className="whitespace-nowrap">
-                        {column}
+                      <TableHead key={column.key} className="whitespace-nowrap">
+                        {column.label}
                       </TableHead>
                     ))}
                   </TableRow>
@@ -295,14 +301,14 @@ export default function ReportDetail() {
                   {runResult.rows.map((row, index) => (
                     <TableRow key={index}>
                       {columns.map((column) => {
-                        const value = row?.[column];
+                        const value = row?.[column.key];
                         const display =
                           value === null || value === undefined
                             ? ""
                             : typeof value === "object"
                             ? JSON.stringify(value)
                             : String(value);
-                        return <TableCell key={column}>{display}</TableCell>;
+                        return <TableCell key={column.key}>{display}</TableCell>;
                       })}
                     </TableRow>
                   ))}

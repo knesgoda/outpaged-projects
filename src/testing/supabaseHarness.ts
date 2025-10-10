@@ -1,4 +1,5 @@
 const fromQueue: Array<{ table: string; builder: any }> = [];
+const rpcQueue: Array<{ name: string; response: any }> = [];
 const storageQueue: Array<{ bucket: string; client: any }> = [];
 
 export const supabaseMock = {
@@ -11,6 +12,19 @@ export const supabaseMock = {
       throw new Error(`Expected table ${entry.table} but received ${table}`);
     }
     return entry.builder;
+  }),
+  rpc: jest.fn((name: string, args?: unknown) => {
+    const entry = rpcQueue.shift();
+    if (!entry) {
+      throw new Error(`No mock queued for rpc ${name}`);
+    }
+    if (entry.name !== name) {
+      throw new Error(`Expected rpc ${entry.name} but received ${name}`);
+    }
+    if (typeof entry.response === "function") {
+      return entry.response(args);
+    }
+    return entry.response;
   }),
   storage: {
     from: jest.fn((bucket: string) => {
@@ -61,14 +75,20 @@ export function enqueueFrom(table: string, builder: any) {
   fromQueue.push({ table, builder });
 }
 
+export function enqueueRpc(name: string, response: any) {
+  rpcQueue.push({ name, response });
+}
+
 export function enqueueStorage(bucket: string, client: any) {
   storageQueue.push({ bucket, client });
 }
 
 export function resetSupabaseMocks() {
   fromQueue.length = 0;
+  rpcQueue.length = 0;
   storageQueue.length = 0;
   supabaseMock.from.mockClear();
+  supabaseMock.rpc.mockClear();
   supabaseMock.storage.from.mockClear();
   supabaseMock.functions.invoke.mockClear();
   supabaseMock.auth.getUser.mockReset();
