@@ -170,6 +170,37 @@ describe("Command palette", () => {
       expect(latestLocation.search).toBe("?q=plan");
     });
   });
+
+  it("groups suggestions by result type", async () => {
+    searchModule.searchAll.mockResolvedValue([]);
+    searchModule.searchSuggest.mockResolvedValue([
+      { id: "t-1", type: "task", title: "Fix login flow", url: "/tasks/t-1" },
+      { id: "p-1", type: "project", title: "Login improvements", url: "/projects/p-1" },
+    ]);
+
+    renderWithProviders(["/"]);
+
+    act(() => {
+      const event = new KeyboardEvent("keydown", { key: "k", ctrlKey: true });
+      window.dispatchEvent(event);
+    });
+
+    const input = await screen.findByLabelText("Search");
+    fireEvent.change(input, { target: { value: "login" } });
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 300));
+    });
+
+    await waitFor(() => {
+      expect(searchModule.searchSuggest).toHaveBeenCalledWith(
+        expect.objectContaining({ query: "login" })
+      );
+    });
+
+    expect(await screen.findByRole("group", { name: /tasks/i })).toBeInTheDocument();
+    expect(await screen.findByRole("group", { name: /projects/i })).toBeInTheDocument();
+  });
 });
 
 describe("Global search page", () => {
