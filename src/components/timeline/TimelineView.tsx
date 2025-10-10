@@ -9,7 +9,16 @@ import {
   startOfDay,
 } from "date-fns";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { Calendar, Filter, Layers, RefreshCcw, ZoomIn, ZoomOut } from "lucide-react";
+import {
+  Calendar,
+  Filter,
+  GitBranch,
+  Layers,
+  RefreshCcw,
+  SquareStack,
+  ZoomIn,
+  ZoomOut,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -198,7 +207,7 @@ interface TimelineToolbarProps {
   onFitToRange?: () => void;
 }
 
-function TimelineToolbar({ onFitToRange }: TimelineToolbarProps) {
+export function TimelineToolbar({ onFitToRange }: TimelineToolbarProps) {
   const { preferences, updatePreferences } = useTimelinePreferences();
   const { refresh } = useTimelineState();
 
@@ -264,6 +273,12 @@ function TimelineToolbar({ onFitToRange }: TimelineToolbarProps) {
           </ToggleGroupItem>
           <ToggleGroupItem value="baselines" aria-label="Toggle baselines">
             <Layers className="h-4 w-4" />
+          </ToggleGroupItem>
+          <ToggleGroupItem value="dependencies" aria-label="Toggle dependencies">
+            <GitBranch className="h-4 w-4" />
+          </ToggleGroupItem>
+          <ToggleGroupItem value="overlays" aria-label="Toggle overlays">
+            <SquareStack className="h-4 w-4" />
           </ToggleGroupItem>
           <ToggleGroupItem value="legend" aria-label="Toggle legend">
             <Filter className="h-4 w-4" />
