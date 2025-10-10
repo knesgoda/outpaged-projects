@@ -17,6 +17,7 @@ import { SlackProvider } from "./components/integrations/SlackProvider";
 import { ReleaseProvider } from "./components/releases/ReleaseProvider";
 import { MarketingProvider } from "./components/marketing/MarketingProvider";
 import { AppRoutes } from "./routes";
+import { WorkspaceProvider } from "./state/workspace";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -39,29 +40,31 @@ const App = () => (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <ProfileProvider>
-          <SecurityProvider>
-            <AccessibilityProvider>
-              <SlackProvider>
-                <ReleaseProvider>
-                  <OperationsProvider>
-                    <MarketingProvider>
-                      <TooltipProvider>
-                        <Toaster />
-                        <Sonner />
-                        <BrowserRouter>
-                          <CommandKProvider>
-                            <CommandPalette />
-                            <KeyboardShortcuts />
-                            <AppRoutes />
-                          </CommandKProvider>
-                        </BrowserRouter>
-                      </TooltipProvider>
-                    </MarketingProvider>
-                  </OperationsProvider>
-                </ReleaseProvider>
-              </SlackProvider>
-            </AccessibilityProvider>
-          </SecurityProvider>
+          <WorkspaceProvider>
+            <SecurityProvider>
+              <AccessibilityProvider>
+                <SlackProvider>
+                  <ReleaseProvider>
+                    <OperationsProvider>
+                      <MarketingProvider>
+                        <TooltipProvider>
+                          <Toaster />
+                          <Sonner />
+                          <BrowserRouter>
+                            <CommandKProvider>
+                              <CommandPalette />
+                              <KeyboardShortcuts />
+                              <AppRoutes />
+                            </CommandKProvider>
+                          </BrowserRouter>
+                        </TooltipProvider>
+                      </MarketingProvider>
+                    </OperationsProvider>
+                  </ReleaseProvider>
+                </SlackProvider>
+              </AccessibilityProvider>
+            </SecurityProvider>
+          </WorkspaceProvider>
         </ProfileProvider>
       </AuthProvider>
     </QueryClientProvider>

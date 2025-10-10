@@ -6,8 +6,10 @@ import { clearAuthCache, getWorkspaceRole, type Role } from "@/lib/auth";
 import { useBadges } from "@/state/badges";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, LayoutGrid, Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { useWorkspaceContext } from "@/state/workspace";
+import type { SpaceSummary } from "@/types/workspace";
 
 type SidebarProps = {
   isCollapsed: boolean;
@@ -19,6 +21,7 @@ type SidebarProps = {
 export function Sidebar({ isCollapsed, onCollapseToggle, onNavigate, className }: SidebarProps) {
   const { user } = useAuth();
   const [role, setRole] = useState<Role>("viewer");
+  const { spaces, currentSpace, setSpace, loadingSpaces } = useWorkspaceContext();
 
   useEffect(() => {
     let active = true;
@@ -160,6 +163,52 @@ export function Sidebar({ isCollapsed, onCollapseToggle, onNavigate, className }
     return <div key={item.id}>{content}</div>;
   };
 
+  const renderSpaceItem = (space: SpaceSummary) => {
+    const to = `/spaces/${space.slug ?? space.id}`;
+    const isSelected = currentSpace?.id === space.id;
+    const content = (
+      <NavLink
+        to={to}
+        onClick={() => {
+          setSpace(space.id);
+          onNavigate?.();
+        }}
+        className={({ isActive: navActive }) =>
+          cn(
+            "group relative flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium outline-none transition",
+            "focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-ring",
+            isCollapsed ? "justify-center px-0" : "",
+            navActive || isSelected
+              ? "bg-primary/10 font-semibold text-primary"
+              : "text-muted-foreground hover:bg-muted hover:text-foreground"
+          )
+        }
+      >
+        <LayoutGrid className="h-4 w-4" aria-hidden="true" />
+        {!isCollapsed && <span className="truncate">{space.name}</span>}
+        {isSelected ? (
+          <span
+            aria-hidden="true"
+            className="absolute left-0 top-1/2 h-8 w-0.5 -translate-y-1/2 rounded-full bg-primary"
+          />
+        ) : null}
+      </NavLink>
+    );
+
+    if (isCollapsed) {
+      return (
+        <Tooltip key={space.id} delayDuration={200}>
+          <TooltipTrigger asChild>{content}</TooltipTrigger>
+          <TooltipContent side="right" align="center" className="max-w-[200px]">
+            {space.name}
+          </TooltipContent>
+        </Tooltip>
+      );
+    }
+
+    return <div key={space.id}>{content}</div>;
+  };
+
   return (
     <aside
       className={cn(
@@ -182,9 +231,47 @@ export function Sidebar({ isCollapsed, onCollapseToggle, onNavigate, className }
         </Button>
       </div>
       <TooltipProvider delayDuration={200}>
-        <nav className="mt-6 flex-1 space-y-1" aria-label="Main navigation">
-          {flattened.map(({ item, depth }, index) => renderNavItem(item, index, depth))}
-        </nav>
+        <div className="mt-6 flex-1 space-y-6">
+          <div>
+            {!isCollapsed ? (
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Spaces</p>
+            ) : (
+              <span className="sr-only">Spaces</span>
+            )}
+            <div className={cn("mt-3 space-y-1", isCollapsed && "space-y-2")}
+              aria-label={isCollapsed ? "Spaces" : undefined}
+            >
+              {loadingSpaces ? (
+                <div className="flex items-center justify-center rounded-md border border-dashed border-muted-foreground/30 px-3 py-2 text-xs text-muted-foreground">
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
+                  {!isCollapsed && <span>Loading spaces…</span>}
+                </div>
+              ) : spaces.length === 0 ? (
+                isCollapsed ? (
+                  <Tooltip delayDuration={200}>
+                    <TooltipTrigger asChild>
+                      <div className="flex h-10 w-full items-center justify-center rounded-md border border-dashed border-muted-foreground/30 text-muted-foreground">
+                        <LayoutGrid className="h-4 w-4" aria-hidden="true" />
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="right" align="center">
+                      No spaces yet
+                    </TooltipContent>
+                  </Tooltip>
+                ) : (
+                  <div className="rounded-md border border-dashed border-muted-foreground/30 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                    Create your first space to organize work.
+                  </div>
+                )
+              ) : (
+                spaces.map((space) => renderSpaceItem(space))
+              )}
+            </div>
+          </div>
+          <nav className="flex-1 space-y-1" aria-label="Main navigation">
+            {flattened.map(({ item, depth }, index) => renderNavItem(item, index, depth))}
+          </nav>
+        </div>
       </TooltipProvider>
       {!isCollapsed && (
         <div className="mt-auto pt-4 text-xs text-muted-foreground">
