@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useProjectNavigation } from "@/hooks/useProjectNavigation";
 import { useProjects, useDeleteProject } from "@/hooks/useProjects";
 import { format } from "date-fns";
+import { formatProjectStatus, getProjectStatusBadgeVariant } from "@/utils/project-status";
 
 export default function Projects() {
   const { toast } = useToast();
@@ -57,33 +58,9 @@ export default function Projects() {
     }
   };
 
-  const getStatusVariant = (status: string) => {
-    switch (status) {
-      case 'active':
-        return 'default';
-      case 'completed':
-        return 'secondary';
-      case 'on_hold':
-        return 'outline';
-      default:
-        return 'secondary';
-    }
-  };
+  const getStatusVariant = (status: string) => getProjectStatusBadgeVariant(status);
 
-  const formatStatus = (status: string) => {
-    switch (status) {
-      case 'active':
-        return 'Active';
-      case 'completed':
-        return 'Completed';
-      case 'on_hold':
-        return 'On Hold';
-      case 'planning':
-        return 'Planning';
-      default:
-        return status;
-    }
-  };
+  const formatStatus = (status: string) => formatProjectStatus(status);
 
   if (isLoading) {
     return (

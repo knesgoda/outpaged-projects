@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ProjectPageTemplate, type ProjectSummary } from "./ProjectPageTemplate";
 import { LinkedResourcesPanel } from "@/components/linked/LinkedResourcesPanel";
 import { supabase } from "@/integrations/supabase/client";
+import { formatProjectStatus, isProjectStatus } from "@/utils/project-status";
 
 type TaskSnapshot = {
   id: string;
@@ -310,8 +311,17 @@ function isClosed(status: string) {
 }
 
 function formatStatus(status?: string | null) {
-  if (!status) return "unknown";
-  return status.replace(/_/g, " ");
+  if (!status) return "Unknown";
+
+  if (isProjectStatus(status)) {
+    return formatProjectStatus(status);
+  }
+
+  return status
+    .split(/[_\s]+/)
+    .filter(Boolean)
+    .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
 }
 
 function formatDate(value?: string | null) {

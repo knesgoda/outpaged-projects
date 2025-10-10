@@ -60,6 +60,11 @@ import {
   useUpdateProject,
 } from "@/hooks/useProjects";
 import { useToast } from "@/hooks/use-toast";
+import {
+  formatProjectStatus,
+  getProjectStatusBadgeVariant,
+  PROJECT_STATUS_FILTER_OPTIONS,
+} from "@/utils/project-status";
 
 interface UrlState {
   q: string;
@@ -72,8 +77,7 @@ interface UrlState {
 
 const statusOptions: Array<{ value: UrlState["status"]; label: string }> = [
   { value: "all", label: "All" },
-  { value: "active", label: "Active" },
-  { value: "archived", label: "Archived" },
+  ...PROJECT_STATUS_FILTER_OPTIONS,
 ];
 
 const sortOptions: Array<{ value: ProjectSort; label: string }> = [
@@ -84,14 +88,7 @@ const sortOptions: Array<{ value: ProjectSort; label: string }> = [
 
 const pageSizeOptions = [10, 20, 50];
 
-const statusLabels: Record<ProjectStatus, string> = {
-  active: "Active",
-  archived: "Archived",
-};
-
-const getStatusVariant = (status: ProjectStatus) => {
-  return status === "archived" ? "secondary" : "default";
-};
+const getStatusVariant = (status: ProjectStatus) => getProjectStatusBadgeVariant(status);
 
 export function ProjectsListPage() {
   const navigate = useNavigate();
@@ -449,7 +446,7 @@ export function ProjectsListPage() {
                   </TableCell>
                   <TableCell>
                     <Badge variant={getStatusVariant(project.status)}>
-                      {statusLabels[project.status]}
+                      {formatProjectStatus(project.status)}
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right" onClick={event => event.stopPropagation()}>

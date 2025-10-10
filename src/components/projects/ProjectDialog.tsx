@@ -12,6 +12,12 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { useCreateProject } from "@/hooks/useProjects";
+import type { ProjectStatus } from "@/services/projects";
+import { PROJECT_STATUS_FILTER_OPTIONS } from "@/utils/project-status";
+
+const creatableStatusOptions = PROJECT_STATUS_FILTER_OPTIONS.filter(
+  option => option.value !== "archived",
+);
 
 interface ProjectDialogProps {
   open: boolean;
@@ -26,7 +32,7 @@ export function ProjectDialog({ open, onOpenChange, onSuccess }: ProjectDialogPr
     name: "",
     description: "",
     code: "",
-    status: "planning" as "planning" | "active" | "completed" | "on_hold",
+    status: "planning" as Exclude<ProjectStatus, "archived">,
     startDate: undefined as Date | undefined,
     endDate: undefined as Date | undefined,
   });
@@ -131,16 +137,19 @@ export function ProjectDialog({ open, onOpenChange, onSuccess }: ProjectDialogPr
             <Label>Project Status</Label>
             <Select
               value={formData.status}
-              onValueChange={(value: any) => setFormData(prev => ({ ...prev, status: value }))}
+              onValueChange={(value: Exclude<ProjectStatus, "archived">) =>
+                setFormData(prev => ({ ...prev, status: value }))
+              }
             >
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="planning">Planning</SelectItem>
-                <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="on_hold">On Hold</SelectItem>
-                <SelectItem value="completed">Completed</SelectItem>
+                {creatableStatusOptions.map(option => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
