@@ -19,7 +19,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { HelpCircle, Keyboard, Menu, Plus, Search } from "lucide-react";
+import { HelpCircle, Keyboard, Menu, Plus, Search, Building2, ChevronsUpDown, Loader2, Settings2 } from "lucide-react";
 import { NAV } from "@/lib/navConfig";
 import { getWorkspaceRole, type Role } from "@/lib/auth";
 import { PROJECT_TABS } from "@/components/common/TabBar";
@@ -28,6 +28,7 @@ import { useCommandK } from "@/components/command/useCommandK";
 import { useMyProfile } from "@/hooks/useProfile";
 import { useWorkspaceSettings } from "@/hooks/useWorkspace";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
+import { useWorkspaceContext } from "@/state/workspace";
 
 function findNavLabel(path: string) {
   const walk = (items = NAV): string | undefined => {
@@ -114,6 +115,12 @@ export function Topbar({ onToggleSidebar, onOpenShortcuts }: TopbarProps) {
   const profile = profileQuery.data ?? null;
   const profileError = (profileQuery.error as Error | null) ?? null;
   const { data: workspaceSettings } = useWorkspaceSettings();
+  const {
+    workspaces,
+    currentWorkspace,
+    setWorkspace,
+    loadingWorkspaces,
+  } = useWorkspaceContext();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const { openPalette } = useCommandK();
 
@@ -164,6 +171,48 @@ export function Topbar({ onToggleSidebar, onOpenShortcuts }: TopbarProps) {
   const brandName =
     workspaceSettings?.brand_name?.trim() || workspaceSettings?.name?.trim() || "OutPaged";
   const brandLogo = workspaceSettings?.brand_logo_url ?? null;
+  const workspaceLabel = currentWorkspace?.name ?? (loadingWorkspaces ? "Loading…" : "Select workspace");
+  const workspaceMenuBody = (
+    <>
+      <DropdownMenuLabel>Workspaces</DropdownMenuLabel>
+      <DropdownMenuSeparator />
+      {loadingWorkspaces ? (
+        <div className="flex items-center gap-2 px-3 py-2 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+          <span>Loading workspaces…</span>
+        </div>
+      ) : workspaces.length === 0 ? (
+        <div className="px-3 py-2 text-sm text-muted-foreground">No workspaces available.</div>
+      ) : (
+        workspaces.map((workspace) => (
+          <DropdownMenuItem
+            key={workspace.id}
+            onSelect={(event) => {
+              event.preventDefault();
+              setWorkspace(workspace.id);
+            }}
+            className="flex flex-col items-start gap-0.5"
+            aria-current={workspace.id === currentWorkspace?.id ? "true" : undefined}
+          >
+            <span className="text-sm font-medium text-foreground">{workspace.name}</span>
+            {workspace.description ? (
+              <span className="text-xs text-muted-foreground">{workspace.description}</span>
+            ) : null}
+          </DropdownMenuItem>
+        ))
+      )}
+      <DropdownMenuSeparator />
+      <DropdownMenuItem
+        onSelect={(event) => {
+          event.preventDefault();
+          setIsDialogOpen(false);
+          navigate("/admin/workspace");
+        }}
+      >
+        <Settings2 className="mr-2 h-4 w-4" aria-hidden="true" /> Manage workspace settings
+      </DropdownMenuItem>
+    </>
+  );
 
   const breadcrumbs = useMemo(() => {
     const segments = location.pathname.split("/").filter(Boolean);
@@ -236,6 +285,46 @@ export function Topbar({ onToggleSidebar, onOpenShortcuts }: TopbarProps) {
           )}
           <span className="hidden text-sm font-semibold text-foreground sm:inline">{brandName}</span>
         </Link>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              className="hidden items-center gap-2 whitespace-nowrap sm:inline-flex"
+              aria-label="Select workspace"
+            >
+              {loadingWorkspaces ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Building2 className="h-4 w-4" />
+              )}
+              <span className="max-w-[160px] truncate">{workspaceLabel}</span>
+              <ChevronsUpDown className="h-3.5 w-3.5 opacity-60" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-64">
+            {workspaceMenuBody}
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="sm:hidden"
+              aria-label="Select workspace"
+            >
+              {loadingWorkspaces ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <Building2 className="h-5 w-5" />
+              )}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-64">
+            {workspaceMenuBody}
+          </DropdownMenuContent>
+        </DropdownMenu>
         <Breadcrumb>
           <BreadcrumbList>
             {breadcrumbs.map((crumb, index) => (

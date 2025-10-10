@@ -19,6 +19,7 @@ import NotificationsPage from "@/pages/Notifications";
 import ProfilePage from "@/pages/Profile";
 import TeamDirectoryPage from "@/pages/TeamDirectory";
 import TeamMemberProfilePage from "@/pages/TeamMemberProfile";
+import SpaceOverviewPage from "@/pages/spaces/SpaceOverviewPage";
 import DocsHome from "@/pages/docs/DocsHome";
 import DocCreate from "@/pages/docs/DocCreate";
 import DocDetail from "@/pages/docs/DocDetail";
@@ -82,6 +83,7 @@ export function AppRoutes() {
         { path: "inbox/unread", element: <InboxRoute tab="unread" /> },
         { path: "projects", element: <Projects /> },
         { path: "projects/:projectId", element: <ProjectDetails /> },
+        { path: "spaces/:spaceId", element: <SpaceOverviewPage /> },
         { path: "tasks", element: <TasksPage /> },
         { path: "reports", element: <ReportsPage /> },
         { path: "documents", element: <DocumentsPage /> },

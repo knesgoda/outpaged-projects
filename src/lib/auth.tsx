@@ -19,8 +19,22 @@ function normalizeRole(role: string | null | undefined): Role | null {
     return null;
   }
 
-  if (role === "owner" || role === "admin" || role === "manager" || role === "member" || role === "billing") {
-    return role;
+  const allowedRoles: Role[] = [
+    "owner",
+    "admin",
+    "manager",
+    "member",
+    "billing",
+    "org_admin",
+    "space_admin",
+    "project_lead",
+    "contributor",
+    "requester",
+    "guest",
+  ];
+
+  if (allowedRoles.includes(role as Role)) {
+    return role as Role;
   }
 
   return "viewer";
