@@ -1,6 +1,12 @@
 import { supabase } from "@/integrations/supabase/client";
 
-export type ProjectStatus = "active" | "archived";
+export type ProjectStatus =
+  | "planning"
+  | "active"
+  | "on_hold"
+  | "completed"
+  | "cancelled"
+  | "archived";
 export type ProjectSort = "updated_at" | "created_at" | "name";
 export type SortDirection = "asc" | "desc";
 
@@ -117,7 +123,7 @@ export interface CreateProjectInput {
   name: string;
   description?: string;
   code?: string;
-  status?: "planning" | "active" | "completed" | "on_hold";
+  status?: Exclude<ProjectStatus, "archived">;
   start_date?: string;
   end_date?: string;
 }

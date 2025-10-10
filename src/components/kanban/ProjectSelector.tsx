@@ -14,6 +14,8 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { formatProjectStatus, getProjectStatusBadgeVariant } from "@/utils/project-status";
+import type { ProjectStatus } from "@/services/projects";
 import { 
   FolderOpen, 
   Users, 
@@ -27,7 +29,7 @@ interface Project {
   id: string;
   name: string;
   description?: string;
-  status: string;
+  status: ProjectStatus;
   start_date?: string;
   end_date?: string;
   owner_id: string;
@@ -108,20 +110,9 @@ export function ProjectSelector({
     }
   };
 
-  const getStatusBadgeVariant = (status: string) => {
-    switch (status) {
-      case 'active': return 'default';
-      case 'completed': return 'secondary';
-      case 'on_hold': return 'outline';
-      default: return 'secondary';
-    }
-  };
+  const getStatusBadgeVariant = (status: ProjectStatus | string) => getProjectStatusBadgeVariant(status);
 
-  const formatStatus = (status: string) => {
-    return status.split('_').map(word => 
-      word.charAt(0).toUpperCase() + word.slice(1)
-    ).join(' ');
-  };
+  const formatStatus = (status: ProjectStatus | string) => formatProjectStatus(status);
 
   const handleViewModeChange = (value: string) => {
     setViewMode(value as 'grid' | 'list');

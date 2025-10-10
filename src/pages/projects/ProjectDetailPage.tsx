@@ -43,6 +43,7 @@ import {
   useUpdateProject,
 } from "@/hooks/useProjects";
 import { useToast } from "@/hooks/use-toast";
+import { formatProjectStatus, getProjectStatusBadgeVariant } from "@/utils/project-status";
 
 interface ProjectDetailPageProps {
   tab?: string;
@@ -70,13 +71,6 @@ const tabs: ProjectTab[] = [
   { value: "automations", label: "Automations", icon: Sparkles, description: "Automate recurring steps." },
   { value: "settings", label: "Settings", icon: Settings, description: "Fine tune roles and preferences." },
 ];
-
-const statusLabels: Record<ProjectStatus, string> = {
-  active: "Active",
-  archived: "Archived",
-};
-
-const statusVariant = (status: ProjectStatus) => (status === "archived" ? "secondary" : "default");
 
 export function ProjectDetailPage({ tab = "overview" }: ProjectDetailPageProps) {
   const { projectId } = useParams<{ projectId: string }>();
@@ -198,7 +192,9 @@ export function ProjectDetailPage({ tab = "overview" }: ProjectDetailPageProps) 
         <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-3">
             <h1 className="text-3xl font-semibold tracking-tight">{project.name}</h1>
-            <Badge variant={statusVariant(project.status)}>{statusLabels[project.status]}</Badge>
+            <Badge variant={getProjectStatusBadgeVariant(project.status)}>
+              {formatProjectStatus(project.status)}
+            </Badge>
           </div>
           {project.description ? (
             <p className="max-w-3xl text-muted-foreground">{project.description}</p>

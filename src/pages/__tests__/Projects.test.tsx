@@ -69,7 +69,7 @@ describe("Projects pages", () => {
       id: "abc-123",
       name: "Alpha Initiative",
       description: "Shipping the redesign.",
-      status: "active",
+      status: "cancelled",
       updated_at: new Date().toISOString(),
       created_at: new Date().toISOString(),
     };
@@ -100,6 +100,7 @@ describe("Projects pages", () => {
     rerender(<ProjectsListPage />);
 
     expect(await screen.findByText(project.name)).toBeInTheDocument();
+    expect(screen.getByText("Cancelled")).toBeInTheDocument();
   });
 
   it("navigates to the project overview when a row is clicked", async () => {
@@ -107,7 +108,7 @@ describe("Projects pages", () => {
       id: "project-42",
       name: "Roadmap Refresh",
       description: "New roadmap planning.",
-      status: "active",
+      status: "planning",
       updated_at: new Date().toISOString(),
       created_at: new Date().toISOString(),
     };
@@ -166,5 +167,30 @@ describe("Projects pages", () => {
 
     expect(await screen.findByText("Give your project a clear name.")).toBeInTheDocument();
     expect(lastLocation?.search).toContain("new=1");
+  });
+
+  it("passes expanded status filters through to the projects query", () => {
+    mockUseProjects.mockReturnValue({
+      data: { data: [], total: 0 },
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: jest.fn(),
+    });
+
+    const wrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+      <HelmetProvider>
+        <MemoryRouter initialEntries={["/projects?status=cancelled"]}>
+          <LocationTracker />
+          {children}
+        </MemoryRouter>
+      </HelmetProvider>
+    );
+
+    render(<ProjectsListPage />, { wrapper });
+
+    expect(mockUseProjects).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "cancelled" }),
+    );
   });
 });
