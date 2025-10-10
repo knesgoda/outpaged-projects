@@ -13,6 +13,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useProjectNavigation } from "@/hooks/useProjectNavigation";
 import { validateUniqueProjectCode } from "@/lib/validation";
 import { useProjectId } from "@/hooks/useProjectId";
+import type { ProjectStatus } from "@/services/projects";
+import { PROJECT_STATUS_FILTER_OPTIONS } from "@/utils/project-status";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
 export default function ProjectSettings({ overrideProjectId }: { overrideProjectId?: string }) {
@@ -31,7 +33,7 @@ export default function ProjectSettings({ overrideProjectId }: { overrideProject
     name: "",
     description: "",
     code: "",
-    status: "planning" as "planning" | "active" | "completed" | "on_hold" | "cancelled",
+    status: "planning" as ProjectStatus,
   });
 
   useEffect(() => {
@@ -56,7 +58,7 @@ export default function ProjectSettings({ overrideProjectId }: { overrideProject
         name: data.name || "",
         description: data.description || "",
         code: data.code || "",
-        status: data.status || "planning",
+        status: (data.status as ProjectStatus) || "planning",
       });
     } catch (error) {
       console.error('Error fetching project:', error);
@@ -268,16 +270,19 @@ export default function ProjectSettings({ overrideProjectId }: { overrideProject
                 <Label>Project Status</Label>
                 <Select
                   value={formData.status}
-                  onValueChange={(value: any) => setFormData(prev => ({ ...prev, status: value }))}
+                  onValueChange={(value: ProjectStatus) =>
+                    setFormData(prev => ({ ...prev, status: value }))
+                  }
                 >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="planning">Planning</SelectItem>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="on_hold">On Hold</SelectItem>
-                    <SelectItem value="completed">Completed</SelectItem>
+                    {PROJECT_STATUS_FILTER_OPTIONS.map(option => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>

@@ -24,6 +24,11 @@ import { StatusChip } from "@/components/outpaged/StatusChip";
 import { TaskDialog } from "@/components/kanban/TaskDialog";
 import { CreateTaskDialog } from "@/components/tasks/CreateTaskDialog";
 import { format } from "date-fns";
+import {
+  formatProjectStatus,
+  getProjectStatusBadgeVariant,
+  isProjectStatus,
+} from "@/utils/project-status";
 
 function OutpagedDashboard() {
   const { user } = useAuth();
@@ -353,22 +358,29 @@ function LegacyDashboard() {
   };
 
   const getStatusVariant = (status: string) => {
+    if (isProjectStatus(status)) {
+      return getProjectStatusBadgeVariant(status);
+    }
+
     switch (status) {
-      case 'active':
       case 'in_progress':
         return 'default';
-      case 'completed':
       case 'done':
         return 'secondary';
-      case 'on_hold':
-        return 'outline';
       default:
         return 'secondary';
     }
   };
 
   const formatStatus = (status: string) => {
-    return status.replace('_', ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
+    if (isProjectStatus(status)) {
+      return formatProjectStatus(status);
+    }
+
+    return status
+      .replace(/_/g, ' ')
+      .toLowerCase()
+      .replace(/\b\w/g, l => l.toUpperCase());
   };
 
   const statCards = [
