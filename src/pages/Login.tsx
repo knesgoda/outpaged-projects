@@ -1,25 +1,29 @@
-import { useMemo } from "react";
-import { useLocation } from "react-router-dom";
-import { supabase, supabaseConfigured } from "@/integrations/supabase/client";
-import { enableGoogleSSO } from "@/lib/featureFlags";
+import { useState, useMemo } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Loader2 } from "lucide-react";
 
-const getRedirectUrl = (next?: string | null) => {
-  if (typeof window === "undefined") {
-    return undefined;
-  }
-  const url = new URL("/auth/callback", window.location.origin);
-  if (next && next.startsWith("/")) {
-    url.searchParams.set("next", next);
-  }
-  return url.toString();
-};
 
 export default function Login() {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { signIn, signUp } = useAuth();
+  
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
   const reason = useMemo(() => {
     const params = new URLSearchParams(location.search);
     return params.get("reason");
   }, [location.search]);
+  
   const next = useMemo(() => {
     const params = new URLSearchParams(location.search);
     return params.get("next");
@@ -35,40 +39,43 @@ export default function Login() {
     return null;
   }, [reason]);
 
-  const handleGoogleSignIn = async () => {
-    console.log("Supabase configured:", supabaseConfigured);
-    console.log("Environment variables:", {
-      VITE_SUPABASE_URL: import.meta.env.VITE_SUPABASE_URL,
-      VITE_SUPABASE_PUBLISHABLE_KEY: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-      VITE_SUPABASE_ANON_KEY: import.meta.env.VITE_SUPABASE_ANON_KEY
-    });
-    
-    if (!supabaseConfigured) {
-      console.error("Supabase is not configured properly");
-      return;
-    }
-    
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+
     try {
-      console.log("Attempting Google sign in...");
-      const result = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo: getRedirectUrl(next),
-          queryParams: { prompt: "select_account" },
-        },
-      });
-      console.log("Sign in result:", result);
-    } catch (error) {
-      console.error("Google sign-in failed", error);
+      if (isSignUp) {
+        const { error } = await signUp(email, password, fullName);
+        if (error) {
+          setError(error.message);
+        } else {
+          setError("Check your email to verify your account.");
+        }
+      } else {
+        const { error } = await signIn(email, password);
+        if (error) {
+          setError(error.message);
+        } else {
+          const destination = next && next.startsWith("/") ? next : "/";
+          navigate(destination, { replace: true });
+        }
+      }
+    } catch (err: any) {
+      setError(err.message || "An error occurred");
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <main className="min-h-screen grid place-items-center bg-neutral-50 px-4 py-12">
+    <main className="min-h-screen grid place-items-center bg-background px-4 py-12">
       <div className="w-full max-w-md rounded-2xl border bg-card p-8 shadow-xl">
         <div className="mb-6 flex flex-col items-center gap-2 text-center">
-          <span className="text-2xl font-bold text-neutral-900">OutPaged</span>
-          <p className="text-sm text-neutral-500">Use your outpaged.com Google account</p>
+          <span className="text-2xl font-bold text-foreground">OutPaged</span>
+          <p className="text-sm text-muted-foreground">
+            {isSignUp ? "Create your account" : "Sign in to your account"}
+          </p>
         </div>
 
         {notice && (
@@ -77,30 +84,78 @@ export default function Login() {
           </div>
         )}
 
-        {enableGoogleSSO ? (
-          <>
-            <button
-              onClick={handleGoogleSignIn}
-              className="flex h-11 w-full items-center justify-center rounded-md bg-accent text-accent-foreground text-sm font-medium transition hover:bg-accent/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              disabled={!supabaseConfigured}
-            >
-              Continue with Google
-            </button>
-            {!supabaseConfigured && (
-              <p className="mt-2 text-center text-xs text-amber-600">
-                Supabase credentials are not configured for this environment.
-              </p>
-            )}
-          </>
-        ) : (
-          <div className="mb-2 rounded-md border border-neutral-200 bg-neutral-100 p-3 text-center text-sm text-neutral-600">
-            Google sign-in is temporarily unavailable.
+        {error && (
+          <div className="mb-4 rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+            {error}
           </div>
         )}
 
-        <p className="mt-4 text-center text-xs text-neutral-500">
-          Only @outpaged.com accounts are allowed
-        </p>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {isSignUp && (
+            <div className="space-y-2">
+              <Label htmlFor="fullName">Full Name</Label>
+              <Input
+                id="fullName"
+                type="text"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                required={isSignUp}
+                disabled={loading}
+              />
+            </div>
+          )}
+
+          <div className="space-y-2">
+            <Label htmlFor="email">Email</Label>
+            <Input
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              disabled={loading}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="password">Password</Label>
+            <Input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              disabled={loading}
+            />
+          </div>
+
+          <Button type="submit" className="w-full" disabled={loading}>
+            {loading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                {isSignUp ? "Creating account..." : "Signing in..."}
+              </>
+            ) : (
+              isSignUp ? "Sign Up" : "Sign In"
+            )}
+          </Button>
+        </form>
+
+        <div className="mt-4 text-center">
+          <button
+            type="button"
+            onClick={() => {
+              setIsSignUp(!isSignUp);
+              setError("");
+            }}
+            className="text-sm text-primary hover:underline"
+            disabled={loading}
+          >
+            {isSignUp
+              ? "Already have an account? Sign in"
+              : "Don't have an account? Sign up"}
+          </button>
+        </div>
       </div>
     </main>
   );
