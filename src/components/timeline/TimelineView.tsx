@@ -12,6 +12,8 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import {
   Calendar,
   Filter,
+  Layers,
+  RefreshCcw,
   Flag,
   Globe2,
   Layers,
@@ -28,7 +30,21 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuLabel,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -40,6 +56,7 @@ import {
   type TimelineMilestone,
   type TimelineRowModel,
   type TimelineScale,
+  useTimelineInteractions,
   useTimelinePreferences,
   useTimelineSelector,
   useTimelineState,
@@ -69,14 +86,14 @@ export function getPixelsPerDay(scale: TimelineScale, zoomLevel: number) {
     scale === "hour"
       ? 24 * 32
       : scale === "day"
-      ? 72
-      : scale === "week"
-      ? 32
-      : scale === "month"
-      ? 20
-      : scale === "quarter"
-      ? 12
-      : 6;
+        ? 72
+        : scale === "week"
+          ? 32
+          : scale === "month"
+            ? 20
+            : scale === "quarter"
+              ? 12
+              : 6;
   return base * zoomLevel;
 }
 
@@ -155,14 +172,24 @@ interface TimelineSurfaceProps {
 function TimelineSurface({ className, height = "100%" }: TimelineSurfaceProps) {
   const { loading, error, refresh, snapshot } = useTimelineState();
   const { preferences, updatePreferences } = useTimelinePreferences();
-  const rows = useTimelineSelector(context => context.derived?.rows ?? []);
-  const criticalPath = useTimelineSelector(context => new Set(context.derived?.criticalPath ?? []));
-  const dependencies = useTimelineSelector(context => context.snapshot?.dependencies ?? []);
+  const rows = useTimelineSelector((context) => context.derived?.rows ?? []);
+  const criticalPath = useTimelineSelector(
+    (context) => new Set(context.derived?.criticalPath ?? []),
+  );
+  const dependencies = useTimelineSelector(
+    (context) => context.snapshot?.dependencies ?? [],
+  );
   const dateRange = useTimelineSelector(
-    context => context.derived?.dateRange ?? { start: snapshot?.lastUpdated ?? null, end: snapshot?.lastUpdated ?? null }
+    (context) =>
+      context.derived?.dateRange ?? {
+        start: snapshot?.lastUpdated ?? null,
+        end: snapshot?.lastUpdated ?? null,
+      },
   );
 
-  const rowHeight = rowHeightByDensity[preferences.rowDensity] ?? rowHeightByDensity.comfortable;
+  const rowHeight =
+    rowHeightByDensity[preferences.rowDensity] ??
+    rowHeightByDensity.comfortable;
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const gridScrollRef = useRef<HTMLDivElement | null>(null);
   const [horizontalOffset, setHorizontalOffset] = useState(0);
@@ -174,10 +201,22 @@ function TimelineSurface({ className, height = "100%" }: TimelineSurfaceProps) {
     overscan: 6,
   });
 
-  const startDate = useMemo(() => safeParseIso(dateRange.start) ?? startOfDay(new Date()), [dateRange.start]);
-  const endDate = useMemo(() => safeParseIso(dateRange.end) ?? addDays(startDate, 14), [dateRange.end, startDate]);
-  const totalDays = Math.max(1, differenceInCalendarDays(endDate, startDate) + 1);
-  const pixelsPerDay = getPixelsPerDay(preferences.scale, preferences.zoomLevel);
+  const startDate = useMemo(
+    () => safeParseIso(dateRange.start) ?? startOfDay(new Date()),
+    [dateRange.start],
+  );
+  const endDate = useMemo(
+    () => safeParseIso(dateRange.end) ?? addDays(startDate, 14),
+    [dateRange.end, startDate],
+  );
+  const totalDays = Math.max(
+    1,
+    differenceInCalendarDays(endDate, startDate) + 1,
+  );
+  const pixelsPerDay = getPixelsPerDay(
+    preferences.scale,
+    preferences.zoomLevel,
+  );
   const gridWidth = Math.max(600, totalDays * pixelsPerDay);
 
   useEffect(() => {
@@ -209,7 +248,10 @@ function TimelineSurface({ className, height = "100%" }: TimelineSurfaceProps) {
 
   if (loading) {
     return (
-      <Card className={cn("flex h-full flex-1 flex-col", className)} style={{ height }}>
+      <Card
+        className={cn("flex h-full flex-1 flex-col", className)}
+        style={{ height }}
+      >
         <CardContent className="flex flex-1 items-center justify-center text-muted-foreground">
           Loading timeline…
         </CardContent>
@@ -219,7 +261,10 @@ function TimelineSurface({ className, height = "100%" }: TimelineSurfaceProps) {
 
   if (error) {
     return (
-      <Card className={cn("flex h-full flex-1 flex-col", className)} style={{ height }}>
+      <Card
+        className={cn("flex h-full flex-1 flex-col", className)}
+        style={{ height }}
+      >
         <CardContent className="flex flex-1 flex-col items-center justify-center gap-4 text-center">
           <p className="text-muted-foreground">{error.message}</p>
           <Button onClick={() => refresh()} variant="outline">
@@ -231,8 +276,15 @@ function TimelineSurface({ className, height = "100%" }: TimelineSurfaceProps) {
   }
 
   return (
-    <div className={cn("flex h-full flex-1 flex-col gap-3", className)} style={{ height }}>
-      <TimelineToolbar onFitToRange={() => gridScrollRef.current?.scrollTo({ left: 0, behavior: "smooth" })} />
+    <div
+      className={cn("flex h-full flex-1 flex-col gap-3", className)}
+      style={{ height }}
+    >
+      <TimelineToolbar
+        onFitToRange={() =>
+          gridScrollRef.current?.scrollTo({ left: 0, behavior: "smooth" })
+        }
+      />
       <div className="flex min-h-0 flex-1 overflow-hidden rounded-xl border bg-card shadow-sm">
         <div className="flex min-h-0 flex-1 flex-col">
           <TimelineHeader
@@ -244,10 +296,34 @@ function TimelineSurface({ className, height = "100%" }: TimelineSurfaceProps) {
             scrollOffset={horizontalOffset}
           />
           <div className="flex min-h-0 flex-1 overflow-hidden">
-            <div ref={scrollRef} className="relative flex min-h-0 flex-1 overflow-y-auto">
+            <div
+              ref={scrollRef}
+              className="relative flex min-h-0 flex-1 overflow-y-auto"
+            >
               <div className="flex min-h-full min-w-full">
-                <TimelineLeftRail rows={rows} virtualizer={virtualizer} rowHeight={rowHeight} />
+                <TimelineLeftRail
+                  rows={rows}
+                  virtualizer={virtualizer}
+                  rowHeight={rowHeight}
+                />
                 <div className="relative flex min-h-full flex-1 flex-col">
+                  <div
+                    ref={gridScrollRef}
+                    className="relative h-full w-full overflow-x-auto"
+                  >
+                    <TimelineGrid
+                      rows={rows}
+                      virtualizer={virtualizer}
+                      rowHeight={rowHeight}
+                      startDate={startDate}
+                      pixelsPerDay={pixelsPerDay}
+                      gridWidth={gridWidth}
+                      showWeekends={preferences.showWeekends}
+                      showBaselines={preferences.showBaselines}
+                      showDependencies={preferences.showDependencies}
+                      dependencies={dependencies}
+                      criticalPath={criticalPath}
+                    />
                   <div ref={gridScrollRef} className="relative h-full w-full overflow-x-auto">
                   <TimelineGrid
                     rows={rows}
@@ -311,12 +387,17 @@ export function TimelineToolbar({ onFitToRange }: TimelineToolbarProps) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border bg-card/80 px-4 py-3 shadow-sm">
       <div className="flex flex-wrap items-center gap-3">
-        <Select value={preferences.scale} onValueChange={value => updatePreferences({ scale: value as TimelineScale })}>
+        <Select
+          value={preferences.scale}
+          onValueChange={(value) =>
+            updatePreferences({ scale: value as TimelineScale })
+          }
+        >
           <SelectTrigger className="w-[140px]">
             <SelectValue placeholder="Scale" />
           </SelectTrigger>
           <SelectContent>
-            {scaleOptions.map(option => (
+            {scaleOptions.map((option) => (
               <SelectItem key={option.value} value={option.value}>
                 {option.label}
               </SelectItem>
@@ -325,13 +406,25 @@ export function TimelineToolbar({ onFitToRange }: TimelineToolbarProps) {
         </Select>
         <Separator orientation="vertical" className="h-6" />
         <div className="flex items-center gap-2">
-          <Button size="icon" variant="outline" onClick={() => handleZoom(-0.25)}>
+          <Button
+            size="icon"
+            variant="outline"
+            onClick={() => handleZoom(-0.25)}
+          >
             <ZoomOut className="h-4 w-4" />
           </Button>
-          <Button size="icon" variant="outline" onClick={() => handleZoom(0.25)}>
+          <Button
+            size="icon"
+            variant="outline"
+            onClick={() => handleZoom(0.25)}
+          >
             <ZoomIn className="h-4 w-4" />
           </Button>
-          <Button size="sm" variant="secondary" onClick={() => updatePreferences({ zoomLevel: 1 })}>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => updatePreferences({ zoomLevel: 1 })}
+          >
             Fit
           </Button>
           <Button size="sm" variant="secondary" onClick={onFitToRange}>
@@ -339,7 +432,11 @@ export function TimelineToolbar({ onFitToRange }: TimelineToolbarProps) {
           </Button>
         </div>
         <Separator orientation="vertical" className="h-6" />
-        <ToggleGroup type="multiple" value={toggleValues} onValueChange={handleToggleChange}>
+        <ToggleGroup
+          type="multiple"
+          value={toggleValues}
+          onValueChange={handleToggleChange}
+        >
           <ToggleGroupItem value="weekends" aria-label="Toggle weekends">
             <Calendar className="h-4 w-4" />
           </ToggleGroupItem>
@@ -376,8 +473,18 @@ interface TimelineHeaderProps {
   scrollOffset: number;
 }
 
-function TimelineHeader({ startDate, endDate, pixelsPerDay, preferencesScale, gridWidth, scrollOffset }: TimelineHeaderProps) {
-  const totalDays = Math.max(1, differenceInCalendarDays(endDate, startDate) + 1);
+function TimelineHeader({
+  startDate,
+  endDate,
+  pixelsPerDay,
+  preferencesScale,
+  gridWidth,
+  scrollOffset,
+}: TimelineHeaderProps) {
+  const totalDays = Math.max(
+    1,
+    differenceInCalendarDays(endDate, startDate) + 1,
+  );
   const labels = [] as { date: Date; width: number }[];
   for (let i = 0; i < totalDays; i += 1) {
     const date = addDays(startDate, i);
@@ -388,8 +495,14 @@ function TimelineHeader({ startDate, endDate, pixelsPerDay, preferencesScale, gr
     <div className="sticky top-0 z-20 flex h-12 items-center border-b bg-card/95 px-3 backdrop-blur">
       <div className="w-72 flex-shrink-0" />
       <div className="flex flex-1 overflow-hidden">
-        <div className="pointer-events-none flex" style={{ width: gridWidth, transform: `translateX(-${scrollOffset}px)` }}>
-          {labels.map(label => (
+        <div
+          className="pointer-events-none flex"
+          style={{
+            width: gridWidth,
+            transform: `translateX(-${scrollOffset}px)`,
+          }}
+        >
+          {labels.map((label) => (
             <div
               key={label.date.toISOString()}
               className="flex h-full flex-1 items-center justify-start border-l px-2 text-xs text-muted-foreground"
@@ -398,10 +511,10 @@ function TimelineHeader({ startDate, endDate, pixelsPerDay, preferencesScale, gr
               {preferencesScale === "hour"
                 ? format(label.date, "MMM d")
                 : preferencesScale === "month"
-                ? format(label.date, "MMM d")
-                : preferencesScale === "quarter"
-                ? `Q${Math.floor(label.date.getMonth() / 3) + 1} ${label.date.getFullYear()}`
-                : format(label.date, "MMM d")}
+                  ? format(label.date, "MMM d")
+                  : preferencesScale === "quarter"
+                    ? `Q${Math.floor(label.date.getMonth() / 3) + 1} ${label.date.getFullYear()}`
+                    : format(label.date, "MMM d")}
             </div>
           ))}
         </div>
@@ -416,26 +529,31 @@ interface TimelineLeftRailProps {
   rowHeight: number;
 }
 
-function TimelineLeftRail({ rows, virtualizer, rowHeight }: TimelineLeftRailProps) {
+function TimelineLeftRail({
+  rows,
+  virtualizer,
+  rowHeight,
+}: TimelineLeftRailProps) {
   const virtualItems = virtualizer.getVirtualItems();
   const totalSize = virtualizer.getTotalSize();
 
   return (
     <div className="relative w-72 flex-shrink-0 border-r bg-background">
       <div style={{ height: totalSize }}>
-        {virtualItems.map(virtualRow => {
+        {virtualItems.map((virtualRow) => {
           const row = rows[virtualRow.index];
           if (!row) return null;
           const depthPadding = row.depth * 16;
           const isGroup = row.type === "group";
-          const background = virtualRow.index % 2 === 0 ? "bg-muted/30" : "bg-background";
+          const background =
+            virtualRow.index % 2 === 0 ? "bg-muted/30" : "bg-background";
           return (
             <div
               key={row.id}
               className={cn(
                 "absolute flex w-full items-center gap-2 border-b border-border/40 px-3 text-sm",
                 background,
-                isGroup ? "font-medium" : "font-normal"
+                isGroup ? "font-medium" : "font-normal",
               )}
               style={{
                 height: virtualRow.size,
@@ -474,6 +592,11 @@ interface TimelineGridProps {
   milestones: TimelineMilestone[];
 }
 
+type TimelineContextMenuInfo =
+  | { type: "grid"; clientX: number }
+  | { type: "row"; rowIndex: number; clientX: number }
+  | { type: "bar"; rowIndex: number; itemId: string; clientX: number };
+
 function TimelineGrid({
   rows,
   virtualizer,
@@ -489,6 +612,7 @@ function TimelineGrid({
   milestones,
 }: TimelineGridProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const overlayRef = useRef<HTMLDivElement | null>(null);
   const totalHeight = virtualizer.getTotalSize();
   const virtualItems = virtualizer.getVirtualItems();
   const rowIndexByItemId = useMemo(() => {
@@ -501,6 +625,282 @@ function TimelineGrid({
     return map;
   }, [rows]);
   const milestonesById = useMemo(() => new Map(milestones.map(milestone => [milestone.id, milestone])), [milestones]);
+
+  const interactions = useTimelineInteractions({ rows, pixelsPerDay });
+  const [pointerState, setPointerState] = useState<{
+    pointerId: number;
+    originX: number;
+  } | null>(null);
+  const [contextInfo, setContextInfo] =
+    useState<TimelineContextMenuInfo | null>(null);
+
+  const selectionSet = useMemo(
+    () => new Set(interactions.selection),
+    [interactions.selection],
+  );
+
+  useEffect(() => {
+    if (!interactions.gesture && pointerState && overlayRef.current) {
+      if (overlayRef.current.hasPointerCapture(pointerState.pointerId)) {
+        overlayRef.current.releasePointerCapture(pointerState.pointerId);
+      }
+      setPointerState(null);
+    }
+  }, [interactions.gesture, pointerState]);
+
+  const focusOverlay = () => {
+    if (overlayRef.current && document.activeElement !== overlayRef.current) {
+      overlayRef.current.focus();
+    }
+  };
+
+  const toDateFromClientX = (clientX: number) => {
+    const rect = overlayRef.current?.getBoundingClientRect();
+    if (!rect) return startDate;
+    const offsetX = clientX - rect.left;
+    const dayOffset = offsetX / pixelsPerDay;
+    return new Date(startDate.getTime() + dayOffset * 24 * 60 * 60 * 1000);
+  };
+
+  const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!pointerState) return;
+    const delta = event.clientX - pointerState.originX;
+    if (interactions.gesture?.type === "drag") {
+      interactions.updateDrag(delta);
+    } else if (interactions.gesture?.type === "resize") {
+      interactions.updateResize(delta);
+    } else if (interactions.gesture?.type === "create") {
+      interactions.updateCreate(toDateFromClientX(event.clientX));
+    }
+  };
+
+  const handlePointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (pointerState && event.pointerId === pointerState.pointerId) {
+      if (overlayRef.current?.hasPointerCapture(pointerState.pointerId)) {
+        overlayRef.current.releasePointerCapture(pointerState.pointerId);
+      }
+      setPointerState(null);
+      interactions.completeGesture();
+    } else if (interactions.gesture?.type === "dependency") {
+      interactions.cancelGesture();
+    }
+  };
+
+  const handlePointerCancel = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (pointerState && event.pointerId === pointerState.pointerId) {
+      if (overlayRef.current?.hasPointerCapture(pointerState.pointerId)) {
+        overlayRef.current.releasePointerCapture(pointerState.pointerId);
+      }
+      setPointerState(null);
+      interactions.cancelGesture();
+    }
+  };
+
+  const handleRowPointerDown = (
+    event: React.PointerEvent<HTMLDivElement>,
+    row: TimelineRowModel | undefined,
+  ) => {
+    if (!row) return;
+    if (event.altKey) {
+      event.preventDefault();
+      event.stopPropagation();
+      focusOverlay();
+      const anchor = toDateFromClientX(event.clientX);
+      interactions.beginCreate(row, anchor);
+      overlayRef.current?.setPointerCapture(event.pointerId);
+      setPointerState({ pointerId: event.pointerId, originX: event.clientX });
+      return;
+    }
+    if (!event.metaKey && !event.ctrlKey && !event.shiftKey) {
+      interactions.clearSelection();
+      focusOverlay();
+    }
+  };
+
+  const handleBarPointerDown = (
+    event: React.PointerEvent<HTMLDivElement>,
+    row: TimelineRowModel,
+  ) => {
+    if (!row.itemId) return;
+    event.preventDefault();
+    event.stopPropagation();
+    focusOverlay();
+    const mode =
+      event.metaKey || event.ctrlKey
+        ? "toggle"
+        : event.shiftKey
+          ? "append"
+          : "replace";
+    interactions.selectItem(row.itemId, mode);
+    interactions.beginDrag(row.itemId);
+    overlayRef.current?.setPointerCapture(event.pointerId);
+    setPointerState({ pointerId: event.pointerId, originX: event.clientX });
+  };
+
+  const handleResizePointerDown = (
+    event: React.PointerEvent<HTMLDivElement>,
+    itemId: string,
+    edge: "start" | "end",
+  ) => {
+    event.preventDefault();
+    event.stopPropagation();
+    focusOverlay();
+    if (!selectionSet.has(itemId)) {
+      interactions.selectItem(itemId, "replace");
+    }
+    interactions.beginResize(itemId, edge);
+    overlayRef.current?.setPointerCapture(event.pointerId);
+    setPointerState({ pointerId: event.pointerId, originX: event.clientX });
+  };
+
+  const handleDependencyPointerDown = (
+    event: React.PointerEvent<HTMLDivElement>,
+    itemId: string,
+  ) => {
+    event.preventDefault();
+    event.stopPropagation();
+    focusOverlay();
+    interactions.beginDependency(itemId);
+  };
+
+  const handleDependencyPointerUp = (
+    event: React.PointerEvent<HTMLDivElement>,
+    itemId: string,
+  ) => {
+    event.preventDefault();
+    event.stopPropagation();
+    focusOverlay();
+    interactions.completeDependency(itemId);
+  };
+
+  const handleContextMenuCapture = (
+    event: React.MouseEvent<HTMLDivElement>,
+  ) => {
+    const target = event.target as HTMLElement;
+    const barEl = target.closest<HTMLElement>("[data-context='bar']");
+    if (barEl?.dataset.itemId) {
+      const rowIndex = Number(barEl.dataset.rowIndex ?? "-1");
+      const itemId = barEl.dataset.itemId;
+      if (itemId) {
+        setContextInfo({
+          type: "bar",
+          rowIndex,
+          itemId,
+          clientX: event.clientX,
+        });
+        if (!selectionSet.has(itemId)) {
+          interactions.selectItem(itemId, "replace");
+        }
+        return;
+      }
+    }
+    const rowEl = target.closest<HTMLElement>("[data-row-index]");
+    if (rowEl?.dataset.rowIndex) {
+      setContextInfo({
+        type: "row",
+        rowIndex: Number(rowEl.dataset.rowIndex),
+        clientX: event.clientX,
+      });
+      return;
+    }
+    setContextInfo({ type: "grid", clientX: event.clientX });
+  };
+
+  const handleContextMenuOpenChange = (open: boolean) => {
+    if (!open) {
+      setContextInfo(null);
+    }
+  };
+
+  const handleCreateFromContext = (info: TimelineContextMenuInfo) => {
+    let rowIndex: number | null = null;
+    if (info.type === "row" || info.type === "bar") {
+      rowIndex = info.rowIndex;
+    } else {
+      for (const item of virtualItems) {
+        const candidate = rows[item.index];
+        if (candidate) {
+          rowIndex = item.index;
+          break;
+        }
+      }
+    }
+    if (rowIndex == null) return;
+    const row = rows[rowIndex];
+    if (!row) return;
+    const anchor = toDateFromClientX(info.clientX);
+    interactions.beginCreate(row, anchor);
+    interactions.updateCreate(addDays(anchor, 1));
+    interactions.completeGesture();
+    setContextInfo(null);
+  };
+
+  const renderBar = (
+    row: TimelineRowModel,
+    virtualRow: (typeof virtualItems)[number],
+  ) => {
+    if (!row.itemId) return null;
+    const start = safeParseIso(row.start);
+    const end = safeParseIso(row.end);
+    if (!start || !end) return null;
+    const dayMs = 24 * 60 * 60 * 1000;
+    const startOffset = (start.getTime() - startDate.getTime()) / dayMs;
+    const endOffset = (end.getTime() - startDate.getTime()) / dayMs;
+    const left = startOffset * pixelsPerDay;
+    const width = Math.max(8, (endOffset - startOffset) * pixelsPerDay);
+    const barHeight = Math.max(8, rowHeight - 12);
+    const isSelected = selectionSet.has(row.itemId);
+
+    return (
+      <div
+        data-context="bar"
+        data-item-id={row.itemId}
+        data-row-index={virtualRow.index}
+        className="absolute"
+        style={{ left, width, top: 6, height: barHeight }}
+      >
+        <div
+          className={cn(
+            "absolute inset-0 rounded-md border border-transparent bg-primary/20 text-[11px] text-primary-foreground shadow-sm transition",
+            isSelected
+              ? "ring-2 ring-primary/60 bg-primary/30"
+              : "hover:bg-primary/15",
+          )}
+          tabIndex={0}
+          onKeyDown={(event) => interactions.handleKeyDown(event)}
+        >
+          <div
+            className="absolute inset-0 cursor-grab"
+            onPointerDown={(event) => handleBarPointerDown(event, row)}
+          />
+          <div className="relative z-10 flex h-full w-full items-center justify-between px-2 text-xs font-medium text-primary-foreground pointer-events-none">
+            <span className="truncate">{row.label}</span>
+          </div>
+          <div
+            className="absolute left-0 top-0 h-full w-2 cursor-ew-resize"
+            onPointerDown={(event) =>
+              handleResizePointerDown(event, row.itemId!, "start")
+            }
+          />
+          <div
+            className="absolute right-0 top-0 h-full w-2 cursor-ew-resize"
+            onPointerDown={(event) =>
+              handleResizePointerDown(event, row.itemId!, "end")
+            }
+          />
+          <div
+            className="absolute right-0 top-1/2 h-2 w-2 -translate-y-1/2 translate-x-1/2 rounded-full bg-primary shadow"
+            onPointerDown={(event) =>
+              handleDependencyPointerDown(event, row.itemId!)
+            }
+            onPointerUp={(event) =>
+              handleDependencyPointerUp(event, row.itemId!)
+            }
+          />
+        </div>
+      </div>
+    );
+  };
 
   useLayoutEffect(() => {
     const canvas = canvasRef.current;
@@ -564,14 +964,21 @@ function TimelineGrid({
       const width = Math.max(4, (endOffset - startOffset) * pixelsPerDay);
 
       const isCritical = criticalPath.has(row.itemId ?? "");
-      ctx.fillStyle = isCritical ? "rgba(249, 115, 22, 0.9)" : "rgba(59, 130, 246, 0.85)";
+      ctx.fillStyle = isCritical
+        ? "rgba(249, 115, 22, 0.9)"
+        : "rgba(59, 130, 246, 0.85)";
       ctx.beginPath();
       const radius = Math.min(6, barHeight / 2);
       ctx.moveTo(x + radius, y);
       ctx.lineTo(x + width - radius, y);
       ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
       ctx.lineTo(x + width, y + barHeight - radius);
-      ctx.quadraticCurveTo(x + width, y + barHeight, x + width - radius, y + barHeight);
+      ctx.quadraticCurveTo(
+        x + width,
+        y + barHeight,
+        x + width - radius,
+        y + barHeight,
+      );
       ctx.lineTo(x + radius, y + barHeight);
       ctx.quadraticCurveTo(x, y + barHeight, x, y + barHeight - radius);
       ctx.lineTo(x, y + radius);
@@ -638,7 +1045,94 @@ function TimelineGrid({
     totalHeight,
   ]);
 
+  const contextRow =
+    contextInfo && contextInfo.type !== "grid"
+      ? (rows[contextInfo.rowIndex] ?? null)
+      : null;
+
   return (
+    <div className="relative" style={{ width: gridWidth, height: totalHeight }}>
+      <canvas ref={canvasRef} className="absolute left-0 top-0" />
+      <ContextMenu onOpenChange={handleContextMenuOpenChange}>
+        <ContextMenuTrigger asChild>
+          <div
+            ref={overlayRef}
+            className="relative z-10 h-full w-full outline-none"
+            tabIndex={0}
+            role="application"
+            onKeyDown={(event) => interactions.handleKeyDown(event)}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp}
+            onPointerCancel={handlePointerCancel}
+            onContextMenuCapture={handleContextMenuCapture}
+          >
+            {virtualItems.map((virtualRow) => {
+              const row = rows[virtualRow.index];
+              return (
+                <div
+                  key={row?.id ?? virtualRow.key}
+                  className={cn(
+                    "absolute inset-x-0 border-b border-border/40",
+                    virtualRow.index % 2 === 0
+                      ? "bg-transparent"
+                      : "bg-muted/20",
+                    "relative",
+                  )}
+                  style={{ top: virtualRow.start, height: virtualRow.size }}
+                  data-row-index={virtualRow.index}
+                  onPointerDown={(event) => handleRowPointerDown(event, row)}
+                >
+                  {row?.type === "item" ? renderBar(row, virtualRow) : null}
+                </div>
+              );
+            })}
+          </div>
+        </ContextMenuTrigger>
+        <ContextMenuContent className="w-48">
+          {contextInfo?.type === "bar" && contextRow ? (
+            <>
+              <ContextMenuLabel className="truncate">
+                {contextRow.label}
+              </ContextMenuLabel>
+              <ContextMenuSeparator />
+              <ContextMenuItem
+                onSelect={() =>
+                  interactions.selectItem(contextInfo.itemId, "replace")
+                }
+              >
+                Select item
+              </ContextMenuItem>
+              <ContextMenuItem onSelect={() => interactions.copySelection()}>
+                Copy
+              </ContextMenuItem>
+              <ContextMenuItem onSelect={() => interactions.deleteSelection()}>
+                Delete
+              </ContextMenuItem>
+            </>
+          ) : (
+            <>
+              <ContextMenuLabel>Timeline</ContextMenuLabel>
+              <ContextMenuSeparator />
+              <ContextMenuItem
+                onSelect={() =>
+                  contextInfo && handleCreateFromContext(contextInfo)
+                }
+              >
+                Create item here
+              </ContextMenuItem>
+              <ContextMenuItem
+                disabled={
+                  !interactions.clipboard || interactions.clipboard.length === 0
+                }
+                onSelect={() => interactions.pasteClipboard()}
+              >
+                Paste
+              </ContextMenuItem>
+            </>
+          )}
+        </ContextMenuContent>
+      </ContextMenu>
+    </div>
     <TooltipProvider delayDuration={100}>
       <div className="relative" style={{ width: gridWidth, height: totalHeight }}>
         <canvas ref={canvasRef} className="absolute left-0 top-0" />
@@ -798,12 +1292,17 @@ function TimelineLegend() {
   );
 }
 
-export interface TimelineViewProps extends Omit<TimelineProviderProps, "children"> {
+export interface TimelineViewProps
+  extends Omit<TimelineProviderProps, "children"> {
   className?: string;
   height?: number | string;
 }
 
-export function TimelineView({ className, height, ...providerProps }: TimelineViewProps) {
+export function TimelineView({
+  className,
+  height,
+  ...providerProps
+}: TimelineViewProps) {
   return (
     <TimelineProvider {...providerProps}>
       <TimelineSurface className={className} height={height} />
