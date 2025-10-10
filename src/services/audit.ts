@@ -12,7 +12,7 @@ type AuditListParams = {
 
 export async function listAuditLogs(params?: AuditListParams): Promise<AuditLog[]> {
   let query = supabase
-    .from("audit_log" as any)
+    .from("audit_logs" as any)
     .select("id, user_id, action, entity_type, entity_id, changes, metadata, created_at")
     .order("created_at", { ascending: false });
 
@@ -68,7 +68,7 @@ export async function recordAudit(
     metadata: metadata ?? null,
   };
 
-  const { error } = await supabase.from("audit_log" as any).insert(payload as any);
+  const { error } = await supabase.from("audit_logs" as any).insert(payload as any);
 
   if (error) {
     handleSupabaseError(error, "Failed to record audit log.");

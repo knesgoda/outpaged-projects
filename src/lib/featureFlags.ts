@@ -2,12 +2,16 @@ const truthy = new Set(["true", "1", "on", "yes"]);
 const falsy = new Set(["false", "0", "off", "no"]);
 
 function readEnv(key: string): string | undefined {
-  try {
-    return import.meta.env?.[key as keyof ImportMetaEnv];
-  } catch (error) {
-    console.warn("Failed to read env variable", { key, error });
-    return undefined;
+  if (typeof process !== "undefined" && process.env?.[key]) {
+    return process.env[key];
   }
+
+  const globalEnv = (globalThis as { __import_meta_env__?: Record<string, string | undefined> }).__import_meta_env__;
+  if (globalEnv?.[key]) {
+    return globalEnv[key];
+  }
+
+  return undefined;
 }
 
 function getBooleanFlag(key: string, fallback: boolean) {

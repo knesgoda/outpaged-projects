@@ -70,7 +70,12 @@ export function FeedbackWidget() {
         screenshotUrl = publicUrl;
       }
 
-      await submitFeedback.mutateAsync();
+      await submitFeedback.mutateAsync({
+        type,
+        message: message.trim(),
+        page_path: location.pathname,
+        screenshot_url: screenshotUrl,
+      });
 
       setSuccess(true);
       setMessage("");

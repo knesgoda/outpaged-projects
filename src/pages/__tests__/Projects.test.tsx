@@ -228,9 +228,6 @@ describe("Projects pages", () => {
 
     mockUseProjects.mockReturnValue({
       data: { data: [projectA, projectB], total: 2 },
-  it("passes expanded status filters through to the projects query", () => {
-    mockUseProjects.mockReturnValue({
-      data: { data: [], total: 0 },
       isLoading: false,
       isError: false,
       error: null,
@@ -242,6 +239,18 @@ describe("Projects pages", () => {
     expect(await screen.findByTestId("projects-mobile-list")).toBeInTheDocument();
     expect(await screen.findByText(projectA.name)).toBeInTheDocument();
     expect(await screen.findByText(projectB.name)).toBeInTheDocument();
+  });
+
+  it("passes expanded status filters through to the projects query", () => {
+    mockUseProjects.mockReturnValue({
+      data: { data: [], total: 0 },
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: jest.fn(),
+    });
+
+    render(<Projects />, { wrapper: listWrapper });
     const wrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
       <HelmetProvider>
         <MemoryRouter initialEntries={["/projects?status=cancelled"]}>

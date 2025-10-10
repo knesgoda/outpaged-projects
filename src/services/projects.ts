@@ -1,4 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
+import type { DomainClient } from "@/domain/client";
+import { domainEventBus } from "@/domain/events/domainEventBus";
+import type { TenantContext } from "@/domain/tenant";
 
 export type ProjectStatus =
   | "planning"
@@ -50,7 +53,29 @@ const normalizePagination = (page?: number, pageSize?: number) => {
   return { start, end };
 };
 
-export async function listProjects(params: ProjectListParams = {}): Promise<ProjectListResponse> {
+export interface ProjectServiceOptions {
+  client?: DomainClient;
+  tenant?: TenantContext;
+}
+
+const resolveTenant = (options?: ProjectServiceOptions) =>
+  options?.tenant ?? options?.client?.tenant ?? null;
+
+const resolveClient = (options?: ProjectServiceOptions) =>
+  options?.client?.raw ?? supabase;
+
+const applyWorkspaceConstraint = (builder: any, options?: ProjectServiceOptions) => {
+  const tenant = resolveTenant(options);
+  if (!tenant?.workspaceId || typeof builder?.eq !== "function") {
+    return builder;
+  }
+  return builder.eq("workspace_id", tenant.workspaceId);
+};
+
+export async function listProjects(
+  params: ProjectListParams = {},
+  options?: ProjectServiceOptions,
+): Promise<ProjectListResponse> {
   const {
     q,
     status,
@@ -60,14 +85,14 @@ export async function listProjects(params: ProjectListParams = {}): Promise<Proj
     dir = "desc",
   } = params;
 
-  console.log('listProjects called with params:', { q, status, page, pageSize, sort, dir });
-
   const { start, end } = normalizePagination(page, pageSize);
 
-  let query = (supabase
+  let query = resolveClient(options)
     .from("projects")
     .select("id, name, description, status, updated_at, created_at", { count: "exact" })
-    .order(sort, { ascending: dir === "asc" }) as any);
+    .order(sort, { ascending: dir === "asc" });
+
+  query = applyWorkspaceConstraint(query, options);
 
   if (status) {
     query = query.eq("status", status);
@@ -81,15 +106,7 @@ export async function listProjects(params: ProjectListParams = {}): Promise<Proj
 
   const { data, error, count } = await query.range(start, end);
 
-  console.log('listProjects result:', { 
-    dataCount: data?.length, 
-    totalCount: count, 
-    hasError: !!error,
-    errorMessage: error?.message 
-  });
-
   if (error) {
-    console.error('listProjects error:', error);
     throw error;
   }
 
@@ -102,12 +119,11 @@ export async function listProjects(params: ProjectListParams = {}): Promise<Proj
   };
 }
 
-export async function getProject(id: string): Promise<ProjectRecord | null> {
-  const { data, error } = await supabase
-    .from("projects")
-    .select("*")
-    .eq("id", id)
-    .single();
+export async function getProject(id: string, options?: ProjectServiceOptions): Promise<ProjectRecord | null> {
+  let query = resolveClient(options).from("projects").select("*").eq("id", id);
+  query = applyWorkspaceConstraint(query, options);
+
+  const { data, error } = await query.single();
 
   if (error) {
     if ((error as { code?: string }).code === "PGRST116") {
@@ -128,7 +144,10 @@ export interface CreateProjectInput {
   end_date?: string;
 }
 
-export async function createProject(input: CreateProjectInput): Promise<ProjectRecord> {
+export async function createProject(
+  input: CreateProjectInput,
+  options?: ProjectServiceOptions,
+): Promise<ProjectRecord> {
   const { data: auth, error: authError } = await supabase.auth.getUser();
   if (authError) {
     throw authError;
@@ -144,17 +163,22 @@ export async function createProject(input: CreateProjectInput): Promise<ProjectR
     throw new Error("Project name is required");
   }
 
-  const { data, error } = await (supabase
+  const tenant = resolveTenant(options);
+  const payload = {
+    name: trimmedName,
+    description: input.description?.trim() || null,
+    code: input.code?.trim() || null,
+    status: input.status || "planning",
+    start_date: input.start_date || null,
+    end_date: input.end_date || null,
+    owner_id: ownerId,
+    workspace_id: tenant?.workspaceId ?? null,
+    space_id: (tenant as any)?.spaceId ?? null,
+  };
+
+  const { data, error } = await (resolveClient(options)
     .from("projects")
-    .insert({
-      name: trimmedName,
-      description: input.description?.trim() || null,
-      code: input.code?.trim() || null,
-      status: input.status || "planning",
-      start_date: input.start_date || null,
-      end_date: input.end_date || null,
-      owner_id: ownerId,
-    })
+    .insert(payload as any)
     .select()
     .single() as any);
 
@@ -162,12 +186,26 @@ export async function createProject(input: CreateProjectInput): Promise<ProjectR
     throw error;
   }
 
-  return data as any as ProjectRecord;
+  const project = data as any as ProjectRecord;
+  if (options?.client) {
+    options.client.publish("project.created", { projectId: project.id });
+  } else {
+    domainEventBus.publish({
+      type: "project.created",
+      payload: { projectId: project.id },
+      tenant: tenant ?? undefined,
+    });
+  }
+  return project;
 }
 
 export type UpdateProjectInput = Partial<Pick<ProjectRecord, "name" | "description" | "status" >>;
 
-export async function updateProject(id: string, patch: UpdateProjectInput): Promise<ProjectRecord> {
+export async function updateProject(
+  id: string,
+  patch: UpdateProjectInput,
+  options?: ProjectServiceOptions,
+): Promise<ProjectRecord> {
   const nextPatch: UpdateProjectInput = { ...patch };
 
   if (nextPatch.name !== undefined) {
@@ -192,28 +230,67 @@ export async function updateProject(id: string, patch: UpdateProjectInput): Prom
     updated_at: new Date().toISOString(),
   };
 
-  const { data, error } = await (supabase
+  let query = resolveClient(options)
     .from("projects")
     .update(payload as any)
-    .eq("id", id)
-    .select()
-    .single() as any);
+    .eq("id", id);
+
+  query = applyWorkspaceConstraint(query, options);
+
+  const { data, error } = await (query.select().single() as any);
 
   if (error) {
     throw error;
   }
 
-  return data as any as ProjectRecord;
+  const project = data as any as ProjectRecord;
+  if (options?.client) {
+    options.client.publish("project.updated", { projectId: project.id });
+  } else {
+    domainEventBus.publish({
+      type: "project.updated",
+      payload: { projectId: project.id },
+      tenant: resolveTenant(options) ?? undefined,
+    });
+  }
+  return project;
 }
 
-export async function archiveProject(id: string): Promise<ProjectRecord> {
-  return updateProject(id, { status: "archived" });
+export async function archiveProject(id: string, options?: ProjectServiceOptions): Promise<ProjectRecord> {
+  const project = await updateProject(id, { status: "archived" }, options);
+  if (options?.client) {
+    options.client.publish("project.archived", { projectId: project.id });
+  } else {
+    domainEventBus.publish({
+      type: "project.archived",
+      payload: { projectId: project.id },
+      tenant: resolveTenant(options) ?? undefined,
+    });
+  }
+  return project;
 }
 
-export async function deleteProject(id: string): Promise<void> {
-  const { error } = await supabase.from("projects").delete().eq("id", id);
+export async function deleteProject(id: string, options?: ProjectServiceOptions): Promise<void> {
+  let query = resolveClient(options)
+    .from("projects")
+    .delete()
+    .eq("id", id);
+
+  query = applyWorkspaceConstraint(query, options);
+
+  const { error } = await query;
 
   if (error) {
     throw error;
+  }
+
+  if (options?.client) {
+    options.client.publish("project.deleted", { projectId: id });
+  } else {
+    domainEventBus.publish({
+      type: "project.deleted",
+      payload: { projectId: id },
+      tenant: resolveTenant(options) ?? undefined,
+    });
   }
 }

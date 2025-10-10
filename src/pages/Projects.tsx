@@ -12,6 +12,7 @@ import { useProjects, useDeleteProject } from "@/hooks/useProjects";
 import { format } from "date-fns";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
+import { formatProjectStatus, getProjectStatusBadgeVariant } from "@/utils/project-status";
 
 type Project = {
   id: string;
@@ -248,8 +249,6 @@ const AddProjectCard = ({ isMobile, onClick }: AddProjectCardProps) => (
     </CardContent>
   </Card>
 );
-=======
-import { formatProjectStatus, getProjectStatusBadgeVariant } from "@/utils/project-status";
 
 export default function Projects() {
   const { toast } = useToast();
@@ -261,14 +260,6 @@ export default function Projects() {
   const deleteProjectMutation = useDeleteProject();
 
   const projects = (projectsData?.data as Project[]) || [];
-
-  // Debug logging for mobile issues
-  console.log('Projects Page State:', {
-    isLoading,
-    hasError: !!error,
-    projectCount: projects.length,
-    projectsData
-  });
 
   const handleProjectSuccess = () => {
     // The query will automatically refetch
