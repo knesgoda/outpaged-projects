@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import type { Report } from "@/types";
+import type { Report, ReportResult } from "@/types";
 import {
   createReport,
   deleteReport,
@@ -8,6 +8,7 @@ import {
   listReports,
   runReport,
   updateReport,
+  type RunReportInput,
 } from "@/services/reports";
 
 const REPORTS_KEY = ["reports"] as const;
@@ -135,7 +136,7 @@ export function useDuplicateReport() {
 export function useRunReport() {
   const { toast } = useToast();
 
-  return useMutation({
+  return useMutation<ReportResult, unknown, RunReportInput>({
     mutationFn: runReport,
     onError: (error: unknown) => {
       const message = error instanceof Error ? error.message : "Unable to run report.";
