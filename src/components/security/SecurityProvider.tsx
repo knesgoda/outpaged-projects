@@ -1,6 +1,8 @@
 
-import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useState, ReactNode } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { toast } from '@/hooks/use-toast';
+import { createAuditClient } from './auditClient';
 
 interface SecurityContextType {
   permissions: string[];
@@ -16,6 +18,7 @@ export function SecurityProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [permissions, setPermissions] = useState<string[]>([]);
   const [securityLevel] = useState<'basic' | 'enhanced' | 'enterprise'>('enterprise');
+  const auditClient = useMemo(() => createAuditClient(), []);
 
   useEffect(() => {
     if (user) {
@@ -50,23 +53,36 @@ export function SecurityProvider({ children }: { children: ReactNode }) {
   const isSecureEnvironment = location.protocol === 'https:';
 
   const auditLog = (action: string, resource: string) => {
-    if (user) {
-      console.log(`[AUDIT] User: ${user.id}, Action: ${action}, Resource: ${resource}, Timestamp: ${new Date().toISOString()}`);
-      
-      // In production, this would send to your audit service
-      fetch('/api/audit', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: user.id,
-          action,
-          resource,
-          timestamp: new Date().toISOString(),
-          userAgent: navigator.userAgent,
-          ip: 'client-ip' // Would be set by server
-        })
-      }).catch(console.error);
+    if (!user) {
+      return;
     }
+
+    const entry = {
+      userId: user.id,
+      action,
+      resource,
+      timestamp: new Date().toISOString(),
+      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : undefined,
+      ip: 'client-ip'
+    };
+
+    console.log(
+      `[AUDIT] User: ${entry.userId}, Action: ${entry.action}, Resource: ${entry.resource}, Timestamp: ${entry.timestamp}`
+    );
+
+    if (!auditClient) {
+      return;
+    }
+
+    void auditClient.log(entry).catch((error: unknown) => {
+      const message = error instanceof Error ? error.message : 'Unable to reach the audit service.';
+      console.error('Failed to send audit log entry', error);
+      toast({
+        variant: 'destructive',
+        title: 'Audit logging failed',
+        description: message
+      });
+    });
   };
 
   return (

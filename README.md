@@ -73,6 +73,10 @@ A comprehensive, enterprise-ready project management application built with Reac
    - The application is pre-configured with Supabase
    - Authentication is set up for @outpaged.com email addresses
    - Admin users: kevin@outpaged.com, carlos@outpaged.com
+   - Optional audit logging client configuration:
+     - `VITE_AUDIT_CLIENT_ENABLED`: Set to `true` to enable outbound audit logging.
+     - `VITE_AUDIT_SERVICE_URL`: HTTPS endpoint that will receive audit log payloads.
+     - `VITE_AUDIT_SERVICE_TOKEN` (optional): Bearer token attached to audit requests for authentication.
 
 4. **Start development server**
    ```bash
