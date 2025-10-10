@@ -207,7 +207,12 @@ export const CommandPalette = () => {
       scope.projectId ?? null,
       scope.types?.join(",") ?? null,
     ],
-    queryFn: () => searchSuggest(debouncedQuery),
+    queryFn: () =>
+      searchSuggest({
+        query: debouncedQuery,
+        projectId: scope.projectId,
+        types: scope.types,
+      }),
     enabled: open && Boolean(debouncedQuery.trim()),
     staleTime: 1000 * 30,
   });
