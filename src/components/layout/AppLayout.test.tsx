@@ -4,6 +4,14 @@ import { render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { HelmetProvider } from "react-helmet-async";
 
+jest.mock("@/hooks/useAuth", () => ({
+  useAuth: () => ({
+    user: { id: "user-1", email: "test@outpaged.com" },
+    signOut: jest.fn(),
+    signInWithPassword: jest.fn(),
+  }),
+}));
+
 jest.mock("@/integrations/supabase/client", () => {
   const queryBuilder = {
     select: jest.fn().mockReturnThis(),
@@ -47,9 +55,21 @@ jest.mock("@/integrations/supabase/client", () => {
   };
 });
 
-jest.mock("@/state/profile", () => ({
-  ProfileProvider: ({ children }: { children: ReactNode }) => <>{children}</>,
-  useProfile: () => ({ profile: null, loading: false, error: null, refresh: jest.fn() }),
+jest.mock("@/state/workspace", () => ({
+  useWorkspaceContext: () => ({
+    workspaces: [],
+    currentWorkspace: null,
+    setWorkspace: jest.fn(),
+    loadingWorkspaces: false,
+    workspaceError: null,
+    refreshWorkspaces: jest.fn(),
+    spaces: [],
+    currentSpace: null,
+    setSpace: jest.fn(),
+    loadingSpaces: false,
+    spaceError: null,
+    refreshSpaces: jest.fn(),
+  }),
 }));
 
 jest.mock("@/hooks/useFeedback", () => ({
@@ -92,6 +112,7 @@ jest.mock("@/components/command/useCommandK", () => ({
 }));
 
 jest.mock("@/state/profile", () => ({
+  ProfileProvider: ({ children }: { children: ReactNode }) => <>{children}</>,
   useProfile: () => ({
     profile: { full_name: "Test User", role: "manager" },
     loading: false,

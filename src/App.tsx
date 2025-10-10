@@ -18,6 +18,10 @@ import { ReleaseProvider } from "./components/releases/ReleaseProvider";
 import { MarketingProvider } from "./components/marketing/MarketingProvider";
 import { AppRoutes } from "./routes";
 import { WorkspaceProvider } from "./state/workspace";
+import { TenantProvider } from "./domain/tenant";
+import { TelemetryProvider } from "./components/telemetry/TelemetryProvider";
+import { FeatureFlagProvider } from "./components/feature-flags/FeatureFlagProvider";
+import { AppErrorBoundary } from "./components/foundations/AppErrorBoundary";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -41,29 +45,37 @@ const App = () => (
       <AuthProvider>
         <ProfileProvider>
           <WorkspaceProvider>
-            <SecurityProvider>
-              <AccessibilityProvider>
-                <SlackProvider>
-                  <ReleaseProvider>
-                    <OperationsProvider>
-                      <MarketingProvider>
-                        <TooltipProvider>
-                          <Toaster />
-                          <Sonner />
-                          <BrowserRouter>
-                            <CommandKProvider>
-                              <CommandPalette />
-                              <KeyboardShortcuts />
-                              <AppRoutes />
-                            </CommandKProvider>
-                          </BrowserRouter>
-                        </TooltipProvider>
-                      </MarketingProvider>
-                    </OperationsProvider>
-                  </ReleaseProvider>
-                </SlackProvider>
-              </AccessibilityProvider>
-            </SecurityProvider>
+            <TenantProvider>
+              <TelemetryProvider>
+                <FeatureFlagProvider>
+                  <SecurityProvider>
+                    <AccessibilityProvider>
+                      <SlackProvider>
+                        <ReleaseProvider>
+                          <OperationsProvider>
+                            <MarketingProvider>
+                              <TooltipProvider>
+                                <Toaster />
+                                <Sonner />
+                                <BrowserRouter>
+                                  <CommandKProvider>
+                                    <AppErrorBoundary>
+                                      <CommandPalette />
+                                      <KeyboardShortcuts />
+                                      <AppRoutes />
+                                    </AppErrorBoundary>
+                                  </CommandKProvider>
+                                </BrowserRouter>
+                              </TooltipProvider>
+                            </MarketingProvider>
+                          </OperationsProvider>
+                        </ReleaseProvider>
+                      </SlackProvider>
+                    </AccessibilityProvider>
+                  </SecurityProvider>
+                </FeatureFlagProvider>
+              </TelemetryProvider>
+            </TenantProvider>
           </WorkspaceProvider>
         </ProfileProvider>
       </AuthProvider>

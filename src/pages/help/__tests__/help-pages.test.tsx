@@ -12,9 +12,34 @@ import { FeedbackWidget } from "@/components/help/FeedbackWidget";
 import type { HelpArticle, Announcement } from "@/types";
 import type { ReactNode } from "react";
 
+jest.mock("@/hooks/useAuth", () => ({
+  useAuth: () => ({
+    user: { id: "user-1", email: "help@example.com" },
+    signOut: jest.fn(),
+    signInWithPassword: jest.fn(),
+  }),
+}));
+
 jest.mock("@/state/profile", () => ({
   ProfileProvider: ({ children }: { children: ReactNode }) => <>{children}</>,
   useProfile: () => ({ profile: null, loading: false, error: null, refresh: jest.fn() }),
+}));
+
+jest.mock("@/state/workspace", () => ({
+  useWorkspaceContext: () => ({
+    workspaces: [],
+    currentWorkspace: null,
+    setWorkspace: jest.fn(),
+    loadingWorkspaces: false,
+    workspaceError: null,
+    refreshWorkspaces: jest.fn(),
+    spaces: [],
+    currentSpace: null,
+    setSpace: jest.fn(),
+    loadingSpaces: false,
+    spaceError: null,
+    refreshSpaces: jest.fn(),
+  }),
 }));
 
 jest.mock("@/hooks/useHelp", () => ({
@@ -33,6 +58,44 @@ jest.mock("@/hooks/useSupport", () => ({
 
 jest.mock("@/hooks/useFeedback", () => ({
   useSubmitFeedback: jest.fn(),
+}));
+
+jest.mock("@/components/command/useCommandK", () => ({
+  useCommandK: () => ({
+    openPalette: jest.fn(),
+    closePalette: jest.fn(),
+    togglePalette: jest.fn(),
+    setQuery: jest.fn(),
+    open: false,
+    query: "",
+    scope: {},
+  }),
+}));
+
+jest.mock("@/hooks/useWorkspace", () => ({
+  useWorkspaceSettings: () => ({
+    data: {
+      id: "workspace-1",
+      name: "Acme Workspace",
+      brand_name: "Acme",
+    },
+    isLoading: false,
+    isError: false,
+    error: null,
+  }),
+}));
+
+jest.mock("@/hooks/useProfile", () => ({
+  useMyProfile: () => ({
+    data: {
+      id: "user-1",
+      full_name: "Help Tester",
+      email: "help@example.com",
+    },
+    isLoading: false,
+    isError: false,
+    error: null,
+  }),
 }));
 
 jest.mock("@/services/storage", () => ({

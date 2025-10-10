@@ -4,15 +4,67 @@ import { SecurityProvider, useSecurity } from '../SecurityProvider';
 
 const useAuthMock = jest.fn();
 const toastMock = jest.fn();
+const telemetryTrack = jest.fn();
+const telemetryTrackError = jest.fn();
 
 jest.mock('@/hooks/useAuth', () => ({
-  useAuth: () => useAuthMock()
+  useAuth: () => useAuthMock(),
 }));
 
 jest.mock('@/hooks/use-toast', () => ({
   toast: (options: unknown) => toastMock(options),
-  useToast: () => ({ toast: toastMock })
+  useToast: () => ({ toast: toastMock }),
 }));
+
+jest.mock('@/components/feature-flags/FeatureFlagProvider', () => ({
+  useFeatureFlags: () => ({
+    isEnabled: () => true,
+  }),
+}));
+
+jest.mock('@/components/telemetry/TelemetryProvider', () => ({
+  useTelemetry: () => ({
+    track: telemetryTrack,
+    trackError: telemetryTrackError,
+    measure: (_: string, fn: () => Promise<unknown> | unknown) => Promise.resolve(fn()),
+  }),
+}));
+
+jest.mock('@/domain/tenant', () => ({
+  useTenant: () => ({
+    organizationId: 'org-1',
+    workspaceId: 'workspace-1',
+    spaceId: null,
+    userId: 'user-123',
+    environment: 'development',
+  }),
+}));
+
+function createQueryBuilder() {
+  const maybeSingle = jest.fn().mockResolvedValue({
+    data: { role: 'admin', explicit_permissions: [] },
+    error: null,
+  });
+  const eq = jest.fn().mockReturnValue({ maybeSingle });
+  const select = jest.fn().mockReturnValue({ eq, maybeSingle });
+  return { select, eq, maybeSingle };
+}
+
+jest.mock('@/domain/client', () => {
+  const builder = createQueryBuilder();
+  return {
+    useDomainClient: () => ({
+      raw: {
+        from: jest.fn(() => ({
+          select: builder.select,
+          eq: builder.eq,
+          maybeSingle: builder.maybeSingle,
+        })),
+      },
+      scope: (_table: string, query: any) => query,
+    }),
+  };
+});
 
 const originalFetch = global.fetch;
 
@@ -35,6 +87,8 @@ describe('SecurityProvider audit logging', () => {
       }
     });
     toastMock.mockClear();
+    telemetryTrack.mockClear();
+    telemetryTrackError.mockClear();
   });
 
   afterEach(() => {

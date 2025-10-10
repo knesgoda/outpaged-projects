@@ -1,5 +1,16 @@
 import "@testing-library/jest-dom";
 
+jest.mock("marked", () => {
+  const parse = jest.fn((input: string) => input);
+  return {
+    marked: {
+      setOptions: jest.fn(),
+      parse,
+    },
+    parse,
+  };
+});
+
 class ResizeObserver {
   observe() {}
   unobserve() {}
@@ -13,6 +24,12 @@ if (!globalThis.ResizeObserver) {
     configurable: true,
     writable: true,
   });
+}
+
+if (!(globalThis as { __import_meta_env__?: Record<string, string> }).__import_meta_env__) {
+  (globalThis as { __import_meta_env__?: Record<string, string> }).__import_meta_env__ = {
+    MODE: "test",
+  };
 }
 
 const randomUUID = () => `test-uuid-${Math.random().toString(16).slice(2)}`;

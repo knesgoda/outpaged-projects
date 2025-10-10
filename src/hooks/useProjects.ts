@@ -17,6 +17,8 @@ import {
   type SortDirection,
   type UpdateProjectInput,
 } from "@/services/projects";
+import { useDomainClient } from "@/domain/client";
+import { useTelemetry } from "@/components/telemetry/TelemetryProvider";
 
 export type { ProjectStatus, ProjectSort, SortDirection, ProjectSummary } from "@/services/projects";
 
@@ -89,22 +91,25 @@ const toServiceParams = (params: ProjectsQueryInput): ProjectListParams => ({
 
 export function useProjects(params: ProjectsQueryInput) {
   const serviceParams = toServiceParams(params);
+  const domainClient = useDomainClient();
+  const telemetry = useTelemetry();
 
   return useQuery({
     queryKey: [projectsKey[0], serviceParams],
-    queryFn: () => listProjects(serviceParams),
+    queryFn: () => telemetry.measure("projects.list", () => listProjects(serviceParams, { client: domainClient })),
     placeholderData: (previous) => previous as any,
   });
 }
 
 export function useProject(projectId?: string) {
+  const domainClient = useDomainClient();
   return useQuery({
     queryKey: projectKey(projectId ?? "unknown"),
     queryFn: async () => {
       if (!projectId) {
         throw new Error("Missing projectId");
       }
-      return getProject(projectId);
+      return getProject(projectId, { client: domainClient });
     },
     enabled: Boolean(projectId),
   });
@@ -112,8 +117,13 @@ export function useProject(projectId?: string) {
 
 export function useCreateProject() {
   const queryClient = useQueryClient();
+  const domainClient = useDomainClient();
+  const telemetry = useTelemetry();
   return useMutation({
-    mutationFn: (input: CreateProjectInput) => createProject(input),
+    mutationFn: (input: CreateProjectInput) => telemetry.measure(
+      "projects.create",
+      () => createProject(input, { client: domainClient }),
+    ),
     onSuccess: project => {
       queryClient.invalidateQueries({ queryKey: projectsKey });
       queryClient.setQueryData(projectKey(project.id), project);
@@ -123,8 +133,13 @@ export function useCreateProject() {
 
 export function useUpdateProject() {
   const queryClient = useQueryClient();
+  const domainClient = useDomainClient();
+  const telemetry = useTelemetry();
   return useMutation({
-    mutationFn: ({ id, patch }: { id: string; patch: UpdateProjectInput }) => updateProject(id, patch),
+    mutationFn: ({ id, patch }: { id: string; patch: UpdateProjectInput }) => telemetry.measure(
+      "projects.update",
+      () => updateProject(id, patch, { client: domainClient }),
+    ),
     onMutate: async ({ id, patch }) => {
       await queryClient.cancelQueries({ queryKey: projectKey(id), exact: true });
       await queryClient.cancelQueries({ queryKey: projectsKey });
@@ -157,8 +172,13 @@ export function useUpdateProject() {
 
 export function useArchiveProject() {
   const queryClient = useQueryClient();
+  const domainClient = useDomainClient();
+  const telemetry = useTelemetry();
   return useMutation({
-    mutationFn: ({ id }: { id: string }) => archiveProject(id),
+    mutationFn: ({ id }: { id: string }) => telemetry.measure(
+      "projects.archive",
+      () => archiveProject(id, { client: domainClient }),
+    ),
     onMutate: async ({ id }) => {
       await queryClient.cancelQueries({ queryKey: projectKey(id), exact: true });
       await queryClient.cancelQueries({ queryKey: projectsKey });
@@ -191,8 +211,13 @@ export function useArchiveProject() {
 
 export function useDeleteProject() {
   const queryClient = useQueryClient();
+  const domainClient = useDomainClient();
+  const telemetry = useTelemetry();
   return useMutation({
-    mutationFn: ({ id }: { id: string }) => deleteProject(id),
+    mutationFn: ({ id }: { id: string }) => telemetry.measure(
+      "projects.delete",
+      () => deleteProject(id, { client: domainClient }),
+    ),
     onMutate: async ({ id }) => {
       await queryClient.cancelQueries({ queryKey: projectsKey });
       await queryClient.cancelQueries({ queryKey: projectKey(id), exact: true });
