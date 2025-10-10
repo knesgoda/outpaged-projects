@@ -16,13 +16,9 @@ import {
   RefreshCcw,
   Flag,
   Globe2,
-  Layers,
-  RefreshCcw,
   Rocket,
   ShieldCheck,
   GitBranch,
-  Layers,
-  RefreshCcw,
   SquareStack,
   ZoomIn,
   ZoomOut,
@@ -323,22 +319,8 @@ function TimelineSurface({ className, height = "100%" }: TimelineSurfaceProps) {
                       showDependencies={preferences.showDependencies}
                       dependencies={dependencies}
                       criticalPath={criticalPath}
+                      milestones={snapshot?.milestones ?? []}
                     />
-                  <div ref={gridScrollRef} className="relative h-full w-full overflow-x-auto">
-                  <TimelineGrid
-                    rows={rows}
-                    virtualizer={virtualizer}
-                    rowHeight={rowHeight}
-                    startDate={startDate}
-                    pixelsPerDay={pixelsPerDay}
-                    gridWidth={gridWidth}
-                    showWeekends={preferences.showWeekends}
-                    showBaselines={preferences.showBaselines}
-                    showDependencies={preferences.showDependencies}
-                    dependencies={dependencies}
-                    criticalPath={criticalPath}
-                    milestones={snapshot?.milestones ?? []}
-                  />
                   </div>
                 </div>
               </div>
@@ -1051,89 +1033,90 @@ function TimelineGrid({
       : null;
 
   return (
-    <div className="relative" style={{ width: gridWidth, height: totalHeight }}>
-      <canvas ref={canvasRef} className="absolute left-0 top-0" />
-      <ContextMenu onOpenChange={handleContextMenuOpenChange}>
-        <ContextMenuTrigger asChild>
-          <div
-            ref={overlayRef}
-            className="relative z-10 h-full w-full outline-none"
-            tabIndex={0}
-            role="application"
-            onKeyDown={(event) => interactions.handleKeyDown(event)}
-            onPointerMove={handlePointerMove}
-            onPointerUp={handlePointerUp}
-            onPointerCancel={handlePointerCancel}
-            onContextMenuCapture={handleContextMenuCapture}
-          >
-            {virtualItems.map((virtualRow) => {
-              const row = rows[virtualRow.index];
-              return (
-                <div
-                  key={row?.id ?? virtualRow.key}
-                  className={cn(
-                    "absolute inset-x-0 border-b border-border/40",
-                    virtualRow.index % 2 === 0
-                      ? "bg-transparent"
-                      : "bg-muted/20",
-                    "relative",
-                  )}
-                  style={{ top: virtualRow.start, height: virtualRow.size }}
-                  data-row-index={virtualRow.index}
-                  onPointerDown={(event) => handleRowPointerDown(event, row)}
+    <>
+      <div className="relative" style={{ width: gridWidth, height: totalHeight }}>
+        <canvas ref={canvasRef} className="absolute left-0 top-0" />
+        <ContextMenu onOpenChange={handleContextMenuOpenChange}>
+          <ContextMenuTrigger asChild>
+            <div
+              ref={overlayRef}
+              className="relative z-10 h-full w-full outline-none"
+              tabIndex={0}
+              role="application"
+              onKeyDown={(event) => interactions.handleKeyDown(event)}
+              onPointerMove={handlePointerMove}
+              onPointerUp={handlePointerUp}
+              onPointerCancel={handlePointerCancel}
+              onContextMenuCapture={handleContextMenuCapture}
+            >
+              {virtualItems.map((virtualRow) => {
+                const row = rows[virtualRow.index];
+                return (
+                  <div
+                    key={row?.id ?? virtualRow.key}
+                    className={cn(
+                      "absolute inset-x-0 border-b border-border/40",
+                      virtualRow.index % 2 === 0
+                        ? "bg-transparent"
+                        : "bg-muted/20",
+                      "relative",
+                    )}
+                    style={{ top: virtualRow.start, height: virtualRow.size }}
+                    data-row-index={virtualRow.index}
+                    onPointerDown={(event) => handleRowPointerDown(event, row)}
+                  >
+                    {row?.type === "item" ? renderBar(row, virtualRow) : null}
+                  </div>
+                );
+              })}
+            </div>
+          </ContextMenuTrigger>
+          <ContextMenuContent className="w-48">
+            {contextInfo?.type === "bar" && contextRow ? (
+              <>
+                <ContextMenuLabel className="truncate">
+                  {contextRow.label}
+                </ContextMenuLabel>
+                <ContextMenuSeparator />
+                <ContextMenuItem
+                  onSelect={() =>
+                    interactions.selectItem(contextInfo.itemId, "replace")
+                  }
                 >
-                  {row?.type === "item" ? renderBar(row, virtualRow) : null}
-                </div>
-              );
-            })}
-          </div>
-        </ContextMenuTrigger>
-        <ContextMenuContent className="w-48">
-          {contextInfo?.type === "bar" && contextRow ? (
-            <>
-              <ContextMenuLabel className="truncate">
-                {contextRow.label}
-              </ContextMenuLabel>
-              <ContextMenuSeparator />
-              <ContextMenuItem
-                onSelect={() =>
-                  interactions.selectItem(contextInfo.itemId, "replace")
-                }
-              >
-                Select item
-              </ContextMenuItem>
-              <ContextMenuItem onSelect={() => interactions.copySelection()}>
-                Copy
-              </ContextMenuItem>
-              <ContextMenuItem onSelect={() => interactions.deleteSelection()}>
-                Delete
-              </ContextMenuItem>
-            </>
-          ) : (
-            <>
-              <ContextMenuLabel>Timeline</ContextMenuLabel>
-              <ContextMenuSeparator />
-              <ContextMenuItem
-                onSelect={() =>
-                  contextInfo && handleCreateFromContext(contextInfo)
-                }
-              >
-                Create item here
-              </ContextMenuItem>
-              <ContextMenuItem
-                disabled={
-                  !interactions.clipboard || interactions.clipboard.length === 0
-                }
-                onSelect={() => interactions.pasteClipboard()}
-              >
-                Paste
-              </ContextMenuItem>
-            </>
-          )}
-        </ContextMenuContent>
-      </ContextMenu>
-    </div>
-    <TooltipProvider delayDuration={100}>
+                  Select item
+                </ContextMenuItem>
+                <ContextMenuItem onSelect={() => interactions.copySelection()}>
+                  Copy
+                </ContextMenuItem>
+                <ContextMenuItem onSelect={() => interactions.deleteSelection()}>
+                  Delete
+                </ContextMenuItem>
+              </>
+            ) : (
+              <>
+                <ContextMenuLabel>Timeline</ContextMenuLabel>
+                <ContextMenuSeparator />
+                <ContextMenuItem
+                  onSelect={() =>
+                    contextInfo && handleCreateFromContext(contextInfo)
+                  }
+                >
+                  Create item here
+                </ContextMenuItem>
+                <ContextMenuItem
+                  disabled={
+                    !interactions.clipboard || interactions.clipboard.length === 0
+                  }
+                  onSelect={() => interactions.pasteClipboard()}
+                >
+                  Paste
+                </ContextMenuItem>
+              </>
+            )}
+          </ContextMenuContent>
+        </ContextMenu>
+      </div>
+      <TooltipProvider delayDuration={100}>
       <div className="relative" style={{ width: gridWidth, height: totalHeight }}>
         <canvas ref={canvasRef} className="absolute left-0 top-0" />
         {virtualItems.map(virtualRow => {
@@ -1248,6 +1231,7 @@ function TimelineGrid({
         })}
       </div>
     </TooltipProvider>
+    </>
   );
 }
 
