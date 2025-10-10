@@ -8,11 +8,14 @@ import {
   type ReactNode,
 } from "react";
 
+import { fetchOrganizations } from "@/services/organizations";
 import { fetchSpaces, fetchWorkspaces } from "@/services/workspaces";
+import type { OrganizationSummary } from "@/types/organization";
 import type { SpaceSummary, WorkspaceSummary } from "@/types/workspace";
 
 const WORKSPACE_STORAGE_KEY = "outpaged.currentWorkspace";
 const SPACE_STORAGE_KEY = "outpaged.currentSpace";
+const ORGANIZATION_STORAGE_KEY = "outpaged.currentOrganization";
 
 function safeReadStorage(key: string): string | null {
   if (typeof window === "undefined") {
@@ -45,6 +48,12 @@ function safeWriteStorage(key: string, value: string | null) {
 }
 
 export type WorkspaceContextValue = {
+  organizations: OrganizationSummary[];
+  currentOrganization: OrganizationSummary | null;
+  setOrganization: (organizationIdOrSlug: string | null) => void;
+  loadingOrganizations: boolean;
+  organizationError: Error | null;
+  refreshOrganizations: () => Promise<void>;
   workspaces: WorkspaceSummary[];
   currentWorkspace: WorkspaceSummary | null;
   setWorkspace: (workspaceIdOrSlug: string | null) => void;
@@ -62,6 +71,13 @@ export type WorkspaceContextValue = {
 const WorkspaceContext = createContext<WorkspaceContextValue | undefined>(undefined);
 
 export function WorkspaceProvider({ children }: { children: ReactNode }) {
+  const [organizations, setOrganizations] = useState<OrganizationSummary[]>([]);
+  const [organizationId, setOrganizationId] = useState<string | null>(() =>
+    safeReadStorage(ORGANIZATION_STORAGE_KEY)
+  );
+  const [loadingOrganizations, setLoadingOrganizations] = useState(true);
+  const [organizationError, setOrganizationError] = useState<Error | null>(null);
+
   const [workspaces, setWorkspaces] = useState<WorkspaceSummary[]>([]);
   const [workspaceId, setWorkspaceId] = useState<string | null>(() => safeReadStorage(WORKSPACE_STORAGE_KEY));
   const [loadingWorkspaces, setLoadingWorkspaces] = useState(true);
@@ -72,10 +88,66 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const [loadingSpaces, setLoadingSpaces] = useState(false);
   const [spaceError, setSpaceError] = useState<Error | null>(null);
 
+  const refreshOrganizations = useCallback(async () => {
+    setLoadingOrganizations(true);
+    try {
+      const results = await fetchOrganizations();
+      setOrganizations(results);
+      setOrganizationError(null);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error : new Error("Unable to load organizations. Please try again later.");
+      console.error("Failed to load organizations", error);
+      setOrganizations([]);
+      setOrganizationError(message);
+    } finally {
+      setLoadingOrganizations(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshOrganizations();
+  }, [refreshOrganizations]);
+
+  useEffect(() => {
+    if (loadingOrganizations) {
+      return;
+    }
+
+    if (organizations.length === 0) {
+      if (organizationId !== null) {
+        setOrganizationId(null);
+        safeWriteStorage(ORGANIZATION_STORAGE_KEY, null);
+      }
+      return;
+    }
+
+    if (!organizationId || !organizations.some((organization) => organization.id === organizationId)) {
+      const stored = safeReadStorage(ORGANIZATION_STORAGE_KEY);
+      const candidate = stored && organizations.some((organization) => organization.id === stored)
+        ? stored
+        : organizations[0]?.id ?? null;
+
+      if (candidate && candidate !== organizationId) {
+        setOrganizationId(candidate);
+        safeWriteStorage(ORGANIZATION_STORAGE_KEY, candidate);
+        setWorkspaceId(null);
+        safeWriteStorage(WORKSPACE_STORAGE_KEY, null);
+        setSpaces([]);
+        setSpaceId(null);
+        safeWriteStorage(SPACE_STORAGE_KEY, null);
+      }
+    }
+  }, [organizations, loadingOrganizations, organizationId]);
+
+  useEffect(() => {
+    safeWriteStorage(ORGANIZATION_STORAGE_KEY, organizationId);
+  }, [organizationId]);
+
   const refreshWorkspaces = useCallback(async () => {
     setLoadingWorkspaces(true);
     try {
-      const results = await fetchWorkspaces();
+      const results = await fetchWorkspaces(organizationId);
       setWorkspaces(results);
       setWorkspaceError(null);
     } catch (error) {
@@ -87,7 +159,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoadingWorkspaces(false);
     }
-  }, []);
+  }, [organizationId]);
 
   useEffect(() => {
     void refreshWorkspaces();
@@ -185,6 +257,41 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     safeWriteStorage(SPACE_STORAGE_KEY, spaceId);
   }, [spaceId]);
 
+  const setOrganization = useCallback(
+    (organizationIdOrSlug: string | null) => {
+      if (!organizationIdOrSlug) {
+        setOrganizationId(null);
+        safeWriteStorage(ORGANIZATION_STORAGE_KEY, null);
+        setWorkspaces([]);
+        setWorkspaceId(null);
+        safeWriteStorage(WORKSPACE_STORAGE_KEY, null);
+        setSpaces([]);
+        setSpaceId(null);
+        safeWriteStorage(SPACE_STORAGE_KEY, null);
+        return;
+      }
+
+      const match = organizations.find(
+        (organization) => organization.id === organizationIdOrSlug || organization.slug === organizationIdOrSlug
+      );
+      const resolved = match?.id ?? organizationIdOrSlug;
+
+      setOrganizationId((previous) => {
+        if (previous === resolved) {
+          return previous;
+        }
+        return resolved;
+      });
+      safeWriteStorage(ORGANIZATION_STORAGE_KEY, resolved);
+      setWorkspaceId(null);
+      safeWriteStorage(WORKSPACE_STORAGE_KEY, null);
+      setSpaces([]);
+      setSpaceId(null);
+      safeWriteStorage(SPACE_STORAGE_KEY, null);
+    },
+    [organizations]
+  );
+
   const setWorkspace = useCallback(
     (workspaceIdOrSlug: string | null) => {
       if (!workspaceIdOrSlug) {
@@ -201,6 +308,11 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       );
       const resolved = match?.id ?? workspaceIdOrSlug;
 
+      if (match?.organization_id && match.organization_id !== organizationId) {
+        setOrganizationId(match.organization_id);
+        safeWriteStorage(ORGANIZATION_STORAGE_KEY, match.organization_id);
+      }
+
       setWorkspaceId((previous) => {
         if (previous === resolved) {
           return previous;
@@ -212,7 +324,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       setSpaceId(null);
       safeWriteStorage(SPACE_STORAGE_KEY, null);
     },
-    [workspaces]
+    [workspaces, organizationId]
   );
 
   const setSpace = useCallback(
@@ -232,6 +344,11 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     [spaces]
   );
 
+  const currentOrganization = useMemo(
+    () => organizations.find((organization) => organization.id === organizationId) ?? null,
+    [organizations, organizationId]
+  );
+
   const currentWorkspace = useMemo(
     () => workspaces.find((workspace) => workspace.id === workspaceId) ?? null,
     [workspaces, workspaceId]
@@ -241,6 +358,12 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<WorkspaceContextValue>(
     () => ({
+      organizations,
+      currentOrganization,
+      setOrganization,
+      loadingOrganizations,
+      organizationError,
+      refreshOrganizations,
       workspaces,
       currentWorkspace,
       setWorkspace,
@@ -255,6 +378,12 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       refreshSpaces,
     }),
     [
+      organizations,
+      currentOrganization,
+      setOrganization,
+      loadingOrganizations,
+      organizationError,
+      refreshOrganizations,
       workspaces,
       currentWorkspace,
       setWorkspace,

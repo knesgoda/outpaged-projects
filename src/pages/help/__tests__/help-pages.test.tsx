@@ -27,6 +27,12 @@ jest.mock("@/state/profile", () => ({
 
 jest.mock("@/state/workspace", () => ({
   useWorkspaceContext: () => ({
+    organizations: [],
+    currentOrganization: null,
+    setOrganization: jest.fn(),
+    loadingOrganizations: false,
+    organizationError: null,
+    refreshOrganizations: jest.fn(),
     workspaces: [],
     currentWorkspace: null,
     setWorkspace: jest.fn(),
