@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ProjectSelector } from "@/components/kanban/ProjectSelector";
 import { PortfolioManager } from "@/components/portfolio/PortfolioManager";
-import { GanttView } from "@/components/views/GanttView";
+import { TimelineView } from "@/components/timeline/TimelineView";
 import { CalendarView } from "@/components/views/CalendarView";
 import { CustomFieldsManager } from "@/components/custom-fields/CustomFieldsManager";
 import { SLADashboard } from "@/components/sla/SLADashboard";
@@ -89,7 +89,7 @@ const PortfolioPage = () => {
         </TabsContent>
 
         <TabsContent value="timeline">
-          <GanttView tasks={tasks} />
+          <TimelineView className="min-h-[400px]" height={"60vh"} projectId={projectId ?? undefined} />
         </TabsContent>
 
         <TabsContent value="calendar">
