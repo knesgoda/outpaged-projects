@@ -4,23 +4,263 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Plus, MoreHorizontal, FolderOpen, Calendar, Users, CheckSquare2, Loader2, Settings, Edit, Trash2 } from "lucide-react";
+import { Plus, MoreHorizontal, FolderOpen, Users, CheckSquare2, Loader2, Settings, Edit, Trash2 } from "lucide-react";
 import { ProjectDialog } from "@/components/projects/ProjectDialog";
 import { useToast } from "@/hooks/use-toast";
 import { useProjectNavigation } from "@/hooks/useProjectNavigation";
 import { useProjects, useDeleteProject } from "@/hooks/useProjects";
 import { format } from "date-fns";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { cn } from "@/lib/utils";
+
+type Project = {
+  id: string;
+  name: string;
+  description?: string | null;
+  status?: string | null;
+  created_at: string;
+  [key: string]: unknown;
+};
+
+interface ProjectCardProps {
+  project: Project;
+  isMobile: boolean;
+  onSelect: (project: Project) => void;
+  onOpen: (project: Project) => void;
+  onSettings: (project: Project) => void;
+  onEdit: (project: Project) => void;
+  onDelete: (project: Project) => void;
+  getProjectUrl: (project: Project) => string;
+  getStatusVariant: (status: string) => string;
+  formatStatus: (status: string) => string;
+}
+
+interface ProjectActionsProps {
+  isMobile: boolean;
+  onOpen: () => void;
+  onSettings: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+}
+
+const ProjectActions = ({ isMobile, onOpen, onSettings, onEdit, onDelete }: ProjectActionsProps) => {
+  if (isMobile) {
+    return (
+      <div className="flex flex-wrap items-center gap-2 pt-2">
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={(event) => {
+            event.stopPropagation();
+            onOpen();
+          }}
+        >
+          Open
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={(event) => {
+            event.stopPropagation();
+            onSettings();
+          }}
+        >
+          Settings
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={(event) => {
+            event.stopPropagation();
+            onEdit();
+          }}
+        >
+          Edit
+        </Button>
+        <Button
+          variant="destructive"
+          size="sm"
+          onClick={(event) => {
+            event.stopPropagation();
+            onDelete();
+          }}
+        >
+          Delete
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="w-8 h-8"
+          onClick={(event) => event.stopPropagation()}
+        >
+          <MoreHorizontal className="w-4 h-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-48">
+        <DropdownMenuItem
+          onClick={(event) => {
+            event.stopPropagation();
+            onOpen();
+          }}
+        >
+          <FolderOpen className="w-4 h-4 mr-2" />
+          Open Project
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={(event) => {
+            event.stopPropagation();
+            onSettings();
+          }}
+        >
+          <Settings className="w-4 h-4 mr-2" />
+          Project Settings
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={(event) => {
+            event.stopPropagation();
+            onEdit();
+          }}
+        >
+          <Edit className="w-4 h-4 mr-2" />
+          Edit Project
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={(event) => {
+            event.stopPropagation();
+            onDelete();
+          }}
+          className="text-destructive"
+        >
+          <Trash2 className="w-4 h-4 mr-2" />
+          Delete Project
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+};
+
+const ProjectCard = ({
+  project,
+  isMobile,
+  onSelect,
+  onOpen,
+  onSettings,
+  onEdit,
+  onDelete,
+  getProjectUrl,
+  getStatusVariant,
+  formatStatus,
+}: ProjectCardProps) => {
+  return (
+    <Card
+      className={cn(
+        "hover:shadow-soft transition-all cursor-pointer",
+        isMobile ? "w-full" : undefined,
+      )}
+      onClick={() => onSelect(project)}
+    >
+      <CardHeader className={cn(isMobile ? "p-4 pb-0 space-y-3" : undefined)}>
+        <div
+          className={cn(
+            "flex items-start justify-between",
+            isMobile ? "flex-col gap-3" : "gap-3",
+          )}
+        >
+          <div className="flex items-center gap-2">
+            <FolderOpen className="w-5 h-5 text-primary" />
+            <CardTitle className="text-lg text-foreground">
+              <Link
+                to={getProjectUrl(project)}
+                data-testid={`project-link-${project.id}`}
+                className="hover:underline"
+                onClick={(event) => event.stopPropagation()}
+              >
+                {project.name}
+              </Link>
+            </CardTitle>
+          </div>
+          <ProjectActions
+            isMobile={isMobile}
+            onOpen={() => onOpen(project)}
+            onSettings={() => onSettings(project)}
+            onEdit={() => onEdit(project)}
+            onDelete={() => onDelete(project)}
+          />
+        </div>
+        <CardDescription className="text-sm">
+          {project.description || "No description provided"}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className={cn("space-y-4", isMobile ? "p-4 pt-2" : undefined)}>
+        {project.status && (
+          <div className="flex items-center">
+            <Badge variant={getStatusVariant(project.status)}>
+              {formatStatus(project.status)}
+            </Badge>
+          </div>
+        )}
+
+        <div className="flex items-center justify-between text-sm text-muted-foreground">
+          <div className="flex items-center gap-2">
+            <Users className="w-4 h-4" />
+            <span>1 member</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <CheckSquare2 className="w-4 h-4" />
+            <span>0 tasks</span>
+          </div>
+        </div>
+
+        <div className="text-xs text-muted-foreground border-t pt-2">
+          Created {format(new Date(project.created_at), "MMM dd, yyyy")}
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+
+interface AddProjectCardProps {
+  isMobile: boolean;
+  onClick: () => void;
+}
+
+const AddProjectCard = ({ isMobile, onClick }: AddProjectCardProps) => (
+  <Card
+    className={cn(
+      "border-dashed border-2 border-muted-foreground/20 hover:border-primary/40 hover:bg-primary/5 transition-colors cursor-pointer",
+      isMobile ? "w-full" : undefined,
+    )}
+    onClick={onClick}
+  >
+    <CardContent className={cn("flex items-center justify-center h-full min-h-[200px]", isMobile ? "p-4" : undefined)}>
+      <div className="text-center space-y-2">
+        <Plus className="w-8 h-8 text-muted-foreground mx-auto" />
+        <h3 className="font-medium text-foreground">Create New Project</h3>
+        <p className="text-sm text-muted-foreground">Start organizing your work</p>
+      </div>
+    </CardContent>
+  </Card>
+);
+=======
 import { formatProjectStatus, getProjectStatusBadgeVariant } from "@/utils/project-status";
 
 export default function Projects() {
   const { toast } = useToast();
   const { navigateToProject, navigateToProjectSettings, getProjectUrl } = useProjectNavigation();
   const [isProjectDialogOpen, setIsProjectDialogOpen] = useState(false);
-  
+  const isMobile = useIsMobile();
+
   const { data: projectsData, isLoading, error } = useProjects({ status: "all", sort: "updated_at", dir: "desc" });
   const deleteProjectMutation = useDeleteProject();
 
-  const projects = projectsData?.data || [];
+  const projects = (projectsData?.data as Project[]) || [];
 
   // Debug logging for mobile issues
   console.log('Projects Page State:', {
@@ -34,8 +274,13 @@ export default function Projects() {
     // The query will automatically refetch
   };
 
-  const handleProjectClick = (project: any) => {
+  const handleProjectClick = (project: Project) => {
     navigateToProject(project);
+  };
+
+  const handleEditProject = (project: Project) => {
+    // Placeholder for edit functionality until implemented
+    console.log("Edit project:", project.id);
   };
 
   const handleDeleteProject = async (projectId: string, projectName: string) => {
@@ -64,9 +309,9 @@ export default function Projects() {
 
   if (isLoading) {
     return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
+      <div className="space-y-6 px-4 pb-16 sm:px-6 lg:px-8">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="space-y-1">
             <h1 className="text-3xl font-bold text-foreground">Projects</h1>
             <p className="text-muted-foreground">Manage your projects and track progress</p>
           </div>
@@ -80,14 +325,14 @@ export default function Projects() {
 
   if (error) {
     return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
+      <div className="space-y-6 px-4 pb-16 sm:px-6 lg:px-8">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
             <h1 className="text-3xl font-bold text-foreground">Projects</h1>
             <p className="text-muted-foreground">Manage your projects and track progress</p>
           </div>
-          <Button 
-            className="bg-gradient-primary hover:opacity-90"
+          <Button
+            className="bg-gradient-primary hover:opacity-90 w-full md:w-auto"
             onClick={() => setIsProjectDialogOpen(true)}
           >
             <Plus className="w-4 h-4 mr-2" />
@@ -121,15 +366,15 @@ export default function Projects() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 px-4 pb-16 sm:px-6 lg:px-8">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div className="space-y-1">
           <h1 className="text-3xl font-bold text-foreground">Projects</h1>
           <p className="text-muted-foreground">Manage your projects and track progress</p>
         </div>
-        <Button 
-          className="bg-gradient-primary hover:opacity-90"
+        <Button
+          className="bg-gradient-primary hover:opacity-90 w-full md:w-auto"
           onClick={() => setIsProjectDialogOpen(true)}
         >
           <Plus className="w-4 h-4 mr-2" />
@@ -148,7 +393,7 @@ export default function Projects() {
                 Get started by creating your first project to organize your work and track progress.
               </p>
               <Button
-                className="bg-gradient-primary hover:opacity-90 mt-4"
+                className="bg-gradient-primary hover:opacity-90 mt-4 w-full sm:w-auto"
                 onClick={() => setIsProjectDialogOpen(true)}
               >
                 <Plus className="w-4 h-4 mr-2" />
@@ -157,128 +402,47 @@ export default function Projects() {
             </div>
           </CardContent>
         </Card>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      ) : isMobile ? (
+        <div data-testid="projects-mobile-list" className="space-y-4">
           {projects.map((project) => (
-          <Card
-            key={project.id}
-            className="hover:shadow-soft transition-all cursor-pointer"
-            onClick={() => handleProjectClick(project)}
-          >
-            <CardHeader>
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-2">
-                  <FolderOpen className="w-5 h-5 text-primary" />
-                  <CardTitle className="text-lg text-foreground">
-                    <Link
-                      to={getProjectUrl(project)}
-                      data-testid={`project-link-${project.id}`}
-                      className="hover:underline"
-                    >
-                      {project.name}
-                    </Link>
-                  </CardTitle>
-                </div>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="w-8 h-8"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <MoreHorizontal className="w-4 h-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-48">
-                    <DropdownMenuItem
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigateToProject(project);
-                      }}
-                    >
-                      <FolderOpen className="w-4 h-4 mr-2" />
-                      Open Project
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigateToProjectSettings(project);
-                      }}
-                    >
-                      <Settings className="w-4 h-4 mr-2" />
-                      Project Settings
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        // Handle edit action
-                        console.log('Edit project:', project.id);
-                      }}
-                    >
-                      <Edit className="w-4 h-4 mr-2" />
-                      Edit Project
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteProject(project.id, project.name);
-                      }}
-                      className="text-destructive"
-                    >
-                      <Trash2 className="w-4 h-4 mr-2" />
-                      Delete Project
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-              <CardDescription className="text-sm">
-                {project.description || "No description provided"}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Status */}
-              <div className="flex items-center">
-                {project.status && (
-                  <Badge variant={getStatusVariant(project.status)}>
-                    {formatStatus(project.status)}
-                  </Badge>
-                )}
-              </div>
-
-              {/* Project details */}
-              <div className="flex items-center justify-between text-sm text-muted-foreground">
-                <div className="flex items-center gap-2">
-                  <Users className="w-4 h-4" />
-                  <span>1 member</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <CheckSquare2 className="w-4 h-4" />
-                  <span>0 tasks</span>
-                </div>
-              </div>
-
-              {/* Created date */}
-              <div className="text-xs text-muted-foreground border-t pt-2">
-                Created {format(new Date(project.created_at), "MMM dd, yyyy")}
-              </div>
-            </CardContent>
-          </Card>
+            <ProjectCard
+              key={project.id}
+              project={project}
+              isMobile={isMobile}
+              onSelect={handleProjectClick}
+              onOpen={navigateToProject}
+              onSettings={navigateToProjectSettings}
+              onEdit={handleEditProject}
+              onDelete={(selected) =>
+                handleDeleteProject(selected.id, selected.name)
+              }
+              getProjectUrl={getProjectUrl}
+              getStatusVariant={getStatusVariant}
+              formatStatus={formatStatus}
+            />
           ))}
-
-          {/* Add Project Card */}
-          <Card 
-            className="border-dashed border-2 border-muted-foreground/20 hover:border-primary/40 hover:bg-primary/5 transition-colors cursor-pointer"
-            onClick={() => setIsProjectDialogOpen(true)}
-          >
-            <CardContent className="flex items-center justify-center h-full min-h-[200px]">
-              <div className="text-center space-y-2">
-                <Plus className="w-8 h-8 text-muted-foreground mx-auto" />
-                <h3 className="font-medium text-foreground">Create New Project</h3>
-                <p className="text-sm text-muted-foreground">Start organizing your work</p>
-              </div>
-            </CardContent>
-          </Card>
+          <AddProjectCard isMobile={isMobile} onClick={() => setIsProjectDialogOpen(true)} />
+        </div>
+      ) : (
+        <div data-testid="projects-grid" className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
+          {projects.map((project) => (
+            <ProjectCard
+              key={project.id}
+              project={project}
+              isMobile={isMobile}
+              onSelect={handleProjectClick}
+              onOpen={navigateToProject}
+              onSettings={navigateToProjectSettings}
+              onEdit={handleEditProject}
+              onDelete={(selected) =>
+                handleDeleteProject(selected.id, selected.name)
+              }
+              getProjectUrl={getProjectUrl}
+              getStatusVariant={getStatusVariant}
+              formatStatus={formatStatus}
+            />
+          ))}
+          <AddProjectCard isMobile={isMobile} onClick={() => setIsProjectDialogOpen(true)} />
         </div>
       )}
 
