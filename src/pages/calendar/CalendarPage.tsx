@@ -1,188 +1,79 @@
-import { useCallback, useEffect, useMemo, useState, type KeyboardEvent } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   addDays,
+  addMonths,
+  addWeeks,
+  differenceInMinutes,
   eachDayOfInterval,
+  eachMonthOfInterval,
   endOfDay,
   endOfMonth,
-  endOfWeek,
   endOfQuarter,
+  endOfWeek,
   endOfYear,
   format,
   isSameDay,
   isSameMonth,
   isToday,
   parseISO,
+  setHours,
+  setMinutes,
   startOfDay,
   startOfMonth,
   startOfQuarter,
   startOfWeek,
   startOfYear,
 } from "date-fns";
-import { supabase } from "@/integrations/supabase/client";
-import { useCalendarRange, type CalendarTask } from "@/hooks/useCalendar";
-import { DateRangeControls, type CalendarUnit, type DateRange } from "@/components/common/DateRangeControls";
-import { ViewSwitch, type CalendarView } from "@/components/common/ViewSwitch";
+import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
-import { Switch } from "@/components/ui/switch";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   AlertCircle,
   CalendarDays,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Filter,
-  Globe2,
   Layers,
+  Link2,
+  MousePointer2,
   Palette,
   Plus,
-  RefreshCw,
-  Save,
   Search,
+  Share2,
   Users,
-  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { DateRangeControls, type CalendarUnit, type DateRange } from "@/components/common/DateRangeControls";
+import { ViewSwitch, type CalendarView } from "@/components/common/ViewSwitch";
+import { useCalendarRange } from "@/hooks/useCalendar";
+import { EventCard } from "@/components/calendar/EventCard";
+import { EventContextMenu } from "@/components/calendar/EventContextMenu";
+import { EventEditorDialog } from "@/components/calendar/EventEditorDialog";
+import { VirtualizedList } from "@/components/calendar/VirtualizedList";
 import { CalendarProvider, useCalendarState } from "@/state/calendar";
-import type { CalendarLayer, CalendarSavedView } from "@/types/calendar";
+import type { CalendarColorEncoding, CalendarEvent, CalendarLayer } from "@/types/calendar";
 
 const WEEK_OPTIONS = { weekStartsOn: 1 as const };
-const MAX_VISIBLE_TASKS = 3;
 
-interface ProjectOption {
-  id: string;
-  name: string | null;
-}
+const HOUR_HEIGHT_BY_DENSITY: Record<string, number> = {
+  compact: 40,
+  comfortable: 56,
+  spacious: 72,
+};
 
-interface SaveViewDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onSubmit: (payload: { name: string; description?: string }) => void;
-  calendars: CalendarLayer[];
-}
+const SNAP_OPTIONS = [5, 15, 30];
 
-function SaveViewDialog({ open, onOpenChange, onSubmit, calendars }: SaveViewDialogProps) {
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
+const WORKING_HOURS = { start: 9, end: 17 };
 
-  const visibleCalendars = calendars.filter((calendar) => calendar.visible && calendar.subscribed);
-
-  const handleSubmit = () => {
-    if (!name.trim()) {
-      return;
-    }
-    onSubmit({ name: name.trim(), description: description.trim() || undefined });
-    setName("");
-    setDescription("");
-    onOpenChange(false);
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Save current calendar view</DialogTitle>
-          <DialogDescription>
-            Store the active calendar selection and filters for quick reuse.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="view-name">View name</Label>
-            <Input
-              id="view-name"
-              placeholder="e.g. Release readiness"
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="view-description">Description</Label>
-            <Textarea
-              id="view-description"
-              placeholder="Optional details for teammates"
-              value={description}
-              onChange={(event) => setDescription(event.target.value)}
-            />
-          </div>
-          <div className="rounded-md border bg-muted/30 p-3 text-sm">
-            <p className="font-medium">Calendars captured</p>
-            <ul className="mt-2 space-y-1">
-              {visibleCalendars.map((calendar) => (
-                <li key={calendar.id} className="flex items-center gap-2">
-                  <span
-                    className="h-2 w-2 rounded-full"
-                    style={{ backgroundColor: calendar.color }}
-                    aria-hidden="true"
-                  />
-                  <span>{calendar.name}</span>
-                </li>
-              ))}
-              {visibleCalendars.length === 0 && (
-                <li className="text-muted-foreground">No calendars visible.</li>
-              )}
-            </ul>
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="ghost" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button onClick={handleSubmit} disabled={!name.trim()}>
-            <Save className="mr-2 h-4 w-4" />Save view
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function useProjectsList() {
-  return useQuery({
-    queryKey: ["calendar", "projects"],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("projects").select("id, name");
-      if (error) {
-        throw error;
-      }
-      return (data ?? []) as ProjectOption[];
-    },
-  });
-}
+type DragMode = "move" | "resize-start" | "resize-end" | null;
 
 function getRangeForView(view: CalendarView, pivot: Date): DateRange {
   switch (view) {
@@ -190,35 +81,22 @@ function getRangeForView(view: CalendarView, pivot: Date): DateRange {
       return { from: startOfDay(pivot), to: endOfDay(pivot) };
     case "work-week": {
       const start = startOfWeek(pivot, WEEK_OPTIONS);
-      const end = addDays(start, 4);
-      return { from: start, to: end };
+      return { from: start, to: addDays(start, 4) };
     }
     case "week":
-      return {
-        from: startOfWeek(pivot, WEEK_OPTIONS),
-        to: endOfWeek(pivot, WEEK_OPTIONS),
-      };
+      return { from: startOfWeek(pivot, WEEK_OPTIONS), to: endOfWeek(pivot, WEEK_OPTIONS) };
     case "quarter":
       return { from: startOfQuarter(pivot), to: endOfQuarter(pivot) };
     case "year":
       return { from: startOfYear(pivot), to: endOfYear(pivot) };
-    case "timeline": {
-      const start = startOfMonth(pivot);
-      const end = endOfMonth(pivot);
-      return { from: start, to: end };
-    }
-    case "agenda": {
-      const start = startOfDay(pivot);
-      const end = endOfWeek(pivot, WEEK_OPTIONS);
-      return { from: start, to: end };
-    }
+    case "timeline":
     case "gantt":
+      return { from: startOfMonth(pivot), to: endOfMonth(pivot) };
+    case "agenda":
+      return { from: startOfDay(pivot), to: endOfWeek(pivot, WEEK_OPTIONS) };
     case "month":
     default:
-      return {
-        from: startOfMonth(pivot),
-        to: endOfMonth(pivot),
-      };
+      return { from: startOfMonth(pivot), to: endOfMonth(pivot) };
   }
 }
 
@@ -244,217 +122,156 @@ function formatHeaderLabel(view: CalendarView, range: DateRange) {
   }
 }
 
-function normalizeTaskInterval(task: CalendarTask) {
-  const start = task.start_date ? startOfDay(parseISO(task.start_date)) : null;
-  const due = task.due_date ? endOfDay(parseISO(task.due_date)) : null;
+function roundToSnap(date: Date, snapMinutes: number) {
+  const minutes = date.getMinutes();
+  const snapped = Math.round(minutes / snapMinutes) * snapMinutes;
+  const result = new Date(date);
+  result.setMinutes(0);
+  result.setSeconds(0);
+  result.setMilliseconds(0);
+  result.setMinutes(snapped);
+  return result;
+}
 
-  if (!start && !due) return null;
+function clampDateWithinDay(date: Date, reference: Date) {
+  const start = startOfDay(reference);
+  const end = endOfDay(reference);
+  if (date < start) return start;
+  if (date > end) return end;
+  return date;
+}
 
-  if (start && due) {
-    if (start <= due) {
-      return { start, end: due };
+function detectConflicts(events: CalendarEvent[]): Set<string> {
+  const conflicts = new Set<string>();
+  const sorted = [...events].sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
+  for (let i = 0; i < sorted.length; i += 1) {
+    const current = sorted[i];
+    const currentStart = new Date(current.start).getTime();
+    const currentEnd = new Date(current.end).getTime();
+    for (let j = i + 1; j < sorted.length; j += 1) {
+      const next = sorted[j];
+      const nextStart = new Date(next.start).getTime();
+      if (nextStart >= currentEnd) break;
+      conflicts.add(current.id);
+      conflicts.add(next.id);
     }
-    return { start: due, end: endOfDay(start) };
   }
-
-  if (start && !due) {
-    return { start, end: endOfDay(start) };
-  }
-
-  if (!start && due) {
-    const normalized = startOfDay(due);
-    return { start: normalized, end: endOfDay(due) };
-  }
-
-  return null;
+  return conflicts;
 }
 
-function getDayKey(date: Date) {
-  return format(date, "yyyy-MM-dd");
+interface QuickAddResult {
+  title: string;
+  start: Date;
+  end: Date;
+  calendarId?: string;
 }
 
-function buildTasksByDay(tasks: CalendarTask[]) {
-  const map = new Map<string, CalendarTask[]>();
-  tasks.forEach((task) => {
-    const interval = normalizeTaskInterval(task);
-    if (!interval) return;
-    const days = eachDayOfInterval({ start: interval.start, end: interval.end });
-    days.forEach((day) => {
-      const key = getDayKey(day);
-      const existing = map.get(key);
-      if (existing) {
-        existing.push(task);
-      } else {
-        map.set(key, [task]);
+function parseQuickAddInput(input: string, fallbackDate: Date): QuickAddResult | null {
+  const trimmed = input.trim();
+  if (!trimmed) return null;
+
+  const calendarMatch = trimmed.match(/#([\w.-]+)/);
+  const calendarId = calendarMatch ? `calendar.${calendarMatch[1]}` : undefined;
+
+  const now = new Date();
+  let date = fallbackDate;
+  if (/tomorrow/i.test(trimmed)) {
+    date = addDays(startOfDay(now), 1);
+  } else if (/today/i.test(trimmed)) {
+    date = startOfDay(now);
+  }
+
+  const timeMatch = trimmed.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\s*-\s*(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/i);
+  let start = setHours(date, 9);
+  let end = setHours(date, 10);
+  if (timeMatch) {
+    const [, startHourRaw, startMinutesRaw, startPeriod, endHourRaw, endMinutesRaw, endPeriod] = timeMatch;
+    const parseHour = (raw: string, period?: string | null) => {
+      let hour = Number(raw) % 12;
+      if (period?.toLowerCase() === "pm") {
+        hour += 12;
       }
-    });
-  });
-  return map;
+      return hour;
+    };
+    start = setMinutes(setHours(date, parseHour(startHourRaw, startPeriod)), Number(startMinutesRaw ?? "0"));
+    end = setMinutes(setHours(date, parseHour(endHourRaw, endPeriod)), Number(endMinutesRaw ?? "0"));
+    if (end <= start) {
+      end = new Date(start.getTime() + 60 * 60 * 1000);
+    }
+  }
+
+  const title = trimmed
+    .replace(calendarMatch?.[0] ?? "", "")
+    .replace(timeMatch?.[0] ?? "", "")
+    .replace(/\btoday\b|\btomorrow\b/gi, "")
+    .trim();
+
+  return {
+    title: title || "Untitled event",
+    start,
+    end,
+    calendarId,
+  };
 }
 
-function CalendarSkeleton() {
-  return (
-    <div className="grid gap-px rounded-lg border bg-border">
-      {Array.from({ length: 6 }).map((_, weekIndex) => (
-        <div key={weekIndex} className="grid grid-cols-7 gap-px">
-          {Array.from({ length: 7 }).map((__, dayIndex) => (
-            <div key={`${weekIndex}-${dayIndex}`} className="h-24 w-full animate-pulse rounded-sm bg-muted" />
-          ))}
-        </div>
-      ))}
-    </div>
-  );
+function getNextWorkingHour(date: Date) {
+  const next = new Date(date);
+  next.setHours(WORKING_HOURS.start, 0, 0, 0);
+  return next;
 }
 
-function CalendarEmptyState({ message }: { message: string }) {
-  return (
-    <div className="flex h-48 flex-col items-center justify-center rounded-md border border-dashed text-center">
-      <p className="text-sm text-muted-foreground">{message}</p>
-    </div>
-  );
+function createEventFromQuickAdd(result: QuickAddResult, defaultCalendarId: string): CalendarEvent {
+  return {
+    id: `event-${crypto.randomUUID?.() ?? Date.now()}`,
+    calendarId: result.calendarId ?? defaultCalendarId,
+    title: result.title,
+    start: result.start.toISOString(),
+    end: result.end.toISOString(),
+    status: "confirmed",
+    priority: "normal",
+    visibility: "team",
+    reminders: [{ id: `rem-${Date.now()}`, offsetMinutes: 10, method: "popup" }],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
 }
 
-interface DayTasksDrawerProps {
-  date: Date | null;
-  tasks: CalendarTask[];
-  open: boolean;
-  onClose: () => void;
-  onSelectTask: (task: CalendarTask) => void;
-  getProjectName: (projectId: string) => string;
-}
-
-function DayTasksDrawer({ date, tasks, open, onClose, onSelectTask, getProjectName }: DayTasksDrawerProps) {
-  return (
-    <Dialog open={open} onOpenChange={(next) => (!next ? onClose() : undefined)}>
-      <DialogContent className="sm:max-w-sm">
-        <DialogHeader>
-          <DialogTitle>{date ? format(date, "EEEE, MMM d") : "Tasks"}</DialogTitle>
-        </DialogHeader>
-        <div className="max-h-[60vh] space-y-2 overflow-y-auto pr-1">
-          {tasks.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No tasks scheduled.</p>
-          ) : (
-            tasks.map((task) => (
-              <button
-                key={task.id}
-                type="button"
-                onClick={() => onSelectTask(task)}
-                className="w-full rounded-md border bg-background p-3 text-left transition hover:border-primary"
-              >
-                <p className="font-medium">{task.title}</p>
-                <p className="text-xs text-muted-foreground">{getProjectName(task.project_id)}</p>
-              </button>
-            ))
-          )}
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-interface EventDetailPanelProps {
-  task: CalendarTask | null;
-  calendar: CalendarLayer | null;
-  projectName?: string;
-  onClose: () => void;
-}
-
-function EventDetailPanel({ task, calendar, projectName, onClose }: EventDetailPanelProps) {
-  const interval = task ? normalizeTaskInterval(task) : null;
-  return (
-    <aside
-      className={cn(
-        "hidden w-80 flex-col border-l bg-card transition-all xl:flex",
-        task ? "opacity-100" : "opacity-80"
-      )}
-    >
-      <div className="flex items-center justify-between border-b px-4 py-3">
-        <div>
-          <p className="text-xs text-muted-foreground">Event details</p>
-          <h2 className="text-lg font-semibold">{task?.title ?? "Select an event"}</h2>
-        </div>
-        {task ? (
-          <Button size="icon" variant="ghost" onClick={onClose} aria-label="Close details">
-            <X className="h-4 w-4" />
-          </Button>
-        ) : null}
-      </div>
-      <ScrollArea className="flex-1 px-4 py-4">
-        {task ? (
-          <div className="space-y-6 text-sm">
-            <div className="space-y-2">
-              <p className="text-muted-foreground">Calendar</p>
-              <div className="flex items-center gap-2">
-                <span
-                  className="h-2 w-2 rounded-full"
-                  style={{ backgroundColor: calendar?.color ?? "var(--primary)" }}
-                  aria-hidden="true"
-                />
-                <span>{calendar?.name ?? "Unknown"}</span>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <p className="text-muted-foreground">Project</p>
-              <p>{projectName ?? task.project_id}</p>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <p className="text-muted-foreground">Start</p>
-                <p className="font-medium">
-                  {interval?.start ? format(interval.start, "MMM d, yyyy HH:mm") : "TBD"}
-                </p>
-              </div>
-              <div>
-                <p className="text-muted-foreground">End</p>
-                <p className="font-medium">
-                  {interval?.end ? format(interval.end, "MMM d, yyyy HH:mm") : "TBD"}
-                </p>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <p className="text-muted-foreground">Status</p>
-              <Badge variant="secondary" className="capitalize">
-                {task.status ?? "unspecified"}
-              </Badge>
-            </div>
-            <div className="space-y-2">
-              <p className="text-muted-foreground">Assignee</p>
-              <p>{task.assignee ?? "Unassigned"}</p>
-            </div>
-            <div className="rounded-md border border-dashed bg-muted/30 p-3 text-xs text-muted-foreground">
-              Inline editing, reminders, and linked items will appear here in upcoming phases.
-            </div>
-          </div>
-        ) : (
-          <div className="flex h-full flex-col items-center justify-center text-center text-sm text-muted-foreground">
-            Select an event in the calendar to inspect its details.
-          </div>
-        )}
-      </ScrollArea>
-    </aside>
-  );
-}
-
-interface CalendarLeftRailProps {
-  calendars: CalendarLayer[];
-  loading: boolean;
-  error: Error | null;
-  onRefresh: () => void;
-  onToggleVisibility: (calendarId: string) => void;
-  onColorChange: (calendarId: string, color: string) => void;
-  onSubscribe: (calendarId: string) => void;
-  onUnsubscribe: (calendarId: string) => void;
-  statusFilter: string;
-  onStatusFilterChange: (status: string) => void;
-}
-
-function groupCalendars(calendars: CalendarLayer[]) {
-  return calendars.reduce<Record<string, CalendarLayer[]>>((acc, calendar) => {
-    const bucket = acc[calendar.type] ?? [];
-    bucket.push(calendar);
-    acc[calendar.type] = bucket;
-    return acc;
-  }, {});
+function useKeyboardNavigation({
+  view,
+  onNavigate,
+  onOpenGoto,
+}: {
+  view: CalendarView;
+  onNavigate: (direction: "prev" | "next" | "today") => void;
+  onOpenGoto: () => void;
+}) {
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      if ((event.target as HTMLElement)?.tagName === "INPUT" || (event.target as HTMLElement)?.tagName === "TEXTAREA") {
+        return;
+      }
+      if (event.key === "ArrowLeft") {
+        event.preventDefault();
+        onNavigate("prev");
+      } else if (event.key === "ArrowRight") {
+        event.preventDefault();
+        onNavigate("next");
+      } else if (event.key === "PageUp") {
+        event.preventDefault();
+        onNavigate("prev");
+      } else if (event.key === "PageDown") {
+        event.preventDefault();
+        onNavigate("next");
+      } else if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "g") {
+        event.preventDefault();
+        onOpenGoto();
+      } else if (event.key.toLowerCase() === "t") {
+        onNavigate("today");
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [onNavigate, onOpenGoto, view]);
 }
 
 function CalendarLeftRail({
@@ -466,773 +283,1120 @@ function CalendarLeftRail({
   onColorChange,
   onSubscribe,
   onUnsubscribe,
-  statusFilter,
-  onStatusFilterChange,
-}: CalendarLeftRailProps) {
+  colorEncoding,
+  onColorEncodingChange,
+}: {
+  calendars: CalendarLayer[];
+  loading: boolean;
+  error: Error | null;
+  onRefresh: () => void;
+  onToggleVisibility: (calendarId: string) => void;
+  onColorChange: (calendarId: string, color: string) => void;
+  onSubscribe: (calendarId: string) => void;
+  onUnsubscribe: (calendarId: string) => void;
+  colorEncoding: CalendarColorEncoding;
+  onColorEncodingChange: (mode: CalendarColorEncoding) => void;
+}) {
   const [filter, setFilter] = useState("");
-  const grouped = groupCalendars(
-    calendars.filter((calendar) => calendar.name.toLowerCase().includes(filter.toLowerCase()))
-  );
+  const grouped = useMemo(() => {
+    return calendars
+      .filter((calendar) => calendar.name.toLowerCase().includes(filter.toLowerCase()))
+      .reduce<Record<string, CalendarLayer[]>>((acc, calendar) => {
+        const bucket = acc[calendar.type] ?? [];
+        bucket.push(calendar);
+        acc[calendar.type] = bucket;
+        return acc;
+      }, {});
+  }, [calendars, filter]);
 
   return (
     <aside className="hidden w-72 shrink-0 flex-col border-r bg-muted/10 px-4 py-6 lg:flex">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold">Calendars</h2>
         <Button size="sm" variant="outline">
-          <Plus className="mr-2 h-4 w-4" /> Quick add
+          <Plus className="mr-2 h-4 w-4" /> Add
         </Button>
       </div>
       <div className="mt-4 space-y-4">
         <Input
-          placeholder="Filter calendars"
+          placeholder="Search calendars"
           value={filter}
           onChange={(event) => setFilter(event.target.value)}
           aria-label="Filter calendar list"
         />
         <div className="space-y-2 text-sm">
-          <Label className="text-xs uppercase text-muted-foreground">Status filter</Label>
-          <Select value={statusFilter} onValueChange={onStatusFilterChange}>
+          <Label className="text-xs uppercase text-muted-foreground">Color mode</Label>
+          <Select value={colorEncoding} onValueChange={(value) => onColorEncodingChange(value as CalendarColorEncoding)}>
             <SelectTrigger className="h-9">
-              <SelectValue placeholder="All statuses" />
+              <SelectValue placeholder="Color by" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All statuses</SelectItem>
-              <SelectItem value="confirmed">Confirmed</SelectItem>
-              <SelectItem value="tentative">Tentative</SelectItem>
-              <SelectItem value="milestone">Milestones</SelectItem>
-              <SelectItem value="busy">Focus blocks</SelectItem>
+              <SelectItem value="calendar">Calendar</SelectItem>
+              <SelectItem value="status">Status</SelectItem>
+              <SelectItem value="type">Type</SelectItem>
+              <SelectItem value="priority">Priority</SelectItem>
+              <SelectItem value="custom">Custom palette</SelectItem>
             </SelectContent>
           </Select>
         </div>
       </div>
-      <ScrollArea className="mt-6 flex-1 pr-4">
+      <ScrollArea className="mt-6 flex-1 pr-4 text-sm">
         {loading ? (
-          <div className="space-y-3 text-sm text-muted-foreground">
-            <p>Loading calendars…</p>
-          </div>
+          <p className="text-muted-foreground">Loading calendars…</p>
         ) : error ? (
-          <div className="space-y-3 text-sm text-muted-foreground">
+          <div className="space-y-2 text-muted-foreground">
             <p className="flex items-center gap-2 text-destructive">
               <AlertCircle className="h-4 w-4" />Failed to load calendars.
             </p>
-            <Button variant="outline" size="sm" onClick={onRefresh}>
-              <RefreshCw className="mr-2 h-4 w-4" />Retry
+            <Button size="sm" variant="outline" onClick={onRefresh}>
+              Retry
             </Button>
           </div>
         ) : (
-          <div className="space-y-6">
-            {Object.entries(grouped).map(([type, items]) => (
-              <div key={type} className="space-y-3">
-                <div className="flex items-center gap-2 text-xs font-semibold uppercase text-muted-foreground">
-                  {type === "personal" && <Layers className="h-3.5 w-3.5" />}
-                  {type === "team" && <Users className="h-3.5 w-3.5" />}
-                  {type === "project" && <Filter className="h-3.5 w-3.5" />}
-                  {type === "workspace" && <Globe2 className="h-3.5 w-3.5" />}
-                  {type === "external" && <CalendarDays className="h-3.5 w-3.5" />}
-                  <span>{type}</span>
-                </div>
-                <div className="space-y-3">
-                  {items.map((calendar) => (
-                    <div key={calendar.id} className="rounded-md border bg-background p-3">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2">
-                          <span
-                            className="h-2.5 w-2.5 rounded-full"
-                            style={{ backgroundColor: calendar.color }}
-                            aria-hidden="true"
-                          />
-                          <span className="font-medium">{calendar.name}</span>
-                        </div>
-                        {calendar.subscribed ? (
-                          <Switch
-                            checked={calendar.visible}
-                            onCheckedChange={() => onToggleVisibility(calendar.id)}
-                            aria-label={`Toggle ${calendar.name}`}
-                          />
-                        ) : (
-                          <Button size="sm" variant="secondary" onClick={() => onSubscribe(calendar.id)}>
-                            Follow
-                          </Button>
-                        )}
-                      </div>
-                      <p className="mt-2 text-xs text-muted-foreground">{calendar.description}</p>
-                      <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                        <div className="flex items-center gap-1">
-                          <Palette className="h-3 w-3" />
-                          <input
-                            type="color"
-                            value={calendar.color}
-                            onChange={(event) => onColorChange(calendar.id, event.target.value)}
-                            aria-label={`Set color for ${calendar.name}`}
-                            className="h-6 w-6 cursor-pointer rounded border"
-                            disabled={calendar.isReadOnly}
-                          />
-                        </div>
-                        <span>Timezone: {calendar.timezone ?? "Auto"}</span>
-                        {calendar.subscribed ? (
-                          <button
-                            type="button"
-                            className="underline-offset-2 hover:underline"
-                            onClick={() => onUnsubscribe(calendar.id)}
-                          >
-                            Unfollow
-                          </button>
-                        ) : null}
-                      </div>
+          Object.entries(grouped).map(([bucket, items]) => (
+            <div key={bucket} className="mb-6 space-y-3">
+              <h3 className="text-xs font-semibold uppercase text-muted-foreground">{bucket}</h3>
+              <ul className="space-y-2">
+                {items.map((calendar) => (
+                  <li key={calendar.id} className="rounded-md border bg-background p-3 shadow-sm">
+                    <div className="flex items-center justify-between gap-2">
+                      <button
+                        type="button"
+                        className="flex flex-1 items-center gap-2 text-left"
+                        onClick={() => onToggleVisibility(calendar.id)}
+                      >
+                        <span
+                          className="h-2 w-2 rounded-full"
+                          style={{ backgroundColor: calendar.color }}
+                          aria-hidden="true"
+                        />
+                        <span className={cn(calendar.visible ? "" : "opacity-60")}>{calendar.name}</span>
+                      </button>
+                      <Switch
+                        checked={calendar.subscribed}
+                        onCheckedChange={(checked) =>
+                          checked ? onSubscribe(calendar.id) : onUnsubscribe(calendar.id)
+                        }
+                        aria-label="Subscribe"
+                      />
                     </div>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
+                    <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
+                      <div className="flex items-center gap-2">
+                        <Palette className="h-3 w-3" />
+                        <input
+                          type="color"
+                          className="h-5 w-10 cursor-pointer border"
+                          value={calendar.color}
+                          onChange={(event) => onColorChange(calendar.id, event.target.value)}
+                          aria-label={`Select color for ${calendar.name}`}
+                        />
+                      </div>
+                      {calendar.timezone && <span>{calendar.timezone}</span>}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))
         )}
       </ScrollArea>
-      <div className="mt-6 space-y-3 text-xs text-muted-foreground">
-        <Separator />
-        <p className="font-semibold text-foreground">Legend</p>
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full bg-primary" />Confirmed
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full bg-muted" />Tentative
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full bg-amber-500" />Milestone
-          </div>
-        </div>
-      </div>
     </aside>
   );
 }
 
-interface CalendarTopBarProps {
-  view: CalendarView;
-  onViewChange: (view: CalendarView) => void;
-  range: DateRange;
-  unit: CalendarUnit;
-  onRangeChange: (range: DateRange) => void;
-  headerLabel: string;
-  searchTerm: string;
-  onSearchChange: (value: string) => void;
-  projects: ProjectOption[];
-  selectedProject?: string;
-  onProjectChange: (value: string | undefined) => void;
-  density: string;
-  onDensityChange: (density: string) => void;
-  savedViews: CalendarSavedView[];
-  activeSavedViewId: string | null;
-  onSelectSavedView: (viewId: string | null) => void;
-  onOpenSaveDialog: () => void;
-  onRefresh: () => void;
+interface DayCellProps {
+  date: Date;
+  events: CalendarEvent[];
+  onSelect: (id: string, additive: boolean) => void;
+  onOpenDetail: (id: string) => void;
+  selectedEvents: Set<string>;
+  colorEncoding: CalendarColorEncoding;
+  onJoinMeeting: (id: string) => void;
+  onDragStart: (eventId: string, mode: Exclude<DragMode, null>) => void;
+  hourHeight: number;
+  snapMinutes: number;
+  focusMode: boolean;
+  onDrop: (eventId: string, mode: Exclude<DragMode, null>, target: Date) => void;
+  dualTimezone: boolean;
+  secondaryTimezone: string;
+  conflicts: Set<string>;
+  onDeleteEvent: (id: string) => void;
 }
 
-function CalendarTopBar({
-  view,
-  onViewChange,
-  range,
-  unit,
-  onRangeChange,
-  headerLabel,
-  searchTerm,
-  onSearchChange,
-  projects,
-  selectedProject,
-  onProjectChange,
-  density,
-  onDensityChange,
-  savedViews,
-  activeSavedViewId,
-  onSelectSavedView,
-  onOpenSaveDialog,
-  onRefresh,
-}: CalendarTopBarProps) {
-  const [datePickerOpen, setDatePickerOpen] = useState(false);
+function DayCell({
+  date,
+  events,
+  onSelect,
+  onOpenDetail,
+  selectedEvents,
+  colorEncoding,
+  onJoinMeeting,
+  onDragStart,
+  hourHeight,
+  snapMinutes,
+  focusMode,
+  onDrop,
+  dualTimezone,
+  secondaryTimezone,
+  conflicts,
+  onDeleteEvent,
+}: DayCellProps) {
+  const hours = focusMode ? Array.from({ length: WORKING_HOURS.end - WORKING_HOURS.start }, (_, idx) => WORKING_HOURS.start + idx) : Array.from({ length: 24 }, (_, idx) => idx);
+
+  const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    const payload = event.dataTransfer.getData("application/calendar-event");
+    if (!payload) return;
+    const parsed = JSON.parse(payload) as { id: string; mode: Exclude<DragMode, null> };
+    onDrop(parsed.id, parsed.mode, new Date(Number(event.currentTarget.dataset.timestamp)));
+  };
 
   return (
-    <div className="flex flex-col gap-4 border-b bg-background/95 px-6 py-4">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <Breadcrumb>
-            <BreadcrumbList>
-              <BreadcrumbItem>
-                <BreadcrumbLink href="/">Home</BreadcrumbLink>
-              </BreadcrumbItem>
-              <BreadcrumbSeparator />
-              <BreadcrumbItem>
-                <BreadcrumbPage>Calendar</BreadcrumbPage>
-              </BreadcrumbItem>
-            </BreadcrumbList>
-          </Breadcrumb>
-          <h1 className="text-3xl font-semibold tracking-tight">Calendar</h1>
-          <p className="text-sm text-muted-foreground">
-            Coordinate every timeline, milestone, and meeting from one hub.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={onOpenSaveDialog}>
-            <Save className="mr-2 h-4 w-4" />Save view
-          </Button>
-          <Button>
-            <Plus className="mr-2 h-4 w-4" />Add event
-          </Button>
-        </div>
-      </div>
-      <div className="flex flex-wrap items-center gap-3">
-        <ViewSwitch value={view} onChange={onViewChange} />
-        <DateRangeControls unit={unit} range={range} onChange={onRangeChange} className="order-2 sm:order-none" />
-        <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
-          <PopoverTrigger asChild>
-            <Button variant="outline" className="gap-2">
-              <CalendarDays className="h-4 w-4" />
-              {format(range.from, "MMM d, yyyy")}
-              <ChevronDown className="h-4 w-4" />
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-0" align="start">
-            <Calendar
-              mode="single"
-              selected={range.from}
-              onSelect={(date) => {
-                if (date) {
-                  onRangeChange(getRangeForView(view, date));
-                  setDatePickerOpen(false);
-                }
+    <div className="relative flex flex-col border">
+      <header className={cn("flex items-center justify-between border-b px-3 py-2 text-xs", isToday(date) && "bg-primary/5 font-semibold")}
+        aria-label={format(date, "EEEE MMM d")}
+      >
+        <span>
+          {format(date, "EEE d")}
+          {isToday(date) && <Badge variant="outline" className="ml-2">Today</Badge>}
+        </span>
+        {dualTimezone && (
+          <span className="text-muted-foreground">{new Intl.DateTimeFormat("en-US", { timeZone: secondaryTimezone, hour: "2-digit", minute: "2-digit" }).format(date)}</span>
+        )}
+      </header>
+      <div className="relative flex-1" style={{ minHeight: 24 * hourHeight }}>
+        {hours.map((hour) => {
+          const slot = setHours(startOfDay(date), hour);
+          const displayHour = focusMode ? hour : hour;
+          const label = focusMode ? `${displayHour}:00` : `${hour}:00`;
+          return (
+            <div
+              key={hour}
+              className="relative flex h-full border-b last:border-0"
+              style={{ height: hourHeight }}
+              data-hour={hour}
+            >
+              <div className="w-12 border-r p-1 text-[10px] text-muted-foreground">{label}</div>
+              <div
+                className="flex-1"
+                onDragOver={(event) => event.preventDefault()}
+                onDrop={handleDrop}
+                data-timestamp={setMinutes(slot, 0).getTime()}
+              />
+            </div>
+          );
+        })}
+        <div className="absolute inset-0 space-y-2 px-2 py-2">
+          {events.map((event) => (
+            <EventContextMenu
+              key={event.id}
+              onEdit={() => onOpenDetail(event.id)}
+              onDuplicate={() => {
+                onSelect(event.id, false);
               }}
-            />
-          </PopoverContent>
-        </Popover>
-        <div className="flex items-center gap-2 rounded-md border bg-muted/60 px-3 py-1 text-sm">
-          <span className="font-medium">{headerLabel}</span>
+              onMoveCalendar={() => onOpenDetail(event.id)}
+              onLinkItem={() => onOpenDetail(event.id)}
+              onConvertMilestone={() => onOpenDetail(event.id)}
+              onShare={() => navigator.clipboard.writeText(event.title).catch(() => undefined)}
+              onExport={() => navigator.clipboard.writeText(event.title).catch(() => undefined)}
+              onCopyId={() => navigator.clipboard.writeText(event.id).catch(() => undefined)}
+              onDelete={() => onDeleteEvent(event.id)}
+            >
+              <div className={cn(conflicts.has(event.id) && "border-red-400")}
+                draggable
+                onDragStart={(dragEvent) => {
+                  dragEvent.dataTransfer.setData("application/calendar-event", JSON.stringify({ id: event.id, mode: "move" }));
+                  onDragStart(event.id, "move");
+                }}
+              >
+                <EventCard
+                  event={event}
+                  colorEncoding={colorEncoding}
+                  isSelected={selectedEvents.has(event.id)}
+                  onSelect={onSelect}
+                  onOpenDetail={onOpenDetail}
+                  onJoinMeeting={onJoinMeeting}
+                  onDragStart={onDragStart}
+                />
+              </div>
+            </EventContextMenu>
+          ))}
         </div>
-        <div className="ml-auto flex items-center gap-3">
-          <Select
-            value={activeSavedViewId ?? "custom"}
-            onValueChange={(value) => onSelectSavedView(value === "custom" ? null : value)}
-          >
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Saved views" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="custom">Current selection</SelectItem>
-              {savedViews.map((viewOption) => (
-                <SelectItem key={viewOption.id} value={viewOption.id}>
-                  {viewOption.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button variant="ghost" size="icon" onClick={onRefresh} aria-label="Refresh calendar">
-            <RefreshCw className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            className="pl-9"
-            placeholder="Search events, attendees, or linked work"
-            value={searchTerm}
-            onChange={(event) => onSearchChange(event.target.value)}
-          />
-        </div>
-        <Select value={selectedProject ?? "all"} onValueChange={(value) => onProjectChange(value === "all" ? undefined : value)}>
-          <SelectTrigger className="w-[200px]">
-            <SelectValue placeholder="All projects" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All projects</SelectItem>
-            {projects.map((project) => (
-              <SelectItem key={project.id} value={project.id}>
-                {project.name ?? "Untitled project"}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <ToggleGroup type="single" value={density} onValueChange={(value) => value && onDensityChange(value)}>
-          <ToggleGroupItem value="compact" className="px-3 py-1 text-xs">
-            Compact
-          </ToggleGroupItem>
-          <ToggleGroupItem value="comfortable" className="px-3 py-1 text-xs">
-            Comfortable
-          </ToggleGroupItem>
-          <ToggleGroupItem value="spacious" className="px-3 py-1 text-xs">
-            Spacious
-          </ToggleGroupItem>
-        </ToggleGroup>
       </div>
     </div>
   );
 }
 
-interface CalendarFooterProps {
-  visibleCalendars: CalendarLayer[];
-  nextEvent: CalendarTask | null;
-}
-
-function CalendarFooter({ visibleCalendars, nextEvent }: CalendarFooterProps) {
-  const timezone = visibleCalendars[0]?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
-  return (
-    <footer className="flex flex-wrap items-center justify-between gap-3 border-t bg-background/80 px-6 py-3 text-xs text-muted-foreground">
-      <span>Time zone: {timezone}</span>
-      <span>{visibleCalendars.length} calendars visible</span>
-      <span>
-        Next event:
-        {nextEvent
-          ? ` ${nextEvent.title} on ${nextEvent.start_date ? format(parseISO(nextEvent.start_date), "MMM d, HH:mm") : "TBD"}`
-          : " None scheduled"}
-      </span>
-    </footer>
-  );
-}
-
-function CalendarCanvas({
-  view,
-  range,
-  density,
-  focusedDate,
-  onFocusDate,
-  tasks,
-  getTasksForDate,
-  projectLookup,
-  onOpenTask,
-  onOpenDayDrawer,
+function AgendaView({
+  events,
+  onSelect,
+  onOpenDetail,
+  selectedEvents,
+  colorEncoding,
+  onJoinMeeting,
+  onDragStart,
+  onDeleteEvent,
 }: {
-  view: CalendarView;
-  range: DateRange;
-  density: string;
-  focusedDate: Date;
-  onFocusDate: (date: Date) => void;
-  tasks: CalendarTask[];
-  getTasksForDate: (date: Date) => CalendarTask[];
-  projectLookup: Map<string, string>;
-  onOpenTask: (task: CalendarTask) => void;
-  onOpenDayDrawer: (date: Date) => void;
+  events: CalendarEvent[];
+  onSelect: (id: string, additive: boolean) => void;
+  onOpenDetail: (id: string) => void;
+  selectedEvents: Set<string>;
+  colorEncoding: CalendarColorEncoding;
+  onJoinMeeting: (id: string) => void;
+  onDragStart: (eventId: string, mode: Exclude<DragMode, null>) => void;
+  onDeleteEvent: (id: string) => void;
 }) {
-  const padding = density === "compact" ? "p-2" : density === "spacious" ? "p-4" : "p-3";
-  const minHeight = density === "compact" ? "min-h-[120px]" : density === "spacious" ? "min-h-[220px]" : "min-h-[160px]";
-  const gap = density === "compact" ? "gap-1" : density === "spacious" ? "gap-4" : "gap-2";
-
-  const handleKeyDown = useCallback(
-    (event: KeyboardEvent<HTMLDivElement>) => {
-      if (event.key === "ArrowLeft") {
-        event.preventDefault();
-        onFocusDate(addDays(focusedDate, -1));
-      }
-      if (event.key === "ArrowRight") {
-        event.preventDefault();
-        onFocusDate(addDays(focusedDate, 1));
-      }
-      if (event.key === "ArrowUp") {
-        event.preventDefault();
-        onFocusDate(addDays(focusedDate, view === "month" ? -7 : -1));
-      }
-      if (event.key === "ArrowDown") {
-        event.preventDefault();
-        onFocusDate(addDays(focusedDate, view === "month" ? 7 : 1));
-      }
-      if (event.key === "Enter") {
-        event.preventDefault();
-        onOpenDayDrawer(focusedDate);
-      }
-    },
-    [focusedDate, onFocusDate, onOpenDayDrawer, view]
+  const sorted = useMemo(
+    () => [...events].sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime()),
+    [events]
   );
 
-  if (view === "month") {
-    const start = startOfWeek(startOfMonth(range.from), WEEK_OPTIONS);
-    const end = endOfWeek(endOfMonth(range.from), WEEK_OPTIONS);
-    const days = eachDayOfInterval({ start, end });
-    const weeks: Date[][] = [];
-    for (let i = 0; i < days.length; i += 7) {
-      weeks.push(days.slice(i, i + 7));
-    }
+  return (
+    <VirtualizedList
+      items={sorted}
+      itemHeight={120}
+      className="h-full"
+      renderItem={(event) => (
+        <div className="p-2">
+          <EventContextMenu
+            onEdit={() => onOpenDetail(event.id)}
+            onDuplicate={() => onSelect(event.id, true)}
+            onMoveCalendar={() => onOpenDetail(event.id)}
+            onLinkItem={() => onOpenDetail(event.id)}
+            onConvertMilestone={() => onOpenDetail(event.id)}
+            onShare={() => navigator.clipboard.writeText(event.title).catch(() => undefined)}
+            onExport={() => navigator.clipboard.writeText(event.title).catch(() => undefined)}
+            onCopyId={() => navigator.clipboard.writeText(event.id).catch(() => undefined)}
+            onDelete={() => onDeleteEvent(event.id)}
+          >
+            <EventCard
+              event={event}
+              colorEncoding={colorEncoding}
+              isSelected={selectedEvents.has(event.id)}
+              onSelect={onSelect}
+              onOpenDetail={onOpenDetail}
+              onJoinMeeting={onJoinMeeting}
+              onDragStart={onDragStart}
+            />
+          </EventContextMenu>
+        </div>
+      )}
+    />
+  );
+}
 
-    return (
-      <div role="grid" tabIndex={0} onKeyDown={handleKeyDown} className="grid gap-px rounded-lg border bg-border outline-none">
-        {weeks.map((week, index) => (
-          <div key={index} className={cn("grid grid-cols-7", gap)}>
-            {week.map((day) => {
-              const dayTasks = getTasksForDate(day);
-              const isFocused = isSameDay(day, focusedDate);
-              const remaining = dayTasks.length > MAX_VISIBLE_TASKS ? dayTasks.length - MAX_VISIBLE_TASKS : 0;
-              return (
-                <div
-                  key={day.toISOString()}
-                  role="gridcell"
-                  className={cn(
-                    "flex flex-col rounded-lg border bg-background",
-                    padding,
-                    minHeight,
-                    !isSameMonth(day, range.from) && "opacity-40",
-                    isFocused && "ring-2 ring-primary"
-                  )}
-                  onClick={() => onFocusDate(day)}
+function MonthView({
+  range,
+  events,
+  onSelect,
+  onOpenDetail,
+  selectedEvents,
+  colorEncoding,
+  onJoinMeeting,
+  onDragStart,
+  conflicts,
+  onDeleteEvent,
+}: {
+  range: DateRange;
+  events: CalendarEvent[];
+  onSelect: (id: string, additive: boolean) => void;
+  onOpenDetail: (id: string) => void;
+  selectedEvents: Set<string>;
+  colorEncoding: CalendarColorEncoding;
+  onJoinMeeting: (id: string) => void;
+  onDragStart: (eventId: string, mode: Exclude<DragMode, null>) => void;
+  conflicts: Set<string>;
+  onDeleteEvent: (id: string) => void;
+}) {
+  const days = eachDayOfInterval(range);
+  const byDay = useMemo(() => {
+    const map = new Map<string, CalendarEvent[]>();
+    events.forEach((event) => {
+      const key = format(parseISO(event.start), "yyyy-MM-dd");
+      const existing = map.get(key) ?? [];
+      existing.push(event);
+      map.set(key, existing);
+    });
+    return map;
+  }, [events]);
+
+  return (
+    <div className="grid flex-1 grid-cols-7 gap-px rounded-lg border bg-border">
+      {days.map((day) => {
+        const key = format(day, "yyyy-MM-dd");
+        const dayEvents = byDay.get(key) ?? [];
+        return (
+          <div key={key} className={cn("flex min-h-[160px] flex-col bg-background", isToday(day) && "ring-1 ring-primary")}
+            aria-label={format(day, "EEEE MMM d")}
+          >
+            <div className={cn("flex items-center justify-between border-b px-2 py-1 text-xs", isSameMonth(day, range.from) ? "" : "text-muted-foreground")}
+            >
+              <span>{format(day, "d")}</span>
+              {isSameMonth(day, range.from) ? null : <span className="text-[10px]">{format(day, "MMM")}</span>}
+            </div>
+            <div className="flex-1 space-y-1 overflow-hidden px-2 py-2">
+              {dayEvents.length === 0 ? (
+                <p className="text-[11px] text-muted-foreground">No events</p>
+              ) : (
+                dayEvents.slice(0, 3).map((event) => (
+                  <EventContextMenu
+                    key={event.id}
+                    onEdit={() => onOpenDetail(event.id)}
+                    onDuplicate={() => onSelect(event.id, true)}
+                    onMoveCalendar={() => onOpenDetail(event.id)}
+                    onLinkItem={() => onOpenDetail(event.id)}
+                    onConvertMilestone={() => onOpenDetail(event.id)}
+                    onShare={() => navigator.clipboard.writeText(event.title).catch(() => undefined)}
+                    onExport={() => navigator.clipboard.writeText(event.title).catch(() => undefined)}
+                    onCopyId={() => navigator.clipboard.writeText(event.id).catch(() => undefined)}
+                    onDelete={() => onDeleteEvent(event.id)}
+                  >
+                    <EventCard
+                      event={event}
+                      colorEncoding={colorEncoding}
+                      isSelected={selectedEvents.has(event.id)}
+                      onSelect={onSelect}
+                      onOpenDetail={onOpenDetail}
+                      onJoinMeeting={onJoinMeeting}
+                      onDragStart={onDragStart}
+                    />
+                    {conflicts.has(event.id) && <p className="mt-1 text-[10px] text-destructive">Conflict</p>}
+                  </EventContextMenu>
+                ))
+              )}
+              {dayEvents.length > 3 && (
+                <button
+                  type="button"
+                  className="w-full rounded-md border bg-muted/30 py-1 text-[11px]"
+                  onClick={() => onOpenDetail(dayEvents[0].id)}
                 >
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">{format(day, "EEE d")}</span>
-                    {isToday(day) && <Badge variant="outline">Today</Badge>}
-                  </div>
-                  <div className="mt-2 space-y-2 text-sm">
-                    {dayTasks.slice(0, MAX_VISIBLE_TASKS).map((task) => (
-                      <button
-                        key={task.id}
-                        type="button"
-                        onClick={() => onOpenTask(task)}
-                        className="w-full truncate rounded-md bg-primary/10 px-2 py-1 text-left hover:bg-primary/20"
-                      >
-                        <p className="truncate font-medium">{task.title}</p>
-                        <p className="text-xs text-muted-foreground">{projectLookup.get(task.project_id) ?? "Project"}</p>
-                      </button>
-                    ))}
-                    {remaining > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => onOpenDayDrawer(day)}
-                        className="w-full rounded-md border border-dashed px-2 py-1 text-left text-xs text-muted-foreground hover:border-primary"
-                      >
-                        +{remaining} more
-                      </button>
-                    )}
-                    {dayTasks.length === 0 && <p className="text-xs text-muted-foreground">No events</p>}
+                  +{dayEvents.length - 3} more
+                </button>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function YearView({ events }: { events: CalendarEvent[] }) {
+  const months = eachMonthOfInterval({ from: startOfYear(new Date()), to: endOfYear(new Date()) });
+  const counts = useMemo(() => {
+    const map = new Map<string, number>();
+    events.forEach((event) => {
+      const key = format(parseISO(event.start), "yyyy-MM");
+      map.set(key, (map.get(key) ?? 0) + 1);
+    });
+    return map;
+  }, [events]);
+
+  return (
+    <VirtualizedList
+      items={months}
+      itemHeight={180}
+      className="h-full"
+      renderItem={(month) => {
+        const key = format(month, "yyyy-MM");
+        const volume = counts.get(key) ?? 0;
+        const intensity = Math.min(volume / 5, 1);
+        return (
+          <div className="grid grid-cols-7 gap-px rounded-md border bg-border p-2">
+            <h3 className="col-span-7 text-sm font-semibold">{format(month, "MMMM yyyy")}</h3>
+            {eachDayOfInterval({ from: startOfMonth(month), to: endOfMonth(month) }).map((day) => (
+              <div
+                key={format(day, "yyyy-MM-dd")}
+                className="flex h-16 flex-col items-center justify-center bg-background text-[11px]"
+                style={{ backgroundColor: `rgba(37, 99, 235, ${intensity})` }}
+              >
+                <span>{format(day, "d")}</span>
+              </div>
+            ))}
+          </div>
+        );
+      }}
+    />
+  );
+}
+
+function TimelineView({ events }: { events: CalendarEvent[] }) {
+  const sorted = useMemo(
+    () => [...events].sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime()),
+    [events]
+  );
+
+  return (
+    <div className="flex h-full overflow-x-auto">
+      <div className="flex min-w-full gap-4 px-4 py-6">
+        {sorted.map((event) => {
+          const durationHours = Math.max(1, differenceInMinutes(new Date(event.end), new Date(event.start)) / 60);
+          return (
+            <div key={event.id} className="min-w-[220px] rounded-md border bg-background p-3 shadow-sm">
+              <p className="text-sm font-semibold">{event.title}</p>
+              <p className="text-xs text-muted-foreground">{format(parseISO(event.start), "MMM d, HH:mm")}</p>
+              <p className="mt-2 text-xs">Duration: {durationHours.toFixed(1)}h</p>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function GanttView({ events }: { events: CalendarEvent[] }) {
+  const sorted = useMemo(
+    () => [...events].sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime()),
+    [events]
+  );
+
+  return (
+    <div className="grid h-full grid-cols-[200px_1fr] overflow-hidden">
+      <div className="border-r bg-muted/40 p-4 text-xs font-semibold uppercase text-muted-foreground">Items</div>
+      <div className="relative">
+        <div className="absolute inset-0 overflow-auto">
+          <div className="grid grid-cols-1 gap-4 p-4">
+            {sorted.map((event) => {
+              const duration = Math.max(1, differenceInMinutes(new Date(event.end), new Date(event.start)) / 60);
+              return (
+                <div key={event.id} className="flex items-center gap-2">
+                  <span className="w-48 truncate text-sm font-medium">{event.title}</span>
+                  <div className="flex-1">
+                    <div className="h-6 rounded-md bg-primary/40" style={{ width: `${Math.min(duration * 12, 100)}%` }} />
                   </div>
                 </div>
               );
             })}
           </div>
-        ))}
-      </div>
-    );
-  }
-
-  if (view === "week" || view === "work-week") {
-    const days = eachDayOfInterval({ start: range.from, end: range.to }).filter((day) =>
-      view === "work-week" ? day.getDay() !== 0 && day.getDay() !== 6 : true
-    );
-    return (
-      <div role="grid" tabIndex={0} onKeyDown={handleKeyDown} className={cn("grid grid-cols-1 md:grid-cols-7", gap)}>
-        {days.map((day) => {
-          const dayTasks = getTasksForDate(day);
-          const isFocused = isSameDay(day, focusedDate);
-          return (
-            <div
-              key={day.toISOString()}
-              role="gridcell"
-              className={cn(
-                "flex flex-col rounded-lg border bg-background",
-                padding,
-                minHeight,
-                isFocused && "ring-2 ring-primary"
-              )}
-              onClick={() => onFocusDate(day)}
-            >
-              <div className="flex items-center justify-between">
-                <span className="font-medium">{format(day, "EEE d")}</span>
-                {isToday(day) && <Badge variant="outline">Today</Badge>}
-              </div>
-              <div className="mt-3 space-y-2 text-sm">
-                {dayTasks.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">No events</p>
-                ) : (
-                  dayTasks.map((task) => (
-                    <button
-                      key={task.id}
-                      type="button"
-                      onClick={() => onOpenTask(task)}
-                      className="w-full truncate rounded-md bg-primary/10 px-2 py-1 text-left hover:bg-primary/20"
-                    >
-                      <p className="truncate font-medium">{task.title}</p>
-                      <p className="text-xs text-muted-foreground">{projectLookup.get(task.project_id) ?? "Project"}</p>
-                    </button>
-                  ))
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    );
-  }
-
-  if (view === "day") {
-    const dayTasks = getTasksForDate(focusedDate);
-    return (
-      <div role="grid" tabIndex={0} onKeyDown={handleKeyDown} className="flex flex-col gap-4">
-        <div className={cn("rounded-lg border bg-background", padding)}>
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold">{format(focusedDate, "EEEE, MMM d")}</h2>
-            {isToday(focusedDate) && <Badge variant="outline">Today</Badge>}
-          </div>
-          <div className="mt-4 space-y-3 text-sm">
-            {dayTasks.length === 0 ? (
-              <p className="text-muted-foreground">No events today.</p>
-            ) : (
-              dayTasks.map((task) => (
-                <button
-                  key={task.id}
-                  type="button"
-                  onClick={() => onOpenTask(task)}
-                  className="flex w-full flex-col rounded-md border bg-muted/40 px-3 py-2 text-left transition hover:border-primary"
-                >
-                  <span className="font-medium">{task.title}</span>
-                  <span className="text-xs text-muted-foreground">{projectLookup.get(task.project_id) ?? "Project"}</span>
-                </button>
-              ))
-            )}
-          </div>
         </div>
       </div>
-    );
-  }
-
-  return (
-    <div className="flex h-full flex-col items-center justify-center rounded-lg border border-dashed p-12 text-center text-sm text-muted-foreground">
-      The {view} view will render detailed layouts in a later phase. Saved views, calendar subscriptions, and the refreshed layout
-      are ready for use today.
     </div>
   );
 }
 
 function CalendarPageContent() {
-  const [view, setView] = useState<CalendarView>("week");
-  const [range, setRange] = useState<DateRange>(() => getRangeForView("week", new Date()));
-  const [focusedDate, setFocusedDate] = useState<Date>(range.from);
-  const [selectedProject, setSelectedProject] = useState<string | undefined>(undefined);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [selectedTask, setSelectedTask] = useState<CalendarTask | null>(null);
-  const [expandedDay, setExpandedDay] = useState<Date | null>(null);
-  const [isDayDrawerOpen, setIsDayDrawerOpen] = useState(false);
-  const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
-
   const {
     calendars,
-    visibleCalendars,
     loading,
     error,
-    density,
-    setDensity,
-    savedViews,
-    activeSavedViewId,
+    refreshCalendars,
     toggleCalendarVisibility,
     setCalendarColor,
     subscribeToCalendar,
     unsubscribeFromCalendar,
-    createSavedView,
-    applySavedView,
-    refreshCalendars,
+    density,
   } = useCalendarState();
 
-  const { data: projects = [] } = useProjectsList();
-  const projectLookup = useMemo(() => {
-    const map = new Map<string, string>();
-    projects.forEach((project) => {
-      map.set(project.id, project.name ?? "Untitled project");
-    });
-    return map;
-  }, [projects]);
-
-  const visibleCalendarIds = useMemo(
-    () => (visibleCalendars.length > 0 ? visibleCalendars.map((calendar) => calendar.id) : undefined),
-    [visibleCalendars]
+  const visibleCalendars = useMemo(
+    () => calendars.filter((calendar) => calendar.visible && calendar.subscribed),
+    [calendars]
   );
 
-  const { tasks, isLoading, error: taskError, refetch } = useCalendarRange({
-    from: range.from,
-    to: range.to,
-    projectId: selectedProject,
-    calendarIds: visibleCalendarIds,
-  });
+  const [view, setView] = useState<CalendarView>("week");
+  const [pivot, setPivot] = useState(new Date());
+  const [range, setRange] = useState<DateRange>(() => getRangeForView(view, pivot));
+  const [colorEncoding, setColorEncoding] = useState<CalendarColorEncoding>("calendar");
+  const [snapInterval, setSnapInterval] = useState<number>(15);
+  const [focusMode, setFocusMode] = useState(false);
+  const [dualTimezone, setDualTimezone] = useState(false);
+  const [secondaryTimezone, setSecondaryTimezone] = useState("UTC");
+  const [zoom, setZoom] = useState(1);
+  const [quickAddValue, setQuickAddValue] = useState("");
+  const [selectedEventIds, setSelectedEventIds] = useState<string[]>([]);
+  const [activeEventId, setActiveEventId] = useState<string | null>(null);
+  const [isEditorOpen, setIsEditorOpen] = useState(false);
+  const [autoOffsetConflicts, setAutoOffsetConflicts] = useState(true);
 
-  const filteredTasks = useMemo(() => {
-    return tasks.filter((task) => {
-      const matchesSearch = searchTerm
-        ? `${task.title} ${task.assignee ?? ""} ${task.status ?? ""}`
-            .toLowerCase()
-            .includes(searchTerm.toLowerCase())
-        : true;
-      const matchesStatus = statusFilter === "all" ? true : task.status?.toLowerCase() === statusFilter;
-      return matchesSearch && matchesStatus;
-    });
-  }, [tasks, searchTerm, statusFilter]);
-
-  const tasksByDay = useMemo(() => buildTasksByDay(filteredTasks), [filteredTasks]);
-
-  const getTasksForDate = useCallback((date: Date) => tasksByDay.get(getDayKey(date)) ?? [], [tasksByDay]);
-
-  const expandedDayTasks = expandedDay ? getTasksForDate(expandedDay) : [];
-
-  useEffect(() => {
-    document.title = "Calendar";
-  }, []);
-
-  const unitMap: Record<CalendarView, CalendarUnit> = {
-    day: "day",
-    "work-week": "week",
-    week: "week",
-    month: "month",
-    quarter: "quarter",
-    year: "year",
-    timeline: "month",
-    agenda: "week",
-    gantt: "month",
-  };
+  const [gotoOpen, setGotoOpen] = useState(false);
 
   const headerLabel = useMemo(() => formatHeaderLabel(view, range), [view, range]);
 
-  const handleRangeChange = (nextRange: DateRange) => {
-    setRange(nextRange);
-    setFocusedDate(nextRange.from);
-  };
-
-  const updateFocusedDate = (next: Date) => {
-    setFocusedDate(next);
-    if (next < range.from || next > range.to) {
-      const nextRange = getRangeForView(view, next);
-      setRange(nextRange);
+  const rangeUnit: CalendarUnit = useMemo(() => {
+    switch (view) {
+      case "timeline":
+      case "gantt":
+        return "month";
+      case "agenda":
+        return "week";
+      default:
+        return view as CalendarUnit;
     }
-  };
+  }, [view]);
 
-  const openDayDrawer = (date: Date) => {
-    setExpandedDay(date);
-    setIsDayDrawerOpen(true);
-  };
+  const { events: remoteEvents, isLoading } = useCalendarRange({
+    from: range.from,
+    to: range.to,
+    calendarIds: visibleCalendars.map((calendar) => calendar.id),
+    colorEncoding,
+  });
 
-  const openTask = (task: CalendarTask) => {
-    setSelectedTask(task);
-  };
+  const [events, setEvents] = useState<CalendarEvent[]>(remoteEvents);
+  useEffect(() => {
+    setEvents(remoteEvents);
+  }, [remoteEvents]);
 
-  const selectedCalendar = selectedTask
-    ? calendars.find((calendar) => calendar.id === selectedTask.calendar_id) ?? null
-    : null;
+  const conflicts = useMemo(() => detectConflicts(events), [events]);
 
-  const nextEvent = useMemo(() => {
-    const now = new Date();
-    const upcoming = [...filteredTasks]
-      .map((task) => ({ task, interval: normalizeTaskInterval(task) }))
-      .filter((item) => item.interval?.start && item.interval.start >= now)
-      .sort((a, b) => (a.interval!.start.getTime() - b.interval!.start.getTime()));
-    return upcoming[0]?.task ?? null;
-  }, [filteredTasks]);
+  const selectedEvents = useMemo(() => new Set(selectedEventIds), [selectedEventIds]);
 
-  const renderContent = () => {
-    if (isLoading) {
-      return <CalendarSkeleton />;
+  const activeEvent = useMemo(() => events.find((event) => event.id === activeEventId) ?? null, [events, activeEventId]);
+
+  const handleNavigate = useCallback(
+    (direction: "prev" | "next" | "today") => {
+      if (direction === "today") {
+        const now = new Date();
+        setPivot(now);
+        setRange(getRangeForView(view, now));
+        return;
+      }
+      const delta = direction === "prev" ? -1 : 1;
+      let nextPivot = pivot;
+      switch (view) {
+        case "day":
+          nextPivot = addDays(pivot, delta);
+          break;
+        case "work-week":
+        case "week":
+          nextPivot = addWeeks(pivot, delta);
+          break;
+        case "month":
+        case "timeline":
+        case "gantt":
+          nextPivot = addMonths(pivot, delta);
+          break;
+        case "quarter":
+          nextPivot = addMonths(pivot, delta * 3);
+          break;
+        case "year":
+          nextPivot = addMonths(pivot, delta * 12);
+          break;
+        case "agenda":
+          nextPivot = addWeeks(pivot, delta);
+          break;
+        default:
+          nextPivot = addMonths(pivot, delta);
+      }
+      setPivot(nextPivot);
+      setRange(getRangeForView(view, nextPivot));
+    },
+    [pivot, view]
+  );
+
+  useKeyboardNavigation({
+    view,
+    onNavigate: handleNavigate,
+    onOpenGoto: () => setGotoOpen(true),
+  });
+
+  const hourHeight = useMemo(() => HOUR_HEIGHT_BY_DENSITY[density] * zoom, [density, zoom]);
+
+  const handleSelectEvent = useCallback(
+    (eventId: string, additive: boolean) => {
+      setSelectedEventIds((current) => {
+        if (additive) {
+          return current.includes(eventId) ? current.filter((id) => id !== eventId) : [...current, eventId];
+        }
+        return [eventId];
+      });
+    },
+    []
+  );
+
+  const handleOpenDetail = useCallback((eventId: string) => {
+    setActiveEventId(eventId);
+  }, []);
+
+  const handleJoinMeeting = useCallback((eventId: string) => {
+    const event = events.find((item) => item.id === eventId);
+    if (event?.videoLink) {
+      window.open(event.videoLink, "_blank", "noopener,noreferrer");
     }
+  }, [events]);
 
-    if (taskError) {
-      return (
-        <div className="flex flex-col gap-3 rounded-md border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
-          <div className="flex items-center gap-2">
-            <AlertCircle className="h-4 w-4" />
-            <span>We could not load the calendar right now.</span>
-          </div>
-          <Button variant="outline" size="sm" onClick={() => refetch()}>
-            Retry
-          </Button>
-        </div>
+  const handleEventUpdate = useCallback((updated: CalendarEvent) => {
+    setEvents((current) => current.map((event) => (event.id === updated.id ? updated : event)));
+  }, []);
+
+  const handleEventDelete = useCallback((eventId: string) => {
+    setEvents((current) => current.filter((event) => event.id !== eventId));
+    setSelectedEventIds((current) => current.filter((id) => id !== eventId));
+    if (activeEventId === eventId) {
+      setActiveEventId(null);
+    }
+  }, [activeEventId]);
+
+  const handleQuickAdd = useCallback(() => {
+    const parsed = parseQuickAddInput(quickAddValue, range.from);
+    if (!parsed) return;
+    const defaultCalendar = visibleCalendars[0]?.id ?? "calendar.personal";
+    const newEvent = createEventFromQuickAdd(parsed, defaultCalendar);
+    setEvents((current) => [...current, newEvent]);
+    setQuickAddValue("");
+    setActiveEventId(newEvent.id);
+  }, [quickAddValue, range.from, visibleCalendars]);
+
+  const handleBulkStatusChange = (status: CalendarEvent["status"]) => {
+    setEvents((current) =>
+      current.map((event) => (selectedEvents.has(event.id) ? { ...event, status, updatedAt: new Date().toISOString() } : event))
+    );
+  };
+
+  const handleBulkReminder = (offsetMinutes: number) => {
+    setEvents((current) =>
+      current.map((event) =>
+        selectedEvents.has(event.id)
+          ? {
+              ...event,
+              reminders: [{ id: `rem-${Date.now()}`, offsetMinutes, method: "popup" }],
+            }
+          : event
+      )
+    );
+  };
+
+  const handleZoomWheel = (event: React.WheelEvent<HTMLDivElement>) => {
+    if (!event.ctrlKey && !event.metaKey) return;
+    event.preventDefault();
+    setZoom((current) => {
+      const next = current + (event.deltaY > 0 ? -0.1 : 0.1);
+      return Math.min(Math.max(next, 0.6), 1.6);
+    });
+  };
+
+  const handleDrop = (eventId: string, mode: Exclude<DragMode, null>, target: Date) => {
+    const event = events.find((item) => item.id === eventId);
+    if (!event) return;
+    const duration = differenceInMinutes(new Date(event.end), new Date(event.start));
+    const snapped = roundToSnap(target, snapInterval);
+    const withinDay = clampDateWithinDay(snapped, parseISO(event.start));
+    if (mode === "move") {
+      const newStart = withinDay;
+      const newEnd = new Date(newStart.getTime() + duration * 60 * 1000);
+      setEvents((current) =>
+        current.map((item) =>
+          item.id === eventId
+            ? { ...item, start: newStart.toISOString(), end: newEnd.toISOString(), updatedAt: new Date().toISOString() }
+            : item
+        )
+      );
+    } else if (mode === "resize-start") {
+      setEvents((current) =>
+        current.map((item) =>
+          item.id === eventId
+            ? { ...item, start: withinDay.toISOString(), updatedAt: new Date().toISOString() }
+            : item
+        )
+      );
+    } else if (mode === "resize-end") {
+      const startDate = new Date(event.start);
+      const candidate = withinDay > startDate ? withinDay : new Date(startDate.getTime() + snapInterval * 60 * 1000);
+      const newEnd = candidate;
+      setEvents((current) =>
+        current.map((item) =>
+          item.id === eventId
+            ? { ...item, end: newEnd.toISOString(), updatedAt: new Date().toISOString() }
+            : item
+        )
       );
     }
+  };
 
-    if (filteredTasks.length === 0) {
-      return <CalendarEmptyState message="No events in this range." />;
+  const handleDragStart = (_eventId: string, _mode: Exclude<DragMode, null>) => {
+    // placeholder for analytics hooks
+  };
+
+  const conflictSignatureRef = useRef<string>("");
+
+  useEffect(() => {
+    if (!autoOffsetConflicts) return;
+    const ids = Array.from(conflicts).sort();
+    const signature = ids.join("|");
+    if (!signature || signature === conflictSignatureRef.current) {
+      return;
     }
+    conflictSignatureRef.current = signature;
+    setEvents((current) => {
+      const updated = [...current];
+      for (const id of ids) {
+        const index = updated.findIndex((event) => event.id === id);
+        if (index === -1) continue;
+        const event = updated[index];
+        const start = new Date(event.start);
+        start.setMinutes(start.getMinutes() + 5);
+        const end = new Date(event.end);
+        end.setMinutes(end.getMinutes() + 5);
+        updated[index] = {
+          ...event,
+          start: start.toISOString(),
+          end: end.toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+      }
+      return updated;
+    });
+  }, [autoOffsetConflicts, conflicts]);
 
+  useEffect(() => {
+    if (conflicts.size === 0) {
+      conflictSignatureRef.current = "";
+    }
+  }, [conflicts]);
+
+  const workingStatus = useMemo(() => {
+    const upcoming = events
+      .filter((event) => new Date(event.start) > new Date())
+      .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())[0];
+    return upcoming ?? null;
+  }, [events]);
+
+  const renderMainView = () => {
+    switch (view) {
+      case "day":
+      case "work-week":
+      case "week": {
+        const days = eachDayOfInterval(range);
+        return (
+          <div className="flex h-full flex-1 flex-col" onWheel={handleZoomWheel}>
+            <div className="grid flex-1" style={{ gridTemplateColumns: `repeat(${days.length}, minmax(0, 1fr))` }}>
+              {days.map((day) => (
+                <DayCell
+                  key={day.toISOString()}
+                  date={day}
+                  events={events.filter((event) => isSameDay(parseISO(event.start), day))}
+                  onSelect={handleSelectEvent}
+                  onOpenDetail={handleOpenDetail}
+                  selectedEvents={selectedEvents}
+                  colorEncoding={colorEncoding}
+                  onJoinMeeting={handleJoinMeeting}
+                  onDragStart={handleDragStart}
+                  hourHeight={hourHeight}
+                  snapMinutes={snapInterval}
+                  focusMode={focusMode}
+                  onDrop={handleDrop}
+                  dualTimezone={dualTimezone}
+                  secondaryTimezone={secondaryTimezone}
+                  conflicts={conflicts}
+                  onDeleteEvent={handleEventDelete}
+                />
+              ))}
+            </div>
+          </div>
+        );
+      }
+      case "month":
+        return (
+          <MonthView
+            range={range}
+            events={events}
+            onSelect={handleSelectEvent}
+            onOpenDetail={handleOpenDetail}
+            selectedEvents={selectedEvents}
+            colorEncoding={colorEncoding}
+            onJoinMeeting={handleJoinMeeting}
+            onDragStart={handleDragStart}
+            conflicts={conflicts}
+            onDeleteEvent={handleEventDelete}
+          />
+        );
+      case "agenda":
+        return (
+          <AgendaView
+            events={events}
+            onSelect={handleSelectEvent}
+            onOpenDetail={handleOpenDetail}
+            selectedEvents={selectedEvents}
+            colorEncoding={colorEncoding}
+            onJoinMeeting={handleJoinMeeting}
+            onDragStart={handleDragStart}
+            onDeleteEvent={handleEventDelete}
+          />
+        );
+      case "timeline":
+        return <TimelineView events={events} />;
+      case "gantt":
+        return <GanttView events={events} />;
+      case "year":
+        return <YearView events={events} />;
+      case "quarter":
+        return <TimelineView events={events} />;
+      default:
+        return null;
+    }
+  };
+
+  const renderDetailPanel = () => {
+    if (!activeEvent) {
+      return (
+        <aside className="hidden w-80 flex-col border-l bg-card p-6 text-sm text-muted-foreground xl:flex">
+          Select an event to see details.
+        </aside>
+      );
+    }
     return (
-      <CalendarCanvas
-        view={view}
-        range={range}
-        density={density}
-        focusedDate={focusedDate}
-        onFocusDate={updateFocusedDate}
-        tasks={filteredTasks}
-        getTasksForDate={getTasksForDate}
-        projectLookup={projectLookup}
-        onOpenTask={openTask}
-        onOpenDayDrawer={openDayDrawer}
-      />
+      <aside className="hidden w-80 flex-col border-l bg-card xl:flex">
+        <div className="border-b px-4 py-3">
+          <h2 className="text-lg font-semibold">{activeEvent.title}</h2>
+          <p className="text-xs text-muted-foreground">{format(parseISO(activeEvent.start), "MMM d, HH:mm")}</p>
+        </div>
+        <ScrollArea className="flex-1 px-4 py-4">
+          <div className="space-y-4 text-sm">
+            <div className="space-y-2">
+              <Label>Title</Label>
+              <Input
+                value={activeEvent.title}
+                onChange={(event) => handleEventUpdate({ ...activeEvent, title: event.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Description</Label>
+              <Tabs defaultValue="markdown">
+                <TabsList className="grid grid-cols-2">
+                  <TabsTrigger value="markdown">Markdown</TabsTrigger>
+                  <TabsTrigger value="preview">Preview</TabsTrigger>
+                </TabsList>
+                <TabsContent value="markdown" className="pt-3">
+                  <textarea
+                    className="h-32 w-full rounded-md border bg-background p-2"
+                    value={activeEvent.description ?? ""}
+                    onChange={(event) => handleEventUpdate({ ...activeEvent, description: event.target.value })}
+                  />
+                </TabsContent>
+                <TabsContent value="preview" className="pt-3 text-sm">
+                  {activeEvent.description ? (
+                    <p className="whitespace-pre-wrap">{activeEvent.description}</p>
+                  ) : (
+                    <p className="text-muted-foreground">No description</p>
+                  )}
+                </TabsContent>
+              </Tabs>
+            </div>
+            <div className="grid grid-cols-2 gap-3 text-xs text-muted-foreground">
+              <div>
+                <p className="font-medium text-foreground">Start</p>
+                <p>{format(parseISO(activeEvent.start), "MMM d, HH:mm")}</p>
+              </div>
+              <div>
+                <p className="font-medium text-foreground">End</p>
+                <p>{format(parseISO(activeEvent.end), "MMM d, HH:mm")}</p>
+              </div>
+            </div>
+            {activeEvent.videoLink && (
+              <Button size="sm" onClick={() => handleJoinMeeting(activeEvent.id)}>
+                Join video call
+              </Button>
+            )}
+            <div className="space-y-2">
+              <Label>Linked items</Label>
+              <div className="space-y-2">
+                {(activeEvent.linkedItems ?? []).map((link) => (
+                  <div key={link.id} className="flex items-center gap-2 rounded-md border px-2 py-1">
+                    <Link2 className="h-4 w-4" />
+                    <span>{link.label}</span>
+                  </div>
+                ))}
+                {(activeEvent.linkedItems ?? []).length === 0 && (
+                  <p className="text-xs text-muted-foreground">No linked items</p>
+                )}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Attachments</Label>
+              <div className="rounded-md border border-dashed p-3 text-xs text-muted-foreground">
+                Drag files here to attach (mocked).
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Audit trail</Label>
+              <ul className="space-y-1 text-xs text-muted-foreground">
+                <li>Created {activeEvent.createdAt ? format(parseISO(activeEvent.createdAt), "MMM d, HH:mm") : "recently"}</li>
+                <li>Updated {activeEvent.updatedAt ? format(parseISO(activeEvent.updatedAt), "MMM d, HH:mm") : "just now"}</li>
+              </ul>
+            </div>
+          </div>
+        </ScrollArea>
+        <div className="border-t p-4">
+          <Button variant="outline" className="w-full" onClick={() => setIsEditorOpen(true)}>
+            Open full editor
+          </Button>
+        </div>
+      </aside>
     );
   };
 
   return (
-    <div className="flex h-full flex-col">
-      <CalendarTopBar
-        view={view}
-        onViewChange={(next) => {
-          setView(next);
-          const nextRange = getRangeForView(next, focusedDate);
-          setRange(nextRange);
-        }}
-        range={range}
-        unit={unitMap[view]}
-        onRangeChange={handleRangeChange}
-        headerLabel={headerLabel}
-        searchTerm={searchTerm}
-        onSearchChange={setSearchTerm}
-        projects={projects}
-        selectedProject={selectedProject}
-        onProjectChange={setSelectedProject}
-        density={density}
-        onDensityChange={setDensity}
-        savedViews={savedViews}
-        activeSavedViewId={activeSavedViewId}
-        onSelectSavedView={applySavedView}
-        onOpenSaveDialog={() => setIsSaveDialogOpen(true)}
-        onRefresh={() => {
-          void refreshCalendars();
-          void refetch();
-        }}
-      />
-      <div className="flex flex-1 overflow-hidden">
+    <div className="flex h-full w-full flex-1 flex-col">
+      <div className="flex h-full flex-1 overflow-hidden">
         <CalendarLeftRail
           calendars={calendars}
           loading={loading}
           error={error}
-          onRefresh={() => void refreshCalendars()}
+          onRefresh={refreshCalendars}
           onToggleVisibility={toggleCalendarVisibility}
           onColorChange={setCalendarColor}
           onSubscribe={subscribeToCalendar}
           onUnsubscribe={unsubscribeFromCalendar}
-          statusFilter={statusFilter}
-          onStatusFilterChange={setStatusFilter}
+          colorEncoding={colorEncoding}
+          onColorEncodingChange={setColorEncoding}
         />
-        <div className="flex flex-1 flex-col overflow-hidden">
-          <div className="flex-1 overflow-auto p-6">{renderContent()}</div>
-          <CalendarFooter visibleCalendars={visibleCalendars} nextEvent={nextEvent} />
+        <div className="flex min-w-0 flex-1 flex-col">
+          <div className="space-y-4 border-b bg-background/95 px-6 py-4 shadow-sm">
+            <div className="flex flex-wrap items-center gap-3">
+              <ViewSwitch value={view} onChange={(next) => {
+                setView(next);
+                setRange(getRangeForView(next, pivot));
+              }} />
+              <DateRangeControls unit={rangeUnit} range={range} onChange={(next) => {
+                setRange(next);
+                setPivot(next.from);
+              }} />
+              <Popover open={gotoOpen} onOpenChange={setGotoOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="gap-2">
+                    <CalendarDays className="h-4 w-4" />
+                    {format(range.from, "MMM d, yyyy")}
+                    <ChevronDown className="h-4 w-4" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={range.from}
+                    onSelect={(date) => {
+                      if (!date) return;
+                      setPivot(date);
+                      setRange(getRangeForView(view, date));
+                      setGotoOpen(false);
+                    }}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+              <div className="ml-auto flex items-center gap-3">
+                <Button variant="ghost" size="icon" onClick={() => handleNavigate("prev")} aria-label="Previous">
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Button variant="outline" onClick={() => handleNavigate("today")}>
+                  Today
+                </Button>
+                <Button variant="ghost" size="icon" onClick={() => handleNavigate("next")} aria-label="Next">
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+            <div className="text-sm font-semibold text-muted-foreground">{headerLabel}</div>
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="relative flex-1 min-w-[220px]">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input className="pl-9" placeholder="Search events" />
+              </div>
+              <div className="flex items-center gap-2">
+                <Label className="text-xs text-muted-foreground">Snap</Label>
+                <Select value={String(snapInterval)} onValueChange={(value) => setSnapInterval(Number(value))}>
+                  <SelectTrigger className="w-24">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SNAP_OPTIONS.map((option) => (
+                      <SelectItem key={option} value={String(option)}>
+                        {option} min
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Switch checked={focusMode} onCheckedChange={setFocusMode} id="focus-mode" />
+                <Label htmlFor="focus-mode">Focus mode</Label>
+              </div>
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Switch checked={dualTimezone} onCheckedChange={setDualTimezone} id="dual-timezone" />
+                <Label htmlFor="dual-timezone">Dual time zone</Label>
+              </div>
+              {dualTimezone && (
+                <Input
+                  className="w-40"
+                  value={secondaryTimezone}
+                  onChange={(event) => setSecondaryTimezone(event.target.value)}
+                  placeholder="Secondary TZ"
+                />
+              )}
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <Input
+                className="flex-1"
+                placeholder="Quick add e.g. 'Team sync tomorrow 2pm-3pm #team'"
+                value={quickAddValue}
+                onChange={(event) => setQuickAddValue(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    handleQuickAdd();
+                  }
+                }}
+              />
+              <Button onClick={handleQuickAdd}>
+                <Plus className="mr-2 h-4 w-4" />Quick add
+              </Button>
+            </div>
+            {selectedEventIds.length > 0 && (
+              <div className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/40 p-3 text-xs">
+                <span className="font-semibold">Bulk actions ({selectedEventIds.length})</span>
+                <Button size="sm" variant="outline" onClick={() => handleBulkStatusChange("confirmed")}>Mark confirmed</Button>
+                <Button size="sm" variant="outline" onClick={() => handleBulkStatusChange("tentative")}>Mark tentative</Button>
+                <Button size="sm" variant="outline" onClick={() => handleBulkReminder(15)}>Reminder 15m</Button>
+              </div>
+            )}
+          </div>
+          <div className="flex flex-1 overflow-hidden">
+            <div className="flex min-w-0 flex-1 flex-col">
+              <div className="flex items-center justify-between border-b px-6 py-3 text-xs text-muted-foreground">
+                <div className="flex items-center gap-2">
+                  <Layers className="h-3 w-3" />
+                  {visibleCalendars.length} calendars visible
+                </div>
+                <div className="flex items-center gap-2">
+                  <Users className="h-3 w-3" />
+                  {events.length} events
+                </div>
+                <div className="flex items-center gap-2">
+                  <Filter className="h-3 w-3" />
+                  Snap {snapInterval}m
+                </div>
+                <div className="flex items-center gap-2">
+                  <MousePointer2 className="h-3 w-3" />
+                  Zoom {(zoom * 100).toFixed(0)}%
+                </div>
+                <div className="flex items-center gap-2">
+                  <Share2 className="h-3 w-3" />
+                  Auto-offset {autoOffsetConflicts ? "on" : "off"}
+                  <Switch checked={autoOffsetConflicts} onCheckedChange={setAutoOffsetConflicts} />
+                </div>
+              </div>
+              <div className="relative flex flex-1 overflow-hidden">
+                {isLoading ? (
+                  <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
+                    Loading events…
+                  </div>
+                ) : (
+                  renderMainView()
+                )}
+              </div>
+            </div>
+            {renderDetailPanel()}
+          </div>
+          <footer className="flex flex-wrap items-center justify-between gap-3 border-t bg-background/80 px-6 py-3 text-xs text-muted-foreground">
+            <span>Primary time zone: {Intl.DateTimeFormat().resolvedOptions().timeZone}</span>
+            <span>Next event: {workingStatus ? `${workingStatus.title} at ${format(parseISO(workingStatus.start), "HH:mm")}` : "None"}</span>
+            <span>Working hours: {WORKING_HOURS.start}:00 – {WORKING_HOURS.end}:00</span>
+          </footer>
         </div>
-        <EventDetailPanel
-          task={selectedTask}
-          calendar={selectedCalendar}
-          projectName={selectedTask ? projectLookup.get(selectedTask.project_id) ?? undefined : undefined}
-          onClose={() => setSelectedTask(null)}
-        />
       </div>
-      <DayTasksDrawer
-        date={expandedDay}
-        tasks={expandedDayTasks}
-        open={isDayDrawerOpen}
-        onClose={() => {
-          setIsDayDrawerOpen(false);
-          setExpandedDay(null);
-        }}
-        onSelectTask={(task) => {
-          setSelectedTask(task);
-          setIsDayDrawerOpen(false);
-        }}
-        getProjectName={(projectId) => projectLookup.get(projectId) ?? "Project"}
-      />
-      <SaveViewDialog
-        open={isSaveDialogOpen}
-        onOpenChange={setIsSaveDialogOpen}
-        calendars={calendars}
-        onSubmit={({ name, description }) =>
-          createSavedView({
-            name,
-            description,
-            calendarIds: visibleCalendars.map((calendar) => calendar.id),
-          })
-        }
+      <EventEditorDialog
+        open={isEditorOpen}
+        onOpenChange={setIsEditorOpen}
+        event={activeEvent}
+        onSave={(event) => handleEventUpdate(event)}
+        onDelete={handleEventDelete}
       />
     </div>
   );
@@ -1245,4 +1409,3 @@ export default function CalendarPage() {
     </CalendarProvider>
   );
 }
-
