@@ -55,6 +55,7 @@ import {
   useProject,
   useUpdateProject,
 } from "@/hooks/useProjects";
+import { useProjectGovernance } from "@/hooks/useProjectGovernance";
 import { useToast } from "@/hooks/use-toast";
 import { useDocsList } from "@/hooks/useDocs";
 import { formatProjectStatus, getProjectStatusBadgeVariant } from "@/utils/project-status";
@@ -376,6 +377,14 @@ export function ProjectDetailPage({ tab = "overview" }: ProjectDetailPageProps) 
   const deleteMutation = useDeleteProject();
 
   const isOwner = true; // TODO: integrate real role checks when membership service is complete.
+  const governance = useProjectGovernance(projectId);
+  const {
+    canManageSettings,
+    canManageAutomations,
+    canManageLifecycle,
+    canCreateItems,
+    canDeleteProject,
+  } = governance.permissions;
   const currentTab = tabs.find(entry => entry.value === activeTab) ?? tabs[0];
   const projectLabel = project?.name ?? projectId ?? "Project";
   const pageTitle = `Projects - ${projectLabel} - ${currentTab.label}`;
@@ -520,6 +529,14 @@ export function ProjectDetailPage({ tab = "overview" }: ProjectDetailPageProps) 
 
   const handleArchive = useCallback(async () => {
     if (!projectId) return;
+    if (!canManageLifecycle) {
+      toast({
+        title: "Not allowed",
+        description: "You do not have permission to manage the project lifecycle.",
+        variant: "destructive",
+      });
+      return;
+    }
     try {
       if (project?.status === "archived") {
         await updateMutation.mutateAsync({ id: projectId, patch: { status: "active" } });
@@ -537,9 +554,18 @@ export function ProjectDetailPage({ tab = "overview" }: ProjectDetailPageProps) 
       });
     }
   }, [archiveMutation, project?.status, projectId, toast, updateMutation]);
+  }, [archiveMutation, canManageLifecycle, project?.status, projectId, toast, updateMutation]);
 
   const handleDelete = useCallback(async () => {
     if (!projectId) return;
+    if (!canDeleteProject) {
+      toast({
+        title: "Not allowed",
+        description: "You do not have permission to delete this project.",
+        variant: "destructive",
+      });
+      return;
+    }
     const confirmDelete = window.confirm("Delete this project? This cannot be undone.");
     if (!confirmDelete) {
       return;
@@ -558,6 +584,7 @@ export function ProjectDetailPage({ tab = "overview" }: ProjectDetailPageProps) 
       });
     }
   }, [deleteMutation, navigate, projectId, toast]);
+  }, [canDeleteProject, deleteMutation, navigate, projectId, toast]);
 
   const headerContent = useMemo(() => {
     if (!project) {
@@ -629,6 +656,52 @@ export function ProjectDetailPage({ tab = "overview" }: ProjectDetailPageProps) 
               )}
             </Button>
             {isOwner ? (
+            <Button
+              variant="outline"
+              onClick={() => navigate(`/projects/${projectId}/settings`)}
+              disabled={!projectId || !canManageSettings}
+            >
+              <Settings className="mr-2 h-4 w-4" />
+              Edit settings
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => navigate(`/projects/${projectId}/automations`)}
+              disabled={!canManageAutomations}
+            >
+              <Sparkles className="mr-2 h-4 w-4" />
+              Automations
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => navigate(`/projects/${projectId}/sprints`)}
+              disabled={!canManageLifecycle}
+            >
+              <Timer className="mr-2 h-4 w-4" />
+              Plan sprint
+            </Button>
+            <Button onClick={() => navigate(`/tasks?projectId=${projectId ?? ""}`)} disabled={!canCreateItems}>
+              <Plus className="mr-2 h-4 w-4" />
+              New item
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handleArchive}
+              disabled={!canManageLifecycle || archiveMutation.isPending || updateMutation.isPending}
+            >
+              {project.status === "archived" ? (
+                <>
+                  <ArchiveRestore className="mr-2 h-4 w-4" />
+                  Unarchive
+                </>
+              ) : (
+                <>
+                  <Archive className="mr-2 h-4 w-4" />
+                  Archive
+                </>
+              )}
+            </Button>
+            {canDeleteProject ? (
               <Button variant="destructive" onClick={handleDelete} disabled={deleteMutation.isPending}>
                 <AlertTriangle className="mr-2 h-4 w-4" />
                 Delete
@@ -690,8 +763,25 @@ export function ProjectDetailPage({ tab = "overview" }: ProjectDetailPageProps) 
           </Card>
         </div>
       </div>
-    );
+    )
   }, [archiveMutation.isPending, deleteMutation.isPending, handleArchive, handleDelete, navigate, project, projectId, summary, updateMutation.isPending, isOwner, milestone]);
+  }, [
+    archiveMutation.isPending,
+    canCreateItems,
+    canDeleteProject,
+    canManageAutomations,
+    canManageLifecycle,
+    canManageSettings,
+    deleteMutation.isPending,
+    handleArchive,
+    handleDelete,
+    navigate,
+    project,
+    projectId,
+    summary,
+    updateMutation.isPending,
+    milestone,
+  ]);
 
   if (!projectId) {
     const title = "Projects - Not found";

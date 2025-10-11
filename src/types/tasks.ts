@@ -110,6 +110,14 @@ export interface TaskRollup {
   weightedCompleted: number;
 }
 
+export interface TaskCustomFieldHistoryEntry {
+  fieldId: string;
+  previousValue?: unknown;
+  value: unknown;
+  changedAt: string;
+  changedBy?: string | null;
+}
+
 export interface TaskIntegrationBadge {
   id: string;
   type: "git" | "ci" | "design" | "support" | "calendar";
@@ -163,4 +171,6 @@ export interface TaskWithDetails extends TaskCoreFields {
   commentCount: number;
   attachmentCount: number;
   externalLinks?: string[];
+  customFields?: Record<string, unknown>;
+  customFieldHistory?: TaskCustomFieldHistoryEntry[];
 }

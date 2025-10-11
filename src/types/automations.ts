@@ -4,14 +4,23 @@ export type Automation = {
   project_id?: string | null;
   name: string;
   enabled: boolean;
+  description?: string | null;
   trigger_type:
     | "on_task_created"
     | "on_task_moved"
     | "on_due_soon"
-    | "schedule_cron";
-  trigger_config: any;
-  action_type: "create_subtask" | "change_status" | "send_webhook";
-  action_config: any;
+    | "schedule_cron"
+    | AutomationEventType;
+  trigger_config: Record<string, unknown>;
+  action_type:
+    | "create_subtask"
+    | "change_status"
+    | "send_webhook"
+    | "assign"
+    | "slack"
+    | "webhook"
+    | "timer";
+  action_config: Record<string, unknown>;
   created_at: string;
   updated_at: string;
 };

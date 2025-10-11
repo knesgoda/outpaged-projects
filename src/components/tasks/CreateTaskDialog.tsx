@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,6 +11,10 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import AssigneeCompanySelect from "./AssigneeCompanySelect";
 import RelationshipPicker from "./RelationshipPicker";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useCustomFieldDefinitions, useVisibleCustomFields } from "@/hooks/useCustomFields";
+import { isComputedField } from "@/domain/customFields";
+import { upsertTaskCustomFieldValues, type TaskCustomFieldValueInput } from "@/services/customFields";
 
 interface CreateTaskDialogProps {
   open: boolean;
@@ -38,6 +42,188 @@ export function CreateTaskDialog({ open, onOpenChange, projectId, onTaskCreated 
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
+
+  const {
+    definitions: customFieldDefinitions,
+    defaults: customFieldDefaults,
+    isLoading: customFieldsLoading,
+  } = useCustomFieldDefinitions({ projectId, contexts: ["forms", "tasks"] });
+  const [customFieldValues, setCustomFieldValues] = useState<Record<string, unknown>>({});
+
+  useEffect(() => {
+    if (!customFieldDefinitions.length) {
+      setCustomFieldValues({});
+      return;
+    }
+    setCustomFieldValues(prev => {
+      const next = { ...customFieldDefaults };
+      for (const key of Object.keys(prev)) {
+        next[key] = prev[key];
+      }
+      return next;
+    });
+  }, [customFieldDefaults, customFieldDefinitions]);
+
+  const editableCustomFields = useMemo(
+    () => customFieldDefinitions.filter(definition => !isComputedField(definition)),
+    [customFieldDefinitions],
+  );
+
+  const orderedCustomFields = useMemo(
+    () =>
+      [...editableCustomFields].sort((a, b) => (a.position ?? 0) - (b.position ?? 0) || a.name.localeCompare(b.name)),
+    [editableCustomFields],
+  );
+
+  const visibleCustomFieldIds = useVisibleCustomFields(orderedCustomFields, customFieldValues);
+  const visibleCustomFields = useMemo(
+    () => orderedCustomFields.filter(definition => visibleCustomFieldIds.has(definition.id)),
+    [orderedCustomFields, visibleCustomFieldIds],
+  );
+
+  const handleCustomFieldChange = (fieldId: string, value: unknown) => {
+    setCustomFieldValues(prev => ({ ...prev, [fieldId]: value }));
+  };
+
+  const buildCustomFieldPayload = (): TaskCustomFieldValueInput[] => {
+    return visibleCustomFields
+      .filter(definition => !definition.isPrivate)
+      .map(definition => ({
+        customFieldId: definition.id,
+        value:
+          customFieldValues[definition.id] === "" || customFieldValues[definition.id] === undefined
+            ? null
+            : customFieldValues[definition.id],
+      }))
+      .filter(
+        entry =>
+          entry.value !== undefined &&
+          entry.value !== null &&
+          (!(Array.isArray(entry.value)) || entry.value.length > 0),
+      );
+  };
+
+  const renderCustomFieldInput = (definition: (typeof visibleCustomFields)[number]) => {
+    const value = customFieldValues[definition.id];
+    switch (definition.fieldType) {
+      case "text":
+      case "url": {
+        return (
+          <Input
+            value={typeof value === "string" ? value : ""}
+            onChange={(event) => handleCustomFieldChange(definition.id, event.target.value)}
+            placeholder={definition.description ?? "Enter a value"}
+          />
+        );
+      }
+      case "number":
+      case "story_points":
+      case "time_estimate":
+      case "effort":
+      case "risk": {
+        const numeric = typeof value === "number" ? value : value == null ? "" : Number(value) || "";
+        return (
+          <Input
+            type="number"
+            value={numeric}
+            onChange={(event) => {
+              const next = event.target.value;
+              handleCustomFieldChange(definition.id, next === "" ? null : Number(next));
+            }}
+            placeholder={definition.description ?? "0"}
+          />
+        );
+      }
+      case "single_select": {
+        if (definition.optionSet?.options?.length) {
+          const stringValue = typeof value === "string" ? value : value == null ? "" : String(value);
+          return (
+            <Select
+              value={stringValue}
+              onValueChange={(next) => handleCustomFieldChange(definition.id, next)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select option" />
+              </SelectTrigger>
+              <SelectContent className="z-[70]">
+                {definition.optionSet.options.map(option => (
+                  <SelectItem key={option.id} value={option.id}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          );
+        }
+        return (
+          <Input
+            value={typeof value === "string" ? value : ""}
+            onChange={(event) => handleCustomFieldChange(definition.id, event.target.value)}
+            placeholder="Enter a value"
+          />
+        );
+      }
+      case "multi_select": {
+        const options = Array.isArray(value) ? (value as unknown[]).map(item => String(item)) : [];
+        return (
+          <Input
+            value={options.join(", ")}
+            onChange={(event) => {
+              const next = event.target.value
+                .split(",")
+                .map(item => item.trim())
+                .filter(item => item.length > 0);
+              handleCustomFieldChange(definition.id, next);
+            }}
+            placeholder={definition.optionSet?.options?.length ? "Select or enter options" : "Enter comma separated values"}
+          />
+        );
+      }
+      case "date": {
+        const dateValue = typeof value === "string" ? value : value instanceof Date ? value.toISOString().slice(0, 10) : "";
+        return (
+          <Input
+            type="date"
+            value={dateValue}
+            onChange={(event) => handleCustomFieldChange(definition.id, event.target.value || null)}
+          />
+        );
+      }
+      case "date_range": {
+        const rangeValue =
+          value && typeof value === "object" && !Array.isArray(value)
+            ? (value as { start?: string; end?: string })
+            : { start: "", end: "" };
+        return (
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <Input
+              type="date"
+              value={rangeValue.start ?? ""}
+              onChange={(event) =>
+                handleCustomFieldChange(definition.id, { ...rangeValue, start: event.target.value || null })
+              }
+            />
+            <Input
+              type="date"
+              value={rangeValue.end ?? ""}
+              onChange={(event) =>
+                handleCustomFieldChange(definition.id, { ...rangeValue, end: event.target.value || null })
+              }
+            />
+          </div>
+        );
+      }
+      default: {
+        return (
+          <Input
+            value={typeof value === "string" ? value : value == null ? "" : String(value)}
+            onChange={(event) => handleCustomFieldChange(definition.id, event.target.value)}
+            placeholder="Enter a value"
+          />
+        );
+      }
+    }
+  };
 
   // Don't render dialog if user is not authenticated
   if (!user) {
@@ -106,6 +292,40 @@ export function CreateTaskDialog({ open, onOpenChange, projectId, onTaskCreated 
       relationship
     });
 
+    const missingRequiredField = visibleCustomFields.find((definition) => {
+      if (!definition.isRequired) {
+        return false;
+      }
+      const value = customFieldValues[definition.id];
+      if (value === undefined || value === null || value === "") {
+        return true;
+      }
+      if (Array.isArray(value) && value.length === 0) {
+        return true;
+      }
+      if (
+        definition.fieldType === "date_range" &&
+        value &&
+        typeof value === "object" &&
+        !Array.isArray(value)
+      ) {
+        const rangeValue = value as { start?: string | null; end?: string | null };
+        return !rangeValue.start && !rangeValue.end;
+      }
+      return false;
+    });
+
+    if (missingRequiredField) {
+      toast({
+        title: "Missing required field",
+        description: `${missingRequiredField.name} is required.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const customFieldPayload = buildCustomFieldPayload();
+
     setLoading(true);
     try {
       // Single attempt: rely entirely on DB trigger for ticket_number
@@ -119,11 +339,11 @@ export function CreateTaskDialog({ open, onOpenChange, projectId, onTaskCreated 
         // Use the retried data
         const created = retry.data;
         // Post-create operations (assignees & relationship)
-        await postCreateOperations(created?.id);
+        await postCreateOperations(created?.id, customFieldPayload);
       } else if (error) {
         throw error;
       } else {
-        await postCreateOperations(newTask?.id);
+        await postCreateOperations(newTask?.id, customFieldPayload);
       }
 
       toast({
@@ -142,6 +362,7 @@ export function CreateTaskDialog({ open, onOpenChange, projectId, onTaskCreated 
       setAssigneeIds([]);
       setStoryPoints("");
       setRelationship(null);
+      setCustomFieldValues({ ...customFieldDefaults });
       
       onTaskCreated();
       onOpenChange(false);
@@ -166,7 +387,10 @@ export function CreateTaskDialog({ open, onOpenChange, projectId, onTaskCreated 
     }
   };
 
-  const postCreateOperations = async (taskId?: string) => {
+  const postCreateOperations = async (
+    taskId: string | undefined,
+    customFieldEntries: TaskCustomFieldValueInput[] = [],
+  ) => {
     if (!taskId) return;
 
     // 1) Assign selected users
@@ -203,6 +427,19 @@ export function CreateTaskDialog({ open, onOpenChange, projectId, onTaskCreated 
         toast({
           title: "Warning",
           description: "Task created but failed to create the relationship.",
+          variant: "destructive",
+        });
+      }
+    }
+
+    if (customFieldEntries.length) {
+      try {
+        await upsertTaskCustomFieldValues(taskId, customFieldEntries);
+      } catch (error: unknown) {
+        console.error("Failed to persist custom fields", error);
+        toast({
+          title: "Warning",
+          description: "Task saved but custom fields could not be stored.",
           variant: "destructive",
         });
       }
@@ -310,6 +547,35 @@ export function CreateTaskDialog({ open, onOpenChange, projectId, onTaskCreated 
               />
             </div>
           </div>
+
+          {customFieldsLoading ? (
+            <div className="space-y-3" aria-live="polite">
+              {[0, 1, 2].map((index) => (
+                <Skeleton key={index} className="h-10 w-full" />
+              ))}
+            </div>
+          ) : visibleCustomFields.length > 0 ? (
+            <div className="space-y-4 rounded-md border p-4">
+              <div>
+                <h3 className="text-sm font-semibold">Custom fields</h3>
+                <p className="text-xs text-muted-foreground">
+                  Additional metadata captured for automation, boards, and reporting.
+                </p>
+              </div>
+              {visibleCustomFields.map((definition) => (
+                <div key={definition.id} className="space-y-2">
+                  <Label>
+                    {definition.name}
+                    {definition.isRequired ? <span className="ml-1 text-destructive">*</span> : null}
+                  </Label>
+                  {renderCustomFieldInput(definition)}
+                  {definition.description ? (
+                    <p className="text-xs text-muted-foreground">{definition.description}</p>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          ) : null}
 
           <div className="space-y-3 border rounded-md p-3">
             <div className="text-sm font-medium">Link to another ticket (optional)</div>

@@ -5,6 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useOptionalAuth } from "@/hooks/useOptionalAuth";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { supabase } from "@/integrations/supabase/client";
+import { upsertTaskCustomFieldValues } from "@/services/customFields";
 import { enqueueAutomationEvent } from "@/services/automations";
 import { queueAutomationForTaskMovement } from "@/pages/kanban/automationEvents";
 import { useStatusCycleShortcut } from "@/pages/kanban/useStatusCycleShortcut";
@@ -600,6 +601,7 @@ function LegacyKanbanBoard() {
         blocked: task.blocked || false,
         blocking_reason: task.blocking_reason,
         externalLinks: task.externalLinks,
+        custom_fields: task.customFields,
       }));
 
       const labelMap = new Map<string, { id: string; label: string; color?: string | null }>();
@@ -1295,6 +1297,15 @@ function LegacyKanbanBoard() {
 
         if (error) throw error;
 
+        if (taskData.custom_fields && typeof taskData.custom_fields === "object") {
+          const entries = Object.entries(taskData.custom_fields as Record<string, unknown>)
+            .map(([customFieldId, value]) => ({ customFieldId, value }))
+            .filter(entry => entry.value !== undefined);
+          if (entries.length) {
+            await upsertTaskCustomFieldValues(taskDialog.task.id, entries);
+          }
+        }
+
         if (currentProjectId && taskDialog.task) {
           const nextStatus = ((taskData as any).status ?? taskDialog.task.status) as string;
           const context = {
@@ -1394,6 +1405,15 @@ function LegacyKanbanBoard() {
             });
           } catch (automationError) {
             console.warn("Failed to enqueue automation event", automationError);
+          }
+        }
+
+        if (taskData.custom_fields && newTask?.id) {
+          const entries = Object.entries(taskData.custom_fields as Record<string, unknown>)
+            .map(([customFieldId, value]) => ({ customFieldId, value }))
+            .filter(entry => entry.value !== undefined);
+          if (entries.length) {
+            await upsertTaskCustomFieldValues(newTask.id, entries);
           }
         }
 

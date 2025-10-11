@@ -7,6 +7,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Check, X } from "lucide-react";
+import { ProjectGovernanceAdmin } from "@/components/admin/ProjectGovernanceAdmin";
 
 const ROLE_MATRIX = [
   {
@@ -93,11 +94,12 @@ function PermissionIcon({ allowed }: { allowed: boolean }) {
 
 export default function PermissionsPage() {
   return (
-    <section className="space-y-8">
-      <header className="space-y-2">
-        <h2 className="text-2xl font-semibold tracking-tight">Permissions</h2>
-        <p className="text-muted-foreground">Review what each role can do inside the workspace.</p>
-      </header>
+    <>
+      <section className="space-y-8">
+        <header className="space-y-2">
+          <h2 className="text-2xl font-semibold tracking-tight">Permissions</h2>
+          <p className="text-muted-foreground">Review what each role can do inside the workspace.</p>
+        </header>
 
       <div className="overflow-hidden rounded-md border">
         <Table>
@@ -124,7 +126,10 @@ export default function PermissionsPage() {
             ))}
           </TableBody>
         </Table>
-      </div>
-    </section>
+        </div>
+      </section>
+
+      <ProjectGovernanceAdmin />
+    </>
   );
 }
