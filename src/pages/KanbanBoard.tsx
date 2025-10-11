@@ -41,11 +41,31 @@ import { matchesBoardFilter } from "@/features/boards/filters/evaluate";
 import { saveBoardFilters, loadBoardFilters } from "@/services/boards/filterService";
 import { BoardSettings } from "@/components/kanban/BoardSettings";
 import { StatsPanel } from "@/components/kanban/StatsPanel";
-import { Plus, ArrowLeft, Settings, Layers, BarChart3 } from "lucide-react";
+import { Plus, ArrowLeft, Settings, Layers, BarChart3, CheckCircle, XCircle } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FilterChip } from "@/components/outpaged/FilterChip";
 import { StatusChip } from "@/components/outpaged/StatusChip";
 import { enableOutpagedBrand } from "@/lib/featureFlags";
+import { normalizeColumnMetadata, type KanbanColumnType } from "@/types/boardColumns";
+import {
+  evaluateWipGuard,
+  evaluateDefinitionChecklists,
+  isDefinitionOfReadyMet,
+  isDefinitionOfDoneMet,
+  evaluateDependencyPolicy,
+  type ChecklistItemEvaluation,
+} from "@/features/boards/guards";
+import { WipOverrideDialog } from "@/components/kanban/WipOverrideDialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const DESIGN_FILTERS = [
   { label: "All work", count: 18 },
@@ -284,6 +304,8 @@ interface KanbanColumnData {
   wip_limit?: number;
   is_default: boolean;
   project_id: string;
+  column_type: KanbanColumnType;
+  metadata: Record<string, unknown> | null;
 }
 
 interface Swimlane {
@@ -300,6 +322,29 @@ interface Project {
   name: string;
   description?: string;
   status: string;
+}
+
+interface PendingOverrideState {
+  task: Task;
+  targetColumnId: string;
+  targetSwimlaneId: string | null;
+  fromColumnId: string | null;
+  newStatus: string;
+  reason: "column" | "lane" | null;
+  limit: number | null;
+  requireReason: boolean;
+}
+
+interface ChecklistDialogState {
+  type: "ready" | "done";
+  items: ChecklistItemEvaluation[];
+  task: Task;
+  targetColumnName: string;
+}
+
+interface DependencyDialogState {
+  task: Task;
+  reason: string;
 }
 
 function LegacyKanbanBoard() {
@@ -327,6 +372,10 @@ function LegacyKanbanBoard() {
   const [selectedTasks, setSelectedTasks] = useState<string[]>([]);
   const [showQuickAdd, setShowQuickAdd] = useState<{ columnId: string; swimlaneId?: string } | null>(null);
   const [viewMode, setViewMode] = useState<'standard' | 'compact' | 'list'>('standard');
+  const [pendingOverride, setPendingOverride] = useState<PendingOverrideState | null>(null);
+  const [overrideReason, setOverrideReason] = useState("");
+  const [checklistDialog, setChecklistDialog] = useState<ChecklistDialogState | null>(null);
+  const [dependencyDialog, setDependencyDialog] = useState<DependencyDialogState | null>(null);
 
   const activeBoardId = currentProjectId ?? "legacy-board";
   const activeViewId = "kanban-default";
@@ -572,7 +621,7 @@ function LegacyKanbanBoard() {
       const newColumns = kanbanColumns.map(col => {
         // Find the status mapping for this column
         const mapping = statusMappings?.find(m => m.column_id === col.id);
-        
+
         const columnTasks = tasksForBoard.filter(task => {
           // Handle both custom status mappings and standard statuses
           if (mapping) {
@@ -583,6 +632,7 @@ function LegacyKanbanBoard() {
               'todo': ['todo', 'to_do'],
               'in_progress': ['in_progress', 'doing'],
               'blocked': ['blocked'],
+              'waiting': ['waiting'],
               'review': ['in_review', 'review', 'testing'],
               'in_review': ['in_review', 'review', 'testing'],
               'done': ['done', 'complete', 'completed']
@@ -597,6 +647,7 @@ function LegacyKanbanBoard() {
               'todo': ['todo', 'to_do'],
               'in progress': ['in_progress', 'doing'],
               'blocked': ['blocked'],
+              'waiting': ['waiting'],
               'review': ['in_review', 'review', 'testing'],
               'in review': ['in_review', 'review', 'testing'],
               'done': ['done', 'complete', 'completed']
@@ -606,12 +657,25 @@ function LegacyKanbanBoard() {
           }
         });
 
+        const normalized = normalizeColumnMetadata(col.column_type, col.metadata ?? {});
+        const metadata = {
+          ...normalized,
+          wip: {
+            ...normalized.wip,
+            columnLimit:
+              normalized.wip.columnLimit ??
+              (typeof col.wip_limit === "number" ? col.wip_limit : null),
+          },
+        };
+
         return {
           id: col.id,
           title: col.name,
           tasks: columnTasks,
           color: col.color || '#6b7280',
-          limit: col.wip_limit || undefined
+          limit: metadata.wip.columnLimit ?? undefined,
+          metadata,
+          columnType: col.column_type,
         };
       });
 
@@ -670,10 +734,272 @@ function LegacyKanbanBoard() {
     }),
   );
 
+  const attemptTaskMove = async ({
+    task,
+    targetColumn,
+    newStatus,
+    targetSwimlaneId,
+    fromColumn,
+    bypassWip = false,
+    overrideNote,
+  }: {
+    task: Task;
+    targetColumn: Column;
+    newStatus: string;
+    targetSwimlaneId: string | null;
+    fromColumn?: Column;
+    bypassWip?: boolean;
+    overrideNote?: string;
+  }): Promise<boolean> => {
+    if (!user) return false;
+
+    if (task.blocked && newStatus !== 'todo' && newStatus !== 'blocked') {
+      toast({
+        title: "Task is blocked",
+        description: `Cannot move blocked task to ${newStatus}. Please unblock the task first.`,
+        variant: "destructive",
+      });
+      return false;
+    }
+
+    const targetState = columns.find(col => col.id === targetColumn.id);
+    if (!targetState) return false;
+
+    const laneId = targetSwimlaneId ?? task.swimlane_id ?? null;
+
+    if (!bypassWip) {
+      const totalInColumn = targetState.tasks.filter(t => t.id !== task.id).length + 1;
+      const totalInLane = targetState.tasks
+        .filter(t => (t.swimlane_id ?? null) === laneId && t.id !== task.id)
+        .length + 1;
+
+      const wipResult = evaluateWipGuard({
+        metadata: targetState.metadata,
+        totalInColumn,
+        totalInLane,
+        laneId,
+      });
+
+      if (wipResult.status === "blocked") {
+        toast({
+          title: "WIP limit reached",
+          description:
+            wipResult.reason === "lane"
+              ? `Lane limit of ${wipResult.limit ?? 0} reached for ${targetColumn.title}.`
+              : `Column limit of ${wipResult.limit ?? 0} reached for ${targetColumn.title}.`,
+          variant: "destructive",
+        });
+        return false;
+      }
+
+      if (wipResult.status === "override") {
+        setPendingOverride({
+          task,
+          targetColumnId: targetColumn.id,
+          targetSwimlaneId: laneId,
+          fromColumnId: fromColumn?.id ?? null,
+          newStatus,
+          reason: wipResult.reason,
+          limit: wipResult.limit,
+          requireReason: targetState.metadata?.blockerPolicies.requireReasonForOverride ?? false,
+        });
+        setOverrideReason("");
+
+        if (currentProjectId) {
+          try {
+            await enqueueAutomationEvent({
+              projectId: currentProjectId,
+              type: "task.wip_override_requested",
+              taskId: task.id,
+              actorId: user.id,
+              context: {
+                targetColumnId: targetColumn.id,
+                reason: wipResult.reason,
+                limit: wipResult.limit,
+              },
+            });
+          } catch (automationError) {
+            console.warn("Failed to enqueue override request event", automationError);
+          }
+        }
+
+        toast({
+          title: "WIP limit exceeded",
+          description: "An override is required before this move can complete.",
+        });
+        return false;
+      }
+    }
+
+    const dependencyPolicy = evaluateDependencyPolicy(targetState.metadata, task);
+    if (dependencyPolicy.blocked && newStatus !== 'blocked') {
+      setDependencyDialog({ task, reason: dependencyPolicy.reason ?? "Resolve linked dependencies before progressing." });
+      if (currentProjectId) {
+        try {
+          await enqueueAutomationEvent({
+            projectId: currentProjectId,
+            type: "task.dependency_wait",
+            taskId: task.id,
+            actorId: user.id,
+            context: {
+              targetColumnId: targetColumn.id,
+              reason: dependencyPolicy.reason ?? undefined,
+            },
+          });
+        } catch (automationError) {
+          console.warn("Failed to enqueue dependency wait event", automationError);
+        }
+      }
+      return false;
+    }
+
+    const checklistEvaluation = evaluateDefinitionChecklists(targetState.metadata, task);
+    if (newStatus === 'in_progress' && !isDefinitionOfReadyMet(checklistEvaluation)) {
+      setChecklistDialog({
+        type: 'ready',
+        items: checklistEvaluation.ready,
+        task,
+        targetColumnName: targetColumn.title,
+      });
+      if (currentProjectId) {
+        try {
+          await enqueueAutomationEvent({
+            projectId: currentProjectId,
+            type: "task.definition_ready_blocked",
+            taskId: task.id,
+            actorId: user.id,
+            context: { targetColumnId: targetColumn.id },
+          });
+        } catch (automationError) {
+          console.warn("Failed to enqueue Definition of Ready event", automationError);
+        }
+      }
+      return false;
+    }
+
+    if (newStatus === 'done' && !isDefinitionOfDoneMet(checklistEvaluation)) {
+      setChecklistDialog({
+        type: 'done',
+        items: checklistEvaluation.done,
+        task,
+        targetColumnName: targetColumn.title,
+      });
+      if (currentProjectId) {
+        try {
+          await enqueueAutomationEvent({
+            projectId: currentProjectId,
+            type: "task.definition_done_blocked",
+            taskId: task.id,
+            actorId: user.id,
+            context: { targetColumnId: targetColumn.id },
+          });
+        } catch (automationError) {
+          console.warn("Failed to enqueue Definition of Done event", automationError);
+        }
+      }
+      return false;
+    }
+
+    const shouldMarkBlocked = newStatus === 'blocked' || dependencyPolicy.blocked;
+    const nextBlockingReason = shouldMarkBlocked
+      ? dependencyPolicy.reason ?? task.blocking_reason ?? 'Blocked pending dependency clearance.'
+      : null;
+
+    try {
+      const { error } = await supabase
+        .from('tasks')
+        .update({
+          status: newStatus as any,
+          swimlane_id: laneId,
+          blocked: shouldMarkBlocked,
+          blocking_reason: shouldMarkBlocked ? nextBlockingReason : null,
+        })
+        .eq('id', task.id);
+
+      if (error) throw error;
+
+      const updatedTask: Task = {
+        ...task,
+        status: newStatus,
+        swimlane_id: laneId ?? undefined,
+        blocked: shouldMarkBlocked,
+        blocking_reason: shouldMarkBlocked ? nextBlockingReason ?? undefined : null,
+      };
+
+      setColumns((current) =>
+        current.map((col) => {
+          if (col.id === (fromColumn?.id ?? targetColumn.id)) {
+            return {
+              ...col,
+              tasks: col.tasks.filter((t) => t.id !== task.id),
+            };
+          }
+          if (col.id === targetColumn.id) {
+            const otherTasks = col.tasks.filter((t) => t.id !== task.id);
+            return {
+              ...col,
+              tasks: [...otherTasks, updatedTask],
+            };
+          }
+          return col;
+        })
+      );
+
+      if (currentProjectId) {
+        const context = {
+          fromColumnId: fromColumn?.id ?? null,
+          toColumnId: targetColumn.id,
+          fromStatus: task.status,
+          toStatus: newStatus,
+          override: bypassWip,
+        };
+
+        try {
+          await queueAutomationForTaskMovement({
+            projectId: currentProjectId,
+            taskId: task.id,
+            userId: user.id,
+            context,
+          });
+
+          await enqueueAutomationEvent({
+            projectId: currentProjectId,
+            type: "task.status_changed",
+            taskId: task.id,
+            actorId: user.id,
+            context: {
+              ...context,
+              swimlaneId: laneId,
+              overrideReason: overrideNote,
+            },
+          });
+        } catch (automationError) {
+          console.warn("Failed to enqueue automation event", automationError);
+        }
+      }
+
+      toast({
+        title: "Success",
+        description: "Task moved successfully",
+      });
+
+      setPendingOverride(null);
+      return true;
+    } catch (error) {
+      console.error('Error updating task status:', error);
+      toast({
+        title: "Error",
+        description: "Failed to move task",
+        variant: "destructive",
+      });
+      return false;
+    }
+  };
+
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;
     const activeData = active.data.current;
-    
+
     if (activeData?.type === 'column') {
       // Column drag started - don't set activeTask
       return;
@@ -784,92 +1110,26 @@ function LegacyKanbanBoard() {
 
     // Handle task movement between columns
     const activeTask = findTask(activeId);
-    const overColumn = findColumn(overId);
+    const { columnId: targetColumnId, swimlaneId: dropSwimlaneId } = parseDropTarget(over);
+    const overColumn = findColumnById(targetColumnId);
 
-    if (!activeTask || !user) return;
+    if (!activeTask || !user || !overColumn) return;
 
-    // Moving to a different column
-    if (overColumn && activeTask.status !== await getStatusFromColumn(overColumn)) {
-      try {
-        const newStatus = await getStatusFromColumn(overColumn);
-        
-        // Check if task is blocked before allowing status change
-        if (activeTask.blocked && newStatus !== 'todo') {
-          toast({
-            title: "Task is blocked",
-            description: `Cannot move blocked task to ${newStatus}. Please unblock the task first.`,
-            variant: "destructive",
-          });
-          return;
-        }
+    const newStatus = await getStatusFromColumn(overColumn);
+    const fromColumn = columns.find((col) => col.tasks.some((task) => task.id === activeId));
+    const laneId = dropSwimlaneId ?? activeTask.swimlane_id ?? null;
 
-        const { error } = await supabase
-          .from('tasks')
-          .update({ status: newStatus as "todo" | "in_progress" | "in_review" | "done" })
-          .eq('id', activeId);
-
-        if (error) throw error;
-
-        // Update local state
-        setColumns((columns) => {
-          const activeColumn = columns.find((col) =>
-            col.tasks.some((task) => task.id === activeId)
-          );
-
-          if (!activeColumn) return columns;
-
-          const updatedTask = { ...activeTask, status: newStatus };
-
-          return columns.map((col) => {
-            if (col.id === activeColumn.id) {
-              return {
-                ...col,
-                tasks: col.tasks.filter((task) => task.id !== activeId),
-              };
-            }
-            if (col.id === overColumn.id) {
-              return {
-                ...col,
-                tasks: [...col.tasks, updatedTask],
-              };
-            }
-            return col;
-          });
-        });
-
-        if (currentProjectId) {
-          const context = {
-            fromColumnId: (activeData as any)?.column?.id ?? (activeData as any)?.columnId ?? null,
-            toColumnId: overColumn.id,
-            fromStatus: activeTask.status,
-            toStatus: newStatus,
-          };
-
-          try {
-            await queueAutomationForTaskMovement({
-              projectId: currentProjectId,
-              taskId: activeId,
-              userId: user?.id,
-              context,
-            });
-          } catch (automationError) {
-            console.warn("Failed to enqueue automation event", automationError);
-          }
-        }
-
-        toast({
-          title: "Success",
-          description: "Task moved successfully",
-        });
-      } catch (error) {
-        console.error('Error updating task status:', error);
-        toast({
-          title: "Error",
-          description: "Failed to move task",
-          variant: "destructive",
-        });
-      }
+    if (activeTask.status === newStatus && (laneId ?? null) === (activeTask.swimlane_id ?? null)) {
+      return;
     }
+
+    await attemptTaskMove({
+      task: activeTask,
+      targetColumn: overColumn,
+      newStatus,
+      targetSwimlaneId: laneId,
+      fromColumn,
+    });
   };
 
   const getTasksBySwimlane = (swimlaneId: string) => {
@@ -928,6 +1188,40 @@ function LegacyKanbanBoard() {
         variant: "destructive",
       });
     }
+  };
+
+  const handleOverrideConfirm = async () => {
+    if (!pendingOverride) return;
+    const targetColumn = findColumnById(pendingOverride.targetColumnId);
+    const fromColumn = findColumnById(pendingOverride.fromColumnId);
+
+    if (!targetColumn) {
+      toast({
+        title: "Override failed",
+        description: "The target column is no longer available.",
+        variant: "destructive",
+      });
+      setPendingOverride(null);
+      return;
+    }
+
+    const moved = await attemptTaskMove({
+      task: pendingOverride.task,
+      targetColumn,
+      newStatus: pendingOverride.newStatus,
+      targetSwimlaneId: pendingOverride.targetSwimlaneId,
+      fromColumn,
+      bypassWip: true,
+      overrideNote: overrideReason || undefined,
+    });
+    if (moved) {
+      setOverrideReason("");
+    }
+  };
+
+  const handleOverrideCancel = () => {
+    setPendingOverride(null);
+    setOverrideReason("");
   };
 
   const handleSaveTask = async (taskData: Partial<Task>) => {
@@ -1131,8 +1425,38 @@ function LegacyKanbanBoard() {
     }
   };
 
-  const findColumn = (id: string): Column | undefined => {
+  const findColumnById = (id: string | null): Column | undefined => {
+    if (!id) return undefined;
     return columns.find((col) => col.id === id);
+  };
+
+  const parseDropTarget = (
+    over: DragEndEvent["over"]
+  ): { columnId: string | null; swimlaneId: string | null } => {
+    if (!over) return { columnId: null, swimlaneId: null };
+    const data = over.data.current as { columnId?: string; swimlaneId?: string | null } | undefined;
+    if (data?.columnId) {
+      return { columnId: data.columnId, swimlaneId: data.swimlaneId ?? null };
+    }
+
+    const rawId = String(over.id ?? "");
+    if (rawId.startsWith("legacy-")) {
+      return { columnId: rawId.replace("legacy-", ""), swimlaneId: null };
+    }
+
+    if (rawId.includes("::")) {
+      const [columnPart, lanePart] = rawId.split("::");
+      return {
+        columnId: columnPart ?? null,
+        swimlaneId: lanePart
+          ? lanePart === "__unassigned__"
+            ? null
+            : lanePart
+          : null,
+      };
+    }
+
+    return { columnId: rawId || null, swimlaneId: null };
   };
 
   const addNewColumn = async () => {
@@ -1205,6 +1529,15 @@ function LegacyKanbanBoard() {
       });
     }),
   }));
+
+  const overrideColumn = pendingOverride
+    ? findColumnById(pendingOverride.targetColumnId)
+    : undefined;
+  const dialogColumn = taskDialog.columnId
+    ? findColumnById(taskDialog.columnId)
+    : taskDialog.task
+    ? columns.find((col) => col.tasks.some((task) => task.id === taskDialog.task?.id))
+    : undefined;
 
   // Show project selector if no project is selected
   if (!selectedProject) {
@@ -1454,6 +1787,92 @@ function LegacyKanbanBoard() {
         </DndContext>
       </div>
 
+      <WipOverrideDialog
+        open={!!pendingOverride}
+        pending={pendingOverride ? {
+          task: pendingOverride.task,
+          reason: pendingOverride.reason,
+          limit: pendingOverride.limit,
+          requireReason: pendingOverride.requireReason,
+        } : null}
+        columnName={overrideColumn?.title}
+        reason={overrideReason}
+        onReasonChange={(value) => setOverrideReason(value)}
+        onConfirm={handleOverrideConfirm}
+        onCancel={handleOverrideCancel}
+      />
+
+      <AlertDialog open={!!checklistDialog} onOpenChange={(open) => !open && setChecklistDialog(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {checklistDialog?.type === 'ready'
+                ? 'Definition of Ready requirements not met'
+                : 'Definition of Done requirements not met'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Complete the checklist items before moving "{checklistDialog?.task.title}" into
+              {' '}
+              {checklistDialog?.targetColumnName}.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-3 py-2">
+            {checklistDialog?.items.map((item) => (
+              <div key={item.id} className="flex items-start gap-2 text-sm">
+                {item.satisfied ? (
+                  <CheckCircle className="h-4 w-4 text-primary mt-0.5" />
+                ) : (
+                  <XCircle className="h-4 w-4 text-destructive mt-0.5" />
+                )}
+                <div>
+                  <p className="font-medium">{item.label}</p>
+                  {item.helpText ? (
+                    <p className="text-xs text-muted-foreground">{item.helpText}</p>
+                  ) : null}
+                </div>
+              </div>
+            ))}
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setChecklistDialog(null)}>Close</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (checklistDialog) {
+                  handleViewTask(checklistDialog.task);
+                }
+                setChecklistDialog(null);
+              }}
+            >
+              Review task
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!dependencyDialog} onOpenChange={(open) => !open && setDependencyDialog(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Dependencies must be cleared</AlertDialogTitle>
+            <AlertDialogDescription>
+              {dependencyDialog?.reason ?? 'Resolve linked blockers before continuing.'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setDependencyDialog(null)}>Close</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (dependencyDialog) {
+                  handleViewTask(dependencyDialog.task);
+                }
+                setDependencyDialog(null);
+              }}
+            >
+              Inspect dependencies
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Single Task Dialog - handles both creating and editing tasks */}
       <TaskDialog
         task={taskDialog.task}
@@ -1462,6 +1881,7 @@ function LegacyKanbanBoard() {
         onSave={handleSaveTask}
         columnId={taskDialog.columnId}
         projectId={currentProjectId || undefined}
+        columnMetadata={dialogColumn?.metadata}
       />
     </div>
   );

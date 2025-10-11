@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -53,6 +54,8 @@ import {
   type ConnectColumnMetadata,
   getDefaultMetadata,
   isAdvancedColumnType,
+  normalizeColumnMetadata,
+  serializeColumnMetadata,
 } from "@/types/boardColumns";
 
 interface KanbanColumnData {
@@ -67,9 +70,15 @@ interface KanbanColumnData {
   metadata: Record<string, unknown> | null;
 }
 
+interface SwimlaneSummary {
+  id: string;
+  name: string;
+}
+
 interface ColumnManagerProps {
   projectId: string;
   columns: KanbanColumnData[];
+  swimlanes?: SwimlaneSummary[];
   onUpdate: () => void;
 }
 
@@ -122,29 +131,19 @@ type ColumnFormState = {
   metadata: MetadataState;
 };
 
-function normalizeMetadata(
-  type: KanbanColumnType,
-  metadata: unknown
-): MetadataState {
-  if (!isAdvancedColumnType(type)) {
-    return {};
-  }
-
-  const base = getDefaultMetadata(type);
-  if (metadata && typeof metadata === "object") {
-    return { ...base, ...(metadata as Record<string, unknown>) } as MetadataState;
-  }
-  return base;
-}
-
-const serializeMetadata = (
-  type: KanbanColumnType,
-  metadata: MetadataState
-): Record<string, unknown> => {
-  if (!isAdvancedColumnType(type)) {
-    return {};
-  }
-  return metadata as Record<string, unknown>;
+const applyWipLimitToMetadata = (
+  metadata: MetadataState,
+  wipLimit: string
+): MetadataState => {
+  const parsed = wipLimit ? Number.parseInt(wipLimit, 10) : NaN;
+  const columnLimit = Number.isNaN(parsed) ? null : parsed;
+  return {
+    ...metadata,
+    wip: {
+      ...metadata.wip,
+      columnLimit,
+    },
+  } as MetadataState;
 };
 
 function SortableColumn({ column, onEdit, onDelete }: {
@@ -235,16 +234,20 @@ function SortableColumn({ column, onEdit, onDelete }: {
   );
 }
 
-export function ColumnManager({ projectId, columns, onUpdate }: ColumnManagerProps) {
+export function ColumnManager({ projectId, columns, swimlanes, onUpdate }: ColumnManagerProps) {
   const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingColumn, setEditingColumn] = useState<KanbanColumnData | null>(null);
+  const laneOptions = useMemo(() => {
+    const base = swimlanes ?? [];
+    return [...base, { id: "__unassigned__", name: "No Swimlane" }];
+  }, [swimlanes]);
   const [formData, setFormData] = useState<ColumnFormState>({
     name: "",
     color: "#6b7280",
     wip_limit: "",
     column_type: "status" as KanbanColumnType,
-    metadata: getDefaultMetadata("status"),
+    metadata: applyWipLimitToMetadata(getDefaultMetadata("status"), ""),
   });
   const handleMetadataChange = (metadata: MetadataState) => {
     setFormData((prev) => ({ ...prev, metadata }));
@@ -253,8 +256,38 @@ export function ColumnManager({ projectId, columns, onUpdate }: ColumnManagerPro
     setFormData((prev) => ({
       ...prev,
       column_type: nextType,
-      metadata: getDefaultMetadata(nextType),
+      metadata: applyWipLimitToMetadata(
+        getDefaultMetadata(nextType),
+        prev.wip_limit
+      ),
     }));
+  };
+
+  const updateLaneLimit = (laneId: string, value: string) => {
+    setFormData((prev) => {
+      const nextLaneLimits = { ...prev.metadata.wip.laneLimits };
+      if (!value) {
+        delete nextLaneLimits[laneId];
+      } else {
+        const parsed = Number.parseInt(value, 10);
+        if (Number.isNaN(parsed)) {
+          delete nextLaneLimits[laneId];
+        } else {
+          nextLaneLimits[laneId] = parsed;
+        }
+      }
+
+      return {
+        ...prev,
+        metadata: {
+          ...prev.metadata,
+          wip: {
+            ...prev.metadata.wip,
+            laneLimits: nextLaneLimits,
+          },
+        },
+      };
+    });
   };
 
   const handleSave = async () => {
@@ -268,6 +301,10 @@ export function ColumnManager({ projectId, columns, onUpdate }: ColumnManagerPro
     }
 
     try {
+      const metadataToPersist = applyWipLimitToMetadata(
+        formData.metadata,
+        formData.wip_limit
+      );
       if (editingColumn) {
         // Update existing column
         const { error } = await supabase
@@ -277,7 +314,7 @@ export function ColumnManager({ projectId, columns, onUpdate }: ColumnManagerPro
             color: formData.color,
             wip_limit: formData.wip_limit ? parseInt(formData.wip_limit) : null,
             column_type: formData.column_type,
-            metadata: serializeMetadata(formData.column_type, formData.metadata),
+            metadata: serializeColumnMetadata(metadataToPersist),
           })
           .eq('id', editingColumn.id);
 
@@ -301,7 +338,7 @@ export function ColumnManager({ projectId, columns, onUpdate }: ColumnManagerPro
             wip_limit: formData.wip_limit ? parseInt(formData.wip_limit) : null,
             is_default: false,
             column_type: formData.column_type,
-            metadata: serializeMetadata(formData.column_type, formData.metadata),
+            metadata: serializeColumnMetadata(metadataToPersist),
           });
 
         if (error) throw error;
@@ -319,7 +356,7 @@ export function ColumnManager({ projectId, columns, onUpdate }: ColumnManagerPro
         color: "#6b7280",
         wip_limit: "",
         column_type: "status",
-        metadata: getDefaultMetadata("status"),
+        metadata: applyWipLimitToMetadata(getDefaultMetadata("status"), ""),
       });
       onUpdate();
     } catch (error) {
@@ -334,12 +371,20 @@ export function ColumnManager({ projectId, columns, onUpdate }: ColumnManagerPro
 
   const handleEdit = (column: KanbanColumnData) => {
     setEditingColumn(column);
+    const normalized = normalizeColumnMetadata(
+      column.column_type,
+      column.metadata ?? {}
+    );
     setFormData({
       name: column.name,
       color: column.color ?? "#6b7280",
-      wip_limit: column.wip_limit?.toString() || "",
+      wip_limit:
+        (normalized.wip.columnLimit ?? column.wip_limit ?? undefined)?.toString() || "",
       column_type: column.column_type,
-      metadata: normalizeMetadata(column.column_type, column.metadata ?? {}),
+      metadata: applyWipLimitToMetadata(
+        normalized,
+        (normalized.wip.columnLimit ?? column.wip_limit ?? undefined)?.toString() || ""
+      ),
     });
     setIsDialogOpen(true);
   };
@@ -562,16 +607,87 @@ export function ColumnManager({ projectId, columns, onUpdate }: ColumnManagerPro
                     />
                   </div>
                 </div>
-                <div>
-                  <Label htmlFor="wip_limit">WIP Limit (optional)</Label>
-                  <Input
-                    id="wip_limit"
-                    type="number"
-                    value={formData.wip_limit}
-                    onChange={(e) => setFormData(prev => ({ ...prev, wip_limit: e.target.value }))}
-                    placeholder="e.g. 5"
-                    min="1"
-                  />
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="wip_limit">WIP Limit (optional)</Label>
+                    <Input
+                      id="wip_limit"
+                      type="number"
+                      value={formData.wip_limit}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          wip_limit: e.target.value,
+                          metadata: applyWipLimitToMetadata(
+                            prev.metadata,
+                            e.target.value
+                          ),
+                        }))
+                      }
+                      placeholder="e.g. 5"
+                      min="1"
+                    />
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Default cap applied when no swimlane override is configured.
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label>Lane overrides</Label>
+                      <span className="text-xs text-muted-foreground">
+                        Leave blank to inherit the column limit.
+                      </span>
+                    </div>
+                    <div className="space-y-2">
+                      {laneOptions.length === 0 ? (
+                        <p className="text-xs italic text-muted-foreground">
+                          No swimlanes configured yet.
+                        </p>
+                      ) : (
+                        laneOptions.map((lane) => (
+                          <div key={lane.id} className="flex items-center gap-3">
+                            <span className="flex-1 text-sm">{lane.name}</span>
+                            <Input
+                              type="number"
+                              min="1"
+                              className="w-28"
+                              value={
+                                formData.metadata.wip.laneLimits[lane.id]?.toString() ?? ""
+                              }
+                              onChange={(event) => updateLaneLimit(lane.id, event.target.value)}
+                              placeholder="—"
+                            />
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                  <div>
+                    <Label htmlFor="wip-policy">Guard rail mode</Label>
+                    <Select
+                      value={formData.metadata.wip.policy}
+                      onValueChange={(value) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          metadata: {
+                            ...prev.metadata,
+                            wip: {
+                              ...prev.metadata.wip,
+                              policy: value as typeof prev.metadata.wip.policy,
+                            },
+                          },
+                        }))
+                      }
+                    >
+                      <SelectTrigger id="wip-policy">
+                        <SelectValue placeholder="Select policy" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="allow_override">Allow override with approval</SelectItem>
+                        <SelectItem value="strict">Strict (reject when exceeded)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
                 <div>
                   <Label htmlFor="column-type">Column type</Label>
@@ -596,6 +712,61 @@ export function ColumnManager({ projectId, columns, onUpdate }: ColumnManagerPro
                     Advanced column types unlock richer automation, visualization,
                     and rollups without altering the underlying board schema.
                   </p>
+                </div>
+                <div className="space-y-3 rounded-lg border bg-muted/20 p-4">
+                  <h3 className="text-sm font-semibold">Blocker policies</h3>
+                  <div className="flex items-start gap-3">
+                    <Checkbox
+                      id="enforce-blockers"
+                      checked={formData.metadata.blockerPolicies.enforceDependencyClearance}
+                      onCheckedChange={(checked) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          metadata: {
+                            ...prev.metadata,
+                            blockerPolicies: {
+                              ...prev.metadata.blockerPolicies,
+                              enforceDependencyClearance: checked === true,
+                            },
+                          },
+                        }))
+                      }
+                    />
+                    <div>
+                      <Label htmlFor="enforce-blockers" className="text-sm font-medium">
+                        Enforce dependency clearance before progress
+                      </Label>
+                      <p className="text-xs text-muted-foreground">
+                        Prevent status transitions while upstream dependencies remain blocked.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <Checkbox
+                      id="require-override-reason"
+                      checked={formData.metadata.blockerPolicies.requireReasonForOverride}
+                      onCheckedChange={(checked) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          metadata: {
+                            ...prev.metadata,
+                            blockerPolicies: {
+                              ...prev.metadata.blockerPolicies,
+                              requireReasonForOverride: checked === true,
+                            },
+                          },
+                        }))
+                      }
+                    />
+                    <div>
+                      <Label htmlFor="require-override-reason" className="text-sm font-medium">
+                        Require override reason
+                      </Label>
+                      <p className="text-xs text-muted-foreground">
+                        Prompt for justification whenever WIP or dependency policies are bypassed.
+                      </p>
+                    </div>
+                  </div>
                 </div>
                 {configurator && (
                   <div className="space-y-4 rounded-lg border bg-muted/30 p-4">

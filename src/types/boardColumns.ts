@@ -3,32 +3,69 @@ import type { Database } from "@/integrations/supabase/types";
 export type KanbanColumnType =
   Database["public"]["Enums"]["kanban_column_type"];
 
-export interface DependencyColumnMetadata {
+export type ColumnWipPolicyMode = "strict" | "allow_override";
+
+export interface ColumnWipConfig {
+  columnLimit: number | null;
+  laneLimits: Record<string, number>;
+  policy: ColumnWipPolicyMode;
+}
+
+export interface ColumnChecklistItem {
+  id: string;
+  label: string;
+  field:
+    | "description"
+    | "assignees"
+    | "blocked"
+    | "rollupCompleted"
+    | "attachmentsOrLinks";
+  invert?: boolean;
+  helpText?: string;
+}
+
+export interface ColumnChecklistConfig {
+  ready: ColumnChecklistItem[];
+  done: ColumnChecklistItem[];
+}
+
+export interface ColumnBlockerPolicy {
+  enforceDependencyClearance: boolean;
+  requireReasonForOverride: boolean;
+}
+
+export interface ColumnBaseMetadata {
+  wip: ColumnWipConfig;
+  checklists: ColumnChecklistConfig;
+  blockerPolicies: ColumnBlockerPolicy;
+}
+
+export interface DependencyColumnMetadata extends ColumnBaseMetadata {
   dependencyField: string;
   showStatus: boolean;
   showBlockingBadge: boolean;
 }
 
-export interface FormulaColumnMetadata {
+export interface FormulaColumnMetadata extends ColumnBaseMetadata {
   expression: string;
   precision: number;
   format: "number" | "percent" | "currency";
 }
 
-export interface RollupColumnMetadata {
+export interface RollupColumnMetadata extends ColumnBaseMetadata {
   sourceCollection: string;
   targetField: string;
   aggregation: "sum" | "avg" | "min" | "max" | "count";
   precision: number;
 }
 
-export interface MirrorColumnMetadata {
+export interface MirrorColumnMetadata extends ColumnBaseMetadata {
   sourceBoardId: string;
   sourceColumnId: string;
   displayFields: string[];
 }
 
-export interface ConnectColumnMetadata {
+export interface ConnectColumnMetadata extends ColumnBaseMetadata {
   targetBoardId: string;
   relationshipName: string;
   allowMultiple: boolean;
@@ -41,30 +78,93 @@ export type ColumnMetadataByType = {
   rollup: RollupColumnMetadata;
   mirror: MirrorColumnMetadata;
   connect: ConnectColumnMetadata;
-  status: Record<string, never>;
-  assignee: Record<string, never>;
+  status: ColumnBaseMetadata;
+  assignee: ColumnBaseMetadata;
 };
 
 export type ColumnMetadataForType<T extends KanbanColumnType> =
   T extends keyof ColumnMetadataByType
     ? ColumnMetadataByType[T]
-    : Record<string, never>;
+    : ColumnBaseMetadata;
 
 export type ColumnMetadataValue = ColumnMetadataByType[keyof ColumnMetadataByType];
 
+const DEFAULT_CHECKLIST_READY: ColumnChecklistItem[] = [
+  {
+    id: "ready-description",
+    label: "Story details captured",
+    field: "description",
+    helpText: "Provide enough context for the team to act on the work item.",
+  },
+  {
+    id: "ready-assignee",
+    label: "Owner assigned",
+    field: "assignees",
+    helpText: "Assign a directly responsible individual or team.",
+  },
+  {
+    id: "ready-unblocked",
+    label: "Dependencies cleared",
+    field: "blocked",
+    invert: true,
+    helpText: "Resolve upstream blockers or mark them with a reason.",
+  },
+];
+
+const DEFAULT_CHECKLIST_DONE: ColumnChecklistItem[] = [
+  {
+    id: "done-subitems",
+    label: "Acceptance criteria satisfied",
+    field: "rollupCompleted",
+    helpText: "All tracked subitems or acceptance criteria are complete.",
+  },
+  {
+    id: "done-unblocked",
+    label: "No blockers remain",
+    field: "blocked",
+    invert: true,
+    helpText: "Outstanding dependency holds have been cleared.",
+  },
+  {
+    id: "done-evidence",
+    label: "Evidence attached",
+    field: "attachmentsOrLinks",
+    helpText: "Attach supporting artifacts, links, or documentation.",
+  },
+];
+
+export const DEFAULT_COLUMN_METADATA_BASE: ColumnBaseMetadata = {
+  wip: {
+    columnLimit: null,
+    laneLimits: {},
+    policy: "allow_override",
+  },
+  checklists: {
+    ready: DEFAULT_CHECKLIST_READY,
+    done: DEFAULT_CHECKLIST_DONE,
+  },
+  blockerPolicies: {
+    enforceDependencyClearance: true,
+    requireReasonForOverride: false,
+  },
+};
+
 export const DEFAULT_DEPENDENCY_METADATA: DependencyColumnMetadata = {
+  ...DEFAULT_COLUMN_METADATA_BASE,
   dependencyField: "blocked_by",
   showStatus: true,
   showBlockingBadge: true,
 };
 
 export const DEFAULT_FORMULA_METADATA: FormulaColumnMetadata = {
+  ...DEFAULT_COLUMN_METADATA_BASE,
   expression: "({{completed}} / {{total}}) * 100",
   precision: 2,
   format: "percent",
 };
 
 export const DEFAULT_ROLLUP_METADATA: RollupColumnMetadata = {
+  ...DEFAULT_COLUMN_METADATA_BASE,
   sourceCollection: "subtasks",
   targetField: "completed",
   aggregation: "sum",
@@ -72,12 +172,14 @@ export const DEFAULT_ROLLUP_METADATA: RollupColumnMetadata = {
 };
 
 export const DEFAULT_MIRROR_METADATA: MirrorColumnMetadata = {
+  ...DEFAULT_COLUMN_METADATA_BASE,
   sourceBoardId: "",
   sourceColumnId: "",
   displayFields: ["status", "assignee"],
 };
 
 export const DEFAULT_CONNECT_METADATA: ConnectColumnMetadata = {
+  ...DEFAULT_COLUMN_METADATA_BASE,
   targetBoardId: "",
   relationshipName: "Linked work",
   allowMultiple: true,
@@ -97,7 +199,7 @@ export function getDefaultMetadata(type: KanbanColumnType): ColumnMetadataValue 
     case "connect":
       return DEFAULT_CONNECT_METADATA;
     default:
-      return {};
+      return { ...DEFAULT_COLUMN_METADATA_BASE };
   }
 }
 
@@ -108,4 +210,56 @@ export function isAdvancedColumnType(
   "status" | "assignee"
 > {
   return type !== "status" && type !== "assignee";
+}
+
+function mergeColumnMetadata<T extends KanbanColumnType>(
+  type: T,
+  metadata: unknown
+): ColumnMetadataForType<T> {
+  const base = getDefaultMetadata(type);
+
+  if (!metadata || typeof metadata !== "object") {
+    return { ...base } as ColumnMetadataForType<T>;
+  }
+
+  const incoming = metadata as Record<string, unknown>;
+  const merged = {
+    ...base,
+    ...incoming,
+    wip: {
+      ...base.wip,
+      ...(incoming.wip as Record<string, unknown> | undefined),
+      laneLimits: {
+        ...base.wip.laneLimits,
+        ...(((incoming.wip as Record<string, unknown> | undefined)?.laneLimits ?? {}) as Record<string, number>),
+      },
+    },
+    checklists: {
+      ready: Array.isArray((incoming.checklists as any)?.ready)
+        ? ((incoming.checklists as any).ready as ColumnChecklistItem[])
+        : base.checklists.ready,
+      done: Array.isArray((incoming.checklists as any)?.done)
+        ? ((incoming.checklists as any).done as ColumnChecklistItem[])
+        : base.checklists.done,
+    },
+    blockerPolicies: {
+      ...base.blockerPolicies,
+      ...(incoming.blockerPolicies as Record<string, unknown> | undefined),
+    },
+  } as ColumnMetadataForType<T>;
+
+  return merged;
+}
+
+export function normalizeColumnMetadata<T extends KanbanColumnType>(
+  type: T,
+  metadata: unknown
+): ColumnMetadataForType<T> {
+  return mergeColumnMetadata(type, metadata);
+}
+
+export function serializeColumnMetadata(
+  metadata: ColumnMetadataValue
+): Record<string, unknown> {
+  return metadata as Record<string, unknown>;
 }

@@ -132,6 +132,7 @@ export function BoardSettings({ projectId, onUpdate }: BoardSettingsProps) {
             <ColumnManager
               projectId={projectId}
               columns={columns}
+              swimlanes={swimlanes}
               onUpdate={handleUpdate}
             />
           </TabsContent>
