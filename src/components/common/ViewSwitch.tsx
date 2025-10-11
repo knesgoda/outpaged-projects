@@ -10,7 +10,9 @@ export type CalendarView =
   | "year"
   | "timeline"
   | "agenda"
-  | "gantt";
+  | "gantt"
+  | "people"
+  | "resources";
 
 interface ViewSwitchProps {
   value: CalendarView;
@@ -28,6 +30,8 @@ const OPTIONS: Array<{ value: CalendarView; label: string }> = [
   { value: "timeline", label: "Timeline" },
   { value: "agenda", label: "Agenda" },
   { value: "gantt", label: "Gantt" },
+  { value: "people", label: "People" },
+  { value: "resources", label: "Resources" },
 ];
 
 export function ViewSwitch({ value, onChange, className }: ViewSwitchProps) {

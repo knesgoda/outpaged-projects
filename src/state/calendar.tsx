@@ -8,7 +8,15 @@ import {
   type ReactNode,
 } from "react";
 import { fetchCalendarLayers, persistCalendarPreferences } from "@/services/calendarLayers";
-import type { CalendarDensity, CalendarLayer, CalendarSavedView } from "@/types/calendar";
+import type {
+  CalendarDensity,
+  CalendarFilterGroup,
+  CalendarNotification,
+  CalendarSavedFilter,
+  CalendarLayer,
+  CalendarSavedView,
+  CalendarSearchToken,
+} from "@/types/calendar";
 
 export interface CalendarStateContextValue {
   calendars: CalendarLayer[];
@@ -28,6 +36,21 @@ export interface CalendarStateContextValue {
   deleteSavedView: (viewId: string) => void;
   applySavedView: (viewId: string | null) => void;
   refreshCalendars: () => Promise<void>;
+  filters: CalendarFilterGroup[];
+  setFilters: (groups: CalendarFilterGroup[]) => void;
+  savedFilters: CalendarSavedFilter[];
+  activeFilterId: string | null;
+  createSavedFilter: (input: { name: string; description?: string }) => void;
+  updateSavedFilter: (filterId: string, updates: Partial<Omit<CalendarSavedFilter, "id" | "groups">>) => void;
+  deleteSavedFilter: (filterId: string) => void;
+  applySavedFilter: (filterId: string | null) => void;
+  updateFilterGroups: (groups: CalendarFilterGroup[]) => void;
+  searchQuery: string;
+  setSearchQuery: (value: string) => void;
+  searchTokens: CalendarSearchToken[];
+  setSearchTokens: (tokens: CalendarSearchToken[]) => void;
+  notifications: CalendarNotification[];
+  setNotifications: (updater: (current: CalendarNotification[]) => CalendarNotification[]) => void;
 }
 
 const CalendarStateContext = createContext<CalendarStateContextValue | undefined>(undefined);
@@ -49,6 +72,41 @@ const INITIAL_SAVED_VIEWS: CalendarSavedView[] = [
   },
 ];
 
+const INITIAL_FILTER_GROUPS: CalendarFilterGroup[] = [];
+
+const INITIAL_SAVED_FILTERS: CalendarSavedFilter[] = [
+  {
+    id: "saved-filter-critical",
+    name: "Critical milestones",
+    description: "Milestones and releases marked as critical priority",
+    groups: [
+      {
+        id: "group-critical",
+        logic: "AND",
+        conditions: [
+          { id: "cond-type", field: "type", operator: "equals", value: "milestone" },
+          { id: "cond-priority", field: "priority", operator: "equals", value: "critical" },
+        ],
+      },
+    ],
+  },
+  {
+    id: "saved-filter-followups",
+    name: "Meetings with attachments",
+    description: "Sessions that include collateral to review",
+    groups: [
+      {
+        id: "group-attachments",
+        logic: "AND",
+        conditions: [
+          { id: "cond-type-meeting", field: "type", operator: "equals", value: "meeting" },
+          { id: "cond-has-attachments", field: "hasAttachments", operator: "exists" },
+        ],
+      },
+    ],
+  },
+];
+
 export function CalendarProvider({ children }: { children: ReactNode }) {
   const [calendars, setCalendars] = useState<CalendarLayer[]>([]);
   const [loading, setLoading] = useState(true);
@@ -56,6 +114,12 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
   const [density, setDensity] = useState<CalendarDensity>(DEFAULT_DENSITY);
   const [savedViews, setSavedViews] = useState<CalendarSavedView[]>(INITIAL_SAVED_VIEWS);
   const [activeSavedViewId, setActiveSavedViewId] = useState<string | null>(null);
+  const [filters, setFilters] = useState<CalendarFilterGroup[]>(INITIAL_FILTER_GROUPS);
+  const [savedFilters, setSavedFilters] = useState<CalendarSavedFilter[]>(INITIAL_SAVED_FILTERS);
+  const [activeFilterId, setActiveFilterId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchTokens, setSearchTokens] = useState<CalendarSearchToken[]>([]);
+  const [notifications, setNotificationsState] = useState<CalendarNotification[]>([]);
 
   const refreshCalendars = useCallback(async () => {
     setLoading(true);
@@ -175,6 +239,59 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
     [savedViews]
   );
 
+  const updateFilterGroups = useCallback((groups: CalendarFilterGroup[]) => {
+    setFilters(groups);
+    setActiveFilterId(null);
+  }, []);
+
+  const createSavedFilter = useCallback(
+    ({ name, description }: { name: string; description?: string }) => {
+      const id =
+        typeof crypto !== "undefined" && "randomUUID" in crypto
+          ? crypto.randomUUID()
+          : `filter-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      setSavedFilters((current) => [...current, { id, name, description, groups: filters }]);
+      setActiveFilterId(id);
+    },
+    [filters]
+  );
+
+  const updateSavedFilter = useCallback(
+    (filterId: string, updates: Partial<Omit<CalendarSavedFilter, "id" | "groups">>) => {
+      setSavedFilters((current) =>
+        current.map((filter) => (filter.id === filterId ? { ...filter, ...updates } : filter))
+      );
+    },
+    []
+  );
+
+  const deleteSavedFilter = useCallback((filterId: string) => {
+    setSavedFilters((current) => current.filter((filter) => filter.id !== filterId));
+    setActiveFilterId((current) => (current === filterId ? null : current));
+  }, []);
+
+  const applySavedFilter = useCallback(
+    (filterId: string | null) => {
+      if (!filterId) {
+        setActiveFilterId(null);
+        setFilters(INITIAL_FILTER_GROUPS);
+        return;
+      }
+      const saved = savedFilters.find((filter) => filter.id === filterId);
+      if (!saved) return;
+      setFilters(saved.groups);
+      setActiveFilterId(filterId);
+    },
+    [savedFilters]
+  );
+
+  const setNotifications = useCallback(
+    (updater: (current: CalendarNotification[]) => CalendarNotification[]) => {
+      setNotificationsState((current) => updater(current));
+    },
+    []
+  );
+
   const visibleCalendars = useMemo(
     () => calendars.filter((calendar) => calendar.visible && calendar.subscribed),
     [calendars]
@@ -199,6 +316,21 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
       deleteSavedView,
       applySavedView,
       refreshCalendars,
+      filters,
+      setFilters,
+      savedFilters,
+      activeFilterId,
+      createSavedFilter,
+      updateSavedFilter,
+      deleteSavedFilter,
+      applySavedFilter,
+      updateFilterGroups,
+      searchQuery,
+      setSearchQuery,
+      searchTokens,
+      setSearchTokens,
+      notifications,
+      setNotifications,
     }),
     [
       calendars,
@@ -217,6 +349,18 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
       deleteSavedView,
       applySavedView,
       refreshCalendars,
+      filters,
+      savedFilters,
+      activeFilterId,
+      createSavedFilter,
+      updateSavedFilter,
+      deleteSavedFilter,
+      applySavedFilter,
+      updateFilterGroups,
+      searchQuery,
+      searchTokens,
+      notifications,
+      setNotifications,
     ]
   );
 

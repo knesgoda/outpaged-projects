@@ -34,6 +34,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Separator } from "@/components/ui/separator";
 import {
   AlertCircle,
   CalendarDays,
@@ -49,6 +50,7 @@ import {
   Search,
   Share2,
   Users,
+  Trash2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DateRangeControls, type CalendarUnit, type DateRange } from "@/components/common/DateRangeControls";
@@ -58,8 +60,27 @@ import { EventCard } from "@/components/calendar/EventCard";
 import { EventContextMenu } from "@/components/calendar/EventContextMenu";
 import { EventEditorDialog } from "@/components/calendar/EventEditorDialog";
 import { VirtualizedList } from "@/components/calendar/VirtualizedList";
+import { PeopleScheduleView } from "@/components/calendar/PeopleScheduleView";
+import { ResourceScheduleView } from "@/components/calendar/ResourceScheduleView";
+import { AvailabilityHeatmap } from "@/components/calendar/AvailabilityHeatmap";
+import { FilterBuilder } from "@/components/calendar/FilterBuilder";
+import { NotificationCenter } from "@/components/calendar/NotificationCenter";
 import { CalendarProvider, useCalendarState } from "@/state/calendar";
-import type { CalendarColorEncoding, CalendarEvent, CalendarLayer } from "@/types/calendar";
+import type {
+  CalendarColorEncoding,
+  CalendarEvent,
+  CalendarFilterCondition,
+  CalendarFilterGroup,
+  CalendarLayer,
+  CalendarSavedFilter,
+  CalendarSearchToken,
+} from "@/types/calendar";
+import {
+  MOCK_AVAILABILITY,
+  MOCK_CALENDAR_PEOPLE,
+  MOCK_CALENDAR_RESOURCES,
+  MOCK_NOTIFICATIONS,
+} from "@/data/calendarAvailability";
 
 const WEEK_OPTIONS = { weekStartsOn: 1 as const };
 
@@ -92,6 +113,9 @@ function getRangeForView(view: CalendarView, pivot: Date): DateRange {
     case "timeline":
     case "gantt":
       return { from: startOfMonth(pivot), to: endOfMonth(pivot) };
+    case "people":
+    case "resources":
+      return { from: startOfWeek(pivot, WEEK_OPTIONS), to: endOfWeek(pivot, WEEK_OPTIONS) };
     case "agenda":
       return { from: startOfDay(pivot), to: endOfWeek(pivot, WEEK_OPTIONS) };
     case "month":
@@ -116,6 +140,10 @@ function formatHeaderLabel(view: CalendarView, range: DateRange) {
       return `${format(range.from, "MMM d, yyyy")} – ${format(range.to, "MMM d, yyyy")}`;
     case "agenda":
       return `Upcoming • ${format(range.from, "MMM d")} – ${format(range.to, "MMM d")}`;
+    case "people":
+      return `People • ${format(range.from, "MMM d")} – ${format(range.to, "MMM d")}`;
+    case "resources":
+      return `Resources • ${format(range.from, "MMM d")} – ${format(range.to, "MMM d")}`;
     case "month":
     default:
       return format(range.from, "MMMM yyyy");
@@ -157,6 +185,190 @@ function detectConflicts(events: CalendarEvent[]): Set<string> {
     }
   }
   return conflicts;
+}
+
+function parseSearchTokens(query: string): CalendarSearchToken[] {
+  const parts = query
+    .split(/\s+/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+  const tokens = parts.map((part, index) => {
+    if (part.startsWith("@") && part.length > 1) {
+      const value = part.slice(1).toLowerCase();
+      return { id: `token-${index}`, type: "user" as const, value, display: part } satisfies CalendarSearchToken;
+    }
+    if (part.startsWith("#") && part.length > 1) {
+      const value = part.slice(1).toLowerCase();
+      return { id: `token-${index}`, type: "project" as const, value, display: part } satisfies CalendarSearchToken;
+    }
+    if (part.startsWith("tag:") && part.length > 4) {
+      const value = part.slice(4).toLowerCase();
+      return { id: `token-${index}`, type: "tag" as const, value, display: part } satisfies CalendarSearchToken;
+    }
+    return { id: `token-${index}`, type: "keyword" as const, value: part.toLowerCase(), display: part } satisfies CalendarSearchToken;
+  });
+  const unique = new Map<string, CalendarSearchToken>();
+  tokens.forEach((token) => {
+    unique.set(`${token.type}:${token.value}`, token);
+  });
+  return Array.from(unique.values());
+}
+
+function matchesCondition(event: CalendarEvent, condition: CalendarFilterCondition): boolean {
+  const { field, operator, value } = condition;
+  const normalizedValue = typeof value === "string" ? value.toLowerCase() : value;
+  const now = new Date();
+  const eventStart = new Date(event.start);
+
+  const ensureArray = (input?: string[] | null) => input ?? [];
+  const includesValue = (list: string[], target?: string) => {
+    if (!target) return false;
+    return list.some((item) => item.toLowerCase() === target.toLowerCase());
+  };
+
+  const getLinkedTypes = () => ensureArray(event.linkedItems?.map((item) => item.type));
+  const getLabels = () => ensureArray(event.labels);
+
+  const evaluateString = (actual?: string | null) => {
+    const compared = actual?.toLowerCase() ?? "";
+    const expected = typeof normalizedValue === "string" ? normalizedValue : "";
+    switch (operator) {
+      case "equals":
+        return compared === expected;
+      case "not-equals":
+        return compared !== expected;
+      case "includes":
+        return compared.includes(expected);
+      case "excludes":
+        return !compared.includes(expected);
+      case "exists":
+        return compared.length > 0;
+      case "not-exists":
+        return compared.length === 0;
+      default:
+        return true;
+    }
+  };
+
+  switch (field) {
+    case "calendar":
+      return evaluateString(event.calendarId);
+    case "owner":
+      if (operator === "exists") return Boolean(event.ownerId);
+      if (operator === "not-exists") return !event.ownerId;
+      return (
+        evaluateString(event.ownerId) ||
+        (event.organizer ? evaluateString(event.organizer) : false) ||
+        ensureArray(event.attendees?.map((attendee) => attendee.name ?? attendee.email ?? "")).some((name) =>
+          name.toLowerCase().includes(typeof normalizedValue === "string" ? normalizedValue : "")
+        )
+      );
+    case "team":
+      return evaluateString(event.teamId);
+    case "project":
+      return evaluateString(event.projectId);
+    case "status":
+      return evaluateString(event.status);
+    case "type":
+      return evaluateString(event.type);
+    case "priority":
+      return evaluateString(event.priority);
+    case "label": {
+      const labels = getLabels();
+      if (operator === "exists") return labels.length > 0;
+      if (operator === "not-exists") return labels.length === 0;
+      const expected = typeof normalizedValue === "string" ? normalizedValue : "";
+      return operator === "excludes" ? !includesValue(labels, expected) : includesValue(labels, expected);
+    }
+    case "linkedItemType": {
+      const types = getLinkedTypes();
+      if (operator === "exists") return types.length > 0;
+      if (operator === "not-exists") return types.length === 0;
+      const expected = typeof normalizedValue === "string" ? normalizedValue : "";
+      return operator === "excludes" ? !includesValue(types, expected) : includesValue(types, expected);
+    }
+    case "hasAttachments": {
+      const has = (event.attachments?.length ?? 0) > 0 || event.hasAttachments;
+      return operator === "not-exists" ? !has : has;
+    }
+    case "hasReminders": {
+      const has = (event.reminders?.length ?? 0) > 0 || event.hasReminders;
+      return operator === "not-exists" ? !has : has;
+    }
+    case "timeRange": {
+      if (operator === "in-range" && typeof normalizedValue === "string") {
+        if (normalizedValue === "upcoming") {
+          return eventStart >= now;
+        }
+        if (normalizedValue === "past") {
+          return eventStart < now;
+        }
+        if (normalizedValue === "next7d") {
+          const nextWeek = addDays(now, 7);
+          return eventStart >= now && eventStart <= nextWeek;
+        }
+      }
+      if (operator === "in-range" && value && typeof value === "object" && "from" in value && "to" in value) {
+        const from = new Date(value.from);
+        const to = new Date(value.to);
+        return eventStart >= from && eventStart <= to;
+      }
+      return true;
+    }
+    default:
+      return true;
+  }
+}
+
+function matchesFilterGroups(event: CalendarEvent, groups: CalendarFilterGroup[]): boolean {
+  if (!groups || groups.length === 0) return true;
+  return groups.every((group) => {
+    if (group.conditions.length === 0) {
+      return true;
+    }
+    if (group.logic === "OR") {
+      return group.conditions.some((condition) => matchesCondition(event, condition));
+    }
+    return group.conditions.every((condition) => matchesCondition(event, condition));
+  });
+}
+
+function matchesSearchTokens(event: CalendarEvent, tokens: CalendarSearchToken[]): boolean {
+  if (!tokens || tokens.length === 0) return true;
+  return tokens.every((token) => {
+    switch (token.type) {
+      case "keyword": {
+        const haystack = `${event.title ?? ""} ${event.description ?? ""}`.toLowerCase();
+        return haystack.includes(token.value);
+      }
+      case "user": {
+        const owner = event.ownerName?.toLowerCase() ?? "";
+        const attendees = (event.attendees ?? []).map((attendee) =>
+          (attendee.name ?? attendee.email ?? "").toLowerCase()
+        );
+        return owner.includes(token.value) || attendees.some((entry) => entry.includes(token.value));
+      }
+      case "project":
+        return (
+          (event.projectId ?? "").toLowerCase().includes(token.value) ||
+          (event.linkedItems ?? []).some((link) => link.id.toLowerCase().includes(token.value))
+        );
+      case "tag": {
+        const labels = (event.labels ?? []).map((label) => label.toLowerCase());
+        return labels.includes(token.value);
+      }
+      default:
+        return true;
+    }
+  });
+}
+
+function applyFiltersToEvents(
+  events: CalendarEvent[],
+  groups: CalendarFilterGroup[],
+  tokens: CalendarSearchToken[]
+) {
+  return events.filter((event) => matchesFilterGroups(event, groups) && matchesSearchTokens(event, tokens));
 }
 
 interface QuickAddResult {
@@ -233,6 +445,7 @@ function createEventFromQuickAdd(result: QuickAddResult, defaultCalendarId: stri
     reminders: [{ id: `rem-${Date.now()}`, offsetMinutes: 10, method: "popup" }],
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
+    hasReminders: true,
   };
 }
 
@@ -285,6 +498,10 @@ function CalendarLeftRail({
   onUnsubscribe,
   colorEncoding,
   onColorEncodingChange,
+  savedFilters,
+  activeFilterId,
+  onApplyFilter,
+  onDeleteFilter,
 }: {
   calendars: CalendarLayer[];
   loading: boolean;
@@ -296,6 +513,10 @@ function CalendarLeftRail({
   onUnsubscribe: (calendarId: string) => void;
   colorEncoding: CalendarColorEncoding;
   onColorEncodingChange: (mode: CalendarColorEncoding) => void;
+  savedFilters: CalendarSavedFilter[];
+  activeFilterId: string | null;
+  onApplyFilter: (filterId: string | null) => void;
+  onDeleteFilter: (filterId: string) => void;
 }) {
   const [filter, setFilter] = useState("");
   const grouped = useMemo(() => {
@@ -400,6 +621,49 @@ function CalendarLeftRail({
           ))
         )}
       </ScrollArea>
+      <Separator className="my-4" />
+      <div className="space-y-3 text-sm">
+        <div className="flex items-center justify-between">
+          <h3 className="text-xs font-semibold uppercase text-muted-foreground">Saved filters</h3>
+          <Button size="sm" variant="ghost" onClick={() => onApplyFilter(null)}>
+            Clear
+          </Button>
+        </div>
+        <div className="space-y-2">
+          {savedFilters.length === 0 ? (
+            <p className="text-xs text-muted-foreground">No saved filters yet.</p>
+          ) : (
+            savedFilters.map((saved) => (
+              <div
+                key={saved.id}
+                className={cn(
+                  "flex items-center justify-between rounded-md border px-3 py-2",
+                  saved.id === activeFilterId ? "border-primary bg-primary/5" : "bg-background"
+                )}
+              >
+                <button
+                  type="button"
+                  className="flex flex-1 flex-col text-left"
+                  onClick={() => onApplyFilter(saved.id)}
+                >
+                  <span className="text-sm font-medium">{saved.name}</span>
+                  {saved.description && (
+                    <span className="text-xs text-muted-foreground">{saved.description}</span>
+                  )}
+                </button>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => onDeleteFilter(saved.id)}
+                  aria-label={`Delete saved filter ${saved.name}`}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
     </aside>
   );
 }
@@ -785,6 +1049,19 @@ function CalendarPageContent() {
     subscribeToCalendar,
     unsubscribeFromCalendar,
     density,
+    filters,
+    savedFilters,
+    activeFilterId,
+    createSavedFilter,
+    deleteSavedFilter,
+    applySavedFilter,
+    updateFilterGroups,
+    searchQuery,
+    setSearchQuery,
+    searchTokens,
+    setSearchTokens,
+    notifications,
+    setNotifications,
   } = useCalendarState();
 
   const visibleCalendars = useMemo(
@@ -806,6 +1083,8 @@ function CalendarPageContent() {
   const [activeEventId, setActiveEventId] = useState<string | null>(null);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [autoOffsetConflicts, setAutoOffsetConflicts] = useState(true);
+  const [lockedResourceEvents, setLockedResourceEvents] = useState<string[]>([]);
+  const [filterPopoverOpen, setFilterPopoverOpen] = useState(false);
 
   const [gotoOpen, setGotoOpen] = useState(false);
 
@@ -835,9 +1114,28 @@ function CalendarPageContent() {
     setEvents(remoteEvents);
   }, [remoteEvents]);
 
-  const conflicts = useMemo(() => detectConflicts(events), [events]);
+  useEffect(() => {
+    setSearchTokens(parseSearchTokens(searchQuery));
+  }, [searchQuery, setSearchTokens]);
+
+  useEffect(() => {
+    if (notifications.length === 0) {
+      setNotifications((current) => (current.length === 0 ? [...MOCK_NOTIFICATIONS] : current));
+    }
+  }, [notifications.length, setNotifications]);
+
+  const filteredEvents = useMemo(
+    () => applyFiltersToEvents(events, filters, searchTokens),
+    [events, filters, searchTokens]
+  );
+
+  const conflicts = useMemo(() => detectConflicts(filteredEvents), [filteredEvents]);
 
   const selectedEvents = useMemo(() => new Set(selectedEventIds), [selectedEventIds]);
+  const lockedResourceEventSet = useMemo(
+    () => new Set(lockedResourceEvents),
+    [lockedResourceEvents]
+  );
 
   const activeEvent = useMemo(() => events.find((event) => event.id === activeEventId) ?? null, [events, activeEventId]);
 
@@ -913,9 +1211,43 @@ function CalendarPageContent() {
     }
   }, [events]);
 
+  const handleJoinFromNotification = useCallback(
+    (eventId: string) => {
+      handleJoinMeeting(eventId);
+      setActiveEventId(eventId);
+    },
+    [handleJoinMeeting]
+  );
+
   const handleEventUpdate = useCallback((updated: CalendarEvent) => {
-    setEvents((current) => current.map((event) => (event.id === updated.id ? updated : event)));
+    const normalized: CalendarEvent = {
+      ...updated,
+      hasReminders: updated.hasReminders ?? (updated.reminders?.length ?? 0) > 0,
+      hasAttachments: updated.hasAttachments ?? (updated.attachments?.length ?? 0) > 0,
+    };
+    setEvents((current) => current.map((event) => (event.id === normalized.id ? normalized : event)));
   }, []);
+
+  const handleSnoozeNotification = useCallback(
+    (notificationId: string, minutes: number) => {
+      const nextStart = new Date(Date.now() + minutes * 60 * 1000).toISOString();
+      setNotifications((current) =>
+        current.map((notification) =>
+          notification.id === notificationId
+            ? { ...notification, start: nextStart, status: "snoozed" }
+            : notification
+        )
+      );
+    },
+    [setNotifications]
+  );
+
+  const handleDismissNotification = useCallback(
+    (notificationId: string) => {
+      setNotifications((current) => current.filter((notification) => notification.id !== notificationId));
+    },
+    [setNotifications]
+  );
 
   const handleEventDelete = useCallback((eventId: string) => {
     setEvents((current) => current.filter((event) => event.id !== eventId));
@@ -935,6 +1267,41 @@ function CalendarPageContent() {
     setActiveEventId(newEvent.id);
   }, [quickAddValue, range.from, visibleCalendars]);
 
+  const handleReassignOwner = useCallback(
+    (eventId: string, ownerId: string) => {
+      const person = MOCK_CALENDAR_PEOPLE.find((candidate) => candidate.id === ownerId);
+      if (!person) return;
+      const teamName = person.teamId
+        ? person.teamId
+            .replace("team-", "")
+            .split("-")
+            .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
+            .join(" ")
+        : undefined;
+      setEvents((current) =>
+        current.map((event) =>
+          event.id === eventId
+            ? {
+                ...event,
+                ownerId,
+                ownerName: person.name,
+                teamId: person.teamId ?? event.teamId,
+                teamName: teamName ?? event.teamName,
+                updatedAt: new Date().toISOString(),
+              }
+            : event
+        )
+      );
+    },
+    [setEvents]
+  );
+
+  const handleToggleResourceLock = useCallback((eventId: string) => {
+    setLockedResourceEvents((current) =>
+      current.includes(eventId) ? current.filter((id) => id !== eventId) : [...current, eventId]
+    );
+  }, []);
+
   const handleBulkStatusChange = (status: CalendarEvent["status"]) => {
     setEvents((current) =>
       current.map((event) => (selectedEvents.has(event.id) ? { ...event, status, updatedAt: new Date().toISOString() } : event))
@@ -948,11 +1315,30 @@ function CalendarPageContent() {
           ? {
               ...event,
               reminders: [{ id: `rem-${Date.now()}`, offsetMinutes, method: "popup" }],
+              hasReminders: true,
+              metadata: { ...(event.metadata ?? {}), remindersMirrored: true },
             }
           : event
       )
     );
   };
+
+  const handleDeleteFilter = useCallback(
+    (filterId: string) => {
+      if (window.confirm("Delete this saved filter?")) {
+        deleteSavedFilter(filterId);
+      }
+    },
+    [deleteSavedFilter]
+  );
+
+  const handleSaveCurrentFilter = useCallback(() => {
+    const name = window.prompt("Save filter as", "New filter");
+    if (!name) return;
+    const description = window.prompt("Description (optional)") ?? undefined;
+    createSavedFilter({ name, description });
+    setFilterPopoverOpen(false);
+  }, [createSavedFilter, setFilterPopoverOpen]);
 
   const handleZoomWheel = (event: React.WheelEvent<HTMLDivElement>) => {
     if (!event.ctrlKey && !event.metaKey) return;
@@ -1049,7 +1435,7 @@ function CalendarPageContent() {
     return upcoming ?? null;
   }, [events]);
 
-  const renderMainView = () => {
+  const renderMainView = (currentEvents: CalendarEvent[]) => {
     switch (view) {
       case "day":
       case "work-week":
@@ -1062,7 +1448,7 @@ function CalendarPageContent() {
                 <DayCell
                   key={day.toISOString()}
                   date={day}
-                  events={events.filter((event) => isSameDay(parseISO(event.start), day))}
+                  events={currentEvents.filter((event) => isSameDay(parseISO(event.start), day))}
                   onSelect={handleSelectEvent}
                   onOpenDetail={handleOpenDetail}
                   selectedEvents={selectedEvents}
@@ -1087,7 +1473,7 @@ function CalendarPageContent() {
         return (
           <MonthView
             range={range}
-            events={events}
+            events={currentEvents}
             onSelect={handleSelectEvent}
             onOpenDetail={handleOpenDetail}
             selectedEvents={selectedEvents}
@@ -1101,7 +1487,7 @@ function CalendarPageContent() {
       case "agenda":
         return (
           <AgendaView
-            events={events}
+            events={currentEvents}
             onSelect={handleSelectEvent}
             onOpenDetail={handleOpenDetail}
             selectedEvents={selectedEvents}
@@ -1112,13 +1498,38 @@ function CalendarPageContent() {
           />
         );
       case "timeline":
-        return <TimelineView events={events} />;
+        return <TimelineView events={currentEvents} />;
       case "gantt":
-        return <GanttView events={events} />;
+        return <GanttView events={currentEvents} />;
       case "year":
-        return <YearView events={events} />;
+        return <YearView events={currentEvents} />;
       case "quarter":
-        return <TimelineView events={events} />;
+        return <TimelineView events={currentEvents} />;
+      case "people":
+        return (
+          <div className="grid h-full grid-cols-[2fr_1fr] gap-4 p-4">
+            <PeopleScheduleView
+              people={MOCK_CALENDAR_PEOPLE}
+              events={currentEvents}
+              availability={MOCK_AVAILABILITY}
+              onOpenEvent={handleOpenDetail}
+              onReassignOwner={handleReassignOwner}
+              conflicts={conflicts}
+              range={range}
+            />
+            <AvailabilityHeatmap events={currentEvents} availability={MOCK_AVAILABILITY} range={range} />
+          </div>
+        );
+      case "resources":
+        return (
+          <ResourceScheduleView
+            resources={MOCK_CALENDAR_RESOURCES}
+            events={currentEvents}
+            onOpenEvent={handleOpenDetail}
+            onToggleLock={handleToggleResourceLock}
+            lockedEvents={lockedResourceEventSet}
+          />
+        );
       default:
         return null;
     }
@@ -1212,6 +1623,12 @@ function CalendarPageContent() {
                 <li>Updated {activeEvent.updatedAt ? format(parseISO(activeEvent.updatedAt), "MMM d, HH:mm") : "just now"}</li>
               </ul>
             </div>
+            <NotificationCenter
+              notifications={notifications}
+              onSnooze={handleSnoozeNotification}
+              onDismiss={handleDismissNotification}
+              onJoin={handleJoinFromNotification}
+            />
           </div>
         </ScrollArea>
         <div className="border-t p-4">
@@ -1237,6 +1654,10 @@ function CalendarPageContent() {
           onUnsubscribe={unsubscribeFromCalendar}
           colorEncoding={colorEncoding}
           onColorEncodingChange={setColorEncoding}
+          savedFilters={savedFilters}
+          activeFilterId={activeFilterId}
+          onApplyFilter={applySavedFilter}
+          onDeleteFilter={handleDeleteFilter}
         />
         <div className="flex min-w-0 flex-1 flex-col">
           <div className="space-y-4 border-b bg-background/95 px-6 py-4 shadow-sm">
@@ -1287,7 +1708,12 @@ function CalendarPageContent() {
             <div className="flex flex-wrap items-center gap-3">
               <div className="relative flex-1 min-w-[220px]">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input className="pl-9" placeholder="Search events" />
+                <Input
+                  className="pl-9"
+                  placeholder="Search events or use @mention, #project, tag:label"
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                />
               </div>
               <div className="flex items-center gap-2">
                 <Label className="text-xs text-muted-foreground">Snap</Label>
@@ -1304,6 +1730,30 @@ function CalendarPageContent() {
                   </SelectContent>
                 </Select>
               </div>
+              <Popover open={filterPopoverOpen} onOpenChange={setFilterPopoverOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="flex items-center gap-2">
+                    <Filter className="h-4 w-4" /> Filters
+                    {activeFilterId && <Badge variant="secondary">Saved</Badge>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[360px] space-y-4 p-4" align="end">
+                  <FilterBuilder groups={filters} onChange={updateFilterGroups} />
+                  <div className="flex items-center justify-between">
+                    <Button variant="ghost" size="sm" onClick={() => applySavedFilter(null)}>
+                      Reset
+                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button variant="outline" size="sm" onClick={handleSaveCurrentFilter}>
+                        Save filter
+                      </Button>
+                      <Button variant="default" size="sm" onClick={() => setFilterPopoverOpen(false)}>
+                        Close
+                      </Button>
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <Switch checked={focusMode} onCheckedChange={setFocusMode} id="focus-mode" />
                 <Label htmlFor="focus-mode">Focus mode</Label>
@@ -1321,6 +1771,18 @@ function CalendarPageContent() {
                 />
               )}
             </div>
+            {searchTokens.length > 0 && (
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                {searchTokens.map((token) => (
+                  <Badge key={token.id} variant="outline">
+                    {token.display}
+                  </Badge>
+                ))}
+                <Button variant="ghost" size="sm" onClick={() => setSearchQuery("")}>
+                  Clear search
+                </Button>
+              </div>
+            )}
             <div className="flex flex-wrap items-center gap-3">
               <Input
                 className="flex-1"
@@ -1356,7 +1818,7 @@ function CalendarPageContent() {
                 </div>
                 <div className="flex items-center gap-2">
                   <Users className="h-3 w-3" />
-                  {events.length} events
+                  {filteredEvents.length} events
                 </div>
                 <div className="flex items-center gap-2">
                   <Filter className="h-3 w-3" />
@@ -1378,7 +1840,7 @@ function CalendarPageContent() {
                     Loading events…
                   </div>
                 ) : (
-                  renderMainView()
+                  renderMainView(filteredEvents)
                 )}
               </div>
             </div>

@@ -7,6 +7,7 @@ import type {
   CalendarEventPriority,
   CalendarEventStatus,
   CalendarEventType,
+  CalendarEventResource,
 } from "@/types/calendar";
 
 type CalendarRange = {
@@ -20,6 +21,28 @@ type CalendarRange = {
 function toIsoDate(date: Date) {
   return date.toISOString().slice(0, 10);
 }
+
+const ROOMS: CalendarEventResource[] = [
+  {
+    id: "room-orion",
+    name: "Orion War Room",
+    type: "room",
+    capacity: 12,
+    location: "3F West",
+  },
+  {
+    id: "room-zenith",
+    name: "Zenith Boardroom",
+    type: "room",
+    capacity: 20,
+    location: "HQ Level 10",
+  },
+  {
+    id: "equip-studio",
+    name: "Recording Studio Kit",
+    type: "equipment",
+  },
+];
 
 const MOCK_EVENTS: CalendarEvent[] = [
   {
@@ -49,6 +72,13 @@ const MOCK_EVENTS: CalendarEvent[] = [
     description: "Review sprint goals and demo progress.",
     createdAt: "2024-07-01T12:00:00.000Z",
     updatedAt: "2024-07-09T12:00:00.000Z",
+    ownerId: "user-avery",
+    ownerName: "Avery",
+    teamId: "team-engineering",
+    teamName: "Engineering",
+    labels: ["meeting", "sprint"],
+    hasAttachments: true,
+    hasReminders: true,
   },
   {
     id: "event-2",
@@ -66,6 +96,12 @@ const MOCK_EVENTS: CalendarEvent[] = [
     description: "Freeze API surface to prepare for release hardening.",
     createdAt: "2024-07-01T10:00:00.000Z",
     updatedAt: "2024-07-03T18:00:00.000Z",
+    ownerId: "user-morgan",
+    ownerName: "Morgan",
+    teamId: "team-product",
+    teamName: "Product",
+    labels: ["milestone", "release"],
+    hasReminders: true,
   },
   {
     id: "event-3",
@@ -84,6 +120,14 @@ const MOCK_EVENTS: CalendarEvent[] = [
     reminders: [{ id: "rem-4", offsetMinutes: 15, method: "slack" }],
     description: "Monthly workspace update meeting.",
     createdAt: "2024-06-28T09:00:00.000Z",
+    ownerId: "user-avery",
+    ownerName: "Avery",
+    teamId: "team-executive",
+    teamName: "Executive",
+    labels: ["allhands"],
+    resources: [ROOMS[1]],
+    resourceIds: [ROOMS[1].id],
+    hasReminders: true,
   },
   {
     id: "event-4",
@@ -97,6 +141,12 @@ const MOCK_EVENTS: CalendarEvent[] = [
     end: "2024-07-17T15:00:00.000Z",
     reminders: [{ id: "rem-5", offsetMinutes: 5, method: "popup" }],
     description: "Heads-down time for planning.",
+    ownerId: "user-avery",
+    ownerName: "Avery",
+    teamId: "team-engineering",
+    teamName: "Engineering",
+    labels: ["focus"],
+    hasReminders: true,
   },
   {
     id: "event-5",
@@ -117,6 +167,14 @@ const MOCK_EVENTS: CalendarEvent[] = [
     videoLink: "https://zoom.example.com/engineering",
     reminders: [{ id: "rem-6", offsetMinutes: 15, method: "email" }],
     description: "Weekly engineering touchpoint.",
+    ownerId: "user-jordan",
+    ownerName: "Jordan",
+    teamId: "team-engineering",
+    teamName: "Engineering",
+    labels: ["sync", "meeting"],
+    resources: [ROOMS[0]],
+    resourceIds: [ROOMS[0].id],
+    hasReminders: true,
   },
   {
     id: "event-6",
@@ -132,6 +190,14 @@ const MOCK_EVENTS: CalendarEvent[] = [
     reminders: [{ id: "rem-7", offsetMinutes: 60, method: "email" }],
     description: "Workshop with strategic partner.",
     visibility: "project",
+    ownerId: "user-taylor",
+    ownerName: "Taylor",
+    teamId: "team-research",
+    teamName: "Research",
+    labels: ["workshop", "external"],
+    resources: [ROOMS[2]],
+    resourceIds: [ROOMS[2].id],
+    hasReminders: true,
   },
   {
     id: "event-7",
@@ -146,6 +212,12 @@ const MOCK_EVENTS: CalendarEvent[] = [
     end: "2024-07-15T15:15:00.000Z",
     isRecurringInstance: true,
     description: "Quick alignment across the team.",
+    ownerId: "user-jordan",
+    ownerName: "Jordan",
+    teamId: "team-engineering",
+    teamName: "Engineering",
+    labels: ["daily"],
+    hasReminders: true,
   },
   {
     id: "event-8",
@@ -159,6 +231,34 @@ const MOCK_EVENTS: CalendarEvent[] = [
     end: "2024-07-23T23:59:59.000Z",
     allDay: true,
     description: "Weekend trip. Auto-decline invites.",
+    ownerId: "user-avery",
+    ownerName: "Avery",
+    teamId: "team-engineering",
+    teamName: "Engineering",
+    labels: ["ooo"],
+  },
+  {
+    id: "event-9",
+    calendarId: "calendar.team.engineering",
+    projectId: "team",
+    title: "Prototype test window",
+    status: "busy",
+    type: "task",
+    priority: "high",
+    start: "2024-07-18T09:00:00.000Z",
+    end: "2024-07-18T12:00:00.000Z",
+    linkedItems: [{ id: "task-112", type: "task", label: "QA scenario matrix" }],
+    attachments: [{ id: "attach-1", name: "Test-plan.pdf", url: "https://example.com/test-plan.pdf" }],
+    description: "Reserve usability lab for prototype validation.",
+    resources: [ROOMS[0], ROOMS[2]],
+    resourceIds: [ROOMS[0].id, ROOMS[2].id],
+    ownerId: "user-taylor",
+    ownerName: "Taylor",
+    teamId: "team-research",
+    teamName: "Research",
+    labels: ["prototype", "lab"],
+    hasAttachments: true,
+    hasReminders: true,
   },
 ];
 
@@ -209,6 +309,8 @@ export function useCalendarRange(range: CalendarRange) {
       return filtered.map((event) => ({
         ...event,
         color: event.color ?? inferColor(event, colorEncoding),
+        hasAttachments: event.hasAttachments ?? (event.attachments?.length ?? 0) > 0,
+        hasReminders: event.hasReminders ?? (event.reminders?.length ?? 0) > 0,
       }));
     },
   });
