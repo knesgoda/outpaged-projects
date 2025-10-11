@@ -29,7 +29,14 @@ import { TaskDialog } from "@/components/kanban/TaskDialog";
 import { BulkOperations } from "@/components/kanban/BulkOperations";
 import { TaskTemplates } from "@/components/kanban/TaskTemplates";
 import { ProjectSelector } from "@/components/kanban/ProjectSelector";
-import { KanbanFiltersComponent, KanbanFilters } from "@/components/kanban/KanbanFilters";
+import { BoardFilterPanel } from "@/features/boards/filters/BoardFilterPanel";
+import {
+  DEFAULT_FILTER_DEFINITION,
+  type BoardFilterDefinition,
+} from "@/features/boards/filters/types";
+import { cloneDefinition } from "@/features/boards/filters/BoardFilterBuilder";
+import { matchesBoardFilter } from "@/features/boards/filters/evaluate";
+import { saveBoardFilters, loadBoardFilters } from "@/services/boards/filterService";
 import { BoardSettings } from "@/components/kanban/BoardSettings";
 import { StatsPanel } from "@/components/kanban/StatsPanel";
 import { Plus, ArrowLeft, Settings, Layers, BarChart3 } from "lucide-react";
@@ -316,17 +323,14 @@ function LegacyKanbanBoard() {
   const [selectedTasks, setSelectedTasks] = useState<string[]>([]);
   const [showQuickAdd, setShowQuickAdd] = useState<{ columnId: string; swimlaneId?: string } | null>(null);
   const [viewMode, setViewMode] = useState<'standard' | 'compact' | 'list'>('standard');
+
+  const activeBoardId = currentProjectId ?? "legacy-board";
+  const activeViewId = "kanban-default";
   
-  // Enhanced filters state
-  const [filters, setFilters] = useState<KanbanFilters>({
-    search: '',
-    assignee: 'all',
-    priority: 'all',
-    hierarchy: 'all',
-    taskType: 'all',
-    dueDate: 'all',
-    tags: []
-  });
+  const [filterDefinition, setFilterDefinition] = useState<BoardFilterDefinition>(
+    cloneDefinition(DEFAULT_FILTER_DEFINITION)
+  );
+  const [filterLoaded, setFilterLoaded] = useState(false);
 
   // Real-time updates for tasks
   useRealtime({
@@ -362,6 +366,43 @@ function LegacyKanbanBoard() {
       fetchSwimlanes();
     }
   }, [currentProjectId]);
+
+  useEffect(() => {
+    let mounted = true;
+    async function loadFilters() {
+      if (!activeBoardId || !activeViewId) return;
+      try {
+        const definition = await loadBoardFilters(activeBoardId, activeViewId);
+        if (!mounted) return;
+        if (definition) {
+          setFilterDefinition(definition);
+        }
+        setFilterLoaded(true);
+      } catch (error) {
+        console.error("Failed to load board filters", error);
+        setFilterLoaded(true);
+      }
+    }
+    loadFilters();
+    return () => {
+      mounted = false;
+    };
+  }, [activeBoardId, activeViewId]);
+
+  useEffect(() => {
+    if (!filterLoaded) return;
+    if (!activeBoardId || !activeViewId) return;
+
+    async function persistFilters() {
+      try {
+        await saveBoardFilters(activeBoardId, activeViewId, filterDefinition);
+      } catch (error) {
+        console.error("Failed to save board filters", error);
+      }
+    }
+
+    persistFilters();
+  }, [filterDefinition, filterLoaded, activeBoardId, activeViewId]);
 
   const handleProjectSelect = (projectId: string, project: Project) => {
     setSelectedProject(project);
@@ -1033,54 +1074,28 @@ function LegacyKanbanBoard() {
     }
   };
 
-  // Apply enhanced filters
   const filteredColumns = columns.map((column) => ({
     ...column,
     tasks: column.tasks.filter((task) => {
-      // Search filter
-      const matchesSearch = !filters.search || 
-        task.title.toLowerCase().includes(filters.search.toLowerCase()) ||
-        (task.description || '').toLowerCase().includes(filters.search.toLowerCase());
-      
-      // Assignee filter
-      const matchesAssignee = filters.assignee === 'all' || 
-        (filters.assignee === 'unassigned' && (!task.assignees || task.assignees.length === 0)) ||
-        (task.assignees && task.assignees.some(a => a.id === filters.assignee));
-      
-      // Priority filter
-      const matchesPriority = filters.priority === 'all' || task.priority === filters.priority;
-      
-      // Hierarchy filter
-      const matchesHierarchy = filters.hierarchy === 'all' || task.hierarchy_level === filters.hierarchy;
-      
-      // Task type filter
-      const matchesTaskType = filters.taskType === 'all' || task.task_type === filters.taskType;
-      
-      // Due date filter
-      const matchesDueDate = filters.dueDate === 'all' || (() => {
-        if (!task.dueDate && filters.dueDate === 'no_due_date') return true;
-        if (!task.dueDate) return false;
-        
-        const today = new Date();
-        const dueDate = new Date(task.dueDate);
-        const daysDiff = Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
-        
-        switch (filters.dueDate) {
-          case 'overdue': return daysDiff < 0;
-          case 'today': return daysDiff === 0;
-          case 'tomorrow': return daysDiff === 1;
-          case 'this_week': return daysDiff >= 0 && daysDiff <= 7;
-          case 'next_week': return daysDiff > 7 && daysDiff <= 14;
-          default: return true;
-        }
-      })();
-      
-      // Tags filter (when implemented)
-      const matchesTags = filters.tags.length === 0 || 
-        filters.tags.every(tag => task.tags.includes(tag));
-      
-      return matchesSearch && matchesAssignee && matchesPriority && 
-             matchesHierarchy && matchesTaskType && matchesDueDate && matchesTags;
+      const filterItem = {
+        search: `${task.title ?? ""} ${task.description ?? ""}`,
+        assignee: (task.assignees ?? []).map((assignee: any) => assignee.id ?? assignee),
+        priority: task.priority,
+        status: task.status,
+        hierarchy: task.hierarchy_level,
+        taskType: task.task_type,
+        dueDate: task.due_date ?? task.dueDate ?? null,
+        tag: task.tags ?? task.tagDetails ?? [],
+        label: task.tagNames ?? task.tags ?? [],
+      } as Record<string, unknown>;
+
+      if (!filterLoaded) {
+        return true;
+      }
+
+      return matchesBoardFilter(filterDefinition, filterItem, {
+        currentUserId: user?.id ?? null,
+      });
     }),
   }));
 
@@ -1189,12 +1204,13 @@ function LegacyKanbanBoard() {
         </div>
       </div>
 
-      {/* Enhanced Filters */}
-      <KanbanFiltersComponent
-        filters={filters}
-        onFiltersChange={setFilters}
-        availableAssignees={availableAssignees}
-        availableTags={[]} // TODO: Implement tags system
+      <BoardFilterPanel
+        definition={filterDefinition}
+        onChange={setFilterDefinition}
+        boardId={activeBoardId}
+        viewId={activeViewId}
+        canManageSharing={Boolean(isAdmin)}
+        onReset={() => setFilterDefinition(cloneDefinition(DEFAULT_FILTER_DEFINITION))}
       />
 
       {/* Bulk Operations */}
