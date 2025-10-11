@@ -12,10 +12,11 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Settings, Layers, Columns } from "lucide-react";
+import { Settings, Layers, Columns, Sparkles } from "lucide-react";
 import { SwimlanesManager } from "./SwimlanesManager";
 import { ColumnManager } from "./ColumnManager";
 import type { KanbanColumnType } from "@/types/boardColumns";
+import { AutomationRecipeBrowser } from "@/components/automations/AutomationRecipeBrowser";
 
 interface Swimlane {
   id: string;
@@ -112,7 +113,7 @@ export function BoardSettings({ projectId, onUpdate }: BoardSettingsProps) {
         </DialogHeader>
         
         <Tabs defaultValue="columns" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="columns" className="flex items-center gap-2">
               <Columns className="w-4 h-4" />
               Columns
@@ -120,6 +121,10 @@ export function BoardSettings({ projectId, onUpdate }: BoardSettingsProps) {
             <TabsTrigger value="swimlanes" className="flex items-center gap-2">
               <Layers className="w-4 h-4" />
               Swimlanes
+            </TabsTrigger>
+            <TabsTrigger value="automations" className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4" />
+              Automations
             </TabsTrigger>
           </TabsList>
           
@@ -136,6 +141,15 @@ export function BoardSettings({ projectId, onUpdate }: BoardSettingsProps) {
               projectId={projectId}
               swimlanes={swimlanes}
               onUpdate={handleUpdate}
+            />
+          </TabsContent>
+
+          <TabsContent value="automations" className="mt-6">
+            <AutomationRecipeBrowser
+              projectId={projectId}
+              onChange={() => {
+                onUpdate();
+              }}
             />
           </TabsContent>
         </Tabs>

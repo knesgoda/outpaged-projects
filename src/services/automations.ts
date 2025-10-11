@@ -190,3 +190,22 @@ export async function enqueueTestRun(automationId: string): Promise<void> {
     throw new Error("Test run was not recorded.");
   }
 }
+
+export {
+  enqueueAutomationEvent,
+  evaluateAutomationRecipes,
+  ensurePrebuiltRecipesSeeded,
+  isAutomationEventType,
+} from "./automations/engine";
+
+export {
+  getPrebuiltAutomationRecipes,
+  findPrebuiltRecipe,
+} from "./automations/recipes";
+
+export {
+  listProjectAutomations,
+  upsertProjectAutomation,
+  toggleProjectAutomation,
+  deleteProjectAutomation,
+} from "./automations/projectAutomations";
