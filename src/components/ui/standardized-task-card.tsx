@@ -102,6 +102,7 @@ export interface StandardizedTask {
   created_at?: string;
   updated_at?: string;
   integrations?: TaskIntegrationBadge[];
+  custom_fields?: Record<string, unknown>;
 }
 
 
