@@ -15,6 +15,8 @@ import {
   type BoardViewSortRule,
   type BoardViewTimelineSettings,
   type BoardViewRow,
+  type BoardDefaultSettings,
+  type PartialBoardDefaultSettings,
   type CreateBoardInput,
   type CreateBoardScopeInput,
   type CreateBoardViewInput,
@@ -134,6 +136,456 @@ const slugify = (input: string) => {
 
 const DEFAULT_VIEW_LIMIT = 50;
 
+const DEFAULT_STATUS_COLOR_RULE_SEEDS: Array<{
+  id: string;
+  label: string;
+  value: string;
+  color: string;
+  description?: string;
+}> = [
+  { id: "planned", label: "Planned", value: "Planned", color: "#94a3b8" },
+  { id: "in-progress", label: "In progress", value: "In progress", color: "#3b82f6" },
+  { id: "blocked", label: "Blocked", value: "Blocked", color: "#ef4444" },
+  { id: "review", label: "In review", value: "In review", color: "#f97316" },
+  { id: "done", label: "Done", value: "Done", color: "#16a34a" },
+];
+
+const DEFAULT_CARD_FIELD_PRESETS: BoardDefaultSettings["cardFieldPresets"] = [
+  { field: "status", visible: true },
+  { field: "assignee", visible: true },
+  { field: "dueDate", visible: true },
+  { field: "priority", visible: true },
+  { field: "tags", visible: false },
+];
+
+const DEFAULT_BOARD_DEFAULTS: BoardDefaultSettings = {
+  defaultViewMode: "table",
+  availableViewModes: ["table", "kanban", "timeline", "calendar"],
+  colorField: "status",
+  colorMode: "status",
+  wipEnabled: false,
+  backlogRanking: "manual",
+  showWeekendShading: true,
+  workingTime: { timezone: "UTC", startHour: 9, endHour: 17 },
+  cardFieldPresets: DEFAULT_CARD_FIELD_PRESETS,
+};
+
+type ResolvedScopeInput = CreateBoardScopeInput & {
+  defaults: BoardDefaultSettings;
+  metadata: JsonRecord;
+};
+
+const cloneDefaults = (defaults: BoardDefaultSettings = DEFAULT_BOARD_DEFAULTS): BoardDefaultSettings => ({
+  defaultViewMode: defaults.defaultViewMode,
+  availableViewModes: [...defaults.availableViewModes],
+  colorField: defaults.colorField,
+  colorMode: defaults.colorMode,
+  wipEnabled: defaults.wipEnabled,
+  backlogRanking: defaults.backlogRanking,
+  showWeekendShading: defaults.showWeekendShading,
+  workingTime: { ...defaults.workingTime },
+  cardFieldPresets: defaults.cardFieldPresets.map((preset) => ({ ...preset })),
+});
+
+const clampHour = (value: number): number => {
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+  return Math.min(23, Math.max(0, Math.round(value)));
+};
+
+const parseHour = (value: unknown): number | null => {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return clampHour(value);
+  }
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return null;
+    }
+
+    const numeric = Number.parseInt(trimmed, 10);
+    if (Number.isFinite(numeric)) {
+      return clampHour(numeric);
+    }
+
+    const colonIndex = trimmed.indexOf(":");
+    if (colonIndex > 0) {
+      const prefix = trimmed.slice(0, colonIndex);
+      const parsed = Number.parseInt(prefix, 10);
+      if (Number.isFinite(parsed)) {
+        return clampHour(parsed);
+      }
+    }
+  }
+  return null;
+};
+
+const normalizeViewModes = (value: unknown): BoardViewMode[] | undefined => {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+
+  const filtered = value
+    .map((entry) => (isViewMode(entry) ? entry : null))
+    .filter((entry): entry is BoardViewMode => Boolean(entry));
+
+  if (filtered.length === 0) {
+    return undefined;
+  }
+
+  return Array.from(new Set(filtered));
+};
+
+const normalizeCardFieldPresets = (
+  value: unknown
+): BoardDefaultSettings["cardFieldPresets"] | undefined => {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+
+  const parsed = value
+    .map((entry) => {
+      if (!isRecord(entry)) {
+        return null;
+      }
+
+      const field =
+        typeof entry.field === "string" && entry.field.trim().length > 0
+          ? entry.field.trim()
+          : null;
+
+      if (!field) {
+        return null;
+      }
+
+      const visible = entry.visible === false ? false : true;
+      return { field, visible };
+    })
+    .filter((preset): preset is BoardDefaultSettings["cardFieldPresets"][number] => Boolean(preset));
+
+  if (parsed.length === 0) {
+    return undefined;
+  }
+
+  return parsed;
+};
+
+const normalizeWorkingTime = (
+  value: unknown
+): Partial<BoardDefaultSettings["workingTime"]> | undefined => {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+
+  const working: Partial<BoardDefaultSettings["workingTime"]> = {};
+
+  if (typeof value.timezone === "string" && value.timezone.trim().length > 0) {
+    working.timezone = value.timezone.trim();
+  }
+
+  const start = parseHour((value as JsonRecord).startHour ?? (value as JsonRecord).start);
+  if (start != null) {
+    working.startHour = start;
+  }
+
+  const end = parseHour((value as JsonRecord).endHour ?? (value as JsonRecord).end);
+  if (end != null) {
+    working.endHour = end;
+  }
+
+  return Object.keys(working).length > 0 ? working : undefined;
+};
+
+const applyDefaultOverrides = (
+  target: BoardDefaultSettings,
+  overrides?: PartialBoardDefaultSettings
+) => {
+  if (!overrides) {
+    return;
+  }
+
+  if (overrides.availableViewModes) {
+    const modes = overrides.availableViewModes
+      .map((mode) => (isViewMode(mode) ? mode : null))
+      .filter((mode): mode is BoardViewMode => Boolean(mode));
+    if (modes.length > 0) {
+      target.availableViewModes = Array.from(new Set(modes));
+    }
+  }
+
+  if (isViewMode(overrides.defaultViewMode)) {
+    target.defaultViewMode = overrides.defaultViewMode;
+  }
+
+  if (!target.availableViewModes.includes(target.defaultViewMode)) {
+    target.availableViewModes = [target.defaultViewMode, ...target.availableViewModes];
+  }
+
+  if (typeof overrides.colorField === "string" && overrides.colorField.trim().length > 0) {
+    target.colorField = overrides.colorField.trim();
+  }
+
+  if (
+    overrides.colorMode === "status" ||
+    overrides.colorMode === "priority" ||
+    overrides.colorMode === "custom"
+  ) {
+    target.colorMode = overrides.colorMode;
+  }
+
+  if (typeof overrides.wipEnabled === "boolean") {
+    target.wipEnabled = overrides.wipEnabled;
+  }
+
+  if (overrides.backlogRanking === "automatic" || overrides.backlogRanking === "manual") {
+    target.backlogRanking = overrides.backlogRanking;
+  }
+
+  if (typeof overrides.showWeekendShading === "boolean") {
+    target.showWeekendShading = overrides.showWeekendShading;
+  }
+
+  if (overrides.workingTime) {
+    const working = overrides.workingTime;
+    target.workingTime = {
+      timezone:
+        typeof working.timezone === "string" && working.timezone.trim().length > 0
+          ? working.timezone.trim()
+          : target.workingTime.timezone,
+      startHour:
+        typeof working.startHour === "number"
+          ? clampHour(working.startHour)
+          : target.workingTime.startHour,
+      endHour:
+        typeof working.endHour === "number"
+          ? clampHour(working.endHour)
+          : target.workingTime.endHour,
+    };
+  }
+
+  if (overrides.cardFieldPresets) {
+    const presets = overrides.cardFieldPresets
+      .map((preset) => {
+        if (!preset) {
+          return null;
+        }
+
+        const field =
+          typeof preset.field === "string" && preset.field.trim().length > 0
+            ? preset.field.trim()
+            : null;
+
+        if (!field) {
+          return null;
+        }
+
+        return { field, visible: preset.visible !== false };
+      })
+      .filter((preset): preset is BoardDefaultSettings["cardFieldPresets"][number] => Boolean(preset));
+
+    if (presets.length > 0) {
+      target.cardFieldPresets = presets;
+    }
+  }
+
+  if (target.availableViewModes.length === 0) {
+    target.availableViewModes = [...DEFAULT_BOARD_DEFAULTS.availableViewModes];
+  } else {
+    target.availableViewModes = Array.from(new Set(target.availableViewModes));
+  }
+};
+
+const parseBoardDefaults = (value: unknown): BoardDefaultSettings => {
+  const defaults = cloneDefaults();
+
+  if (!isRecord(value)) {
+    return defaults;
+  }
+
+  const overrides: PartialBoardDefaultSettings = {};
+
+  if (isViewMode(value.defaultViewMode)) {
+    overrides.defaultViewMode = value.defaultViewMode;
+  }
+
+  const modes = normalizeViewModes(value.availableViewModes);
+  if (modes) {
+    overrides.availableViewModes = modes;
+  }
+
+  if (typeof value.colorField === "string" && value.colorField.trim().length > 0) {
+    overrides.colorField = value.colorField.trim();
+  }
+
+  if (
+    value.colorMode === "status" ||
+    value.colorMode === "priority" ||
+    value.colorMode === "custom"
+  ) {
+    overrides.colorMode = value.colorMode;
+  }
+
+  if (typeof value.wipEnabled === "boolean") {
+    overrides.wipEnabled = value.wipEnabled;
+  }
+
+  if (value.backlogRanking === "automatic" || value.backlogRanking === "manual") {
+    overrides.backlogRanking = value.backlogRanking;
+  }
+
+  if (typeof value.showWeekendShading === "boolean") {
+    overrides.showWeekendShading = value.showWeekendShading;
+  }
+
+  const working = normalizeWorkingTime(value.workingTime);
+  if (working) {
+    overrides.workingTime = working;
+  }
+
+  const cardPresets = normalizeCardFieldPresets(value.cardFieldPresets);
+  if (cardPresets) {
+    overrides.cardFieldPresets = cardPresets;
+  }
+
+  applyDefaultOverrides(defaults, overrides);
+  return defaults;
+};
+
+const mergeBoardDefaults = (
+  base: BoardDefaultSettings,
+  overrides?: PartialBoardDefaultSettings | null
+): BoardDefaultSettings => {
+  const merged = cloneDefaults(base);
+  if (overrides) {
+    applyDefaultOverrides(merged, overrides);
+  }
+  return merged;
+};
+
+const buildColorRulesForDefaults = (
+  defaults: BoardDefaultSettings
+): BoardColorRule[] => {
+  if (defaults.colorMode !== "status") {
+    return [];
+  }
+
+  return DEFAULT_STATUS_COLOR_RULE_SEEDS.map((seed) => ({
+    id: `${defaults.colorField}-${seed.id}`,
+    label: seed.label,
+    type: "status" as const,
+    color: seed.color,
+    field: defaults.colorField,
+    value: seed.value,
+    description: seed.description,
+  }));
+};
+
+const resolveScopeDefaults = (scope: CreateBoardScopeInput): ResolvedScopeInput => {
+  const metadata = normalizeMetadata(scope.metadata);
+  const existingDefaults = parseBoardDefaults((metadata as JsonRecord).defaults);
+  const defaults = mergeBoardDefaults(existingDefaults, scope.defaults);
+
+  return {
+    ...scope,
+    metadata: { ...metadata, defaults },
+    defaults,
+  } as ResolvedScopeInput;
+};
+
+const VIEW_NAME_MAP: Record<BoardViewMode, string> = {
+  table: "Table",
+  kanban: "Kanban",
+  timeline: "Timeline",
+  calendar: "Calendar",
+  master: "Master",
+};
+
+const VIEW_SLUG_MAP: Partial<Record<BoardViewMode, string>> = {
+  table: "table",
+  kanban: "kanban",
+  timeline: "timeline",
+  calendar: "calendar",
+  master: "master",
+};
+
+const buildDefaultViewConfiguration = (
+  mode: BoardViewMode,
+  defaults: BoardDefaultSettings
+): BoardViewConfiguration => {
+  const columnPreferences = {
+    order: defaults.cardFieldPresets
+      .filter((preset) => preset.visible)
+      .map((preset) => preset.field),
+    hidden: defaults.cardFieldPresets
+      .filter((preset) => !preset.visible)
+      .map((preset) => preset.field),
+  };
+
+  const configuration: BoardViewConfiguration = {
+    mode,
+    filters: {},
+    grouping: { primary: null, swimlaneField: null, swimlanes: [] },
+    sort: [],
+    columnPreferences,
+    timeline: null,
+    colorRules: buildColorRulesForDefaults(defaults),
+  };
+
+  if (mode === "kanban" && defaults.backlogRanking === "manual") {
+    configuration.sort = [
+      {
+        id: "manual-backlog",
+        field: "backlog_rank",
+        direction: "asc",
+        priority: 0,
+        manual: true,
+        label: "Manual (backlog rank)",
+      },
+    ];
+  }
+
+  if (mode === "timeline") {
+    configuration.timeline = {
+      startField: "startDate",
+      endField: "dueDate",
+      dependencyField: undefined,
+      showWeekends: defaults.showWeekendShading,
+      workingHours: { ...defaults.workingTime },
+    };
+  }
+
+  return configuration;
+};
+
+const createDefaultViewsForScope = (
+  scope: ResolvedScopeInput
+): CreateBoardViewInput[] => {
+  const defaults = scope.defaults;
+  const sequence = defaults.availableViewModes.length
+    ? defaults.availableViewModes
+    : DEFAULT_BOARD_DEFAULTS.availableViewModes;
+
+  const uniqueModes = Array.from(new Set(sequence));
+  if (!uniqueModes.includes(defaults.defaultViewMode)) {
+    uniqueModes.unshift(defaults.defaultViewMode);
+  }
+
+  return uniqueModes.map((mode, index) => {
+    const name = VIEW_NAME_MAP[mode] ?? "Saved view";
+    const slug = VIEW_SLUG_MAP[mode] ?? slugify(name);
+
+    return {
+      name,
+      slug,
+      isDefault: mode === defaults.defaultViewMode || index === 0,
+      order: index,
+      configuration: buildDefaultViewConfiguration(mode, defaults) as Record<string, unknown>,
+      filter: deriveFilterFromScope(scope),
+    } satisfies CreateBoardViewInput;
+  });
+};
+
 export interface InstantiateBoardTemplateOptions {
   templateId: string;
   workspaceId: string;
@@ -169,7 +621,11 @@ function normalizeFilters(value: unknown): JsonRecord {
 }
 
 const isViewMode = (value: unknown): value is BoardViewMode =>
-  value === "table" || value === "kanban" || value === "timeline" || value === "master";
+  value === "table" ||
+  value === "kanban" ||
+  value === "timeline" ||
+  value === "calendar" ||
+  value === "master";
 
 const parseColumnPreferences = (
   configuration: JsonRecord
@@ -382,8 +838,20 @@ const parseTimelineSettings = (
 
   const dependencyField =
     typeof value.dependencyField === "string" ? value.dependencyField : undefined;
+  const showWeekends =
+    typeof value.showWeekends === "boolean" ? value.showWeekends : undefined;
+  const working = normalizeWorkingTime(value.workingHours);
+  const workingHours = working
+    ? {
+        timezone: working.timezone ?? DEFAULT_BOARD_DEFAULTS.workingTime.timezone,
+        startHour: clampHour(
+          working.startHour ?? DEFAULT_BOARD_DEFAULTS.workingTime.startHour
+        ),
+        endHour: clampHour(working.endHour ?? DEFAULT_BOARD_DEFAULTS.workingTime.endHour),
+      }
+    : undefined;
 
-  return { startField, endField, dependencyField };
+  return { startField, endField, dependencyField, showWeekends, workingHours };
 };
 
 const parseViewConfiguration = (
@@ -416,14 +884,16 @@ function deriveFilterFromScope(scope: CreateBoardScopeInput): CreateFilterExpres
         type: "container",
         containerId: scope.containerId,
         containerFilters: scope.containerFilters ?? {},
-        metadata: scope.metadata ?? {},
+        metadata: { ...(scope.metadata ?? {}), defaults: scope.defaults },
+        defaults: scope.defaults,
       };
     case "query":
       return {
         type: "query",
         query: scope.query,
         queryFilters: scope.queryFilters ?? {},
-        metadata: scope.metadata ?? {},
+        metadata: { ...(scope.metadata ?? {}), defaults: scope.defaults },
+        defaults: scope.defaults,
       };
     case "hybrid":
     default:
@@ -433,7 +903,8 @@ function deriveFilterFromScope(scope: CreateBoardScopeInput): CreateFilterExpres
         query: scope.query,
         containerFilters: scope.containerFilters ?? {},
         queryFilters: scope.queryFilters ?? {},
-        metadata: scope.metadata ?? {},
+        metadata: { ...(scope.metadata ?? {}), defaults: scope.defaults },
+        defaults: scope.defaults,
       };
   }
 }
@@ -448,6 +919,8 @@ const normalizeColorRuleType = (value: unknown): BoardColorRule["type"] => {
 function parseTemplateScopeDefinition(raw: unknown): CreateBoardScopeInput {
   const definition = normalizeMetadata(raw);
   const metadata = normalizeMetadata(definition.metadata);
+  const defaults = parseBoardDefaults(metadata.defaults);
+  const metadataWithDefaults = { ...metadata, defaults };
   const typeValue = ensureString(definition.type).toLowerCase();
   const containerFilters = normalizeFilters(
     definition.containerFilters ?? definition.container_filters ?? {}
@@ -461,16 +934,17 @@ function parseTemplateScopeDefinition(raw: unknown): CreateBoardScopeInput {
     if (!query) {
       throw new Error("Board template scope is missing a query definition.");
     }
-    return {
-      type: "query",
-      query,
-      queryFilters,
-      metadata,
-    };
-  }
+      return {
+        type: "query",
+        query,
+        queryFilters,
+        metadata: metadataWithDefaults,
+        defaults,
+      };
+    }
 
-  if (typeValue === "hybrid") {
-    const containerId = ensureString(definition.containerId ?? definition.container_id);
+    if (typeValue === "hybrid") {
+      const containerId = ensureString(definition.containerId ?? definition.container_id);
     const query = ensureString(definition.query ?? definition.query_definition);
     if (!containerId || !query) {
       throw new Error(
@@ -478,27 +952,29 @@ function parseTemplateScopeDefinition(raw: unknown): CreateBoardScopeInput {
       );
     }
     return {
-      type: "hybrid",
+        type: "hybrid",
+        containerId,
+        query,
+        containerFilters,
+        queryFilters,
+        metadata: metadataWithDefaults,
+        defaults,
+      };
+    }
+
+    const containerId = ensureString(definition.containerId ?? definition.container_id);
+    if (!containerId) {
+      throw new Error("Board template scope is missing a container identifier.");
+    }
+
+    return {
+      type: "container",
       containerId,
-      query,
       containerFilters,
-      queryFilters,
-      metadata,
+      metadata: metadataWithDefaults,
+      defaults,
     };
   }
-
-  const containerId = ensureString(definition.containerId ?? definition.container_id);
-  if (!containerId) {
-    throw new Error("Board template scope is missing a container identifier.");
-  }
-
-  return {
-    type: "container",
-    containerId,
-    containerFilters,
-    metadata,
-  };
-}
 
 function parseTemplateFilterDefinition(
   raw: unknown
@@ -807,6 +1283,8 @@ function mapFilterExpression(row: BoardFilterExpressionRow): BoardFilterExpressi
 function mapScope(row: BoardScopeRow): BoardScope {
   const filters = toRecord(row.filters);
   const metadata = normalizeMetadata(row.metadata);
+  const defaults = parseBoardDefaults(metadata.defaults);
+  const metadataWithDefaults = { ...metadata, defaults };
 
   if (row.scope_type === "container") {
     return {
@@ -815,7 +1293,8 @@ function mapScope(row: BoardScopeRow): BoardScope {
       type: "container",
       containerId: ensureString(row.container_id),
       containerFilters: normalizeFilters(filters.container ?? filters),
-      metadata,
+      metadata: metadataWithDefaults,
+      defaults,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };
@@ -828,7 +1307,8 @@ function mapScope(row: BoardScopeRow): BoardScope {
       type: "query",
       query: ensureString(row.query_definition),
       queryFilters: normalizeFilters(filters.query ?? filters),
-      metadata,
+      metadata: metadataWithDefaults,
+      defaults,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };
@@ -842,7 +1322,8 @@ function mapScope(row: BoardScopeRow): BoardScope {
     query: ensureString(row.query_definition),
     containerFilters: normalizeFilters(filters.container ?? {}),
     queryFilters: normalizeFilters(filters.query ?? {}),
-    metadata,
+    metadata: metadataWithDefaults,
+    defaults,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -1102,24 +1583,17 @@ export async function instantiateBoardTemplate(
   }
 
   const description = options.description ?? template.description ?? undefined;
-  const scope = template.scope;
+  const resolvedScope = resolveScopeDefaults(template.scope);
 
   const views = template.views.length
-    ? template.views.map((view) => templateViewToCreateInput(view, scope))
-    : [
-        {
-          name: "Default view",
-          isDefault: true,
-          configuration: {},
-          filter: deriveFilterFromScope(scope),
-        },
-      ];
+    ? template.views.map((view) => templateViewToCreateInput(view, resolvedScope))
+    : createDefaultViewsForScope(resolvedScope);
 
   const createdBoard = await createBoard({
     workspaceId,
     name,
     description,
-    scope,
+    scope: resolvedScope,
     views,
   });
 
@@ -1176,7 +1650,7 @@ export async function instantiateBoardTemplate(
 
 function buildScopePayload(
   boardId: string,
-  scope: CreateBoardScopeInput
+  scope: ResolvedScopeInput
 ): BoardScopeInsert {
   const base: BoardScopeInsert = {
     board_id: boardId,
@@ -1338,7 +1812,7 @@ export async function createBoard(input: CreateBoardInput): Promise<HydratedBoar
     throw new Error("A workspace id is required to create a board.");
   }
 
-  const scope = input.scope;
+  const scope = resolveScopeDefaults(input.scope);
   const boardPayload: BoardInsert = {
     workspace_id: workspaceId,
     name,
@@ -1369,14 +1843,8 @@ export async function createBoard(input: CreateBoardInput): Promise<HydratedBoar
     throw mapSupabaseError(scopeError, "Unable to save the board scope.");
   }
 
-  const viewsToCreate = (input.views?.length ? input.views : null) ?? [
-    {
-      name: "Default view",
-      isDefault: true,
-      configuration: {},
-      filter: deriveFilterFromScope(scope),
-    },
-  ];
+  const viewsToCreate = (input.views?.length ? input.views : null) ??
+    createDefaultViewsForScope(scope);
 
   for (const [index, view] of viewsToCreate.entries()) {
     const hydratedView: CreateBoardViewInput = {

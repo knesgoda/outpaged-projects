@@ -15,6 +15,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   createBoard,
   executeBoardView,
@@ -30,9 +31,10 @@ import type {
   BoardViewResult,
   BoardViewConfiguration,
   CreateBoardScopeInput,
-  CreateFilterExpressionInput,
   ViewColumnPreferences,
   BoardTemplateSummary,
+  BoardViewMode,
+  PartialBoardDefaultSettings,
 } from "@/types/boards";
 import { useWorkspaceContextOptional } from "@/state/workspace";
 import { ViewColumnSchemaControls } from "@/components/boards/columns/ViewColumnSchemaControls";
@@ -68,6 +70,34 @@ type MergeMode = "append" | "prepend";
 
 const DEFAULT_BOARD_NAME = "New board";
 const DEFAULT_VIEW_NAME = "Default view";
+const DEFAULT_ENABLED_VIEW_MODES: Record<BoardViewMode, boolean> = {
+  table: true,
+  kanban: true,
+  timeline: true,
+  calendar: true,
+  master: false,
+};
+const DEFAULT_CARD_FIELD_PRESETS = [
+  { field: "status", visible: true },
+  { field: "assignee", visible: true },
+  { field: "dueDate", visible: true },
+  { field: "priority", visible: true },
+  { field: "tags", visible: false },
+];
+const VIEW_MODE_LABELS: Record<BoardViewMode, string> = {
+  table: "Table",
+  kanban: "Kanban",
+  timeline: "Timeline",
+  calendar: "Calendar",
+  master: "Master",
+};
+const STATUS_COLOR_RULE_SEEDS = [
+  { id: "planned", label: "Planned", value: "Planned", color: "#94a3b8" },
+  { id: "in-progress", label: "In progress", value: "In progress", color: "#3b82f6" },
+  { id: "blocked", label: "Blocked", value: "Blocked", color: "#ef4444" },
+  { id: "review", label: "In review", value: "In review", color: "#f97316" },
+  { id: "done", label: "Done", value: "Done", color: "#16a34a" },
+];
 
 function useOptionalWorkspaceId(): string | null {
   const context = useWorkspaceContextOptional();
@@ -88,6 +118,19 @@ function parseJsonInput(value: string, label: string): JsonRecord {
   } catch (_error) {
     throw new Error(`${label} must be valid JSON.`);
   }
+}
+
+function parseHourString(value: string, fallback: number): number {
+  if (typeof value !== "string" || !value.trim()) {
+    return fallback;
+  }
+
+  const [hourPart] = value.split(":");
+  const parsed = Number.parseInt(hourPart ?? "", 10);
+  if (Number.isFinite(parsed)) {
+    return Math.min(23, Math.max(0, parsed));
+  }
+  return fallback;
 }
 
 const getItemKey = (item: JsonRecord, index: number) => {
@@ -187,6 +230,109 @@ export default function BoardsPage() {
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
   const [includeTemplateItems, setIncludeTemplateItems] = useState(false);
   const [includeTemplateAutomations, setIncludeTemplateAutomations] = useState(false);
+  const [defaultViewMode, setDefaultViewMode] = useState<BoardViewMode>("table");
+  const [enabledViewModes, setEnabledViewModes] = useState<Record<BoardViewMode, boolean>>(
+    () => ({ ...DEFAULT_ENABLED_VIEW_MODES })
+  );
+  const [colorField, setColorField] = useState("status");
+  const [colorMode, setColorMode] = useState<"status" | "priority" | "custom">("status");
+  const [wipEnabled, setWipEnabled] = useState(false);
+  const [backlogRanking, setBacklogRanking] = useState<"manual" | "automatic">("manual");
+  const [showWeekendShading, setShowWeekendShading] = useState(true);
+  const [workingStart, setWorkingStart] = useState("09:00");
+  const [workingEnd, setWorkingEnd] = useState("17:00");
+  const [workingTimezone, setWorkingTimezone] = useState("UTC");
+  const [cardFieldPresets, setCardFieldPresets] = useState(
+    DEFAULT_CARD_FIELD_PRESETS.map((preset) => ({ ...preset }))
+  );
+  const viewModes: BoardViewMode[] = ["table", "kanban", "timeline", "calendar"];
+
+  const resetBoardDefaults = useCallback(() => {
+    setDefaultViewMode("table");
+    setEnabledViewModes({ ...DEFAULT_ENABLED_VIEW_MODES });
+    setColorField("status");
+    setColorMode("status");
+    setWipEnabled(false);
+    setBacklogRanking("manual");
+    setShowWeekendShading(true);
+    setWorkingStart("09:00");
+    setWorkingEnd("17:00");
+    setWorkingTimezone("UTC");
+    setCardFieldPresets(DEFAULT_CARD_FIELD_PRESETS.map((preset) => ({ ...preset })));
+  }, []);
+
+  const buildDefaultSettingsPayload = useCallback((): PartialBoardDefaultSettings => {
+    const activeModes = (Object.entries(enabledViewModes) as Array<[BoardViewMode, boolean]>)
+      .filter(([, enabled]) => enabled)
+      .map(([mode]) => mode);
+
+    const ensuredModes = activeModes.includes(defaultViewMode)
+      ? activeModes
+      : [defaultViewMode, ...activeModes];
+
+    return {
+      defaultViewMode,
+      availableViewModes: ensuredModes,
+      colorField: colorField.trim() || "status",
+      colorMode,
+      wipEnabled,
+      backlogRanking,
+      showWeekendShading,
+      workingTime: {
+        timezone: workingTimezone.trim() || "UTC",
+        startHour: parseHourString(workingStart, 9),
+        endHour: parseHourString(workingEnd, 17),
+      },
+      cardFieldPresets: cardFieldPresets.map((preset) => ({ ...preset })),
+    } satisfies PartialBoardDefaultSettings;
+  }, [
+    backlogRanking,
+    cardFieldPresets,
+    colorField,
+    colorMode,
+    defaultViewMode,
+    enabledViewModes,
+    showWeekendShading,
+    workingEnd,
+    workingStart,
+    workingTimezone,
+    wipEnabled,
+  ]);
+
+  const handleViewModeToggle = useCallback(
+    (mode: BoardViewMode, enabled: boolean) => {
+      setEnabledViewModes((previous) => {
+        const next = { ...previous, [mode]: enabled };
+        const active = (Object.entries(next) as Array<[BoardViewMode, boolean]>)
+          .filter(([, value]) => value)
+          .map(([key]) => key);
+
+        if (active.length === 0) {
+          return previous;
+        }
+
+        if (!active.includes(defaultViewMode)) {
+          setDefaultViewMode(active[0]);
+        }
+
+        return next;
+      });
+    },
+    [defaultViewMode]
+  );
+
+  const handleDefaultViewModeChange = useCallback((value: BoardViewMode) => {
+    setDefaultViewMode(value);
+    setEnabledViewModes((previous) => ({ ...previous, [value]: true }));
+  }, []);
+
+  const handleCardPresetVisibilityChange = useCallback((field: string, visible: boolean) => {
+    setCardFieldPresets((current) =>
+      current.map((preset) =>
+        preset.field === field ? { ...preset, visible } : preset
+      )
+    );
+  }, []);
 
   const selectedTemplate = useMemo(() => {
     if (!selectedTemplateId) {
@@ -661,8 +807,9 @@ export default function BoardsPage() {
       setSelectedTemplateId(null);
       setIncludeTemplateItems(false);
       setIncludeTemplateAutomations(false);
+      resetBoardDefaults();
     },
-    [toast]
+    [resetBoardDefaults, toast]
   );
 
   const handleCreateBoard = async (event: React.FormEvent) => {
@@ -755,18 +902,22 @@ export default function BoardsPage() {
       return;
     }
 
+    const scopeDefaults = buildDefaultSettingsPayload();
+
     const scopeInput: CreateBoardScopeInput =
       newBoardType === "container"
         ? {
             type: "container",
             containerId: newContainerId.trim(),
             containerFilters,
+            defaults: scopeDefaults,
           }
         : newBoardType === "query"
         ? {
             type: "query",
             query: newQueryDefinition.trim(),
             queryFilters,
+            defaults: scopeDefaults,
           }
         : {
             type: "hybrid",
@@ -774,15 +925,8 @@ export default function BoardsPage() {
             query: newQueryDefinition.trim(),
             containerFilters,
             queryFilters,
+            defaults: scopeDefaults,
           };
-
-    const filter: CreateFilterExpressionInput = {
-      type: newBoardType,
-      containerId: newBoardType === "query" ? undefined : newContainerId.trim(),
-      query: newBoardType === "container" ? undefined : newQueryDefinition.trim(),
-      containerFilters: newBoardType === "query" ? undefined : containerFilters,
-      queryFilters: newBoardType === "container" ? undefined : queryFilters,
-    };
 
     setIsCreatingBoard(true);
     try {
@@ -790,14 +934,6 @@ export default function BoardsPage() {
         workspaceId,
         name: trimmedName,
         scope: scopeInput,
-        views: [
-          {
-            name: newViewName.trim() || "Default view",
-            isDefault: true,
-            configuration: {},
-            filter,
-          },
-        ],
       });
 
       handleBoardCreated(created);
@@ -1115,6 +1251,176 @@ export default function BoardsPage() {
                     />
                   </div>
                 ) : null}
+
+                <div className="space-y-3 rounded-md border border-dashed p-4 md:col-span-2">
+                  <div className="space-y-1">
+                    <h3 className="text-sm font-medium">Behavior defaults</h3>
+                    <p className="text-xs text-muted-foreground">
+                      Configure which views and policies are active the first time collaborators
+                      open this board.
+                    </p>
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="default-view-mode">Default view mode</Label>
+                      <Select
+                        value={defaultViewMode}
+                        onValueChange={(value) =>
+                          handleDefaultViewModeChange(value as BoardViewMode)
+                        }
+                      >
+                        <SelectTrigger id="default-view-mode">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {viewModes.map((mode) => (
+                            <SelectItem key={mode} value={mode} className="capitalize">
+                              {mode}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Available views</Label>
+                      <div className="grid gap-2">
+                        {viewModes.map((mode) => (
+                          <label key={mode} className="flex items-center gap-2 text-sm">
+                            <Switch
+                              checked={enabledViewModes[mode]}
+                              onCheckedChange={(checked) =>
+                                handleViewModeToggle(mode, checked)
+                              }
+                            />
+                            <span className="capitalize">{mode}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="color-field">Color field</Label>
+                      <Input
+                        id="color-field"
+                        value={colorField}
+                        onChange={(event) => setColorField(event.target.value)}
+                        placeholder="status"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="color-mode">Color mode</Label>
+                      <Select
+                        value={colorMode}
+                        onValueChange={(value) =>
+                          setColorMode(value as typeof colorMode)
+                        }
+                      >
+                        <SelectTrigger id="color-mode">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="status">Status</SelectItem>
+                          <SelectItem value="priority">Priority</SelectItem>
+                          <SelectItem value="custom">Custom</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>WIP guard rails</Label>
+                      <label className="flex items-center gap-2 text-sm">
+                        <Switch checked={wipEnabled} onCheckedChange={setWipEnabled} />
+                        <span>{wipEnabled ? "Enabled" : "Disabled"} on first load</span>
+                      </label>
+                      <p className="text-xs text-muted-foreground">
+                        When disabled, columns start without WIP limits.
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="backlog-ranking">Backlog ranking</Label>
+                      <Select
+                        value={backlogRanking}
+                        onValueChange={(value) =>
+                          setBacklogRanking(value as typeof backlogRanking)
+                        }
+                      >
+                        <SelectTrigger id="backlog-ranking">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="manual">Manual (backlog rank)</SelectItem>
+                          <SelectItem value="automatic">Automatic (priority)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="flex items-center gap-2 text-sm">
+                        <Switch
+                          checked={showWeekendShading}
+                          onCheckedChange={setShowWeekendShading}
+                        />
+                        Shade weekends in timeline
+                      </Label>
+                      <p className="text-xs text-muted-foreground">
+                        Controls the initial timeline shading for weekends.
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Working hours</Label>
+                      <div className="grid grid-cols-3 gap-2 text-sm">
+                        <div className="space-y-1">
+                          <span className="text-xs text-muted-foreground">Start</span>
+                          <Input
+                            type="time"
+                            value={workingStart}
+                            onChange={(event) => setWorkingStart(event.target.value)}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <span className="text-xs text-muted-foreground">End</span>
+                          <Input
+                            type="time"
+                            value={workingEnd}
+                            onChange={(event) => setWorkingEnd(event.target.value)}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <span className="text-xs text-muted-foreground">Timezone</span>
+                          <Input
+                            value={workingTimezone}
+                            onChange={(event) => setWorkingTimezone(event.target.value)}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2 md:col-span-2">
+                      <Label>Card field presets</Label>
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        {cardFieldPresets.map((preset) => (
+                          <label key={preset.field} className="flex items-center gap-2 text-sm">
+                            <Checkbox
+                              checked={preset.visible}
+                              onCheckedChange={(checked) =>
+                                handleCardPresetVisibilityChange(
+                                  preset.field,
+                                  checked === true
+                                )
+                              }
+                            />
+                            <span className="capitalize">Show {preset.field}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
 
                 <div className="space-y-2 md:col-span-2">
                   <Label htmlFor="view-name">Default view name</Label>

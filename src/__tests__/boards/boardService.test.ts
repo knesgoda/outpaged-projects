@@ -161,6 +161,24 @@ type TemplateRow = {
   }>;
 };
 
+const TEST_BOARD_DEFAULTS = {
+  defaultViewMode: "table" as const,
+  availableViewModes: ["table", "kanban", "timeline", "calendar"] as const,
+  colorField: "status",
+  colorMode: "status" as const,
+  wipEnabled: false,
+  backlogRanking: "manual" as const,
+  showWeekendShading: true,
+  workingTime: { timezone: "UTC", startHour: 9, endHour: 17 },
+  cardFieldPresets: [
+    { field: "status", visible: true },
+    { field: "assignee", visible: true },
+    { field: "dueDate", visible: true },
+    { field: "priority", visible: true },
+    { field: "tags", visible: false },
+  ],
+};
+
 describe("boardService", () => {
   beforeEach(() => {
     mockRpc.mockReset();
@@ -191,7 +209,7 @@ describe("boardService", () => {
           container: { lane: "doing" },
           query: { assigned: true },
         },
-        metadata: { columns: 4 },
+        metadata: { columns: 4, defaults: TEST_BOARD_DEFAULTS },
         created_at: "2024-01-01T00:00:00Z",
         updated_at: "2024-01-01T01:00:00Z",
       },
@@ -239,13 +257,14 @@ describe("boardService", () => {
     preview_asset_url: null,
     tags: ["planning", "product"],
     metadata: {},
-    scope_definition: {
-      type: "hybrid",
-      containerId: "container-1",
-      query: "status:open",
-      containerFilters: { stage: "active" },
-      queryFilters: { assigned: true },
-    },
+  scope_definition: {
+    type: "hybrid",
+    containerId: "container-1",
+    query: "status:open",
+    containerFilters: { stage: "active" },
+    queryFilters: { assigned: true },
+    metadata: { defaults: TEST_BOARD_DEFAULTS },
+  },
     supports_items: true,
     supports_automations: true,
     created_by: "user-1",
@@ -386,7 +405,8 @@ describe("boardService", () => {
           query: "status:open",
           containerFilters: { lane: "doing" },
           queryFilters: { assigned: true },
-          metadata: { columns: 4 },
+          metadata: { columns: 4, defaults: TEST_BOARD_DEFAULTS },
+          defaults: TEST_BOARD_DEFAULTS,
           createdAt: "2024-01-01T00:00:00Z",
           updatedAt: "2024-01-01T01:00:00Z",
         },
@@ -444,12 +464,12 @@ describe("boardService", () => {
       single: jest.fn().mockResolvedValue({ data: { id: "scope-1" }, error: null }),
     };
 
-    const filterInsertBuilder: InsertBuilder = {
+    const createFilterInsertBuilder = (index: number): InsertBuilder => ({
       insert: jest.fn().mockReturnThis(),
       select: jest.fn().mockReturnThis(),
       single: jest.fn().mockResolvedValue({
         data: {
-          id: "filter-1",
+          id: `filter-${index}`,
           board_id: "board-1",
           expression_type: "container",
           expression: { containerId: "container-1" },
@@ -461,7 +481,11 @@ describe("boardService", () => {
         },
         error: null,
       }),
-    };
+    });
+
+    const filterInsertBuilders = Array.from({ length: 4 }, (_, index) =>
+      createFilterInsertBuilder(index + 1)
+    );
 
     const viewInsertBuilder: ViewInsertBuilder = {
       insert: jest.fn().mockResolvedValue({ error: null }),
@@ -481,8 +505,8 @@ describe("boardService", () => {
     const callMap: Record<string, unknown[]> = {
       boards: [boardInsertBuilder, boardSelectBuilder],
       board_scopes: [scopeInsertBuilder],
-      board_filter_expressions: [filterInsertBuilder],
-      board_views: [viewInsertBuilder],
+      board_filter_expressions: [...filterInsertBuilders],
+      board_views: Array.from({ length: 4 }, () => viewInsertBuilder),
     };
 
     mockFrom.mockImplementation((table: string) => {
@@ -514,33 +538,72 @@ describe("boardService", () => {
       created_by: "user-1",
     });
 
-    expect(scopeInsertBuilder.insert).toHaveBeenCalledWith({
+    const scopePayload = scopeInsertBuilder.insert.mock.calls[0]?.[0];
+    expect(scopePayload).toMatchObject({
       board_id: "board-1",
       scope_type: "container",
       filters: { container: { status: "active" } },
-      metadata: {},
       container_id: "container-1",
       query_definition: null,
     });
+    expect(scopePayload.metadata.defaults).toEqual(TEST_BOARD_DEFAULTS);
 
-    expect(filterInsertBuilder.insert).toHaveBeenCalledWith({
+    const filterPayload = filterInsertBuilders[0]?.insert.mock.calls[0]?.[0];
+    expect(filterPayload).toMatchObject({
       board_id: "board-1",
       expression_type: "container",
       expression: { containerId: "container-1", containerFilters: { status: "active" } },
-      metadata: {},
-      refresh_interval_seconds: null,
+    });
+    expect(filterPayload.metadata.defaults).toMatchObject({
+      defaultViewMode: "table",
+      backlogRanking: "manual",
+      wipEnabled: false,
     });
 
-    expect(viewInsertBuilder.insert).toHaveBeenCalledWith({
+    expect(viewInsertBuilder.insert).toHaveBeenCalledTimes(4);
+    const [tableCall, kanbanCall, timelineCall, calendarCall] = viewInsertBuilder.insert.mock.calls;
+
+    const tablePayload = tableCall[0];
+    expect(tablePayload).toMatchObject({
       board_id: "board-1",
-      name: "Default view",
-      slug: expect.stringMatching(/^default/),
-      description: null,
+      name: "Table",
+      slug: "table",
       is_default: true,
       position: 0,
-      configuration: {},
-      filter_expression_id: "filter-1",
     });
+    expect((tablePayload.configuration as any).mode).toBe("table");
+    expect((tablePayload.configuration as any).columnPreferences).toMatchObject({
+      order: TEST_BOARD_DEFAULTS.cardFieldPresets
+        .filter((preset) => preset.visible)
+        .map((preset) => preset.field),
+      hidden: TEST_BOARD_DEFAULTS.cardFieldPresets
+        .filter((preset) => !preset.visible)
+        .map((preset) => preset.field),
+    });
+
+    const kanbanPayload = kanbanCall[0];
+    expect(kanbanPayload).toMatchObject({
+      name: "Kanban",
+      slug: "kanban",
+      is_default: false,
+      position: 1,
+    });
+    expect((kanbanPayload.configuration as any).mode).toBe("kanban");
+    expect((kanbanPayload.configuration as any).sort?.[0]).toMatchObject({
+      field: "backlog_rank",
+      manual: true,
+    });
+
+    const timelinePayload = timelineCall[0];
+    expect((timelinePayload.configuration as any).mode).toBe("timeline");
+    expect((timelinePayload.configuration as any).timeline).toMatchObject({
+      showWeekends: true,
+      workingHours: TEST_BOARD_DEFAULTS.workingTime,
+    });
+
+    const calendarPayload = calendarCall[0];
+    expect((calendarPayload.configuration as any).mode).toBe("calendar");
+    expect(calendarPayload.position).toBe(3);
 
     expect(result.id).toBe("board-1");
     expect(result.views.length).toBeGreaterThan(0);
