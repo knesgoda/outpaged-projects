@@ -17,7 +17,7 @@ const matchers = accessibilityMatchers as
   | { toHaveNoViolations?: (...args: unknown[]) => unknown }
   | null;
 
-if (matchers?.toHaveNoViolations) {
+if (typeof matchers?.toHaveNoViolations === "function") {
   expect.extend({ toHaveNoViolations: matchers.toHaveNoViolations });
 }
 
