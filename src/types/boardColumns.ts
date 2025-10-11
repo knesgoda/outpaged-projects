@@ -5,10 +5,25 @@ export type KanbanColumnType =
 
 export type ColumnWipPolicyMode = "strict" | "allow_override";
 
+export interface ColumnWipOverrideDetails {
+  active: boolean;
+  grantedBy?: string | null;
+  grantedAt?: string | null;
+  reason?: string | null;
+  expiresAt?: string | null;
+  laneId?: string | null;
+}
+
+export interface ColumnWipOverrideState {
+  column?: ColumnWipOverrideDetails | null;
+  lanes: Record<string, ColumnWipOverrideDetails | undefined>;
+}
+
 export interface ColumnWipConfig {
   columnLimit: number | null;
   laneLimits: Record<string, number>;
   policy: ColumnWipPolicyMode;
+  overrides: ColumnWipOverrideState;
 }
 
 export interface ColumnChecklistItem {
@@ -138,6 +153,7 @@ export const DEFAULT_COLUMN_METADATA_BASE: ColumnBaseMetadata = {
     columnLimit: null,
     laneLimits: {},
     policy: "allow_override",
+    overrides: { column: null, lanes: {} },
   },
   checklists: {
     ready: DEFAULT_CHECKLIST_READY,
@@ -223,6 +239,19 @@ function mergeColumnMetadata<T extends KanbanColumnType>(
   }
 
   const incoming = metadata as Record<string, unknown>;
+  const incomingOverrides = (incoming.wip as Record<string, unknown> | undefined)?.overrides;
+  const baseOverrides = base.wip.overrides ?? { column: null, lanes: {} };
+  const normalizedOverrides: ColumnWipOverrideState = {
+    column:
+      incomingOverrides && typeof (incomingOverrides as Record<string, unknown>).column === "object"
+        ? ((incomingOverrides as { column?: ColumnWipOverrideDetails | null }).column ?? null)
+        : baseOverrides.column ?? null,
+    lanes: {
+      ...baseOverrides.lanes,
+      ...((incomingOverrides as { lanes?: Record<string, ColumnWipOverrideDetails> } | undefined)?.lanes ?? {}),
+    },
+  };
+
   const merged = {
     ...base,
     ...incoming,
@@ -233,6 +262,7 @@ function mergeColumnMetadata<T extends KanbanColumnType>(
         ...base.wip.laneLimits,
         ...(((incoming.wip as Record<string, unknown> | undefined)?.laneLimits ?? {}) as Record<string, number>),
       },
+      overrides: normalizedOverrides,
     },
     checklists: {
       ready: Array.isArray((incoming.checklists as any)?.ready)

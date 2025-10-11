@@ -167,7 +167,24 @@ export interface BoardViewTimelineSettings {
   dependencyField?: string;
   showWeekends?: boolean;
   workingHours?: BoardTimelineWorkingHours;
+  dependencyEditor?: TimelineDependencyEditorSettings;
+  baseline?: TimelineBaselineSettings;
+  showCriticalPath?: boolean;
+  exportFormat?: TimelineExportFormat;
 }
+
+export interface TimelineDependencyEditorSettings {
+  leadLagField?: string;
+  defaultLagDays?: number;
+  allowNegativeLag?: boolean;
+}
+
+export interface TimelineBaselineSettings {
+  startField?: string;
+  endField?: string;
+}
+
+export type TimelineExportFormat = "csv" | "json" | "ics";
 
 export interface MasterBoardViewFilters {
   projectIds: string[];

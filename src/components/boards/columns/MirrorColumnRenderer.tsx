@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,6 +9,15 @@ import type {
   ColumnConfiguratorProps,
   ColumnRendererProps,
 } from "./types";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 
 const formatFieldList = (fields: string[]): string => fields.join(", ");
 
@@ -110,5 +119,70 @@ export function MirrorColumnConfigurator({
         </p>
       </div>
     </div>
+  );
+}
+
+export interface MirrorColumnConfiguratorDialogProps {
+  metadata: MirrorColumnMetadata;
+  onChange: (metadata: MirrorColumnMetadata) => void;
+  disabled?: boolean;
+  triggerLabel?: string;
+}
+
+export function MirrorColumnConfiguratorDialog({
+  metadata,
+  onChange,
+  disabled,
+  triggerLabel = "Configure mirror",
+}: MirrorColumnConfiguratorDialogProps) {
+  const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState<MirrorColumnMetadata>(metadata);
+
+  useEffect(() => {
+    if (!open) {
+      setDraft(metadata);
+    }
+  }, [metadata, open]);
+
+  const handleApply = () => {
+    onChange(draft);
+    setOpen(false);
+  };
+
+  const handleCancel = () => {
+    setDraft(metadata);
+    setOpen(false);
+  };
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) {
+          setDraft(metadata);
+        }
+        setOpen(next);
+      }}
+    >
+      <DialogTrigger asChild>
+        <Button type="button" variant="outline" size="sm" disabled={disabled}>
+          {triggerLabel}
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-lg space-y-4">
+        <DialogHeader>
+          <DialogTitle>Mirror column settings</DialogTitle>
+        </DialogHeader>
+        <MirrorColumnConfigurator metadata={draft} onChange={setDraft} disabled={disabled} />
+        <DialogFooter className="flex justify-end gap-2">
+          <Button variant="outline" onClick={handleCancel} type="button">
+            Cancel
+          </Button>
+          <Button onClick={handleApply} type="button" disabled={disabled}>
+            Apply
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

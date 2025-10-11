@@ -121,9 +121,20 @@ export const LeftSidebar = memo(function LeftSidebar({
                       >
                         {renderGroupAccent(group)}
                         <span className="flex-1 truncate text-left">{group.name}</span>
-                        <Badge variant="outline" className="ml-auto shrink-0 text-xs">
-                          {group.count}
-                        </Badge>
+                        <span className="ml-auto flex items-center gap-2">
+                          {group.archived ? (
+                            <Badge
+                              variant="destructive"
+                              className="shrink-0 text-[10px] uppercase"
+                              data-testid="archived-group-badge"
+                            >
+                              Archived
+                            </Badge>
+                          ) : null}
+                          <Badge variant="outline" className="shrink-0 text-xs">
+                            {group.count}
+                          </Badge>
+                        </span>
                       </Button>
                     </li>
                   )
