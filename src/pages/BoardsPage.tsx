@@ -14,10 +14,13 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
+import { Switch } from "@/components/ui/switch";
 import {
   createBoard,
   executeBoardView,
   listBoardsForWorkspace,
+  listBoardTemplates,
+  instantiateBoardTemplate,
   subscribeToBoard,
   updateBoardViewConfiguration,
 } from "@/services/boards/boardService";
@@ -29,10 +32,12 @@ import type {
   CreateBoardScopeInput,
   CreateFilterExpressionInput,
   ViewColumnPreferences,
+  BoardTemplateSummary,
 } from "@/types/boards";
 import { useWorkspaceContextOptional } from "@/state/workspace";
 import { ViewColumnSchemaControls } from "@/components/boards/columns/ViewColumnSchemaControls";
 import { BoardViewCanvas, type BoardViewRecord } from "@/features/boards/views";
+import { cn } from "@/lib/utils";
 
 const BOARD_TYPE_LABELS: Record<BoardType, string> = {
   container: "Container",
@@ -60,6 +65,9 @@ const VIEW_STORAGE_PREFIX = "boards:last-view:";
 type JsonRecord = Record<string, unknown>;
 
 type MergeMode = "append" | "prepend";
+
+const DEFAULT_BOARD_NAME = "New board";
+const DEFAULT_VIEW_NAME = "Default view";
 
 function useOptionalWorkspaceId(): string | null {
   const context = useWorkspaceContextOptional();
@@ -166,13 +174,26 @@ export default function BoardsPage() {
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isCreatingBoard, setIsCreatingBoard] = useState(false);
-  const [newBoardName, setNewBoardName] = useState("New board");
+  const [newBoardName, setNewBoardName] = useState(DEFAULT_BOARD_NAME);
   const [newBoardType, setNewBoardType] = useState<BoardType>("container");
   const [newContainerId, setNewContainerId] = useState("");
   const [newQueryDefinition, setNewQueryDefinition] = useState("status:open");
   const [newContainerFilters, setNewContainerFilters] = useState("{}");
   const [newQueryFilters, setNewQueryFilters] = useState("{}");
-  const [newViewName, setNewViewName] = useState("Default view");
+  const [newViewName, setNewViewName] = useState(DEFAULT_VIEW_NAME);
+  const [templates, setTemplates] = useState<BoardTemplateSummary[]>([]);
+  const [isLoadingTemplates, setIsLoadingTemplates] = useState(false);
+  const [templateError, setTemplateError] = useState<string | null>(null);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
+  const [includeTemplateItems, setIncludeTemplateItems] = useState(false);
+  const [includeTemplateAutomations, setIncludeTemplateAutomations] = useState(false);
+
+  const selectedTemplate = useMemo(() => {
+    if (!selectedTemplateId) {
+      return null;
+    }
+    return templates.find((template) => template.id === selectedTemplateId) ?? null;
+  }, [templates, selectedTemplateId]);
 
   const loadBoards = useCallback(async () => {
     if (!workspaceId) {
@@ -195,6 +216,64 @@ export default function BoardsPage() {
   useEffect(() => {
     void loadBoards();
   }, [loadBoards]);
+
+  useEffect(() => {
+    if (!isCreateOpen || !workspaceId) {
+      return;
+    }
+
+    let cancelled = false;
+    setIsLoadingTemplates(true);
+    setTemplateError(null);
+
+    listBoardTemplates(workspaceId)
+      .then((data) => {
+        if (!cancelled) {
+          setTemplates(data);
+        }
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          setTemplateError(error instanceof Error ? error.message : String(error));
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setIsLoadingTemplates(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isCreateOpen, workspaceId]);
+
+  useEffect(() => {
+    if (!isCreateOpen) {
+      setSelectedTemplateId(null);
+      setIncludeTemplateItems(false);
+      setIncludeTemplateAutomations(false);
+    }
+  }, [isCreateOpen]);
+
+  useEffect(() => {
+    if (!selectedTemplate) {
+      setIncludeTemplateItems(false);
+      setIncludeTemplateAutomations(false);
+      return;
+    }
+
+    setIncludeTemplateItems(selectedTemplate.supportsItems);
+    setIncludeTemplateAutomations(selectedTemplate.supportsAutomations);
+    setNewBoardType(selectedTemplate.type);
+
+    if (
+      newBoardName === DEFAULT_BOARD_NAME ||
+      newBoardName === selectedTemplate.name
+    ) {
+      setNewBoardName(selectedTemplate.name);
+    }
+  }, [selectedTemplate, newBoardName]);
 
   useEffect(() => {
     if (!selectedBoardId && boards.length > 0) {
@@ -549,6 +628,43 @@ export default function BoardsPage() {
     setConfigurationDraft(null);
   };
 
+  const handleBoardCreated = useCallback(
+    (created: HydratedBoard) => {
+      setBoards((previous) => {
+        const withoutDuplicate = previous.filter((board) => board.id !== created.id);
+        return [...withoutDuplicate, created].sort((a, b) => a.name.localeCompare(b.name));
+      });
+
+      const defaultView =
+        created.views.find((view) => view.isDefault) ?? created.views[0] ?? null;
+
+      setSelectedBoardId(created.id);
+      setSelectedViewId(defaultView?.id ?? null);
+      if (defaultView?.id) {
+        persistViewId(created.id, defaultView.id);
+      } else {
+        clearPersistedViewId(created.id);
+      }
+
+      toast({
+        title: "Board created",
+        description: `${created.name} is ready to use.`,
+      });
+
+      setIsCreateOpen(false);
+      setNewBoardName(DEFAULT_BOARD_NAME);
+      setNewContainerId("");
+      setNewQueryDefinition("status:open");
+      setNewContainerFilters("{}");
+      setNewQueryFilters("{}");
+      setNewViewName(DEFAULT_VIEW_NAME);
+      setSelectedTemplateId(null);
+      setIncludeTemplateItems(false);
+      setIncludeTemplateAutomations(false);
+    },
+    [toast]
+  );
+
   const handleCreateBoard = async (event: React.FormEvent) => {
     event.preventDefault();
 
@@ -568,6 +684,33 @@ export default function BoardsPage() {
         description: "Please provide a name for your board.",
         variant: "destructive",
       });
+      return;
+    }
+
+    if (selectedTemplate) {
+      setIsCreatingBoard(true);
+      try {
+        const created = await instantiateBoardTemplate({
+          templateId: selectedTemplate.id,
+          workspaceId,
+          name: trimmedName,
+          description: selectedTemplate.description ?? undefined,
+          includeItems: selectedTemplate.supportsItems ? includeTemplateItems : false,
+          includeAutomations: selectedTemplate.supportsAutomations
+            ? includeTemplateAutomations
+            : false,
+        });
+
+        handleBoardCreated(created);
+      } catch (error) {
+        toast({
+          title: "Unable to apply template",
+          description: error instanceof Error ? error.message : String(error),
+          variant: "destructive",
+        });
+      } finally {
+        setIsCreatingBoard(false);
+      }
       return;
     }
 
@@ -657,36 +800,7 @@ export default function BoardsPage() {
         ],
       });
 
-      setBoards((previous) => {
-        const withoutDuplicate = previous.filter((board) => board.id !== created.id);
-        return [...withoutDuplicate, created].sort((a, b) =>
-          a.name.localeCompare(b.name)
-        );
-      });
-
-      const defaultView =
-        created.views.find((view) => view.isDefault) ?? created.views[0] ?? null;
-
-      setSelectedBoardId(created.id);
-      setSelectedViewId(defaultView?.id ?? null);
-      if (defaultView?.id) {
-        persistViewId(created.id, defaultView.id);
-      } else {
-        clearPersistedViewId(created.id);
-      }
-
-      toast({
-        title: "Board created",
-        description: `${created.name} is ready to use.`,
-      });
-
-      setIsCreateOpen(false);
-      setNewBoardName("New board");
-      setNewContainerId("");
-      setNewQueryDefinition("status:open");
-      setNewContainerFilters("{}");
-      setNewQueryFilters("{}");
-      setNewViewName("Default view");
+      handleBoardCreated(created);
     } catch (error) {
       toast({
         title: "Unable to create board",
@@ -815,7 +929,7 @@ export default function BoardsPage() {
         </CardHeader>
         <CardContent>
           <form className="grid gap-4 md:grid-cols-2" onSubmit={handleCreateBoard}>
-            <div className="space-y-2">
+            <div className="space-y-2 md:col-span-2">
               <Label htmlFor="board-name">Board name</Label>
               <Input
                 id="board-name"
@@ -825,84 +939,199 @@ export default function BoardsPage() {
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="board-type">Board type</Label>
-              <Select
-                value={newBoardType}
-                onValueChange={(value) => setNewBoardType(value as BoardType)}
-              >
-                <SelectTrigger id="board-type">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="container">Container</SelectItem>
-                  <SelectItem value="query">Query</SelectItem>
-                  <SelectItem value="hybrid">Hybrid</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="space-y-3 md:col-span-2">
+              <div className="flex items-center justify-between gap-2">
+                <Label>Template gallery</Label>
+                {selectedTemplate ? (
+                  <Button
+                    type="button"
+                    variant="link"
+                    onClick={() => setSelectedTemplateId(null)}
+                    className="px-0"
+                  >
+                    Start from scratch
+                  </Button>
+                ) : null}
+              </div>
+              {templateError ? (
+                <Alert variant="destructive">
+                  <AlertTitle>Unable to load templates</AlertTitle>
+                  <AlertDescription>{templateError}</AlertDescription>
+                </Alert>
+              ) : isLoadingTemplates ? (
+                <div className="rounded-md border border-dashed py-6 text-center text-sm text-muted-foreground">
+                  Loading templates…
+                </div>
+              ) : templates.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No templates available yet. Configure your board manually below.
+                </p>
+              ) : (
+                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                  {templates.map((template) => {
+                    const isActive = selectedTemplateId === template.id;
+                    return (
+                      <button
+                        key={template.id}
+                        type="button"
+                        onClick={() => setSelectedTemplateId(template.id)}
+                        className={cn(
+                          "rounded-md border p-4 text-left transition focus:outline-none focus:ring-2 focus:ring-primary",
+                          isActive
+                            ? "border-primary bg-primary/5 shadow-sm"
+                            : "border-muted bg-background hover:border-primary/40"
+                        )}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="space-y-1">
+                            <p className="font-medium">{template.name}</p>
+                            <p className="text-sm text-muted-foreground line-clamp-2">
+                              {template.description ??
+                                "Reusable configuration for this board type."}
+                            </p>
+                          </div>
+                          <Badge variant="secondary">
+                            {BOARD_TYPE_LABELS[template.type]}
+                          </Badge>
+                        </div>
+                        <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                          <span>
+                            {template.viewCount} {template.viewCount === 1 ? "view" : "views"}
+                          </span>
+                          <span>
+                            • {template.fieldCount} {template.fieldCount === 1 ? "field" : "fields"}
+                          </span>
+                          {template.supportsItems ? <span>• Sample items</span> : null}
+                          {template.supportsAutomations ? <span>• Automations</span> : null}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
-            {newBoardType !== "query" ? (
-              <div className="space-y-2">
-                <Label htmlFor="container-id">Container scope id</Label>
-                <Input
-                  id="container-id"
-                  value={newContainerId}
-                  onChange={(event) => setNewContainerId(event.target.value)}
-                  placeholder="project-123"
-                />
+            {selectedTemplate ? (
+              <div className="space-y-3 rounded-md border border-dashed p-4 md:col-span-2">
+                <p className="text-sm text-muted-foreground">
+                  Choose which parts of {" "}
+                  <span className="font-medium">{selectedTemplate.name}</span> to include.
+                </p>
+                <div className="flex flex-wrap items-center gap-4">
+                  {selectedTemplate.supportsItems ? (
+                    <label className="flex items-center gap-2 text-sm">
+                      <Switch
+                        checked={includeTemplateItems}
+                        onCheckedChange={setIncludeTemplateItems}
+                      />
+                      Include sample items ({selectedTemplate.itemCount})
+                    </label>
+                  ) : (
+                    <span className="text-sm text-muted-foreground">
+                      This template does not include sample items.
+                    </span>
+                  )}
+                  {selectedTemplate.supportsAutomations ? (
+                    <label className="flex items-center gap-2 text-sm">
+                      <Switch
+                        checked={includeTemplateAutomations}
+                        onCheckedChange={setIncludeTemplateAutomations}
+                      />
+                      Include automation recipes ({selectedTemplate.automationCount})
+                    </label>
+                  ) : (
+                    <span className="text-sm text-muted-foreground">
+                      No automation recipes bundled.
+                    </span>
+                  )}
+                </div>
               </div>
-            ) : null}
+            ) : (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="board-type">Board type</Label>
+                  <Select
+                    value={newBoardType}
+                    onValueChange={(value) => setNewBoardType(value as BoardType)}
+                  >
+                    <SelectTrigger id="board-type">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="container">Container</SelectItem>
+                      <SelectItem value="query">Query</SelectItem>
+                      <SelectItem value="hybrid">Hybrid</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
 
-            {newBoardType !== "container" ? (
-              <div className="space-y-2">
-                <Label htmlFor="query-definition">Query definition</Label>
-                <Input
-                  id="query-definition"
-                  value={newQueryDefinition}
-                  onChange={(event) => setNewQueryDefinition(event.target.value)}
-                  placeholder="status:open assignee:@me"
-                />
-              </div>
-            ) : null}
+                {newBoardType !== "query" ? (
+                  <div className="space-y-2">
+                    <Label htmlFor="container-id">Container scope id</Label>
+                    <Input
+                      id="container-id"
+                      value={newContainerId}
+                      onChange={(event) => setNewContainerId(event.target.value)}
+                      placeholder="project-123"
+                    />
+                  </div>
+                ) : null}
 
-            {newBoardType !== "query" ? (
-              <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="container-filters">Container filters (JSON)</Label>
-                <Textarea
-                  id="container-filters"
-                  value={newContainerFilters}
-                  onChange={(event) => setNewContainerFilters(event.target.value)}
-                  rows={4}
-                />
-              </div>
-            ) : null}
+                {newBoardType !== "container" ? (
+                  <div className="space-y-2">
+                    <Label htmlFor="query-definition">Query definition</Label>
+                    <Input
+                      id="query-definition"
+                      value={newQueryDefinition}
+                      onChange={(event) => setNewQueryDefinition(event.target.value)}
+                      placeholder="status:open assignee:@me"
+                    />
+                  </div>
+                ) : null}
 
-            {newBoardType !== "container" ? (
-              <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="query-filters">Query filters (JSON)</Label>
-                <Textarea
-                  id="query-filters"
-                  value={newQueryFilters}
-                  onChange={(event) => setNewQueryFilters(event.target.value)}
-                  rows={4}
-                />
-              </div>
-            ) : null}
+                {newBoardType !== "query" ? (
+                  <div className="space-y-2 md:col-span-2">
+                    <Label htmlFor="container-filters">Container filters (JSON)</Label>
+                    <Textarea
+                      id="container-filters"
+                      value={newContainerFilters}
+                      onChange={(event) => setNewContainerFilters(event.target.value)}
+                      rows={4}
+                    />
+                  </div>
+                ) : null}
 
-            <div className="space-y-2 md:col-span-2">
-              <Label htmlFor="view-name">Default view name</Label>
-              <Input
-                id="view-name"
-                value={newViewName}
-                onChange={(event) => setNewViewName(event.target.value)}
-                placeholder="Active work"
-              />
-            </div>
+                {newBoardType !== "container" ? (
+                  <div className="space-y-2 md:col-span-2">
+                    <Label htmlFor="query-filters">Query filters (JSON)</Label>
+                    <Textarea
+                      id="query-filters"
+                      value={newQueryFilters}
+                      onChange={(event) => setNewQueryFilters(event.target.value)}
+                      rows={4}
+                    />
+                  </div>
+                ) : null}
+
+                <div className="space-y-2 md:col-span-2">
+                  <Label htmlFor="view-name">Default view name</Label>
+                  <Input
+                    id="view-name"
+                    value={newViewName}
+                    onChange={(event) => setNewViewName(event.target.value)}
+                    placeholder="Active work"
+                  />
+                </div>
+              </>
+            )}
 
             <div className="md:col-span-2 flex items-center gap-3">
               <Button type="submit" disabled={isCreatingBoard}>
-                {isCreatingBoard ? "Creating…" : "Create board"}
+                {isCreatingBoard
+                  ? "Creating…"
+                  : selectedTemplate
+                  ? "Use template"
+                  : "Create board"}
               </Button>
               <Button
                 type="button"

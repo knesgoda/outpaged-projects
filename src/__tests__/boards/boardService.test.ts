@@ -2,6 +2,9 @@ import {
   createBoard,
   executeBoardView,
   listBoardsForWorkspace,
+  listBoardTemplates,
+  instantiateBoardTemplate,
+  copyBoard,
   subscribeToBoard,
 } from "@/services/boards/boardService";
 import type { BoardFilterExpressionRow } from "@/types/boards";
@@ -78,6 +81,86 @@ type BoardRow = {
   }>;
 };
 
+type TemplateRow = {
+  id: string;
+  workspace_id: string | null;
+  name: string;
+  description: string | null;
+  slug: string;
+  type: "container" | "query" | "hybrid";
+  visibility: "public" | "workspace" | "private";
+  preview_asset_url: string | null;
+  tags: string[];
+  metadata: Record<string, unknown>;
+  scope_definition: Record<string, unknown>;
+  supports_items: boolean;
+  supports_automations: boolean;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  fields: Array<{
+    id: string;
+    template_id: string;
+    field_key: string;
+    label: string;
+    field_type: string;
+    configuration: Record<string, unknown>;
+    is_required: boolean;
+    is_primary: boolean;
+    position: number;
+    created_at: string;
+    updated_at: string;
+  }>;
+  views: Array<{
+    id: string;
+    template_id: string;
+    name: string;
+    slug: string;
+    description: string | null;
+    is_default: boolean;
+    position: number;
+    configuration: Record<string, unknown>;
+    filter_definition: Record<string, unknown>;
+    created_at: string;
+    updated_at: string;
+    color_rules: Array<{
+      id: string;
+      template_view_id: string;
+      label: string;
+      rule_type: string;
+      color: string;
+      field: string | null;
+      value: unknown;
+      description: string | null;
+      expression: string | null;
+      position: number;
+      created_at: string;
+      updated_at: string;
+    }>;
+  }>;
+  automations: Array<{
+    id: string;
+    template_id: string;
+    recipe_slug: string;
+    name: string;
+    description: string | null;
+    trigger_config: Record<string, unknown>;
+    action_config: Record<string, unknown>;
+    is_enabled: boolean;
+    created_at: string;
+    updated_at: string;
+  }>;
+  items: Array<{
+    id: string;
+    template_id: string;
+    name: string;
+    data: Record<string, unknown>;
+    position: number;
+    created_at: string;
+    updated_at: string;
+  }>;
+};
+
 describe("boardService", () => {
   beforeEach(() => {
     mockRpc.mockReset();
@@ -141,6 +224,125 @@ describe("boardService", () => {
           refresh_interval_seconds: 300,
           last_evaluated_at: "2024-01-01T00:06:00Z",
         },
+      },
+    ],
+  });
+
+  const createTemplateRow = (): TemplateRow => ({
+    id: "template-1",
+    workspace_id: null,
+    name: "Product planning",
+    description: "Plan launches across teams",
+    slug: "product-planning",
+    type: "hybrid",
+    visibility: "public",
+    preview_asset_url: null,
+    tags: ["planning", "product"],
+    metadata: {},
+    scope_definition: {
+      type: "hybrid",
+      containerId: "container-1",
+      query: "status:open",
+      containerFilters: { stage: "active" },
+      queryFilters: { assigned: true },
+    },
+    supports_items: true,
+    supports_automations: true,
+    created_by: "user-1",
+    created_at: "2024-01-01T00:00:00Z",
+    updated_at: "2024-01-01T00:00:00Z",
+    fields: [
+      {
+        id: "field-1",
+        template_id: "template-1",
+        field_key: "status",
+        label: "Status",
+        field_type: "select",
+        configuration: { options: ["Backlog", "Active", "Done"] },
+        is_required: false,
+        is_primary: false,
+        position: 0,
+        created_at: "2024-01-01T00:00:00Z",
+        updated_at: "2024-01-01T00:00:00Z",
+      },
+    ],
+    views: [
+      {
+        id: "template-view-1",
+        template_id: "template-1",
+        name: "Active initiatives",
+        slug: "active",
+        description: null,
+        is_default: true,
+        position: 0,
+        configuration: {
+          mode: "kanban",
+          filters: {},
+          grouping: { primary: "status", swimlaneField: null, swimlanes: [] },
+          sort: [],
+          columnPreferences: { order: [], hidden: [] },
+          timeline: null,
+          colorRules: [],
+        },
+        filter_definition: {
+          type: "hybrid",
+          containerId: "container-1",
+          query: "status:open",
+          containerFilters: { stage: "active" },
+          queryFilters: { assigned: true },
+        },
+        created_at: "2024-01-01T00:00:00Z",
+        updated_at: "2024-01-01T00:00:00Z",
+        color_rules: [
+          {
+            id: "rule-1",
+            template_view_id: "template-view-1",
+            label: "High priority",
+            rule_type: "priority",
+            color: "#ef4444",
+            field: "priority",
+            value: "high",
+            description: null,
+            expression: null,
+            position: 0,
+            created_at: "2024-01-01T00:00:00Z",
+            updated_at: "2024-01-01T00:00:00Z",
+          },
+        ],
+      },
+    ],
+    automations: [
+      {
+        id: "automation-1",
+        template_id: "template-1",
+        recipe_slug: "notify-on-status",
+        name: "Notify owner",
+        description: "Ping the owner when an item moves to done.",
+        trigger_config: { status: "done" },
+        action_config: { channel: "slack" },
+        is_enabled: true,
+        created_at: "2024-01-01T00:00:00Z",
+        updated_at: "2024-01-01T00:00:00Z",
+      },
+    ],
+    items: [
+      {
+        id: "item-1",
+        template_id: "template-1",
+        name: "Kickoff research",
+        data: { owner: "alice" },
+        position: 0,
+        created_at: "2024-01-01T00:00:00Z",
+        updated_at: "2024-01-01T00:00:00Z",
+      },
+      {
+        id: "item-2",
+        template_id: "template-1",
+        name: "Define launch brief",
+        data: { owner: "bob" },
+        position: 1,
+        created_at: "2024-01-01T00:00:00Z",
+        updated_at: "2024-01-01T00:00:00Z",
       },
     ],
   });
@@ -342,6 +544,298 @@ describe("boardService", () => {
 
     expect(result.id).toBe("board-1");
     expect(result.views.length).toBeGreaterThan(0);
+  });
+
+  it("lists board templates with summaries", async () => {
+    const templateRow = createTemplateRow();
+    const selectMock = jest.fn().mockReturnThis();
+    const orMock = jest.fn().mockReturnThis();
+    const orderMock = jest
+      .fn()
+      .mockResolvedValue({ data: [templateRow], error: null });
+
+    mockFrom.mockImplementation((table: string) => {
+      if (table === "board_templates") {
+        return {
+          select: selectMock,
+          or: orMock,
+          order: orderMock,
+        };
+      }
+      throw new Error(`Unexpected table ${table}`);
+    });
+
+    mockRequireUserId.mockResolvedValue("user-1");
+
+    const summaries = await listBoardTemplates("workspace-1");
+
+    expect(selectMock).toHaveBeenCalledWith(expect.stringContaining("board_template_fields"));
+    expect(orMock).toHaveBeenCalledWith(expect.stringContaining("workspace_id.eq.workspace-1"));
+    expect(summaries).toEqual([
+      {
+        id: "template-1",
+        name: "Product planning",
+        description: "Plan launches across teams",
+        type: "hybrid",
+        visibility: "public",
+        previewUrl: null,
+        tags: ["planning", "product"],
+        viewCount: 1,
+        fieldCount: 1,
+        automationCount: 1,
+        itemCount: 2,
+        supportsItems: true,
+        supportsAutomations: true,
+      },
+    ]);
+  });
+
+  it("instantiates a board template with selected items", async () => {
+    const templateRow = createTemplateRow();
+
+    const templateSelectBuilder = {
+      select: jest.fn().mockReturnThis(),
+      eq: jest.fn().mockReturnThis(),
+      limit: jest.fn().mockReturnThis(),
+      maybeSingle: jest
+        .fn()
+        .mockResolvedValue({ data: templateRow, error: null }),
+    };
+
+    const boardInsertBuilder: InsertBuilder = {
+      insert: jest.fn().mockReturnThis(),
+      select: jest.fn().mockReturnThis(),
+      single: jest.fn().mockResolvedValue({ data: { id: "board-1" }, error: null }),
+    };
+
+    const scopeInsertBuilder: InsertBuilder = {
+      insert: jest.fn().mockReturnThis(),
+      select: jest.fn().mockReturnThis(),
+      single: jest.fn().mockResolvedValue({ data: { id: "scope-1" }, error: null }),
+    };
+
+    const filterInsertBuilder: InsertBuilder = {
+      insert: jest.fn().mockReturnThis(),
+      select: jest.fn().mockReturnThis(),
+      single: jest.fn().mockResolvedValue({
+        data: {
+          id: "filter-1",
+          board_id: "board-1",
+          expression_type: "hybrid",
+          expression: {},
+          metadata: {},
+          refresh_interval_seconds: null,
+          last_evaluated_at: null,
+          created_at: "2024-01-01T00:00:00Z",
+          updated_at: "2024-01-01T00:00:00Z",
+        },
+        error: null,
+      }),
+    };
+
+    const viewInsertBuilder: ViewInsertBuilder = {
+      insert: jest.fn().mockResolvedValue({ error: null }),
+    };
+
+    const boardSelectBuilder = {
+      insert: jest.fn(),
+      select: jest.fn().mockReturnThis(),
+      eq: jest.fn().mockReturnThis(),
+      limit: jest.fn().mockReturnThis(),
+      maybeSingle: jest
+        .fn()
+        .mockResolvedValue({ data: createHydratedBoardRow(), error: null }),
+      single: jest.fn(),
+    };
+
+    const callMap: Record<string, unknown[]> = {
+      board_templates: [templateSelectBuilder],
+      boards: [boardInsertBuilder, boardSelectBuilder],
+      board_scopes: [scopeInsertBuilder],
+      board_filter_expressions: [filterInsertBuilder],
+      board_views: [viewInsertBuilder],
+    };
+
+    mockFrom.mockImplementation((table: string) => {
+      const queue = callMap[table];
+      if (!queue || queue.length === 0) {
+        throw new Error(`Unexpected table ${table}`);
+      }
+      return queue.shift();
+    });
+
+    mockRpc.mockImplementation((fn: string) => {
+      if (fn === "seed_board_template_items" || fn === "seed_board_template_automations") {
+        return Promise.resolve({ data: null, error: null });
+      }
+      return Promise.resolve({ data: null, error: null });
+    });
+
+    mockRequireUserId.mockResolvedValue("user-1");
+
+    const result = await instantiateBoardTemplate({
+      templateId: "template-1",
+      workspaceId: "workspace-1",
+      name: "Launch prep",
+      includeItems: true,
+      includeAutomations: false,
+      itemIds: ["item-2"],
+    });
+
+    expect(boardInsertBuilder.insert).toHaveBeenCalledWith({
+      workspace_id: "workspace-1",
+      name: "Launch prep",
+      description: "Plan launches across teams",
+      type: "hybrid",
+      created_by: "user-1",
+    });
+    expect(scopeInsertBuilder.insert).toHaveBeenCalled();
+    expect(viewInsertBuilder.insert).toHaveBeenCalled();
+    expect(mockRpc).toHaveBeenCalledWith("seed_board_template_items", {
+      template_id: "template-1",
+      board_id: "board-1",
+      item_ids: ["item-2"],
+    });
+    expect(mockRpc).not.toHaveBeenCalledWith("seed_board_template_automations", expect.anything());
+    expect(result.id).toBe("board-1");
+  });
+
+  it("copies boards with items and automations when permitted", async () => {
+    const sourceRow = createHydratedBoardRow();
+
+    const boardFetchBuilder = {
+      select: jest.fn().mockReturnThis(),
+      eq: jest.fn().mockReturnThis(),
+      limit: jest.fn().mockReturnThis(),
+      maybeSingle: jest
+        .fn()
+        .mockResolvedValue({ data: sourceRow, error: null }),
+    };
+
+    const boardInsertBuilder: InsertBuilder = {
+      insert: jest.fn().mockReturnThis(),
+      select: jest.fn().mockReturnThis(),
+      single: jest.fn().mockResolvedValue({ data: { id: "board-2" }, error: null }),
+    };
+
+    const scopeInsertBuilder: InsertBuilder = {
+      insert: jest.fn().mockReturnThis(),
+      select: jest.fn().mockReturnThis(),
+      single: jest.fn().mockResolvedValue({ data: { id: "scope-2" }, error: null }),
+    };
+
+    const filterInsertBuilder: InsertBuilder = {
+      insert: jest.fn().mockReturnThis(),
+      select: jest.fn().mockReturnThis(),
+      single: jest.fn().mockResolvedValue({
+        data: {
+          id: "filter-2",
+          board_id: "board-2",
+          expression_type: "hybrid",
+          expression: {},
+          metadata: {},
+          refresh_interval_seconds: null,
+          last_evaluated_at: null,
+          created_at: "2024-01-01T00:00:00Z",
+          updated_at: "2024-01-01T00:00:00Z",
+        },
+        error: null,
+      }),
+    };
+
+    const viewInsertBuilder: ViewInsertBuilder = {
+      insert: jest.fn().mockResolvedValue({ error: null }),
+    };
+
+    const boardSelectBuilder = {
+      insert: jest.fn(),
+      select: jest.fn().mockReturnThis(),
+      eq: jest.fn().mockReturnThis(),
+      limit: jest.fn().mockReturnThis(),
+      maybeSingle: jest
+        .fn()
+        .mockResolvedValue({ data: { ...sourceRow, id: "board-2" }, error: null }),
+      single: jest.fn(),
+    };
+
+    const callMap: Record<string, unknown[]> = {
+      boards: [boardFetchBuilder, boardInsertBuilder, boardSelectBuilder],
+      board_scopes: [scopeInsertBuilder],
+      board_filter_expressions: [filterInsertBuilder],
+      board_views: [viewInsertBuilder],
+    };
+
+    mockFrom.mockImplementation((table: string) => {
+      const queue = callMap[table];
+      if (!queue || queue.length === 0) {
+        throw new Error(`Unexpected table ${table}`);
+      }
+      return queue.shift();
+    });
+
+    mockRpc.mockImplementation((fn: string, payload: unknown) => {
+      if (fn === "copy_board_items" || fn === "copy_board_automations") {
+        return Promise.resolve({ data: null, error: null });
+      }
+      return Promise.resolve({ data: null, error: null });
+    });
+
+    mockRequireUserId.mockResolvedValue("user-1");
+
+    const result = await copyBoard({
+      sourceBoardId: "board-1",
+      workspaceId: "workspace-1",
+      name: "Board copy",
+      includeItems: true,
+      itemIds: ["task-1"],
+      includeAutomations: true,
+      automationRecipeSlugs: ["notify-on-move"],
+      permissions: { canCopyItems: true, canCopyAutomations: true },
+    });
+
+    expect(mockRpc).toHaveBeenCalledWith("copy_board_items", {
+      source_board_id: "board-1",
+      target_board_id: "board-2",
+      item_ids: ["task-1"],
+    });
+    expect(mockRpc).toHaveBeenCalledWith("copy_board_automations", {
+      source_board_id: "board-1",
+      target_board_id: "board-2",
+      recipe_slugs: ["notify-on-move"],
+    });
+    expect(result.id).toBe("board-2");
+  });
+
+  it("enforces permissions when copying board items", async () => {
+    const boardFetchBuilder = {
+      select: jest.fn().mockReturnThis(),
+      eq: jest.fn().mockReturnThis(),
+      limit: jest.fn().mockReturnThis(),
+      maybeSingle: jest
+        .fn()
+        .mockResolvedValue({ data: createHydratedBoardRow(), error: null }),
+    };
+
+    mockFrom.mockImplementation((table: string) => {
+      if (table === "boards") {
+        return boardFetchBuilder;
+      }
+      throw new Error(`Unexpected table ${table}`);
+    });
+
+    mockRequireUserId.mockResolvedValue("user-1");
+
+    await expect(
+      copyBoard({
+        sourceBoardId: "board-1",
+        workspaceId: "workspace-1",
+        name: "Board copy",
+        includeItems: true,
+        permissions: { canCopyItems: false },
+      })
+    ).rejects.toThrow("You do not have permission to copy board items.");
+
+    expect(mockRpc).not.toHaveBeenCalled();
   });
 
   it("executes board views with incremental payload", async () => {
