@@ -1,19 +1,19 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
-import {
-  type TaskAssignee,
-  type TaskDependencyType,
-  type TaskFileReference,
-  type TaskLinkReference,
-  type TaskRelationSummary,
-  type TaskRollup,
-  type TaskSubitemSummary,
-  type TaskTag,
-  type TaskWithDetails,
-  type TaskPriority,
-  type TaskHierarchyLevel,
-  type TaskStatus,
-  type TaskType,
+import type {
+  TaskAssignee,
+  TaskDependencyType,
+  TaskFileReference,
+  TaskLinkReference,
+  TaskRelationSummary,
+  TaskRollup,
+  TaskSubitemSummary,
+  TaskTag,
+  TaskWithDetails,
+  TaskPriority,
+  TaskHierarchyLevel,
+  TaskStatus,
+  TaskType,
 } from "@/types/tasks";
 import { mapSupabaseError } from "./utils";
 
