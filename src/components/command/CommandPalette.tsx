@@ -30,6 +30,7 @@ import {
   recordOpqlSelection,
 } from "@/lib/opqlHistory";
 import { formatSuggestionValue } from "@/lib/opqlSuggestions";
+import { useSuggestionDictionaries } from "@/hooks/useSuggestionDictionaries";
 import {
   CircleHelp,
   FileText,
@@ -108,6 +109,12 @@ export const CommandPalette = () => {
     staleTime: 1000 * 60 * 5,
   });
 
+  const {
+    dictionaries: suggestionDictionaries,
+    signature: dictionarySignature,
+    currentTeamId,
+  } = useSuggestionDictionaries();
+
   useEffect(() => {
     persistOpqlHistory(history);
   }, [history]);
@@ -158,6 +165,8 @@ export const CommandPalette = () => {
       scope.projectId ?? null,
       scope.types?.join(",") ?? null,
       historySignature,
+      currentTeamId ?? null,
+      dictionarySignature,
     ],
     queryFn: () =>
       opqlSuggest({
@@ -167,6 +176,8 @@ export const CommandPalette = () => {
         context: {
           projectId: scope.projectId,
           types: scope.types,
+          teamId: currentTeamId,
+          dictionaries: suggestionDictionaries,
         },
         history,
       }),

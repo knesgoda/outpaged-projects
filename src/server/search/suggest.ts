@@ -6,6 +6,8 @@ import {
   type OpqlSuggestionRequest,
   type OpqlSuggestionResponse,
   type SuggestionCompletion,
+  type SuggestionDictionaries,
+  type SuggestionDictionaryItem,
   type SuggestionHistoryEntry,
   type SuggestionKind,
   type SuggestionTrigger,
@@ -27,7 +29,7 @@ type TriggerDetector = {
 
 const DEFAULT_LIMIT = 12;
 
-const SYNONYM_CORPUS: Record<string, string[]> = {
+const BASE_SYNONYM_CORPUS: Record<string, string[]> = {
   asap: ["urgent", "high"],
   slow: ["low", "backlog"],
   owner: ["assignee", "responsible"],
@@ -120,6 +122,73 @@ const TRIGGERS: TriggerDetector[] = [
   { trigger: "space", match: (token) => token.startsWith("space:") },
   { trigger: "filetype", match: (token) => token.startsWith("filetype:") },
 ];
+
+const cloneCandidate = (candidate: Candidate): Candidate => ({
+  ...candidate,
+  synonyms: candidate.synonyms ? [...candidate.synonyms] : undefined,
+  permissions: candidate.permissions ? [...candidate.permissions] : undefined,
+  tags: candidate.tags ? [...candidate.tags] : undefined,
+});
+
+const toCandidateFromDictionary = (
+  item: SuggestionDictionaryItem
+): Candidate => ({
+  id: item.id,
+  kind: item.kind,
+  value: item.value,
+  label: item.label,
+  description: item.description,
+  trigger: item.trigger,
+  synonyms: item.synonyms ? [...item.synonyms] : undefined,
+  projectId: item.projectId,
+  teamId: item.teamId,
+  permissions: item.permissions ? [...item.permissions] : undefined,
+  tags: item.tags ? [...item.tags] : undefined,
+  weight: item.weight,
+});
+
+const mergeCandidates = (...lists: Candidate[][]): Candidate[] => {
+  const merged = new Map<string, Candidate>();
+  for (const list of lists) {
+    for (const candidate of list) {
+      const existing = merged.get(candidate.id);
+      if (existing) {
+        existing.weight = candidate.weight ?? existing.weight;
+        existing.description = existing.description ?? candidate.description;
+        existing.projectId = existing.projectId ?? candidate.projectId;
+        existing.teamId = existing.teamId ?? candidate.teamId;
+        existing.trigger = existing.trigger ?? candidate.trigger;
+        if (candidate.synonyms?.length) {
+          existing.synonyms = Array.from(
+            new Set([...(existing.synonyms ?? []), ...candidate.synonyms])
+          );
+        }
+        if (candidate.tags?.length) {
+          existing.tags = Array.from(
+            new Set([...(existing.tags ?? []), ...candidate.tags])
+          );
+        }
+        if (candidate.permissions?.length && !existing.permissions?.length) {
+          existing.permissions = [...candidate.permissions];
+        }
+      } else {
+        merged.set(candidate.id, cloneCandidate(candidate));
+      }
+    }
+  }
+  return Array.from(merged.values());
+};
+
+const buildSynonymCandidates = (corpus: Record<string, string[]>): Candidate[] =>
+  Object.entries(corpus).map(([term, synonyms]) => ({
+    id: `synonym:${term}`,
+    kind: "synonym" as const,
+    value: term,
+    label: `Synonym: ${term}`,
+    description: `Matches ${synonyms.join(", ")}`,
+    synonyms: [...synonyms],
+    weight: 0.55,
+  }));
 
 const ENTITY_DICTIONARY: Candidate[] = [
   {
@@ -379,23 +448,11 @@ const detectTrigger = (token: string): SuggestionTrigger => {
   return "none";
 };
 
-const SYNONYM_CANDIDATES: Candidate[] = Object.entries(SYNONYM_CORPUS).map(
-  ([term, synonyms]) => ({
-    id: `synonym:${term}`,
-    kind: "synonym" as const,
-    value: term,
-    label: `Synonym: ${term}`,
-    description: `Matches ${synonyms.join(", ")}`,
-    synonyms,
-    weight: 0.55,
-  })
-);
-
-const ACTIVE_DICTIONARIES: Record<
+const BASE_ACTIVE_DICTIONARIES: Record<
   "root" | "entity" | "field" | "operator" | "value" | "postfix",
   Candidate[]
 > = {
-  root: [...ENTITY_DICTIONARY, ...SYNONYM_CANDIDATES],
+  root: ENTITY_DICTIONARY,
   entity: FIELD_DICTIONARY,
   field: OPERATOR_DICTIONARY,
   operator: ENUM_DICTIONARY,
@@ -403,7 +460,7 @@ const ACTIVE_DICTIONARIES: Record<
   postfix: ENTITY_DICTIONARY,
 };
 
-const TRIGGER_DICTIONARIES: Record<SuggestionTrigger, Candidate[]> = {
+const BASE_TRIGGER_DICTIONARIES: Record<SuggestionTrigger, Candidate[]> = {
   mention: USER_DICTIONARY,
   label: LABEL_DICTIONARY,
   project: PROJECT_DICTIONARY,
@@ -487,7 +544,8 @@ const applyHistory = (
 
 const buildCorrections = (
   prefix: string,
-  candidates: Candidate[]
+  candidates: Candidate[],
+  synonymCorpus: Record<string, string[]>
 ): DidYouMeanSuggestion[] => {
   if (!prefix) return [];
   const normalized = prefix.toLowerCase();
@@ -498,6 +556,14 @@ const buildCorrections = (
       id: `correction:${normalized}`,
       text: CORRECTION_CORPUS[normalized],
       reason: "Spelling",
+    });
+  }
+
+  if (synonymCorpus[normalized]?.length) {
+    corrections.push({
+      id: `corpus:${normalized}`,
+      text: synonymCorpus[normalized][0] ?? normalized,
+      reason: "Synonym",
     });
   }
 
@@ -519,18 +585,64 @@ const buildCorrections = (
 
 const gatherCandidates = (
   state: OpqlGrammarState,
-  trigger: SuggestionTrigger
+  trigger: SuggestionTrigger,
+  context?: OpqlSuggestionContext
 ): Candidate[] => {
+  const dictionaries: SuggestionDictionaries | undefined = context?.dictionaries;
+
   if (trigger !== "none") {
-    return (TRIGGER_DICTIONARIES[trigger] ?? []).map((candidate) => ({
-      ...candidate,
+    const baseTrigger = (BASE_TRIGGER_DICTIONARIES[trigger] ?? []).map((candidate) => ({
+      ...cloneCandidate(candidate),
       trigger,
     }));
+
+    const dynamicTrigger = (() => {
+      switch (trigger) {
+        case "label":
+          return (dictionaries?.labels ?? []).map((item) => ({
+            ...toCandidateFromDictionary(item),
+            trigger: "label" as const,
+          }));
+        case "space":
+          return (dictionaries?.teams ?? []).map((item) => ({
+            ...toCandidateFromDictionary(item),
+            trigger: "space" as const,
+          }));
+        default:
+          return [] as Candidate[];
+      }
+    })();
+
+    return mergeCandidates(baseTrigger, dynamicTrigger);
   }
-  return (ACTIVE_DICTIONARIES[state] ?? ENTITY_DICTIONARY).map((candidate) => ({
-    ...candidate,
-    trigger: undefined,
-  }));
+
+  const synonymCorpus = {
+    ...BASE_SYNONYM_CORPUS,
+    ...(dictionaries?.synonyms ?? {}),
+  } satisfies Record<string, string[]>;
+
+  const dictionaryByState: Record<OpqlGrammarState, Candidate[]> = {
+    root: mergeCandidates(
+      BASE_ACTIVE_DICTIONARIES.root.map(cloneCandidate),
+      buildSynonymCandidates(synonymCorpus)
+    ),
+    entity: mergeCandidates(
+      BASE_ACTIVE_DICTIONARIES.entity.map(cloneCandidate),
+      (dictionaries?.fields ?? []).map(toCandidateFromDictionary)
+    ),
+    field: BASE_ACTIVE_DICTIONARIES.field.map(cloneCandidate),
+    operator: mergeCandidates(
+      BASE_ACTIVE_DICTIONARIES.operator.map(cloneCandidate),
+      (dictionaries?.enumerations ?? []).map(toCandidateFromDictionary)
+    ),
+    value: mergeCandidates(
+      BASE_ACTIVE_DICTIONARIES.value.map(cloneCandidate),
+      (dictionaries?.enumerations ?? []).map(toCandidateFromDictionary)
+    ),
+    postfix: BASE_ACTIVE_DICTIONARIES.postfix.map(cloneCandidate),
+  };
+
+  return dictionaryByState[state] ?? dictionaryByState.root;
 };
 
 const computeScore = (
@@ -643,7 +755,11 @@ export const getOpqlSuggestions = (
 
   const { token, prefix, start: tokenStart, end: tokenEnd } = tokenAtCursor(text, cursor);
   const trigger = detectTrigger(prefix);
-  const candidates = gatherCandidates(grammarState, trigger)
+  const contextSynonyms: Record<string, string[]> = {
+    ...BASE_SYNONYM_CORPUS,
+    ...(request.context?.dictionaries?.synonyms ?? {}),
+  };
+  const candidates = gatherCandidates(grammarState, trigger, request.context)
     .filter((candidate) => matchesPermission(candidate, request.context))
     .map((candidate) => ({
       ...candidate,
@@ -663,7 +779,7 @@ export const getOpqlSuggestions = (
 
   const bestCandidate = scored[0]?.candidate;
   const completion = buildCompletion(bestCandidate, prefix || token, tokenStart, tokenEnd);
-  const corrections = buildCorrections(prefix || token, candidates).slice(0, 3);
+  const corrections = buildCorrections(prefix || token, candidates, contextSynonyms).slice(0, 3);
 
   const latency = (typeof performance !== "undefined" ? performance.now() : Date.now()) - start;
 
