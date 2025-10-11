@@ -54,6 +54,13 @@ export interface BoardQuickFilterDefinition {
   clear?: (definition: BoardFilterDefinition) => BoardFilterDefinition;
 }
 
+export interface BoardQuickFilterCombination {
+  id: string;
+  label: string;
+  filters: string[];
+  description?: string;
+}
+
 export const DEFAULT_FILTER_DEFINITION: BoardFilterDefinition = {
   root: {
     id: "root",

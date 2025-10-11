@@ -26,6 +26,8 @@ interface WipOverrideDialogProps {
   onReasonChange: (value: string) => void;
   onConfirm: () => void;
   onCancel: () => void;
+  canOverride?: boolean;
+  permissionMessage?: string;
 }
 
 export function WipOverrideDialog({
@@ -36,8 +38,12 @@ export function WipOverrideDialog({
   onReasonChange,
   onConfirm,
   onCancel,
+  canOverride = true,
+  permissionMessage,
 }: WipOverrideDialogProps) {
-  const disabled = pending?.requireReason ? reason.trim().length === 0 : false;
+  const requiresReason = pending?.requireReason ?? false;
+  const disabled = requiresReason ? reason.trim().length === 0 : false;
+  const permissionBlocked = !canOverride;
 
   const description = pending?.reason === "lane"
     ? "The swimlane capacity has been reached."
@@ -59,6 +65,11 @@ export function WipOverrideDialog({
         </AlertDialogHeader>
         <div className="space-y-3 py-2">
           <p className="text-sm text-muted-foreground">{description}</p>
+          {permissionBlocked ? (
+            <p className="rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive" role="alert">
+              {permissionMessage ?? "You do not have permission to approve WIP overrides."}
+            </p>
+          ) : null}
           {pending?.requireReason ? (
             <div className="space-y-2">
               <label className="text-sm font-medium" htmlFor="override-reason">
@@ -75,7 +86,11 @@ export function WipOverrideDialog({
         </div>
         <AlertDialogFooter>
           <AlertDialogCancel onClick={onCancel}>Cancel</AlertDialogCancel>
-          <AlertDialogAction onClick={onConfirm} disabled={disabled}>
+          <AlertDialogAction
+            onClick={onConfirm}
+            disabled={disabled || permissionBlocked}
+            aria-disabled={disabled || permissionBlocked}
+          >
             Override limit
           </AlertDialogAction>
         </AlertDialogFooter>

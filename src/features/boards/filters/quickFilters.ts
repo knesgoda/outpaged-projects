@@ -2,6 +2,7 @@ import { addCondition, removeConditions } from "./BoardFilterBuilder";
 import type {
   BoardFilterDefinition,
   BoardQuickFilterDefinition,
+  BoardQuickFilterCombination,
 } from "./types";
 
 function ensureRoot(definition: BoardFilterDefinition): BoardFilterDefinition {
@@ -120,5 +121,20 @@ export const QUICK_FILTERS: BoardQuickFilterDefinition[] = [
       removeConditions(definition, (condition) =>
         condition.field === "priority" && condition.operator === "is" && condition.value === "high"
       ),
+  },
+];
+
+export const QUICK_FILTER_COMBINATIONS: BoardQuickFilterCombination[] = [
+  {
+    id: "my_blocked",
+    label: "My blocked",
+    filters: ["me", "blocked"],
+    description: "Work assigned to me that cannot progress.",
+  },
+  {
+    id: "overdue_priority",
+    label: "Overdue & high priority",
+    filters: ["overdue", "high_priority"],
+    description: "Critical items that are past due.",
   },
 ];

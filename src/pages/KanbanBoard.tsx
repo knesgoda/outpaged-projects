@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRealtime } from "@/hooks/useRealtime";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -7,6 +7,7 @@ import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { supabase } from "@/integrations/supabase/client";
 import { enqueueAutomationEvent } from "@/services/automations";
 import { queueAutomationForTaskMovement } from "@/pages/kanban/automationEvents";
+import { useStatusCycleShortcut } from "@/pages/kanban/useStatusCycleShortcut";
 import { tasksWithDetails } from "@/services/tasksService";
 import {
   DndContext,
@@ -377,6 +378,11 @@ function LegacyKanbanBoard() {
   const [checklistDialog, setChecklistDialog] = useState<ChecklistDialogState | null>(null);
   const [dependencyDialog, setDependencyDialog] = useState<DependencyDialogState | null>(null);
 
+  const canOverrideWip = Boolean(isAdmin);
+  const overridePermissionMessage = canOverrideWip
+    ? undefined
+    : "Only workspace administrators can approve WIP limit overrides.";
+
   const activeBoardId = currentProjectId ?? "legacy-board";
   const activeViewId = "kanban-default";
   
@@ -734,7 +740,7 @@ function LegacyKanbanBoard() {
     }),
   );
 
-  const attemptTaskMove = async ({
+  const attemptTaskMove = useCallback(async ({
     task,
     targetColumn,
     newStatus,
@@ -994,7 +1000,18 @@ function LegacyKanbanBoard() {
       });
       return false;
     }
-  };
+  }, [
+    columns,
+    currentProjectId,
+    enqueueAutomationEvent,
+    queueAutomationForTaskMovement,
+    setPendingOverride,
+    setOverrideReason,
+    setDependencyDialog,
+    setChecklistDialog,
+    toast,
+    user,
+  ]);
 
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;
@@ -1399,24 +1416,23 @@ function LegacyKanbanBoard() {
     }
   };
 
-  const getStatusFromColumnId = async (columnId: string): Promise<string> => {
-    const column = columns.find(col => col.id === columnId);
-    return column ? await getStatusFromColumn(column) : 'todo';
-  };
+  const getStatusFromColumn = useCallback(async (column: Column): Promise<string> => {
+    if (!currentProjectId) return "todo";
 
-  const getStatusFromColumn = async (column: Column): Promise<string> => {
-    if (!currentProjectId) return 'todo';
-    
-    // Check if we have a status mapping for this column
     const { data: mapping } = await supabase
-      .from('task_status_mappings')
-      .select('status_value')
-      .eq('project_id', currentProjectId)
-      .eq('column_id', column.id)
+      .from("task_status_mappings")
+      .select("status_value")
+      .eq("project_id", currentProjectId)
+      .eq("column_id", column.id)
       .maybeSingle();
-    
-    return mapping?.status_value || column.title.toLowerCase().replace(' ', '_');
-  };
+
+    return mapping?.status_value || column.title.toLowerCase().replace(" ", "_");
+  }, [currentProjectId]);
+
+  const getStatusFromColumnId = useCallback(async (columnId: string): Promise<string> => {
+    const column = columns.find((col) => col.id === columnId);
+    return column ? await getStatusFromColumn(column) : "todo";
+  }, [columns, getStatusFromColumn]);
 
   const findTask = (id: string): Task | undefined => {
     for (const column of columns) {
@@ -1429,6 +1445,56 @@ function LegacyKanbanBoard() {
     if (!id) return undefined;
     return columns.find((col) => col.id === id);
   };
+
+  const cycleSelectedTaskStatus = useCallback(async () => {
+    if (pendingOverride) {
+      return;
+    }
+
+    const primaryTaskId = selectedTasks[0] ?? activeTask?.id ?? null;
+    if (!primaryTaskId) {
+      return;
+    }
+
+    const task = findTask(primaryTaskId);
+    if (!task) {
+      return;
+    }
+
+    const currentColumnIndex = columns.findIndex((col) =>
+      col.tasks.some((candidate) => candidate.id === task.id)
+    );
+    if (currentColumnIndex === -1) {
+      return;
+    }
+
+    const targetIndex = currentColumnIndex + 1;
+    if (targetIndex >= columns.length) {
+      return;
+    }
+
+    const targetColumn = columns[targetIndex];
+    const fromColumn = columns[currentColumnIndex];
+    const newStatus = await getStatusFromColumn(targetColumn);
+    const laneId = task.swimlane_id ?? null;
+
+    await attemptTaskMove({
+      task,
+      targetColumn,
+      newStatus,
+      targetSwimlaneId: laneId,
+      fromColumn,
+    });
+  }, [
+    activeTask,
+    attemptTaskMove,
+    columns,
+    getStatusFromColumn,
+    pendingOverride,
+    selectedTasks,
+  ]);
+
+  useStatusCycleShortcut(cycleSelectedTaskStatus);
 
   const parseDropTarget = (
     over: DragEndEvent["over"]
@@ -1800,6 +1866,8 @@ function LegacyKanbanBoard() {
         onReasonChange={(value) => setOverrideReason(value)}
         onConfirm={handleOverrideConfirm}
         onCancel={handleOverrideCancel}
+        canOverride={canOverrideWip}
+        permissionMessage={overridePermissionMessage}
       />
 
       <AlertDialog open={!!checklistDialog} onOpenChange={(open) => !open && setChecklistDialog(null)}>

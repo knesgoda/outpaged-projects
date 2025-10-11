@@ -72,10 +72,12 @@ export const BoardMetricsHeader = memo(function BoardMetricsHeader({
   configuration,
   className,
 }: BoardMetricsHeaderProps) {
-  const metrics = useMemo(() => {
+  const { summary, metrics } = useMemo(() => {
     const summary = calculateBoardMetrics(items, configuration);
-    return buildBoardMetricDisplays(summary);
+    return { summary, metrics: buildBoardMetricDisplays(summary) };
   }, [configuration, items]);
+
+  const epicRollups = summary.epics.slice(0, 4);
 
   if (!metrics.length) {
     return null;
@@ -83,10 +85,35 @@ export const BoardMetricsHeader = memo(function BoardMetricsHeader({
 
   return (
     <TooltipProvider>
-      <div className={cn("grid gap-3 md:grid-cols-2 xl:grid-cols-4", className)}>
-        {metrics.map((metric) => (
-          <MetricChip key={metric.id} metric={metric} />
-        ))}
+      <div className="space-y-3">
+        <div className={cn("grid gap-3 md:grid-cols-2 xl:grid-cols-4", className)}>
+          {metrics.map((metric) => (
+            <MetricChip key={metric.id} metric={metric} />
+          ))}
+        </div>
+        {epicRollups.length ? (
+          <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
+            {epicRollups.map((epic) => (
+              <div
+                key={epic.epicId}
+                className="flex items-center justify-between rounded-lg border bg-muted/30 px-3 py-2"
+              >
+                <div className="space-y-0.5">
+                  <p className="text-xs uppercase text-muted-foreground">Epic</p>
+                  <p className="text-sm font-semibold text-foreground">{epic.epicLabel}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-semibold text-foreground">
+                    {epic.completed}/{epic.total}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {Math.round(epic.progress * 100)}% complete
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : null}
       </div>
     </TooltipProvider>
   );

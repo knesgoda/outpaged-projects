@@ -22,10 +22,12 @@ describe("WipOverrideDialog", () => {
     requireReason = false,
     onConfirm,
     onCancel,
+    canOverride = true,
   }: {
     requireReason?: boolean;
     onConfirm: () => void;
     onCancel: () => void;
+    canOverride?: boolean;
   }) {
     const [reason, setReason] = useState("");
 
@@ -38,6 +40,7 @@ describe("WipOverrideDialog", () => {
         onReasonChange={setReason}
         onConfirm={onConfirm}
         onCancel={onCancel}
+        canOverride={canOverride}
       />
     );
   }
@@ -86,5 +89,19 @@ describe("WipOverrideDialog", () => {
 
     expect(onCancel).toHaveBeenCalled();
     expect(onConfirm).not.toHaveBeenCalled();
+  });
+
+  it("disables confirmation when user lacks permission", () => {
+    const onConfirm = jest.fn();
+    const onCancel = jest.fn();
+    render(
+      <Harness onConfirm={onConfirm} onCancel={onCancel} canOverride={false} />
+    );
+
+    const confirmButton = screen.getByRole("button", { name: /override limit/i });
+    expect(confirmButton).toBeDisabled();
+    expect(
+      screen.getByText(/do not have permission to approve WIP overrides/i)
+    ).toBeInTheDocument();
   });
 });

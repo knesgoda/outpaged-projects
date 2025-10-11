@@ -99,6 +99,22 @@ export function EnhancedKanbanColumn({
   const laneKey = swimlaneId ?? "__unassigned__";
   const laneLimit = column.metadata?.wip?.laneLimits?.[laneKey];
   const columnLimit = column.metadata?.wip?.columnLimit ?? column.limit;
+  const overrideState = column.metadata?.wip?.overrides;
+  const columnOverride = overrideState?.column;
+  const laneOverride = laneKey ? overrideState?.lanes?.[laneKey] : undefined;
+  const isOverrideActive = (override?: { active?: boolean; expiresAt?: string | null }) => {
+    if (!override || !override.active) return false;
+    if (override.expiresAt) {
+      const expiry = new Date(override.expiresAt);
+      if (Number.isNaN(expiry.getTime())) {
+        return true;
+      }
+      return expiry.getTime() > Date.now();
+    }
+    return true;
+  };
+  const activeOverride = laneOverride && isOverrideActive(laneOverride) ? laneOverride : columnOverride;
+  const hasActiveOverride = isOverrideActive(activeOverride);
   const displayLimit =
     typeof laneLimit === "number"
       ? laneLimit
@@ -158,12 +174,14 @@ export function EnhancedKanbanColumn({
       style={style}
       className={`flex-shrink-0 w-[85vw] sm:w-80 snap-start ${isDragging ? 'opacity-50' : ''}`}
     >
-      <Card className={`h-fit transition-colors ${
-        isOver ? "ring-2 ring-primary/50 bg-primary/5" : ""
-      }`}>
-        <CardHeader className="pb-3">
+      <Card
+        className={`h-fit transition-colors ${
+          isOver ? "ring-2 ring-primary/50 bg-primary/5" : ""
+        } ${hasActiveOverride ? "border-destructive/60 bg-destructive/5" : ""}`}
+      >
+        <CardHeader className={`pb-3 ${hasActiveOverride ? "bg-destructive/10" : ""}`}>
           <div className="flex items-center justify-between">
-            <div 
+            <div
               className="flex items-center gap-2 flex-1"
               {...(isDraggable ? { ...attributes, ...listeners } : {})}
             >
@@ -177,6 +195,11 @@ export function EnhancedKanbanColumn({
               {isOverLimit && (
                 <Badge variant="destructive" className="text-xs">
                   {limitSource} reached
+                </Badge>
+              )}
+              {hasActiveOverride && (
+                <Badge variant="destructive" className="text-xs" data-testid="active-wip-override">
+                  Override active
                 </Badge>
               )}
             </div>

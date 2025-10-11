@@ -44,6 +44,15 @@ export interface BoardMetricsSummary {
     breached: number;
     dueSoon: number;
   };
+  epics: EpicRollupSummary[];
+}
+
+export interface EpicRollupSummary {
+  epicId: string;
+  epicLabel: string;
+  total: number;
+  completed: number;
+  progress: number;
 }
 
 const STATUS_DONE_PATTERN = /(done|complete|closed|resolved|shipped|finished)/i;
@@ -84,6 +93,25 @@ const START_FIELDS = ["start_date", "startDate", "kickoff_at", "kickoffAt", "cre
 const END_FIELDS = ["due_date", "dueDate", "end_date", "endDate", "target_date", "targetDate", "sprint_end", "sprintEnd"];
 
 const SLA_DUE_FIELDS = ["sla_due_at", "slaDueAt", "sla_due", "slaDue", "breach_at", "breachAt"];
+
+const EPIC_ID_FIELDS = [
+  "epic",
+  "epicId",
+  "epic_id",
+  "parentEpic",
+  "parent_epic",
+  "epicKey",
+  "epic_key",
+];
+
+const EPIC_LABEL_FIELDS = [
+  "epicName",
+  "epic_name",
+  "epicTitle",
+  "epic_title",
+  "parentEpicName",
+  "parent_epic_name",
+];
 
 const isNonEmptyArray = (value: unknown): value is unknown[] => Array.isArray(value) && value.length > 0;
 
@@ -278,6 +306,19 @@ export const calculateBoardMetrics = (
 ): BoardMetricsSummary => {
   const filtered = applyBoardFilters(items, configuration.filters ?? {});
 
+  const findFieldWithValues = (candidates: string[]) => {
+    for (const candidate of candidates) {
+      if (filtered.some((item) => item[candidate] != null && item[candidate] !== "")) {
+        return candidate;
+      }
+    }
+    return null;
+  };
+
+  const epicIdField = findFieldWithValues(EPIC_ID_FIELDS);
+  const epicLabelField = findFieldWithValues(EPIC_LABEL_FIELDS);
+  const epicMap = new Map<string, { label: string; total: number; completed: number }>();
+
   let totalItems = 0;
   let completedItems = 0;
   let inProgressItems = 0;
@@ -353,6 +394,26 @@ export const calculateBoardMetrics = (
         slaDueSoon += 1;
       }
     }
+
+    if (epicIdField) {
+      const epicIdRaw = item[epicIdField];
+      if (epicIdRaw != null && epicIdRaw !== "") {
+        const epicId = String(epicIdRaw);
+        const existing = epicMap.get(epicId) ?? {
+          label:
+            (epicLabelField && typeof item[epicLabelField] === "string"
+              ? (item[epicLabelField] as string)
+              : epicId) || epicId,
+          total: 0,
+          completed: 0,
+        };
+        existing.total += 1;
+        if (completed) {
+          existing.completed += 1;
+        }
+        epicMap.set(epicId, existing);
+      }
+    }
   });
 
   const remainingPoints = Math.max(0, totalPoints - completedPoints);
@@ -375,6 +436,16 @@ export const calculateBoardMetrics = (
   const idealRemaining = Math.max(0, totalPoints - expectedCompleted);
   const actualRemaining = remainingPoints;
   const onTrack = actualRemaining <= idealRemaining + 0.5; // small tolerance
+
+  const epics: EpicRollupSummary[] = Array.from(epicMap.entries()).map(([epicId, data]) => ({
+    epicId,
+    epicLabel: data.label,
+    total: data.total,
+    completed: data.completed,
+    progress: data.total > 0 ? data.completed / data.total : 0,
+  }));
+
+  epics.sort((a, b) => b.progress - a.progress || b.total - a.total);
 
   return {
     totalItems,
@@ -407,6 +478,7 @@ export const calculateBoardMetrics = (
       breached: slaBreached,
       dueSoon: slaDueSoon,
     },
+    epics,
   };
 };
 
@@ -484,6 +556,29 @@ export const buildBoardMetricDisplays = (
             : "positive",
       tooltip: `${summary.sla.withinSla} of ${summary.sla.totalTracked} tracked tasks are within SLA. ${summary.sla.breached} breached, ${summary.sla.dueSoon} approaching limits.`,
       icon: "shield",
+    });
+  }
+
+  if (summary.epics.length) {
+    const completedEpics = summary.epics.filter(
+      (epic) => epic.total > 0 && epic.completed >= epic.total
+    ).length;
+    const tone: BoardMetricTone = completedEpics === summary.epics.length
+      ? "positive"
+      : completedEpics === 0
+        ? "warning"
+        : "neutral";
+    metrics.push({
+      id: "epic-progress",
+      label: "Epics complete",
+      value: `${completedEpics}/${summary.epics.length}`,
+      tone,
+      tooltip:
+        summary.epics
+          .slice(0, 5)
+          .map((epic) => `${epic.epicLabel}: ${Math.round(epic.progress * 100)}%`)
+          .join("\n") || "Track epic progress across the board.",
+      icon: "git",
     });
   }
 

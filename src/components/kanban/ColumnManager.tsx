@@ -41,6 +41,7 @@ import {
   FormulaColumnRenderer,
   MirrorColumnConfigurator,
   MirrorColumnRenderer,
+  MirrorColumnConfiguratorDialog,
   RollupColumnConfigurator,
   RollupColumnRenderer,
 } from "@/components/boards/columns";
@@ -487,10 +488,17 @@ export function ColumnManager({ projectId, columns, swimlanes, onUpdate }: Colum
         );
       case "mirror":
         return (
-          <MirrorColumnConfigurator
-            metadata={formData.metadata as MirrorColumnMetadata}
-            onChange={(metadata) => handleMetadataChange(metadata)}
-          />
+          <div className="space-y-3">
+            <MirrorColumnConfigurator
+              metadata={formData.metadata as MirrorColumnMetadata}
+              onChange={(metadata) => handleMetadataChange(metadata)}
+            />
+            <MirrorColumnConfiguratorDialog
+              metadata={formData.metadata as MirrorColumnMetadata}
+              onChange={(metadata) => handleMetadataChange(metadata)}
+              triggerLabel="Open configuration dialog"
+            />
+          </div>
         );
       case "connect":
         return (

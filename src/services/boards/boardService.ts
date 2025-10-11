@@ -606,10 +606,164 @@ export interface CopyBoardOptions {
   itemIds?: string[];
   includeAutomations?: boolean;
   automationRecipeSlugs?: string[];
+  schemaOnly?: boolean;
   permissions?: {
     canCopyItems?: boolean;
     canCopyAutomations?: boolean;
   };
+}
+
+export interface FormRoutingCondition {
+  field: string;
+  equals?: unknown;
+  oneOf?: unknown[];
+  predicate?: (value: unknown, submission: Record<string, unknown>) => boolean;
+}
+
+export interface FormRoutingRule {
+  groupId: string;
+  conditions?: FormRoutingCondition[];
+  default?: boolean;
+}
+
+export interface SprintMoveItem {
+  id: string;
+  sprintId?: string | null;
+  status?: string | null;
+  completed?: boolean;
+  ready?: boolean;
+}
+
+export interface BulkSprintMoveOptions {
+  targetSprintId: string;
+  statusOnMove?: string;
+  allowCompleted?: boolean;
+  requireReady?: boolean;
+  /**
+   * When true, the provided item objects will be mutated directly instead of
+   * returning cloned copies in the result set. Defaults to false so callers can
+   * treat the input collection as immutable.
+   */
+  mutateOriginal?: boolean;
+}
+
+export interface BulkSprintMoveResult {
+  moved: string[];
+  skipped: Array<{ id: string; reason: string }>;
+  updatedItems: SprintMoveItem[];
+}
+
+export function routeFormSubmissionToGroup(
+  submission: Record<string, unknown>,
+  rules: FormRoutingRule[],
+  fallbackGroupId?: string | null
+): string | null {
+  for (const rule of rules) {
+    const conditions = rule.conditions ?? [];
+    const matches = conditions.every((condition) => {
+      const value = submission[condition.field];
+      if (condition.predicate) {
+        try {
+          return condition.predicate(value, submission) === true;
+        } catch {
+          return false;
+        }
+      }
+      if (condition.equals !== undefined) {
+        if (Array.isArray(value)) {
+          return value.includes(condition.equals as never);
+        }
+        return value === condition.equals;
+      }
+      if (condition.oneOf && condition.oneOf.length) {
+        if (Array.isArray(value)) {
+          return value.some((entry) => condition.oneOf!.includes(entry));
+        }
+        return condition.oneOf.includes(value);
+      }
+      return value != null && value !== "";
+    });
+
+    if (matches) {
+      return rule.groupId;
+    }
+  }
+
+  const defaultRule = rules.find((rule) => rule.default);
+  if (defaultRule) {
+    return defaultRule.groupId;
+  }
+
+  return fallbackGroupId ?? null;
+}
+
+export function applyBulkSprintMove(
+  items: SprintMoveItem[],
+  options: BulkSprintMoveOptions
+): BulkSprintMoveResult {
+  const {
+    targetSprintId,
+    statusOnMove = "in_sprint",
+    allowCompleted = false,
+    requireReady = true,
+    mutateOriginal = false,
+  } = options;
+
+  const moved: string[] = [];
+  const skipped: Array<{ id: string; reason: string }> = [];
+  const updatedItems: SprintMoveItem[] = [];
+  const processedIds = new Set<string>();
+
+  for (const item of items) {
+    if (!item?.id) {
+      continue;
+    }
+
+    if (processedIds.has(item.id)) {
+      skipped.push({ id: item.id, reason: "duplicate" });
+      updatedItems.push(mutateOriginal ? item : { ...item });
+      continue;
+    }
+
+    processedIds.add(item.id);
+
+    if (item.sprintId) {
+      skipped.push({ id: item.id, reason: "already_in_sprint" });
+      updatedItems.push(mutateOriginal ? item : { ...item });
+      continue;
+    }
+
+    if (!allowCompleted && item.completed) {
+      skipped.push({ id: item.id, reason: "completed" });
+      updatedItems.push(mutateOriginal ? item : { ...item });
+      continue;
+    }
+
+    if (requireReady && item.ready === false) {
+      skipped.push({ id: item.id, reason: "not_ready" });
+      updatedItems.push(mutateOriginal ? item : { ...item });
+      continue;
+    }
+
+    if (mutateOriginal) {
+      item.sprintId = targetSprintId;
+      item.status = statusOnMove;
+      moved.push(item.id);
+      updatedItems.push(item);
+      continue;
+    }
+
+    const updated: SprintMoveItem = {
+      ...item,
+      sprintId: targetSprintId,
+      status: statusOnMove,
+    };
+
+    moved.push(item.id);
+    updatedItems.push(updated);
+  }
+
+  return { moved, skipped, updatedItems };
 }
 
 function normalizeMetadata(value: unknown): JsonRecord {
@@ -851,7 +1005,50 @@ const parseTimelineSettings = (
       }
     : undefined;
 
-  return { startField, endField, dependencyField, showWeekends, workingHours };
+  const dependencyEditorRaw = isRecord(value.dependencyEditor)
+    ? (value.dependencyEditor as JsonRecord)
+    : null;
+  const dependencyEditor = dependencyEditorRaw
+    ? {
+        leadLagField:
+          typeof dependencyEditorRaw.leadLagField === "string"
+            ? dependencyEditorRaw.leadLagField
+            : undefined,
+        defaultLagDays: (() => {
+          const candidate = Number(dependencyEditorRaw.defaultLagDays);
+          return Number.isFinite(candidate) ? candidate : undefined;
+        })(),
+        allowNegativeLag: dependencyEditorRaw.allowNegativeLag === true,
+      }
+    : undefined;
+
+  const baselineRaw = isRecord(value.baseline) ? (value.baseline as JsonRecord) : null;
+  const baseline = baselineRaw
+    ? {
+        startField:
+          typeof baselineRaw.startField === "string" ? baselineRaw.startField : undefined,
+        endField:
+          typeof baselineRaw.endField === "string" ? baselineRaw.endField : undefined,
+      }
+    : undefined;
+
+  const showCriticalPath = value.showCriticalPath === true;
+  const exportFormat =
+    value.exportFormat === "csv" || value.exportFormat === "json" || value.exportFormat === "ics"
+      ? (value.exportFormat as "csv" | "json" | "ics")
+      : undefined;
+
+  return {
+    startField,
+    endField,
+    dependencyField,
+    showWeekends,
+    workingHours,
+    dependencyEditor,
+    baseline,
+    showCriticalPath,
+    exportFormat,
+  };
 };
 
 const parseViewConfiguration = (

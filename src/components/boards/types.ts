@@ -27,6 +27,7 @@ export interface BoardGroupSummary {
   name: string
   count: number
   accentColor?: string
+  archived?: boolean
 }
 
 export interface BoardQuickFilter {
