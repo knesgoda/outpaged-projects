@@ -1,4 +1,7 @@
 import "@testing-library/jest-dom";
+import { toHaveNoViolations } from "jest-axe";
+
+expect.extend(toHaveNoViolations);
 
 jest.mock("marked", () => {
   const parse = jest.fn((input: string) => input);

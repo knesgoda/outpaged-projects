@@ -2,6 +2,7 @@ import {
   Fragment,
   useCallback,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -61,7 +62,12 @@ export interface BoardLayoutProps {
   virtualizationBreakpoint?: number
   estimatedItemHeight?: number
   className?: string
-  renderItem?: (item: BoardItemSummary, isSelected: boolean, onSelect: () => void) => React.ReactNode
+  renderItem?: (
+    item: BoardItemSummary,
+    isSelected: boolean,
+    onSelect: () => void,
+    context: { panelId: string }
+  ) => React.ReactNode
 }
 
 const DEFAULT_ROW_HEIGHT = 104
@@ -70,44 +76,84 @@ function DefaultBoardCard({
   item,
   isSelected,
   onSelect,
+  panelId,
 }: {
   item: BoardItemSummary
   isSelected: boolean
   onSelect: () => void
+  panelId: string
 }) {
+  const descriptionId = useId()
+  const metaId = useId()
+  const tagsId = useId()
+
+  const describedBy = [
+    item.description ? descriptionId : null,
+    item.assignee || item.estimate || item.updatedAt ? metaId : null,
+    item.tags?.length ? tagsId : null,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .trim()
+
+  const statusInitial = item.status?.charAt(0).toUpperCase() || "•"
+
   return (
     <button
       type="button"
       onClick={onSelect}
       className={cn(
-        "w-full rounded-xl border bg-card text-left shadow-sm transition hover:shadow-md focus:outline-none focus:ring-2 focus:ring-ring",
+        "board-card w-full rounded-xl border bg-card text-left shadow-sm transition hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
         isSelected ? "border-primary ring-2 ring-primary/40" : "border-border"
       )}
       data-testid="board-card"
+      aria-expanded={isSelected}
+      aria-controls={panelId}
+      aria-describedby={describedBy.length ? describedBy : undefined}
     >
       <div className="flex flex-col gap-3 p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="space-y-1">
             <p className="text-sm font-semibold text-foreground">{item.title}</p>
             {item.description ? (
-              <p className="text-xs text-muted-foreground line-clamp-2">{item.description}</p>
+              <p id={descriptionId} className="text-xs text-muted-foreground line-clamp-2">
+                {item.description}
+              </p>
             ) : null}
           </div>
           {item.status ? (
-            <Badge variant="outline" className="shrink-0 text-xs capitalize">
-              {item.status}
+            <Badge
+              variant="outline"
+              className="flex items-center gap-2 rounded-full border-muted-foreground/40 bg-muted/40 px-2.5 py-1 text-xs font-medium"
+              aria-label={`Status ${item.status}`}
+            >
+              <span
+                aria-hidden="true"
+                className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-current text-[10px] font-bold uppercase"
+              >
+                {statusInitial}
+              </span>
+              <span className="sr-only">Status:</span>
+              <span className="capitalize">{item.status}</span>
             </Badge>
           ) : null}
         </div>
-        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-          {item.assignee ? <span>👤 {item.assignee}</span> : <span>Unassigned</span>}
-          {item.estimate ? <span>• Est. {item.estimate}</span> : null}
-          {item.updatedAt ? <span>• Updated {item.updatedAt}</span> : null}
+        <div
+          className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground"
+          id={item.assignee || item.estimate || item.updatedAt ? metaId : undefined}
+        >
+          {item.assignee ? (
+            <span aria-label={`Assignee ${item.assignee}`}>👤 {item.assignee}</span>
+          ) : (
+            <span>Unassigned</span>
+          )}
+          {item.estimate ? <span aria-label={`Estimate ${item.estimate}`}>• Est. {item.estimate}</span> : null}
+          {item.updatedAt ? <span aria-label={`Last updated ${item.updatedAt}`}>• Updated {item.updatedAt}</span> : null}
         </div>
         {item.tags?.length ? (
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2" id={tagsId}>
             {item.tags.map((tag) => (
-              <Badge key={tag} variant="secondary" className="text-[10px]">
+              <Badge key={tag} variant="secondary" className="text-[10px]" aria-label={`Tag ${tag}`}>
                 {tag}
               </Badge>
             ))}
@@ -137,8 +183,8 @@ export function BoardLayout({
   virtualizationBreakpoint = 1280,
   estimatedItemHeight = DEFAULT_ROW_HEIGHT,
   className,
-  renderItem = (item, isSelected, onSelect) => (
-    <DefaultBoardCard key={item.id} item={item} isSelected={isSelected} onSelect={onSelect} />
+  renderItem = (item, isSelected, onSelect, context) => (
+    <DefaultBoardCard item={item} isSelected={isSelected} onSelect={onSelect} panelId={context.panelId} />
   ),
 }: BoardLayoutProps) {
   const [isStarred, setIsStarred] = useState(initialIsStarred)
@@ -152,6 +198,11 @@ export function BoardLayout({
     if (typeof window === "undefined") return false
     return window.matchMedia(`(max-width: ${virtualizationBreakpoint}px)`).matches
   })
+  const boardHeadingId = useId()
+  const boardContentId = useId()
+  const boardInstructionsId = useId()
+  const panelId = useId()
+  const boardTitle = breadcrumbs[breadcrumbs.length - 1]?.label ?? "Board"
 
   useEffect(() => {
     if (typeof window === "undefined") return
@@ -265,10 +316,16 @@ export function BoardLayout({
 
   return (
     <TooltipProvider>
-      <div className={cn("flex h-full min-h-[720px] flex-col bg-muted/10", className)}>
+      <div className={cn("relative flex h-full min-h-[720px] flex-col bg-muted/10", className)}>
+        <a href={`#${boardContentId}`} className="skip-link">
+          Skip to board content
+        </a>
         <header className="border-b bg-background px-6 py-4">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="space-y-3">
+              <h1 id={boardHeadingId} className="sr-only">
+                {boardTitle}
+              </h1>
               <Breadcrumb>
                 <BreadcrumbList>
                   {breadcrumbs.map((crumb, index) => {
@@ -288,6 +345,9 @@ export function BoardLayout({
                   })}
                 </BreadcrumbList>
               </Breadcrumb>
+              <p id={boardInstructionsId} className="sr-only">
+                Use the board canvas to explore work items. Selecting an item opens its details in the side panel.
+              </p>
               {metricsContent}
             </div>
             <div className="flex items-center gap-2">
@@ -361,24 +421,38 @@ export function BoardLayout({
             <div className="flex-1 overflow-hidden">
               <div
                 ref={parentRef}
-                className="h-full overflow-auto"
+                className="h-full overflow-auto focus:outline-none"
                 data-testid="board-canvas"
                 data-virtualized={enableVirtualization}
+                id={boardContentId}
+                tabIndex={-1}
+                role="region"
+                aria-labelledby={boardHeadingId}
+                aria-describedby={boardInstructionsId}
               >
                 {enableVirtualization ? (
-                  <div
+                  <ul
                     style={{
                       height: `${totalSize}px`,
                       width: "100%",
                       position: "relative",
+                      margin: 0,
+                      padding: 0,
                     }}
-                    aria-label="Virtualized board canvas"
+                    className="relative list-none"
+                    aria-label={`${boardTitle} items`}
+                    aria-describedby={boardInstructionsId}
                   >
                     {virtualItems.map((virtualRow) => {
                       const item = items[virtualRow.index]
-                      const content = renderItem(item, item.id === selectedItemId, () => handleSelectItem(item.id))
+                      const content = renderItem(
+                        item,
+                        item.id === selectedItemId,
+                        () => handleSelectItem(item.id),
+                        { panelId }
+                      )
                       return (
-                        <div
+                        <li
                           key={item.id}
                           data-index={virtualRow.index}
                           style={{
@@ -388,20 +462,25 @@ export function BoardLayout({
                             width: "100%",
                             transform: `translateY(${virtualRow.start}px)`,
                           }}
+                          className="list-none"
                         >
                           {content}
-                        </div>
+                        </li>
                       )
                     })}
-                  </div>
+                  </ul>
                 ) : (
-                  <div className="space-y-3 p-6" aria-label="Board canvas">
+                  <ul
+                    className="space-y-3 p-6 list-none"
+                    aria-label={`${boardTitle} items`}
+                    aria-describedby={boardInstructionsId}
+                  >
                     {items.map((item) => (
-                      <Fragment key={item.id}>
-                        {renderItem(item, item.id === selectedItemId, () => handleSelectItem(item.id))}
-                      </Fragment>
+                      <li key={item.id} className="list-none">
+                        {renderItem(item, item.id === selectedItemId, () => handleSelectItem(item.id), { panelId })}
+                      </li>
                     ))}
-                  </div>
+                  </ul>
                 )}
               </div>
             </div>
@@ -411,6 +490,7 @@ export function BoardLayout({
             isOpen={isItemPanelOpen}
             onClose={() => setIsItemPanelOpen(false)}
             item={selectedItem}
+            id={panelId}
           />
         </div>
       </div>

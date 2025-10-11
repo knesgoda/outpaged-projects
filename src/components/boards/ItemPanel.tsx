@@ -18,6 +18,7 @@ export interface ItemPanelProps {
   headerActions?: React.ReactNode
   footer?: React.ReactNode
   emptyState?: React.ReactNode
+  id?: string
 }
 
 function getInitials(name?: string) {
@@ -34,9 +35,11 @@ export const ItemPanel = memo(function ItemPanel({
   headerActions,
   footer,
   emptyState,
+  id,
 }: ItemPanelProps) {
   return (
     <aside
+      id={id ?? "board-item-panel"}
       className={cn(
         "flex h-full flex-col border-l bg-background transition-all duration-200 ease-in-out",
         isOpen ? "w-[360px]" : "w-0",

@@ -1,4 +1,4 @@
-import { memo } from "react"
+import { memo, type CSSProperties } from "react"
 import { ChevronLeft, ChevronRight, Filter, Layers3, ListTree } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -26,11 +26,24 @@ export interface LeftSidebarProps {
   className?: string
 }
 
-function renderGroupAccent(color?: string) {
-  if (!color) {
-    return <span className="mr-2 h-2.5 w-2.5 rounded-full bg-muted" aria-hidden="true" />
+function renderGroupAccent(group: BoardGroupSummary) {
+  const initial = group.name.charAt(0).toUpperCase() || "•"
+  const style: CSSProperties = {}
+
+  if (group.accentColor) {
+    style.borderColor = group.accentColor
+    style.color = group.accentColor
   }
-  return <span className="mr-2 h-2.5 w-2.5 rounded-full" style={{ backgroundColor: color }} aria-hidden="true" />
+
+  return (
+    <span
+      aria-hidden="true"
+      className="mr-2 flex h-5 w-5 items-center justify-center rounded-full border text-[10px] font-semibold leading-none"
+      style={style}
+    >
+      {initial}
+    </span>
+  )
 }
 
 function renderLegendSwatch(item: BoardLegendItem) {
@@ -106,7 +119,7 @@ export const LeftSidebar = memo(function LeftSidebar({
                         onClick={() => onSelectGroup?.(group.id)}
                         aria-pressed={isActive}
                       >
-                        {renderGroupAccent(group.accentColor)}
+                        {renderGroupAccent(group)}
                         <span className="flex-1 truncate text-left">{group.name}</span>
                         <Badge variant="outline" className="ml-auto shrink-0 text-xs">
                           {group.count}
