@@ -28,7 +28,7 @@ jest.mock("@/pages/Tasks", () => ({ __esModule: true, default: () => <div>Tasks 
 jest.mock("@/pages/Reports", () => ({ __esModule: true, default: () => <div>Reports Page</div> }));
 jest.mock("@/pages/Documents", () => ({ __esModule: true, default: () => <div>Documents Page</div> }));
 
-jest.mock("@/pages/KanbanBoard", () => ({ __esModule: true, default: () => <div>Kanban Board Page</div> }));
+jest.mock("@/pages/BoardsPage", () => ({ __esModule: true, default: () => <div>Boards Page</div> }));
 jest.mock("@/pages/calendar/CalendarPage", () => ({ __esModule: true, default: () => <div>Calendar Page</div> }));
 jest.mock("@/pages/ia/TimelinePage", () => ({ __esModule: true, default: () => <div>Timeline Page</div> }));
 jest.mock("@/pages/docs/DocsHome", () => ({ __esModule: true, default: () => <div>Docs Home Page</div> }));
@@ -76,7 +76,7 @@ const renderPath = (path: string) =>
 
 describe("AppRoutes", () => {
   it.each([
-    ["/boards", "Kanban Board Page"],
+    ["/boards", "Boards Page"],
     ["/calendar", "Calendar Page"],
     ["/timeline", "Timeline Page"],
     ["/docs", "Docs Home Page"],

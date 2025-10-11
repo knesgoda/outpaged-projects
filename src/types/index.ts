@@ -16,3 +16,4 @@ export * from "./automations";
 export * from "./docs";
 export * from "./reports";
 export * from "./subscriptions";
+export * from "./boards";

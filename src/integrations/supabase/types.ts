@@ -125,6 +125,206 @@ export type Database = {
         }
         Relationships: []
       }
+      board_filter_expressions: {
+        Row: {
+          board_id: string
+          created_at: string
+          expression: Json
+          expression_type: Database["public"]["Enums"]["board_type"]
+          id: string
+          last_evaluated_at: string | null
+          metadata: Json
+          refresh_interval_seconds: number | null
+          updated_at: string
+        }
+        Insert: {
+          board_id: string
+          created_at?: string
+          expression: Json
+          expression_type: Database["public"]["Enums"]["board_type"]
+          id?: string
+          last_evaluated_at?: string | null
+          metadata?: Json
+          refresh_interval_seconds?: number | null
+          updated_at?: string
+        }
+        Update: {
+          board_id?: string
+          created_at?: string
+          expression?: Json
+          expression_type?: Database["public"]["Enums"]["board_type"]
+          id?: string
+          last_evaluated_at?: string | null
+          metadata?: Json
+          refresh_interval_seconds?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "board_filter_expressions_board_id_fkey"
+            columns: ["board_id"]
+            isOneToOne: false
+            referencedRelation: "boards"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      board_scopes: {
+        Row: {
+          board_id: string
+          container_id: string | null
+          created_at: string
+          filters: Json
+          id: string
+          metadata: Json
+          query_definition: string | null
+          scope_type: Database["public"]["Enums"]["board_type"]
+          updated_at: string
+        }
+        Insert: {
+          board_id: string
+          container_id?: string | null
+          created_at?: string
+          filters?: Json
+          id?: string
+          metadata?: Json
+          query_definition?: string | null
+          scope_type: Database["public"]["Enums"]["board_type"]
+          updated_at?: string
+        }
+        Update: {
+          board_id?: string
+          container_id?: string | null
+          created_at?: string
+          filters?: Json
+          id?: string
+          metadata?: Json
+          query_definition?: string | null
+          scope_type?: Database["public"]["Enums"]["board_type"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "board_scopes_board_id_fkey"
+            columns: ["board_id"]
+            isOneToOne: false
+            referencedRelation: "boards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "board_scopes_scope_type_matches_board"
+            columns: ["board_id", "scope_type"]
+            isOneToOne: false
+            referencedRelation: "boards"
+            referencedColumns: ["id", "type"]
+          },
+        ]
+      }
+      board_views: {
+        Row: {
+          board_id: string
+          configuration: Json
+          created_at: string
+          description: string | null
+          filter_expression_id: string | null
+          id: string
+          is_default: boolean
+          name: string
+          position: number
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          board_id: string
+          configuration?: Json
+          created_at?: string
+          description?: string | null
+          filter_expression_id?: string | null
+          id?: string
+          is_default?: boolean
+          name: string
+          position?: number
+          slug: string
+          updated_at?: string
+        }
+        Update: {
+          board_id?: string
+          configuration?: Json
+          created_at?: string
+          description?: string | null
+          filter_expression_id?: string | null
+          id?: string
+          is_default?: boolean
+          name?: string
+          position?: number
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "board_views_board_id_fkey"
+            columns: ["board_id"]
+            isOneToOne: false
+            referencedRelation: "boards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "board_views_filter_expression_id_fkey"
+            columns: ["filter_expression_id"]
+            isOneToOne: false
+            referencedRelation: "board_filter_expressions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      boards: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          name: string
+          type: Database["public"]["Enums"]["board_type"]
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          type: Database["public"]["Enums"]["board_type"]
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          type?: Database["public"]["Enums"]["board_type"]
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "boards_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "boards_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_helpers: {
         Row: {
           avatar_url: string | null
@@ -3236,6 +3436,7 @@ export type Database = {
         | "task_created"
         | "comment_added"
         | "time_logged"
+      board_type: "container" | "query" | "hybrid"
       challenge_type:
         | "sprint"
         | "milestone"
