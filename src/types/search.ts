@@ -80,6 +80,18 @@ export interface SuggestionCompletion {
   ghostSuffix: string;
 }
 
+export interface SuggestionDictionaryItem extends OpqlSuggestionItem {
+  weight?: number;
+}
+
+export interface SuggestionDictionaries {
+  fields?: SuggestionDictionaryItem[];
+  enumerations?: SuggestionDictionaryItem[];
+  labels?: SuggestionDictionaryItem[];
+  teams?: SuggestionDictionaryItem[];
+  synonyms?: Record<string, string[]>;
+}
+
 export interface OpqlSuggestionResponse {
   items: OpqlSuggestionItem[];
   completion?: SuggestionCompletion;
@@ -100,6 +112,7 @@ export interface OpqlSuggestionContext {
   activeUserId?: string;
   permissions?: string[];
   types?: string[];
+  dictionaries?: SuggestionDictionaries;
 }
 
 export interface OpqlSuggestionRequest {

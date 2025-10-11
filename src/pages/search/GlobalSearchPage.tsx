@@ -69,6 +69,8 @@ import {
   recordOpqlSelection,
 } from "@/lib/opqlHistory";
 import { formatSuggestionValue } from "@/lib/opqlSuggestions";
+import { useSuggestionDictionaries } from "@/hooks/useSuggestionDictionaries";
+import { CUSTOM_FIELD_DEFINITIONS } from "@/data/opqlDictionaries";
 
 const DEFAULT_LIMIT = 50;
 const CONTEXTUAL_ACTIONS = [
@@ -154,12 +156,6 @@ const cloneFacetSelections = (input: FacetSelections): FacetSelections => ({
     Object.entries(input.exclude).map(([key, values]) => [key, new Set(values)])
   ),
 });
-
-const CUSTOM_FIELD_DEFINITIONS: Record<string, string[]> = {
-  Status: ["Ready", "In Progress", "Blocked", "Done"],
-  Priority: ["Low", "Medium", "High", "Urgent"],
-  "Team Heat": ["Cool", "Warm", "Hot"],
-};
 
 const fetchProjects = async (): Promise<ProjectOption[]> => {
   if (!supabaseConfigured) {
@@ -441,6 +437,12 @@ export const GlobalSearchPage = () => {
     [opqlHistory]
   );
 
+  const {
+    dictionaries: suggestionDictionaries,
+    signature: dictionarySignature,
+    currentTeamId,
+  } = useSuggestionDictionaries();
+
   const opqlSuggestionQuery = useQuery({
     queryKey: [
       "global-opql-suggest",
@@ -449,6 +451,8 @@ export const GlobalSearchPage = () => {
       projectFilter,
       mode,
       opqlHistorySignature,
+      currentTeamId ?? null,
+      dictionarySignature,
     ],
     queryFn: () =>
       opqlSuggest({
@@ -457,6 +461,8 @@ export const GlobalSearchPage = () => {
         grammarState: "root",
         context: {
           projectId: projectFilter !== "all" ? projectFilter : undefined,
+          teamId: currentTeamId,
+          dictionaries: suggestionDictionaries,
         },
         history: opqlHistory,
       }),
