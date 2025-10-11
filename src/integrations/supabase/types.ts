@@ -125,761 +125,6 @@ export type Database = {
         }
         Relationships: []
       }
-      board_filter_expressions: {
-        Row: {
-          board_id: string
-          created_at: string
-          expression: Json
-          expression_type: Database["public"]["Enums"]["board_type"]
-          id: string
-          last_evaluated_at: string | null
-          metadata: Json
-          refresh_interval_seconds: number | null
-          updated_at: string
-        }
-        Insert: {
-          board_id: string
-          created_at?: string
-          expression: Json
-          expression_type: Database["public"]["Enums"]["board_type"]
-          id?: string
-          last_evaluated_at?: string | null
-          metadata?: Json
-          refresh_interval_seconds?: number | null
-          updated_at?: string
-        }
-        Update: {
-          board_id?: string
-          created_at?: string
-          expression?: Json
-          expression_type?: Database["public"]["Enums"]["board_type"]
-          id?: string
-          last_evaluated_at?: string | null
-          metadata?: Json
-          refresh_interval_seconds?: number | null
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "board_filter_expressions_board_id_fkey"
-            columns: ["board_id"]
-            isOneToOne: false
-            referencedRelation: "boards"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      board_field_visibility: {
-        Row: {
-          board_id: string
-          created_at: string
-          field_key: string
-          hidden_for_roles: Database["public"]["Enums"]["board_role"][]
-          id: string
-          is_sensitive: boolean
-          updated_at: string
-        }
-        Insert: {
-          board_id: string
-          created_at?: string
-          field_key: string
-          hidden_for_roles?: Database["public"]["Enums"]["board_role"][]
-          id?: string
-          is_sensitive?: boolean
-          updated_at?: string
-        }
-        Update: {
-          board_id?: string
-          created_at?: string
-          field_key?: string
-          hidden_for_roles?: Database["public"]["Enums"]["board_role"][]
-          id?: string
-          is_sensitive?: boolean
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "board_field_visibility_board_id_fkey"
-            columns: ["board_id"]
-            isOneToOne: false
-            referencedRelation: "boards"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      board_item_privacy: {
-        Row: {
-          board_id: string
-          created_at: string
-          created_by: string | null
-          id: string
-          item_id: string
-          reason: string | null
-          updated_at: string
-          visibility: Database["public"]["Enums"]["board_role"]
-        }
-        Insert: {
-          board_id: string
-          created_at?: string
-          created_by?: string | null
-          id?: string
-          item_id: string
-          reason?: string | null
-          updated_at?: string
-          visibility?: Database["public"]["Enums"]["board_role"]
-        }
-        Update: {
-          board_id?: string
-          created_at?: string
-          created_by?: string | null
-          id?: string
-          item_id?: string
-          reason?: string | null
-          updated_at?: string
-          visibility?: Database["public"]["Enums"]["board_role"]
-        }
-        Relationships: [
-          {
-            foreignKeyName: "board_item_privacy_board_id_fkey"
-            columns: ["board_id"]
-            isOneToOne: false
-            referencedRelation: "boards"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "board_item_privacy_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      board_governance_settings: {
-        Row: {
-          allowed_field_types: string[]
-          created_at: string
-          default_template_ids: string[]
-          id: string
-          lifecycle_rules: Json
-          naming_rules: Json
-          taxonomy: Json
-          updated_at: string
-          workspace_id: string
-        }
-        Insert: {
-          allowed_field_types?: string[]
-          created_at?: string
-          default_template_ids?: string[]
-          id?: string
-          lifecycle_rules?: Json
-          naming_rules?: Json
-          taxonomy?: Json
-          updated_at?: string
-          workspace_id: string
-        }
-        Update: {
-          allowed_field_types?: string[]
-          created_at?: string
-          default_template_ids?: string[]
-          id?: string
-          lifecycle_rules?: Json
-          naming_rules?: Json
-          taxonomy?: Json
-          updated_at?: string
-          workspace_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "board_governance_settings_workspace_id_fkey"
-            columns: ["workspace_id"]
-            isOneToOne: true
-            referencedRelation: "workspaces"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      board_members: {
-        Row: {
-          board_id: string
-          created_at: string
-          id: string
-          invitation_message: string | null
-          invited_by: string | null
-          role: Database["public"]["Enums"]["board_role"]
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          board_id: string
-          created_at?: string
-          id?: string
-          invitation_message?: string | null
-          invited_by?: string | null
-          role?: Database["public"]["Enums"]["board_role"]
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          board_id?: string
-          created_at?: string
-          id?: string
-          invitation_message?: string | null
-          invited_by?: string | null
-          role?: Database["public"]["Enums"]["board_role"]
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "board_members_board_id_fkey"
-            columns: ["board_id"]
-            isOneToOne: false
-            referencedRelation: "boards"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "board_members_invited_by_fkey"
-            columns: ["invited_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "board_members_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      board_share_links: {
-        Row: {
-          allowed_role: Database["public"]["Enums"]["board_role"]
-          board_id: string
-          created_at: string
-          created_by: string
-          expires_at: string | null
-          id: string
-          last_used_at: string | null
-          max_uses: number | null
-          password_hash: string | null
-          revoked_at: string | null
-          slug: string
-          usage_count: number
-        }
-        Insert: {
-          allowed_role?: Database["public"]["Enums"]["board_role"]
-          board_id: string
-          created_at?: string
-          created_by: string
-          expires_at?: string | null
-          id?: string
-          last_used_at?: string | null
-          max_uses?: number | null
-          password_hash?: string | null
-          revoked_at?: string | null
-          slug: string
-          usage_count?: number
-        }
-        Update: {
-          allowed_role?: Database["public"]["Enums"]["board_role"]
-          board_id?: string
-          created_at?: string
-          created_by?: string
-          expires_at?: string | null
-          id?: string
-          last_used_at?: string | null
-          max_uses?: number | null
-          password_hash?: string | null
-          revoked_at?: string | null
-          slug?: string
-          usage_count?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "board_share_links_board_id_fkey"
-            columns: ["board_id"]
-            isOneToOne: false
-            referencedRelation: "boards"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "board_share_links_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      board_scopes: {
-        Row: {
-          board_id: string
-          container_id: string | null
-          created_at: string
-          filters: Json
-          id: string
-          metadata: Json
-          query_definition: string | null
-          scope_type: Database["public"]["Enums"]["board_type"]
-          updated_at: string
-        }
-        Insert: {
-          board_id: string
-          container_id?: string | null
-          created_at?: string
-          filters?: Json
-          id?: string
-          metadata?: Json
-          query_definition?: string | null
-          scope_type: Database["public"]["Enums"]["board_type"]
-          updated_at?: string
-        }
-        Update: {
-          board_id?: string
-          container_id?: string | null
-          created_at?: string
-          filters?: Json
-          id?: string
-          metadata?: Json
-          query_definition?: string | null
-          scope_type?: Database["public"]["Enums"]["board_type"]
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "board_scopes_board_id_fkey"
-            columns: ["board_id"]
-            isOneToOne: false
-            referencedRelation: "boards"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "board_scopes_scope_type_matches_board"
-            columns: ["board_id", "scope_type"]
-            isOneToOne: false
-            referencedRelation: "boards"
-            referencedColumns: ["id", "type"]
-          },
-        ]
-      }
-      board_views: {
-        Row: {
-          board_id: string
-          configuration: Json
-          created_at: string
-          description: string | null
-          filter_expression_id: string | null
-          id: string
-          is_default: boolean
-          name: string
-          position: number
-          slug: string
-          updated_at: string
-        }
-        Insert: {
-          board_id: string
-          configuration?: Json
-          created_at?: string
-          description?: string | null
-          filter_expression_id?: string | null
-          id?: string
-          is_default?: boolean
-          name: string
-          position?: number
-          slug: string
-          updated_at?: string
-        }
-        Update: {
-          board_id?: string
-          configuration?: Json
-          created_at?: string
-          description?: string | null
-          filter_expression_id?: string | null
-          id?: string
-          is_default?: boolean
-          name?: string
-          position?: number
-          slug?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "board_views_board_id_fkey"
-            columns: ["board_id"]
-            isOneToOne: false
-            referencedRelation: "boards"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "board_views_filter_expression_id_fkey"
-            columns: ["filter_expression_id"]
-            isOneToOne: false
-            referencedRelation: "board_filter_expressions"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      board_template_automations: {
-        Row: {
-          action_config: Json
-          created_at: string
-          description: string | null
-          id: string
-          is_enabled: boolean
-          name: string
-          recipe_slug: string
-          template_id: string
-          trigger_config: Json
-          updated_at: string
-        }
-        Insert: {
-          action_config?: Json
-          created_at?: string
-          description?: string | null
-          id?: string
-          is_enabled?: boolean
-          name: string
-          recipe_slug: string
-          template_id: string
-          trigger_config?: Json
-          updated_at?: string
-        }
-        Update: {
-          action_config?: Json
-          created_at?: string
-          description?: string | null
-          id?: string
-          is_enabled?: boolean
-          name?: string
-          recipe_slug?: string
-          template_id?: string
-          trigger_config?: Json
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "board_template_automations_template_id_fkey"
-            columns: ["template_id"]
-            isOneToOne: false
-            referencedRelation: "board_templates"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      board_template_fields: {
-        Row: {
-          configuration: Json
-          created_at: string
-          field_key: string
-          field_type: string
-          id: string
-          is_primary: boolean
-          is_required: boolean
-          label: string
-          position: number
-          template_id: string
-          updated_at: string
-        }
-        Insert: {
-          configuration?: Json
-          created_at?: string
-          field_key: string
-          field_type: string
-          id?: string
-          is_primary?: boolean
-          is_required?: boolean
-          label: string
-          position?: number
-          template_id: string
-          updated_at?: string
-        }
-        Update: {
-          configuration?: Json
-          created_at?: string
-          field_key?: string
-          field_type?: string
-          id?: string
-          is_primary?: boolean
-          is_required?: boolean
-          label?: string
-          position?: number
-          template_id?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "board_template_fields_template_id_fkey"
-            columns: ["template_id"]
-            isOneToOne: false
-            referencedRelation: "board_templates"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      board_template_items: {
-        Row: {
-          created_at: string
-          data: Json
-          id: string
-          name: string
-          position: number
-          template_id: string
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          data?: Json
-          id?: string
-          name: string
-          position?: number
-          template_id: string
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          data?: Json
-          id?: string
-          name?: string
-          position?: number
-          template_id?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "board_template_items_template_id_fkey"
-            columns: ["template_id"]
-            isOneToOne: false
-            referencedRelation: "board_templates"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      board_template_view_color_rules: {
-        Row: {
-          color: string
-          created_at: string
-          description: string | null
-          expression: string | null
-          field: string | null
-          id: string
-          label: string
-          position: number
-          rule_type: string
-          template_view_id: string
-          updated_at: string
-          value: Json | null
-        }
-        Insert: {
-          color: string
-          created_at?: string
-          description?: string | null
-          expression?: string | null
-          field?: string | null
-          id?: string
-          label: string
-          position?: number
-          rule_type: string
-          template_view_id: string
-          updated_at?: string
-          value?: Json | null
-        }
-        Update: {
-          color?: string
-          created_at?: string
-          description?: string | null
-          expression?: string | null
-          field?: string | null
-          id?: string
-          label?: string
-          position?: number
-          rule_type?: string
-          template_view_id?: string
-          updated_at?: string
-          value?: Json | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "board_template_view_color_rules_template_view_id_fkey"
-            columns: ["template_view_id"]
-            isOneToOne: false
-            referencedRelation: "board_template_views"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      board_template_views: {
-        Row: {
-          configuration: Json
-          created_at: string
-          description: string | null
-          filter_definition: Json
-          id: string
-          is_default: boolean
-          name: string
-          position: number
-          slug: string
-          template_id: string
-          updated_at: string
-        }
-        Insert: {
-          configuration?: Json
-          created_at?: string
-          description?: string | null
-          filter_definition?: Json
-          id?: string
-          is_default?: boolean
-          name: string
-          position?: number
-          slug: string
-          template_id: string
-          updated_at?: string
-        }
-        Update: {
-          configuration?: Json
-          created_at?: string
-          description?: string | null
-          filter_definition?: Json
-          id?: string
-          is_default?: boolean
-          name?: string
-          position?: number
-          slug?: string
-          template_id?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "board_template_views_template_id_fkey"
-            columns: ["template_id"]
-            isOneToOne: false
-            referencedRelation: "board_templates"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      board_templates: {
-        Row: {
-          created_at: string
-          created_by: string | null
-          description: string | null
-          id: string
-          metadata: Json
-          name: string
-          preview_asset_url: string | null
-          scope_definition: Json
-          slug: string
-          supports_automations: boolean
-          supports_items: boolean
-          tags: string[]
-          type: Database["public"]["Enums"]["board_type"]
-          updated_at: string
-          visibility: Database["public"]["Enums"]["board_template_visibility"]
-          workspace_id: string | null
-        }
-        Insert: {
-          created_at?: string
-          created_by?: string | null
-          description?: string | null
-          id?: string
-          metadata?: Json
-          name: string
-          preview_asset_url?: string | null
-          scope_definition?: Json
-          slug: string
-          supports_automations?: boolean
-          supports_items?: boolean
-          tags?: string[]
-          type: Database["public"]["Enums"]["board_type"]
-          updated_at?: string
-          visibility?: Database["public"]["Enums"]["board_template_visibility"]
-          workspace_id?: string | null
-        }
-        Update: {
-          created_at?: string
-          created_by?: string | null
-          description?: string | null
-          id?: string
-          metadata?: Json
-          name?: string
-          preview_asset_url?: string | null
-          scope_definition?: Json
-          slug?: string
-          supports_automations?: boolean
-          supports_items?: boolean
-          tags?: string[]
-          type?: Database["public"]["Enums"]["board_type"]
-          updated_at?: string
-          visibility?: Database["public"]["Enums"]["board_template_visibility"]
-          workspace_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "board_templates_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "board_templates_workspace_id_fkey"
-            columns: ["workspace_id"]
-            isOneToOne: false
-            referencedRelation: "workspaces"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      boards: {
-        Row: {
-          created_at: string
-          created_by: string | null
-          description: string | null
-          id: string
-          name: string
-          type: Database["public"]["Enums"]["board_type"]
-          updated_at: string
-          workspace_id: string
-        }
-        Insert: {
-          created_at?: string
-          created_by?: string | null
-          description?: string | null
-          id?: string
-          name: string
-          type: Database["public"]["Enums"]["board_type"]
-          updated_at?: string
-          workspace_id: string
-        }
-        Update: {
-          created_at?: string
-          created_by?: string | null
-          description?: string | null
-          id?: string
-          name?: string
-          type?: Database["public"]["Enums"]["board_type"]
-          updated_at?: string
-          workspace_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "boards_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "boards_workspace_id_fkey"
-            columns: ["workspace_id"]
-            isOneToOne: false
-            referencedRelation: "workspaces"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       ai_helpers: {
         Row: {
           avatar_url: string | null
@@ -1599,9 +844,7 @@ export type Database = {
           color: string | null
           created_at: string
           id: string
-          column_type: Database["public"]["Enums"]["kanban_column_type"]
           is_default: boolean | null
-          metadata: Json
           name: string
           position: number
           project_id: string
@@ -1612,9 +855,7 @@ export type Database = {
           color?: string | null
           created_at?: string
           id?: string
-          column_type?: Database["public"]["Enums"]["kanban_column_type"]
           is_default?: boolean | null
-          metadata?: Json
           name: string
           position: number
           project_id: string
@@ -1625,9 +866,7 @@ export type Database = {
           color?: string | null
           created_at?: string
           id?: string
-          column_type?: Database["public"]["Enums"]["kanban_column_type"]
           is_default?: boolean | null
-          metadata?: Json
           name?: string
           position?: number
           project_id?: string
@@ -1758,47 +997,13 @@ export type Database = {
         }
         Relationships: []
       }
-      organization_members: {
-        Row: {
-          created_at: string
-          id: string
-          organization_id: string
-          role: string
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          organization_id: string
-          role?: string
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          organization_id?: string
-          role?: string
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "organization_members_organization_id_fkey"
-            columns: ["organization_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       organizations: {
         Row: {
           created_at: string
           description: string | null
           id: string
           name: string
+          owner_id: string | null
           settings: Json | null
           slug: string
           updated_at: string
@@ -1808,6 +1013,7 @@ export type Database = {
           description?: string | null
           id?: string
           name: string
+          owner_id?: string | null
           settings?: Json | null
           slug: string
           updated_at?: string
@@ -1817,6 +1023,7 @@ export type Database = {
           description?: string | null
           id?: string
           name?: string
+          owner_id?: string | null
           settings?: Json | null
           slug?: string
           updated_at?: string
@@ -2097,33 +1304,6 @@ export type Database = {
           id?: string
           identifier?: string
           window_start?: string
-        }
-        Relationships: []
-      }
-      saved_searches: {
-        Row: {
-          created_at: string
-          filters: Json
-          id: string
-          name: string
-          query: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          filters?: Json
-          id?: string
-          name: string
-          query: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          filters?: Json
-          id?: string
-          name?: string
-          query?: string
-          user_id?: string
         }
         Relationships: []
       }
@@ -2830,151 +2010,6 @@ export type Database = {
           },
         ]
       }
-      task_dependencies: {
-        Row: {
-          created_at: string
-          created_by: string | null
-          dependency_type: Database["public"]["Enums"]["task_dependency_type"]
-          id: string
-          metadata: Json | null
-          source_task_id: string
-          target_task_id: string
-        }
-        Insert: {
-          created_at?: string
-          created_by?: string | null
-          dependency_type: Database["public"]["Enums"]["task_dependency_type"]
-          id?: string
-          metadata?: Json | null
-          source_task_id: string
-          target_task_id: string
-        }
-        Update: {
-          created_at?: string
-          created_by?: string | null
-          dependency_type?: Database["public"]["Enums"]["task_dependency_type"]
-          id?: string
-          metadata?: Json | null
-          source_task_id?: string
-          target_task_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "task_dependencies_source_task_id_fkey"
-            columns: ["source_task_id"]
-            isOneToOne: false
-            referencedRelation: "tasks"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "task_dependencies_target_task_id_fkey"
-            columns: ["target_task_id"]
-            isOneToOne: false
-            referencedRelation: "tasks"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "task_dependencies_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["user_id"]
-          },
-        ]
-      }
-      task_files: {
-        Row: {
-          created_at: string
-          file_name: string | null
-          file_size: number | null
-          file_url: string
-          id: string
-          mime_type: string | null
-          task_id: string
-          uploaded_by: string | null
-        }
-        Insert: {
-          created_at?: string
-          file_name?: string | null
-          file_size?: number | null
-          file_url: string
-          id?: string
-          mime_type?: string | null
-          task_id: string
-          uploaded_by?: string | null
-        }
-        Update: {
-          created_at?: string
-          file_name?: string | null
-          file_size?: number | null
-          file_url?: string
-          id?: string
-          mime_type?: string | null
-          task_id?: string
-          uploaded_by?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "task_files_task_id_fkey"
-            columns: ["task_id"]
-            isOneToOne: false
-            referencedRelation: "tasks"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "task_files_uploaded_by_fkey"
-            columns: ["uploaded_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["user_id"]
-          },
-        ]
-      }
-      task_links: {
-        Row: {
-          created_at: string
-          created_by: string | null
-          id: string
-          link_type: string | null
-          task_id: string
-          title: string | null
-          url: string
-        }
-        Insert: {
-          created_at?: string
-          created_by?: string | null
-          id?: string
-          link_type?: string | null
-          task_id: string
-          title?: string | null
-          url: string
-        }
-        Update: {
-          created_at?: string
-          created_by?: string | null
-          id?: string
-          link_type?: string | null
-          task_id?: string
-          title?: string | null
-          url?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "task_links_task_id_fkey"
-            columns: ["task_id"]
-            isOneToOne: false
-            referencedRelation: "tasks"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "task_links_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["user_id"]
-          },
-        ]
-      }
       task_relationships: {
         Row: {
           created_at: string
@@ -3018,9 +2053,9 @@ export type Database = {
             foreignKeyName: "fk_target_task"
             columns: ["target_task_id"]
             isOneToOne: false
-          referencedRelation: "tasks"
-          referencedColumns: ["id"]
-        },
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
         ]
       }
       task_status_mappings: {
@@ -3050,113 +2085,14 @@ export type Database = {
         }
         Relationships: []
       }
-      task_subitems: {
-        Row: {
-          child_task_id: string
-          created_at: string
-          created_by: string | null
-          id: string
-          parent_task_id: string
-          position: number | null
-          rollup_weight: number | null
-        }
-        Insert: {
-          child_task_id: string
-          created_at?: string
-          created_by?: string | null
-          id?: string
-          parent_task_id: string
-          position?: number | null
-          rollup_weight?: number | null
-        }
-        Update: {
-          child_task_id?: string
-          created_at?: string
-          created_by?: string | null
-          id?: string
-          parent_task_id?: string
-          position?: number | null
-          rollup_weight?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "task_subitems_child_task_id_fkey"
-            columns: ["child_task_id"]
-            isOneToOne: false
-            referencedRelation: "tasks"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "task_subitems_parent_task_id_fkey"
-            columns: ["parent_task_id"]
-            isOneToOne: false
-            referencedRelation: "tasks"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "task_subitems_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["user_id"]
-          },
-        ]
-      }
-      task_tags: {
-        Row: {
-          color: string | null
-          created_at: string
-          created_by: string | null
-          id: string
-          label: string
-          task_id: string
-        }
-        Insert: {
-          color?: string | null
-          created_at?: string
-          created_by?: string | null
-          id?: string
-          label: string
-          task_id: string
-        }
-        Update: {
-          color?: string | null
-          created_at?: string
-          created_by?: string | null
-          id?: string
-          label?: string
-          task_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "task_tags_task_id_fkey"
-            columns: ["task_id"]
-            isOneToOne: false
-            referencedRelation: "tasks"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "task_tags_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["user_id"]
-          },
-        ]
-      }
       tasks: {
         Row: {
-          actual_hours: number | null
           assignee_id: string | null
           blocked: boolean | null
           blocking_reason: string | null
-          completed_at: string | null
           created_at: string
           description: string | null
           due_date: string | null
-          end_date: string | null
-          estimated_hours: number | null
-          external_links: Json | null
           hierarchy_level:
             | Database["public"]["Enums"]["task_hierarchy_level"]
             | null
@@ -3169,24 +2105,18 @@ export type Database = {
           status: Database["public"]["Enums"]["task_status"] | null
           story_points: number | null
           swimlane_id: string | null
-          start_date: string | null
           task_type: Database["public"]["Enums"]["task_type"] | null
           ticket_number: number | null
           title: string
           updated_at: string
         }
         Insert: {
-          actual_hours?: number | null
           assignee_id?: string | null
           blocked?: boolean | null
           blocking_reason?: string | null
-          completed_at?: string | null
           created_at?: string
           description?: string | null
           due_date?: string | null
-          end_date?: string | null
-          estimated_hours?: number | null
-          external_links?: Json | null
           hierarchy_level?:
             | Database["public"]["Enums"]["task_hierarchy_level"]
             | null
@@ -3199,24 +2129,18 @@ export type Database = {
           status?: Database["public"]["Enums"]["task_status"] | null
           story_points?: number | null
           swimlane_id?: string | null
-          start_date?: string | null
           task_type?: Database["public"]["Enums"]["task_type"] | null
           ticket_number?: number | null
           title: string
           updated_at?: string
         }
         Update: {
-          actual_hours?: number | null
           assignee_id?: string | null
           blocked?: boolean | null
           blocking_reason?: string | null
-          completed_at?: string | null
           created_at?: string
           description?: string | null
           due_date?: string | null
-          end_date?: string | null
-          estimated_hours?: number | null
-          external_links?: Json | null
           hierarchy_level?:
             | Database["public"]["Enums"]["task_hierarchy_level"]
             | null
@@ -3229,7 +2153,6 @@ export type Database = {
           status?: Database["public"]["Enums"]["task_status"] | null
           story_points?: number | null
           swimlane_id?: string | null
-          start_date?: string | null
           task_type?: Database["public"]["Enums"]["task_type"] | null
           ticket_number?: number | null
           title?: string
@@ -4012,20 +2935,64 @@ export type Database = {
           },
         ]
       }
+      workspace_settings: {
+        Row: {
+          allowed_email_domain: string | null
+          billing: Json | null
+          brand_logo_url: string | null
+          brand_name: string | null
+          created_at: string
+          default_capacity_hours_per_week: number | null
+          default_timezone: string | null
+          features: Json | null
+          id: string
+          name: string | null
+          owner: string | null
+          security: Json | null
+          updated_at: string
+        }
+        Insert: {
+          allowed_email_domain?: string | null
+          billing?: Json | null
+          brand_logo_url?: string | null
+          brand_name?: string | null
+          created_at?: string
+          default_capacity_hours_per_week?: number | null
+          default_timezone?: string | null
+          features?: Json | null
+          id?: string
+          name?: string | null
+          owner?: string | null
+          security?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          allowed_email_domain?: string | null
+          billing?: Json | null
+          brand_logo_url?: string | null
+          brand_name?: string | null
+          created_at?: string
+          default_capacity_hours_per_week?: number | null
+          default_timezone?: string | null
+          features?: Json | null
+          id?: string
+          name?: string | null
+          owner?: string | null
+          security?: Json | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       workspaces: {
         Row: {
           created_at: string
           created_by: string | null
           description: string | null
           id: string
-          organization_id: string | null
           name: string
+          organization_id: string | null
           settings: Json | null
           slug: string
-          icon: string | null
-          color: string | null
-          archived_at: string | null
-          position: number | null
           updated_at: string
         }
         Insert: {
@@ -4033,14 +3000,10 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           id?: string
-          organization_id?: string | null
           name: string
+          organization_id?: string | null
           settings?: Json | null
           slug: string
-          icon?: string | null
-          color?: string | null
-          archived_at?: string | null
-          position?: number | null
           updated_at?: string
         }
         Update: {
@@ -4048,42 +3011,24 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           id?: string
-          organization_id?: string | null
           name?: string
+          organization_id?: string | null
           settings?: Json | null
           slug?: string
-          icon?: string | null
-          color?: string | null
-          archived_at?: string | null
-          position?: number | null
           updated_at?: string
-        }
-        Relationships: []
-      }
-    }
-    Views: {
-      board_members_with_profiles: {
-        Row: {
-          avatar_url: string | null
-          board_id: string | null
-          created_at: string | null
-          department: string | null
-          full_name: string | null
-          role: Database["public"]["Enums"]["board_role"] | null
-          title: string | null
-          updated_at: string | null
-          user_id: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "board_members_board_id_fkey"
-            columns: ["board_id"]
+            foreignKeyName: "workspaces_organization_id_fkey"
+            columns: ["organization_id"]
             isOneToOne: false
-            referencedRelation: "boards"
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
       }
+    }
+    Views: {
       project_members_with_profiles: {
         Row: {
           avatar_url: string | null
@@ -4276,15 +3221,6 @@ export type Database = {
         | "task_created"
         | "comment_added"
         | "time_logged"
-      board_type: "container" | "query" | "hybrid"
-      board_template_visibility: "public" | "workspace" | "private"
-      board_role:
-        | "owner"
-        | "manager"
-        | "editor"
-        | "commenter"
-        | "viewer"
-        | "guest"
       challenge_type:
         | "sprint"
         | "milestone"
@@ -4300,14 +3236,6 @@ export type Database = {
         | "boolean"
         | "user"
         | "url"
-      kanban_column_type:
-        | "status"
-        | "assignee"
-        | "dependency"
-        | "formula"
-        | "rollup"
-        | "mirror"
-        | "connect"
       leaderboard_type: "global" | "project" | "team" | "challenge"
       notification_type: "info" | "success" | "warning" | "error"
       project_status:
@@ -4347,15 +3275,6 @@ export type Database = {
         | "incident"
         | "change"
         | "test"
-        | "risk"
-      task_dependency_type:
-        | "blocks"
-        | "blocked_by"
-        | "relates_to"
-        | "duplicates"
-        | "fixes"
-        | "caused_by"
-        | "follows"
         | "risk"
       team_role:
         | "admin"
