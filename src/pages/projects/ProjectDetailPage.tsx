@@ -375,6 +375,8 @@ export function ProjectDetailPage({ tab = "overview" }: ProjectDetailPageProps) 
   const archiveMutation = useArchiveProject();
   const updateMutation = useUpdateProject();
   const deleteMutation = useDeleteProject();
+
+  const isOwner = true; // TODO: integrate real role checks when membership service is complete.
   const governance = useProjectGovernance(projectId);
   const {
     canManageSettings,
@@ -551,6 +553,7 @@ export function ProjectDetailPage({ tab = "overview" }: ProjectDetailPageProps) 
         variant: "destructive",
       });
     }
+  }, [archiveMutation, project?.status, projectId, toast, updateMutation]);
   }, [archiveMutation, canManageLifecycle, project?.status, projectId, toast, updateMutation]);
 
   const handleDelete = useCallback(async () => {
@@ -580,6 +583,7 @@ export function ProjectDetailPage({ tab = "overview" }: ProjectDetailPageProps) 
         variant: "destructive",
       });
     }
+  }, [deleteMutation, navigate, projectId, toast]);
   }, [canDeleteProject, deleteMutation, navigate, projectId, toast]);
 
   const headerContent = useMemo(() => {
@@ -618,6 +622,40 @@ export function ProjectDetailPage({ tab = "overview" }: ProjectDetailPageProps) 
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <Button variant="outline" onClick={() => navigate(`/projects/${projectId}/settings`)} disabled={!projectId}>
+              <Settings className="mr-2 h-4 w-4" />
+              Edit settings
+            </Button>
+            <Button variant="outline" onClick={() => navigate(`/projects/${projectId}/automations`)}>
+              <Sparkles className="mr-2 h-4 w-4" />
+              Automations
+            </Button>
+            <Button variant="outline" onClick={() => navigate(`/projects/${projectId}/sprints`)}>
+              <Timer className="mr-2 h-4 w-4" />
+              Plan sprint
+            </Button>
+            <Button onClick={() => navigate(`/tasks?projectId=${projectId ?? ""}`)}>
+              <Plus className="mr-2 h-4 w-4" />
+              New item
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handleArchive}
+              disabled={archiveMutation.isPending || updateMutation.isPending}
+            >
+              {project.status === "archived" ? (
+                <>
+                  <ArchiveRestore className="mr-2 h-4 w-4" />
+                  Unarchive
+                </>
+              ) : (
+                <>
+                  <Archive className="mr-2 h-4 w-4" />
+                  Archive
+                </>
+              )}
+            </Button>
+            {isOwner ? (
             <Button
               variant="outline"
               onClick={() => navigate(`/projects/${projectId}/settings`)}
@@ -725,7 +763,8 @@ export function ProjectDetailPage({ tab = "overview" }: ProjectDetailPageProps) 
           </Card>
         </div>
       </div>
-    );
+    )
+  }, [archiveMutation.isPending, deleteMutation.isPending, handleArchive, handleDelete, navigate, project, projectId, summary, updateMutation.isPending, isOwner, milestone]);
   }, [
     archiveMutation.isPending,
     canCreateItems,
