@@ -19,14 +19,13 @@ import type {
 } from "@/types/tasks";
 import { mapSupabaseError } from "./utils";
 
-interface TaskRowWithProject
-  extends Database["public"]["Tables"]["tasks"]["Row"] {
+type TaskRowWithProject = Database["public"]["Tables"]["tasks"]["Row"] & {
   projects?: {
     id: string;
     name: string | null;
     code: string | null;
   } | null;
-}
+};
 
 export type TaskRow = TaskRowWithProject;
 
