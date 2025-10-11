@@ -31,6 +31,9 @@ export function QuickTaskEntry({
   const [priority, setPriority] = useState("medium");
   const [taskType, setTaskType] = useState("task");
   const [assigneeId, setAssigneeId] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [dueDate, setDueDate] = useState("");
+  const [estimatedHours, setEstimatedHours] = useState("");
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
@@ -62,7 +65,10 @@ export function QuickTaskEntry({
           project_id: projectId,
           reporter_id: user.id,
           swimlane_id: swimlaneId || null,
-          blocked: false
+          blocked: false,
+          start_date: startDate || null,
+          due_date: dueDate || null,
+          estimated_hours: estimatedHours ? Number(estimatedHours) : null
         })
         .select()
         .single();
@@ -87,6 +93,9 @@ export function QuickTaskEntry({
 
       setTitle("");
       setAssigneeId("");
+      setStartDate("");
+      setDueDate("");
+      setEstimatedHours("");
       onTaskCreated();
     } catch (error) {
       console.error('Error creating task:', error);
@@ -134,6 +143,12 @@ export function QuickTaskEntry({
                 <SelectItem value="story">Story</SelectItem>
                 <SelectItem value="bug">Bug</SelectItem>
                 <SelectItem value="feature_request">Feature</SelectItem>
+                <SelectItem value="incident">Incident</SelectItem>
+                <SelectItem value="change">Change</SelectItem>
+                <SelectItem value="request">Request</SelectItem>
+                <SelectItem value="idea">Idea</SelectItem>
+                <SelectItem value="test">Test</SelectItem>
+                <SelectItem value="risk">Risk</SelectItem>
               </SelectContent>
             </Select>
             
@@ -169,6 +184,30 @@ export function QuickTaskEntry({
               <AlertCircle className="w-3 h-3 mr-1" />
               {priority}
             </Badge>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <Input
+              type="date"
+              value={startDate}
+              onChange={(event) => setStartDate(event.target.value)}
+              className="border-primary/30"
+            />
+            <Input
+              type="date"
+              value={dueDate}
+              onChange={(event) => setDueDate(event.target.value)}
+              className="border-primary/30"
+            />
+            <Input
+              type="number"
+              min="0"
+              step="0.25"
+              placeholder="Est. hours"
+              value={estimatedHours}
+              onChange={(event) => setEstimatedHours(event.target.value)}
+              className="border-primary/30"
+            />
           </div>
           
           <div className="flex justify-end gap-2">

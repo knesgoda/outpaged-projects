@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, KeyboardEvent } from "react";
+import { useState, useEffect, useRef, KeyboardEvent, useMemo } from "react";
 import {
   ResponsiveDialog as Dialog,
   ResponsiveDialogContent as DialogContent,
@@ -9,6 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Progress } from "@/components/ui/progress";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -29,7 +31,7 @@ import { SmartTaskTypeSelector, SMART_TASK_TYPE_OPTIONS } from "@/components/tas
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { SafeHtml } from "@/components/ui/safe-html";
 import { Task } from "./TaskCard";
-import { CalendarIcon, X, User, Tag, MessageSquare, Paperclip, GitBranch, Check, XCircle } from "lucide-react";
+import { CalendarIcon, X, User, Tag, MessageSquare, Paperclip, GitBranch, Check, XCircle, Link as LinkIcon, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useFileUpload } from "@/hooks/useFileUpload";
@@ -48,6 +50,8 @@ import AssigneeCompanySelect from "@/components/tasks/AssigneeCompanySelect";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import type { TaskLinkReference, TaskSubitemSummary, TaskRollup, TaskRelationSummary, TaskStatus } from "@/types/tasks";
+import { calculateRollup } from "@/services/tasksService";
 
 function getInitials(name?: string | null) {
   if (!name) return "U";
@@ -95,10 +99,14 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
     assignees: task?.assignees || [],
     dueDate: task?.dueDate ? new Date(task.dueDate) : undefined,
     tags: task?.tags || [],
-    attachments: task?.attachments || [],
+    attachments: task?.files || [],
     blocked: task?.blocked || false,
     blocking_reason: task?.blocking_reason || "",
     story_points: task?.story_points || null,
+    startDate: task?.start_date ? new Date(task.start_date) : undefined,
+    endDate: task?.end_date ? new Date(task.end_date) : undefined,
+    estimatedHours: task?.estimated_hours ?? undefined,
+    actualHours: task?.actual_hours ?? undefined,
   });
 
   // Temporary editing states
@@ -107,7 +115,13 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
 
   const { members: projectMembers, isLoading: membersLoading } = useProjectMembersView(projectId);
   const [newTag, setNewTag] = useState("");
-  const [commentCount, setCommentCount] = useState(0);
+  const [commentCount, setCommentCount] = useState(task?.comment_count ?? task?.comments ?? 0);
+  const [links, setLinks] = useState<TaskLinkReference[]>(task?.links ?? []);
+  const [newLinkTitle, setNewLinkTitle] = useState("");
+  const [newLinkUrl, setNewLinkUrl] = useState("");
+  const [subitems, setSubitems] = useState<TaskSubitemSummary[]>(task?.subitems ?? []);
+  const [subitemRollup, setSubitemRollup] = useState<TaskRollup | undefined>(task?.rollup);
+  const [relationSummaries, setRelationSummaries] = useState<TaskRelationSummary[]>(task?.relations ?? []);
   const [showRelationships, setShowRelationships] = useState(false);
   const { uploadFile, deleteFile, isUploading } = useFileUpload();
   const { toast } = useToast();
@@ -120,6 +134,30 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
   const [savingStoryPoints, setSavingStoryPoints] = useState(false);
   const { isAdmin } = useIsAdmin();
   const [projectOwnerId, setProjectOwnerId] = useState<string | null>(null);
+
+  const combinedRelations = useMemo(() => {
+    const relationMap = new Map<string, TaskRelationSummary>();
+    relationSummaries.forEach(rel => {
+      relationMap.set(`${rel.id}-${rel.direction}`, rel);
+    });
+
+    relationships.forEach(rel => {
+      const direction: "incoming" | "outgoing" = rel.source_task_id === task?.id ? "outgoing" : "incoming";
+      const relatedTaskId = direction === "outgoing" ? rel.target_task_id : rel.source_task_id;
+      const relatedTaskTitle = direction === "outgoing" ? rel.target_task_title : rel.source_task_title;
+      const relatedTaskStatus = direction === "outgoing" ? rel.target_task_status : rel.source_task_status;
+      relationMap.set(`${rel.id}-${direction}`, {
+        id: rel.id,
+        type: rel.relationship_type,
+        direction,
+        relatedTaskId: relatedTaskId || "",
+        relatedTaskTitle: relatedTaskTitle || undefined,
+        relatedTaskStatus: (relatedTaskStatus as TaskStatus | undefined) ?? undefined,
+      });
+    });
+
+    return Array.from(relationMap.values());
+  }, [relationSummaries, relationships, task?.id]);
 
   useEffect(() => {
     const fetchOwner = async () => {
@@ -177,6 +215,60 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
     }
   };
 
+  const createTempId = () =>
+    typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+      ? crypto.randomUUID()
+      : `tmp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+  const handleAddLink = () => {
+    const trimmedUrl = newLinkUrl.trim();
+    if (!trimmedUrl) {
+      toast({ title: "Missing URL", description: "Provide a valid link before adding.", variant: "destructive" });
+      return;
+    }
+
+    const entry: TaskLinkReference = {
+      id: createTempId(),
+      url: trimmedUrl,
+      title: newLinkTitle.trim() || undefined,
+      linkType: undefined,
+      createdAt: new Date().toISOString(),
+      createdBy: user?.id ?? undefined,
+    };
+    setLinks(prev => [...prev, entry]);
+    setNewLinkTitle("");
+    setNewLinkUrl("");
+  };
+
+  const handleRemoveLink = (linkId: string) => {
+    setLinks(prev => prev.filter(link => link.id !== linkId));
+  };
+
+  const handleToggleSubitem = async (subitemId: string, completed: boolean) => {
+    const nextStatus = completed ? "todo" : "done";
+    try {
+      const { error } = await supabase
+        .from('tasks')
+        .update({ status: nextStatus })
+        .eq('id', subitemId);
+
+      if (error) throw error;
+
+      setSubitems(prev => {
+        const updated = prev.map(item =>
+          item.id === subitemId
+            ? { ...item, completed: !completed, status: nextStatus }
+            : item
+        );
+        setSubitemRollup(calculateRollup(updated) ?? undefined);
+        return updated;
+      });
+    } catch (error: any) {
+      console.error('Failed to update subitem status', error);
+      toast({ title: 'Error', description: 'Failed to update subitem status', variant: 'destructive' });
+    }
+  };
+
   useEffect(() => {
     if (task?.id) {
       setFormData(prev => ({
@@ -190,8 +282,8 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
     if (isOpen) {
       if (task) {
         // Find the smart task type based on hierarchy_level and task_type
-        const smartTaskType = SMART_TASK_TYPE_OPTIONS.find(option => 
-          option.hierarchy_level === task.hierarchy_level && 
+        const smartTaskType = SMART_TASK_TYPE_OPTIONS.find(option =>
+          option.hierarchy_level === task.hierarchy_level &&
           option.task_type === task.task_type
         )?.id || "task";
 
@@ -203,12 +295,49 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
           smartTaskType,
           parent_id: task.parent_id || null,
           assignees: task.assignees || [],
-          dueDate: task.dueDate ? new Date(task.dueDate) : undefined,
+          dueDate: task.due_date ? new Date(task.due_date) : task.dueDate ? new Date(task.dueDate) : undefined,
           tags: task.tags || [],
-          attachments: task.attachments || [],
+          attachments: task.files || [],
           blocked: task.blocked || false,
           blocking_reason: task.blocking_reason || "",
           story_points: task.story_points || null,
+          startDate: task.start_date ? new Date(task.start_date) : undefined,
+          endDate: task.end_date ? new Date(task.end_date) : undefined,
+          estimatedHours: task.estimated_hours ?? undefined,
+          actualHours: task.actual_hours ?? undefined,
+        });
+        setLinks(task.links ?? []);
+        setSubitems(task.subitems ?? []);
+        setSubitemRollup(task.rollup);
+        setRelationSummaries(task.relations ?? []);
+        setCommentCount(task.comment_count ?? task.comments ?? 0);
+        setNewLinkTitle("");
+        setNewLinkUrl("");
+      }
+      if (!task) {
+        setLinks([]);
+        setSubitems([]);
+        setSubitemRollup(undefined);
+        setRelationSummaries([]);
+        setCommentCount(0);
+        setFormData({
+          title: "",
+          description: "",
+          priority: "medium",
+          status: "todo",
+          smartTaskType: "task",
+          parent_id: null,
+          assignees: [],
+          dueDate: undefined,
+          tags: [],
+          attachments: [],
+          blocked: false,
+          blocking_reason: "",
+          story_points: null,
+          startDate: undefined,
+          endDate: undefined,
+          estimatedHours: undefined,
+          actualHours: undefined,
         });
       }
     }
@@ -233,14 +362,24 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
       dueDate: formData.dueDate ? format(formData.dueDate, "MMM dd") : undefined,
       assignees: formData.assignees,
       due_date: formData.dueDate ? formData.dueDate.toISOString() : null,
+      start_date: formData.startDate ? formData.startDate.toISOString() : null,
+      end_date: formData.endDate ? formData.endDate.toISOString() : null,
+      estimated_hours: formData.estimatedHours ?? null,
+      actual_hours: formData.actualHours ?? null,
       hierarchy_level: selectedOption.hierarchy_level,
       task_type: selectedOption.task_type,
       parent_id: formData.parent_id,
       comments: commentCount,
+      comment_count: commentCount,
       attachments: Array.isArray(formData.attachments) ? formData.attachments.length : (task?.attachments || 0),
+      attachment_count: Array.isArray(formData.attachments) ? formData.attachments.length : (task?.attachment_count ?? task?.attachments ?? 0),
       blocked: formData.blocked,
       blocking_reason: formData.blocked ? formData.blocking_reason : null,
       story_points: formData.story_points,
+      links,
+      subitems,
+      rollup: subitemRollup,
+      relations: combinedRelations,
     };
 
     onSave(taskData);
@@ -527,6 +666,54 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
                     )}
                   </div>
 
+                  {/* Start Date */}
+                  <div>
+                    <Label className="text-sm font-medium text-muted-foreground">Start Date</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn("w-full mt-1 justify-start text-left font-normal", !formData.startDate && "text-muted-foreground")}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {formData.startDate ? format(formData.startDate, "PPP") : "Pick a date"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={formData.startDate}
+                          onSelect={(date) => setFormData(prev => ({ ...prev, startDate: date }))}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+
+                  {/* End Date */}
+                  <div>
+                    <Label className="text-sm font-medium text-muted-foreground">End Date</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn("w-full mt-1 justify-start text-left font-normal", !formData.endDate && "text-muted-foreground")}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {formData.endDate ? format(formData.endDate, "PPP") : "Pick a date"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={formData.endDate}
+                          onSelect={(date) => setFormData(prev => ({ ...prev, endDate: date }))}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+
                   {/* Due Date */}
                   <div>
                     <Label className="text-sm font-medium text-muted-foreground">Due Date</Label>
@@ -549,6 +736,41 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
                         />
                       </PopoverContent>
                     </Popover>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-sm font-medium text-muted-foreground">Estimated Hours</Label>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.25"
+                        className="mt-1"
+                        value={formData.estimatedHours ?? ""}
+                        onChange={(event) =>
+                          setFormData(prev => ({
+                            ...prev,
+                            estimatedHours: event.target.value ? Number(event.target.value) : undefined,
+                          }))
+                        }
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium text-muted-foreground">Actual Hours</Label>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.25"
+                        className="mt-1"
+                        value={formData.actualHours ?? ""}
+                        onChange={(event) =>
+                          setFormData(prev => ({
+                            ...prev,
+                            actualHours: event.target.value ? Number(event.target.value) : undefined,
+                          }))
+                        }
+                      />
+                    </div>
                   </div>
                 </section>
 
@@ -627,6 +849,96 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
                     </div>
                   )}
                 </section>
+
+                {/* Links */}
+                <section>
+                  <h3 className="text-lg font-medium text-foreground mb-3">Links</h3>
+                  <div className="flex flex-col sm:flex-row gap-2 mb-3">
+                    <Input
+                      value={newLinkTitle}
+                      onChange={(event) => setNewLinkTitle(event.target.value)}
+                      placeholder="Link title"
+                    />
+                    <Input
+                      value={newLinkUrl}
+                      onChange={(event) => setNewLinkUrl(event.target.value)}
+                      placeholder="https://example.com"
+                    />
+                    <Button onClick={handleAddLink} variant="secondary">
+                      Add
+                    </Button>
+                  </div>
+                  {links.length > 0 ? (
+                    <div className="space-y-2">
+                      {links.map(link => (
+                        <div key={link.id} className="flex items-center justify-between p-2 bg-accent/50 rounded">
+                          <div className="flex items-center gap-2">
+                            <LinkIcon className="h-4 w-4 text-muted-foreground" />
+                            <a href={link.url} target="_blank" rel="noreferrer" className="text-sm text-primary hover:underline">
+                              {link.title || link.url}
+                            </a>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleRemoveLink(link.id)}
+                            className="h-8 w-8 p-0 hover:bg-destructive/20"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No links added yet.</p>
+                  )}
+                </section>
+
+                {/* Subitems */}
+                <section>
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-lg font-medium text-foreground">Subitems</h3>
+                    {subitemRollup && (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <span>{subitemRollup.completed}/{subitemRollup.total}</span>
+                        <Progress value={Math.round((subitemRollup.progress ?? 0) * 100)} className="w-20 h-1.5" />
+                      </div>
+                    )}
+                  </div>
+                  {subitems.length > 0 ? (
+                    <div className="space-y-2">
+                      {subitems.map(subitem => (
+                        <div key={subitem.id} className="flex items-center justify-between p-2 bg-accent/40 rounded">
+                          <div className="flex items-center gap-2">
+                            <Checkbox
+                              checked={subitem.completed || subitem.status === 'done'}
+                              onCheckedChange={() => handleToggleSubitem(subitem.id, subitem.completed || subitem.status === 'done')}
+                            />
+                            <span className="text-sm">{subitem.title}</span>
+                          </div>
+                          <Badge variant="outline" className="text-xs capitalize">
+                            {subitem.status.replace('_', ' ')}
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No subitems yet.</p>
+                  )}
+                </section>
+
+                {combinedRelations.length > 0 && (
+                  <section>
+                    <h3 className="text-lg font-medium text-foreground mb-3">Relations</h3>
+                    <div className="flex flex-wrap gap-2">
+                      {combinedRelations.map(relation => (
+                        <Badge key={`${relation.id}-${relation.direction}`} variant="secondary" className="capitalize">
+                          {relation.direction === 'incoming' ? '⬅' : '➡'} {relation.type.replace('_', ' ')}
+                        </Badge>
+                      ))}
+                    </div>
+                  </section>
+                )}
 
                 {/* Time Tracking */}
                 {task?.id && (
@@ -733,9 +1045,99 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
                     )}
                   </section>
 
-                  {/* Time Tracking */}
-                  {task?.id && (
-                    <section>
+                  {/* Links */}
+                  <section>
+                    <h3 className="text-lg font-medium text-foreground mb-3">Links</h3>
+                    <div className="flex flex-col sm:flex-row gap-2 mb-3">
+                      <Input
+                        value={newLinkTitle}
+                        onChange={(event) => setNewLinkTitle(event.target.value)}
+                        placeholder="Link title"
+                      />
+                      <Input
+                        value={newLinkUrl}
+                        onChange={(event) => setNewLinkUrl(event.target.value)}
+                        placeholder="https://example.com"
+                      />
+                      <Button onClick={handleAddLink} variant="secondary">
+                        Add
+                      </Button>
+                    </div>
+                    {links.length > 0 ? (
+                      <div className="space-y-2">
+                        {links.map(link => (
+                          <div key={link.id} className="flex items-center justify-between p-2 bg-accent/50 rounded">
+                            <div className="flex items-center gap-2">
+                              <LinkIcon className="h-4 w-4 text-muted-foreground" />
+                              <a href={link.url} target="_blank" rel="noreferrer" className="text-sm text-primary hover:underline">
+                                {link.title || link.url}
+                              </a>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleRemoveLink(link.id)}
+                              className="h-8 w-8 p-0 hover:bg-destructive/20"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">No links added yet.</p>
+                    )}
+                  </section>
+
+                  {/* Subitems */}
+                  <section>
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="text-lg font-medium text-foreground">Subitems</h3>
+                      {subitemRollup && (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <span>{subitemRollup.completed}/{subitemRollup.total}</span>
+                          <Progress value={Math.round((subitemRollup.progress ?? 0) * 100)} className="w-20 h-1.5" />
+                        </div>
+                      )}
+                    </div>
+                  {subitems.length > 0 ? (
+                    <div className="space-y-2">
+                      {subitems.map(subitem => (
+                        <div key={subitem.id} className="flex items-center justify-between p-2 bg-accent/40 rounded">
+                          <div className="flex items-center gap-2">
+                            <Checkbox
+                              checked={subitem.completed || subitem.status === 'done'}
+                              onCheckedChange={() => handleToggleSubitem(subitem.id, subitem.completed || subitem.status === 'done')}
+                            />
+                            <span className="text-sm">{subitem.title}</span>
+                          </div>
+                          <Badge variant="outline" className="text-xs capitalize">
+                            {subitem.status.replace('_', ' ')}
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No subitems yet.</p>
+                  )}
+                </section>
+
+                {combinedRelations.length > 0 && (
+                  <section>
+                    <h3 className="text-lg font-medium text-foreground mb-3">Relations</h3>
+                    <div className="flex flex-wrap gap-2">
+                      {combinedRelations.map(relation => (
+                        <Badge key={`${relation.id}-${relation.direction}`} variant="secondary" className="capitalize">
+                          {relation.direction === 'incoming' ? '⬅' : '➡'} {relation.type.replace('_', ' ')}
+                        </Badge>
+                      ))}
+                    </div>
+                  </section>
+                )}
+
+                {/* Time Tracking */}
+                {task?.id && (
+                  <section>
                       <h3 className="text-lg font-medium text-foreground mb-3">Time Tracking</h3>
                       <div className="space-y-4">
                         <TimeTracker taskId={task.id} taskTitle={formData.title} />
@@ -792,6 +1194,29 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
                       </Select>
                     </InfoRow>
 
+                    <InfoRow label="Start Date">
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className={cn("w-32 justify-start text-left font-normal", !formData.startDate && "text-muted-foreground")}
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {formData.startDate ? format(formData.startDate, "MMM dd") : "Set date"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="end">
+                          <Calendar
+                            mode="single"
+                            selected={formData.startDate}
+                            onSelect={(date) => setFormData(prev => ({ ...prev, startDate: date }))}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </InfoRow>
+
                     <InfoRow label="Due Date">
                       <Popover>
                         <PopoverTrigger asChild>
@@ -813,6 +1238,61 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
                           />
                         </PopoverContent>
                       </Popover>
+                    </InfoRow>
+
+                    <InfoRow label="End Date">
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className={cn("w-32 justify-start text-left font-normal", !formData.endDate && "text-muted-foreground")}
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {formData.endDate ? format(formData.endDate, "MMM dd") : "Set date"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="end">
+                          <Calendar
+                            mode="single"
+                            selected={formData.endDate}
+                            onSelect={(date) => setFormData(prev => ({ ...prev, endDate: date }))}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </InfoRow>
+
+                    <InfoRow label="Est. Hours">
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.25"
+                        value={formData.estimatedHours ?? ""}
+                        onChange={(event) =>
+                          setFormData(prev => ({
+                            ...prev,
+                            estimatedHours: event.target.value ? Number(event.target.value) : undefined,
+                          }))
+                        }
+                        className="w-32"
+                      />
+                    </InfoRow>
+
+                    <InfoRow label="Actual Hours">
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.25"
+                        value={formData.actualHours ?? ""}
+                        onChange={(event) =>
+                          setFormData(prev => ({
+                            ...prev,
+                            actualHours: event.target.value ? Number(event.target.value) : undefined,
+                          }))
+                        }
+                        className="w-32"
+                      />
                     </InfoRow>
                   </section>
 
