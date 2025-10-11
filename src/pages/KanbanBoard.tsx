@@ -565,7 +565,9 @@ function LegacyKanbanBoard() {
           name: col.name,
           position: col.position,
           color: col.color,
-          is_default: true
+          is_default: true,
+          column_type: 'status',
+          metadata: {}
         }))
       );
 

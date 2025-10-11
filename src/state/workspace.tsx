@@ -411,3 +411,7 @@ export function useWorkspaceContext() {
 
   return context;
 }
+
+export function useWorkspaceContextOptional() {
+  return useContext(WorkspaceContext) ?? null;
+}

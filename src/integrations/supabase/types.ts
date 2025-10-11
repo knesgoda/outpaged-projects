@@ -1044,7 +1044,9 @@ export type Database = {
           color: string | null
           created_at: string
           id: string
+          column_type: Database["public"]["Enums"]["kanban_column_type"]
           is_default: boolean | null
+          metadata: Json
           name: string
           position: number
           project_id: string
@@ -1055,7 +1057,9 @@ export type Database = {
           color?: string | null
           created_at?: string
           id?: string
+          column_type?: Database["public"]["Enums"]["kanban_column_type"]
           is_default?: boolean | null
+          metadata?: Json
           name: string
           position: number
           project_id: string
@@ -1066,7 +1070,9 @@ export type Database = {
           color?: string | null
           created_at?: string
           id?: string
+          column_type?: Database["public"]["Enums"]["kanban_column_type"]
           is_default?: boolean | null
+          metadata?: Json
           name?: string
           position?: number
           project_id?: string
@@ -3709,6 +3715,14 @@ export type Database = {
         | "boolean"
         | "user"
         | "url"
+      kanban_column_type:
+        | "status"
+        | "assignee"
+        | "dependency"
+        | "formula"
+        | "rollup"
+        | "mirror"
+        | "connect"
       leaderboard_type: "global" | "project" | "team" | "challenge"
       notification_type: "info" | "success" | "warning" | "error"
       project_status:

@@ -19,6 +19,7 @@ import {
   executeBoardView,
   listBoardsForWorkspace,
   subscribeToBoard,
+  updateBoardViewConfiguration,
 } from "@/services/boards/boardService";
 import type {
   BoardType,
@@ -26,13 +27,20 @@ import type {
   BoardViewResult,
   CreateBoardScopeInput,
   CreateFilterExpressionInput,
+  ViewColumnPreferences,
 } from "@/types/boards";
-import { useWorkspaceContext } from "@/state/workspace";
+import { useWorkspaceContextOptional } from "@/state/workspace";
+import { ViewColumnSchemaControls } from "@/components/boards/columns/ViewColumnSchemaControls";
 
 const BOARD_TYPE_LABELS: Record<BoardType, string> = {
   container: "Container",
   query: "Query",
   hybrid: "Hybrid",
+};
+
+const EMPTY_COLUMN_PREFERENCES: ViewColumnPreferences = {
+  order: [],
+  hidden: [],
 };
 
 const VIEW_STORAGE_PREFIX = "boards:last-view:";
@@ -42,12 +50,8 @@ type JsonRecord = Record<string, unknown>;
 type MergeMode = "append" | "prepend";
 
 function useOptionalWorkspaceId(): string | null {
-  try {
-    const { currentWorkspace } = useWorkspaceContext();
-    return currentWorkspace?.id ?? null;
-  } catch (_error) {
-    return null;
-  }
+  const context = useWorkspaceContextOptional();
+  return context?.currentWorkspace?.id ?? null;
 }
 
 function parseJsonInput(value: string, label: string): JsonRecord {
@@ -135,6 +139,9 @@ export default function BoardsPage() {
   const [selectedBoardId, setSelectedBoardId] = useState<string | null>(null);
   const [selectedViewId, setSelectedViewId] = useState<string | null>(null);
   const [viewResult, setViewResult] = useState<BoardViewResult | null>(null);
+  const [pendingPreferences, setPendingPreferences] =
+    useState<ViewColumnPreferences | null>(null);
+  const [isSavingPreferences, setIsSavingPreferences] = useState(false);
 
   const [isLoadingBoards, setIsLoadingBoards] = useState(false);
   const [isLoadingView, setIsLoadingView] = useState(false);
@@ -208,6 +215,56 @@ export default function BoardsPage() {
     );
   }, [selectedBoard, selectedViewId]);
 
+  const selectedBoardIdRef = selectedBoard?.id ?? null;
+
+  useEffect(() => {
+    if (selectedView) {
+      setPendingPreferences(selectedView.columnPreferences);
+    } else {
+      setPendingPreferences(null);
+    }
+  }, [selectedView]);
+
+  const effectivePreferences = pendingPreferences ?? EMPTY_COLUMN_PREFERENCES;
+
+  const availableColumns = useMemo(() => {
+    const keys = new Set<string>();
+    effectivePreferences.order.forEach((column) => keys.add(column));
+    effectivePreferences.hidden.forEach((column) => keys.add(column));
+
+    for (const item of viewResult?.items ?? []) {
+      if (item && typeof item === "object" && !Array.isArray(item)) {
+        Object.keys(item as Record<string, unknown>).forEach((key) =>
+          keys.add(key)
+        );
+      }
+    }
+
+    return Array.from(keys);
+  }, [effectivePreferences.hidden, effectivePreferences.order, viewResult]);
+
+  const orderedColumns = useMemo(() => {
+    if (effectivePreferences.order.length === 0) {
+      return availableColumns;
+    }
+
+    const inPreferences = effectivePreferences.order.filter((column) =>
+      availableColumns.includes(column)
+    );
+    const remaining = availableColumns.filter(
+      (column) => !inPreferences.includes(column)
+    );
+    return [...inPreferences, ...remaining];
+  }, [availableColumns, effectivePreferences.order]);
+
+  const visibleColumns = useMemo(
+    () =>
+      orderedColumns.filter(
+        (column) => !effectivePreferences.hidden.includes(column)
+      ),
+    [orderedColumns, effectivePreferences.hidden]
+  );
+
   useEffect(() => {
     if (!selectedBoard) {
       setSelectedViewId(null);
@@ -215,26 +272,27 @@ export default function BoardsPage() {
       return;
     }
 
-    const persisted = loadPersistedViewId(selectedBoard.id);
+    const { id, views } = selectedBoard;
+    const persisted = loadPersistedViewId(id);
     const candidate =
-      selectedBoard.views.find((view) => view.id === persisted) ??
-      selectedBoard.views.find((view) => view.isDefault) ??
-      selectedBoard.views[0] ??
+      views.find((view) => view.id === persisted) ??
+      views.find((view) => view.isDefault) ??
+      views[0] ??
       null;
 
     setSelectedViewId(candidate?.id ?? null);
-  }, [selectedBoard?.id]);
+  }, [selectedBoard]);
 
   useEffect(() => {
-    if (!selectedBoard || !selectedViewId) {
+    if (!selectedBoardIdRef || !selectedViewId) {
       return;
     }
 
-    persistViewId(selectedBoard.id, selectedViewId);
-  }, [selectedBoard?.id, selectedViewId]);
+    persistViewId(selectedBoardIdRef, selectedViewId);
+  }, [selectedBoardIdRef, selectedViewId]);
 
   useEffect(() => {
-    if (!selectedBoard || !selectedViewId) {
+    if (!selectedBoardIdRef || !selectedViewId) {
       return;
     }
 
@@ -244,7 +302,7 @@ export default function BoardsPage() {
     setIsLoadingMore(false);
     setViewError(null);
 
-    executeBoardView(selectedBoard.id, selectedViewId)
+    executeBoardView(selectedBoardIdRef, selectedViewId)
       .then((result) => {
         if (!cancelled) {
           setViewResult(result);
@@ -264,7 +322,7 @@ export default function BoardsPage() {
     return () => {
       cancelled = true;
     };
-  }, [selectedBoard?.id, selectedViewId]);
+  }, [selectedBoardIdRef, selectedViewId]);
 
   useEffect(() => {
     if (!selectedBoardId) {
@@ -281,7 +339,7 @@ export default function BoardsPage() {
   }, [selectedBoardId, loadBoards]);
 
   const handleRefresh = useCallback(async () => {
-    if (!selectedBoard || !selectedViewId) {
+    if (!selectedBoardIdRef || !selectedViewId) {
       return;
     }
 
@@ -289,7 +347,7 @@ export default function BoardsPage() {
     setViewError(null);
 
     try {
-      const result = await executeBoardView(selectedBoard.id, selectedViewId, {
+      const result = await executeBoardView(selectedBoardIdRef, selectedViewId, {
         since: viewResult?.refreshedAt ?? null,
       });
 
@@ -308,10 +366,10 @@ export default function BoardsPage() {
     } finally {
       setIsRefreshingView(false);
     }
-  }, [selectedBoard, selectedViewId, viewResult?.refreshedAt]);
+  }, [selectedBoardIdRef, selectedViewId, viewResult?.refreshedAt]);
 
   const handleLoadMore = useCallback(async () => {
-    if (!selectedBoard || !selectedViewId || !viewResult?.cursor) {
+    if (!selectedBoardIdRef || !selectedViewId || !viewResult?.cursor) {
       return;
     }
 
@@ -319,7 +377,7 @@ export default function BoardsPage() {
     setViewError(null);
 
     try {
-      const result = await executeBoardView(selectedBoard.id, selectedViewId, {
+      const result = await executeBoardView(selectedBoardIdRef, selectedViewId, {
         cursor: viewResult.cursor,
         limit: viewResult.items.length || undefined,
       });
@@ -339,7 +397,80 @@ export default function BoardsPage() {
     } finally {
       setIsLoadingMore(false);
     }
-  }, [selectedBoard, selectedViewId, viewResult]);
+  }, [selectedBoardIdRef, selectedViewId, viewResult]);
+
+  const handlePreferencesChange = useCallback(
+    (next: ViewColumnPreferences) => {
+      setPendingPreferences(next);
+    },
+    []
+  );
+
+  const handlePreferencesReset = useCallback(() => {
+    setPendingPreferences({ order: [], hidden: [] });
+  }, []);
+
+  const handlePreferencesSave = useCallback(async () => {
+    if (!selectedBoard || !selectedView) {
+      return;
+    }
+
+    const next = pendingPreferences ?? EMPTY_COLUMN_PREFERENCES;
+    setIsSavingPreferences(true);
+    try {
+      const updatedConfiguration = {
+        ...selectedView.configuration,
+        columnPreferences: next,
+      };
+
+      await updateBoardViewConfiguration(
+        selectedView.id,
+        updatedConfiguration,
+        next
+      );
+
+      setBoards((previous) =>
+        previous.map((board) => {
+          if (board.id !== selectedBoard.id) {
+            return board;
+          }
+
+          return {
+            ...board,
+            views: board.views.map((view) =>
+              view.id === selectedView.id
+                ? {
+                    ...view,
+                    configuration: updatedConfiguration,
+                    columnPreferences: next,
+                  }
+                : view
+            ),
+          };
+        })
+      );
+
+      setPendingPreferences(next);
+      toast({
+        title: "View updated",
+        description: "Column visibility preferences saved for this view.",
+      });
+    } catch (error) {
+      toast({
+        title: "Unable to save preferences",
+        description: error instanceof Error ? error.message : String(error),
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingPreferences(false);
+    }
+  }, [
+    pendingPreferences,
+    selectedBoard,
+    selectedView,
+    setBoards,
+    toast,
+  ]);
 
   const handleBoardChange = (value: string) => {
     setSelectedBoardId(value);
@@ -523,6 +654,29 @@ export default function BoardsPage() {
       );
     }
 
+    const columnsToRender =
+      visibleColumns.length > 0
+        ? visibleColumns
+        : orderedColumns.length > 0
+        ? orderedColumns
+        : availableColumns;
+
+    const renderValue = (value: unknown) => {
+      if (value === null || value === undefined) {
+        return "—";
+      }
+      if (typeof value === "string" || typeof value === "number") {
+        return String(value);
+      }
+      if (typeof value === "boolean") {
+        return value ? "true" : "false";
+      }
+      if (Array.isArray(value)) {
+        return value.length ? JSON.stringify(value) : "[]";
+      }
+      return JSON.stringify(value);
+    };
+
     return (
       <ul className="space-y-4">
         {viewResult.items.map((item, index) => {
@@ -533,15 +687,33 @@ export default function BoardsPage() {
             (typeof item.id === "string" && item.id) ||
             `Record ${index + 1}`;
 
+          const record =
+            item && typeof item === "object" && !Array.isArray(item)
+              ? (item as Record<string, unknown>)
+              : {};
+
           return (
             <li
               key={key}
               className="rounded-lg border bg-card p-4 shadow-sm transition hover:border-primary/50"
             >
               <div className="mb-2 font-medium leading-tight">{title}</div>
-              <pre className="max-h-48 overflow-auto rounded-md bg-muted p-3 text-xs leading-snug">
-                {JSON.stringify(item, null, 2)}
-              </pre>
+              {columnsToRender.length === 0 ? (
+                <pre className="max-h-48 overflow-auto rounded-md bg-muted p-3 text-xs leading-snug">
+                  {JSON.stringify(item, null, 2)}
+                </pre>
+              ) : (
+                <dl className="grid gap-2 sm:grid-cols-2">
+                  {columnsToRender.map((column) => (
+                    <div key={column} className="flex items-baseline gap-2 text-xs">
+                      <dt className="font-medium text-muted-foreground">{column}</dt>
+                      <dd className="text-foreground">
+                        {renderValue(record[column])}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              )}
             </li>
           );
         })}
@@ -611,7 +783,7 @@ export default function BoardsPage() {
       default:
         return null;
     }
-  }, [selectedBoard?.scope]);
+  }, [selectedBoard]);
 
   const renderCreateBoardForm = () => {
     if (!isCreateOpen) {
@@ -800,6 +972,17 @@ export default function BoardsPage() {
             ) : null}
           </CardHeader>
           <CardContent className="space-y-4">
+            {selectedView ? (
+              <ViewColumnSchemaControls
+                columns={availableColumns}
+                preferences={effectivePreferences}
+                onChange={handlePreferencesChange}
+                onSave={handlePreferencesSave}
+                onReset={handlePreferencesReset}
+                saving={isSavingPreferences}
+              />
+            ) : null}
+
             {renderViewItems()}
 
             <div className="flex gap-3">

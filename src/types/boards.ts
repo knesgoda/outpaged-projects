@@ -86,9 +86,15 @@ export interface BoardViewDefinition {
   isDefault: BoardViewRow["is_default"];
   order: BoardViewRow["position"];
   configuration: Record<string, unknown>;
+  columnPreferences: ViewColumnPreferences;
   filterExpression?: BoardFilterExpression | null;
   createdAt: BoardViewRow["created_at"];
   updatedAt: BoardViewRow["updated_at"];
+}
+
+export interface ViewColumnPreferences {
+  order: string[];
+  hidden: string[];
 }
 
 export type HydratedBoard = Board & {

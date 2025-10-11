@@ -18,6 +18,7 @@ import {
   type ExecuteBoardViewOptions,
   type HydratedBoard,
   type BoardViewResult,
+  type ViewColumnPreferences,
 } from "@/types/boards";
 import { mapSupabaseError, requireUserId } from "../utils";
 
@@ -68,6 +69,9 @@ const toRecord = (value: unknown): JsonRecord => {
   return {};
 };
 
+const isString = (value: unknown): value is string =>
+  typeof value === "string" && value.trim().length > 0;
+
 const ensureString = (value: unknown): string => {
   if (typeof value === "string") {
     return value;
@@ -96,6 +100,23 @@ function normalizeMetadata(value: unknown): JsonRecord {
 
 function normalizeFilters(value: unknown): JsonRecord {
   return toRecord(value);
+}
+
+function parseColumnPreferences(configuration: JsonRecord): ViewColumnPreferences {
+  const preferences = configuration.columnPreferences;
+
+  const order = Array.isArray((preferences as JsonRecord | undefined)?.order)
+    ? ((preferences as JsonRecord).order as unknown[]).filter(isString) as string[]
+    : [];
+
+  const hidden = Array.isArray((preferences as JsonRecord | undefined)?.hidden)
+    ? ((preferences as JsonRecord).hidden as unknown[]).filter(isString) as string[]
+    : [];
+
+  return {
+    order,
+    hidden,
+  };
 }
 
 function deriveFilterFromScope(scope: CreateBoardScopeInput): CreateFilterExpressionInput {
@@ -240,6 +261,8 @@ function mapView(
   row: BoardViewRow & { filter_expression?: BoardFilterExpressionRow | null }
 ): BoardViewDefinition {
   const configuration = normalizeMetadata(row.configuration);
+  const columnPreferences = parseColumnPreferences(configuration);
+  configuration.columnPreferences = columnPreferences;
   const filterExpression = row.filter_expression
     ? mapFilterExpression(row.filter_expression)
     : null;
@@ -253,6 +276,7 @@ function mapView(
     isDefault: row.is_default,
     order: row.position,
     configuration,
+    columnPreferences,
     filterExpression,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -518,6 +542,34 @@ export async function createBoard(input: CreateBoardInput): Promise<HydratedBoar
   }
 
   return board;
+}
+
+export async function updateBoardViewConfiguration(
+  viewId: string,
+  configuration: Record<string, unknown>,
+  preferences?: ViewColumnPreferences
+): Promise<void> {
+  const trimmedId = viewId?.trim();
+  if (!trimmedId) {
+    throw new Error("A view id is required to update configuration.");
+  }
+
+  const columnPreferences = preferences ?? parseColumnPreferences(configuration);
+  const payload = {
+    configuration: {
+      ...configuration,
+      columnPreferences,
+    } as BoardViewInsert["configuration"],
+  };
+
+  const { error } = await supabase
+    .from("board_views")
+    .update(payload)
+    .eq("id", trimmedId);
+
+  if (error) {
+    throw mapSupabaseError(error, "Unable to update view configuration.");
+  }
 }
 
 export async function executeBoardView(
