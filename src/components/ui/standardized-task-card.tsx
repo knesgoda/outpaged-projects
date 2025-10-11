@@ -1,12 +1,16 @@
 import { Card, CardContent } from "@/components/ui/card";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import type { ComponentType, SVGProps } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
+import { loadTaskIntegrationStatus } from "@/services/taskIntegrations";
 import {
   Calendar,
   MessageSquare,
@@ -18,6 +22,11 @@ import {
   ListPlus,
   Timer,
   Clock3,
+  GitBranch,
+  Workflow,
+  Palette,
+  LifeBuoy,
+  CalendarClock,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -43,6 +52,7 @@ import type {
   TaskPriority,
   TaskStatus,
   TaskType,
+  TaskIntegrationBadge,
 } from "@/types/tasks";
 
 export interface StandardizedTask {
@@ -91,8 +101,8 @@ export interface StandardizedTask {
   ticket_number?: number;
   created_at?: string;
   updated_at?: string;
+  integrations?: TaskIntegrationBadge[];
 }
-
 
 
 export interface StandardizedTaskCardProps {
@@ -149,6 +159,21 @@ const typeIcons = {
   design: "🎨",
 };
 
+const integrationIconMap: Record<TaskIntegrationBadge["type"], ComponentType<SVGProps<SVGSVGElement>>> = {
+  git: GitBranch,
+  ci: Workflow,
+  design: Palette,
+  support: LifeBuoy,
+  calendar: CalendarClock,
+};
+
+const integrationStatusClasses: Record<TaskIntegrationBadge["status"], string> = {
+  connected: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/40 dark:text-emerald-200",
+  warning: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/40 dark:text-amber-200",
+  error: "bg-destructive/10 text-destructive border-destructive/40",
+  pending: "bg-muted/50 text-muted-foreground border-border/60",
+};
+
 export function StandardizedTaskCard({
   task,
   onEdit,
@@ -177,12 +202,71 @@ export function StandardizedTaskCard({
   const commentTotal = task.comment_count ?? task.comments ?? 0;
   const attachmentTotal =
     task.attachment_count ?? task.attachments ?? (task.files ? task.files.length : 0);
+  const [resolvedIntegrations, setResolvedIntegrations] = useState<TaskIntegrationBadge[] | null>(
+    task.integrations ?? null
+  );
+
+  const truncatedDescription = useMemo(() => {
+    if (!task.description) {
+      return "";
+    }
+    const plain = task.description
+      .replace(/<[^>]*>/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (plain.length <= 60) {
+      return plain;
+    }
+    return `${plain.slice(0, 60).trimEnd()}…`;
+  }, [task.description]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (task.integrations && task.integrations.length > 0) {
+      setResolvedIntegrations(task.integrations);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    if (!task.id) {
+      setResolvedIntegrations(null);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    loadTaskIntegrationStatus({
+      taskId: task.id,
+      projectCode: task.project?.code ?? null,
+    })
+      .then((badges) => {
+        if (!cancelled) {
+          setResolvedIntegrations(badges);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setResolvedIntegrations([]);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [task.id, task.project?.code, task.integrations]);
+
   const tagBadges = (task.tagDetails && task.tagDetails.length > 0
     ? task.tagDetails
     : task.tags.map((label) => ({ id: label, label, color: undefined as string | undefined })))
     .filter(Boolean);
   const rollup = task.rollup;
   const relations = task.relations ?? [];
+  const integrationBadges = useMemo(
+    () => (resolvedIntegrations ?? []).filter((badge) => badge && badge.label && badge.type),
+    [resolvedIntegrations]
+  );
 
   const [inlineField, setInlineField] = useState<
     | "title"
@@ -460,7 +544,7 @@ export function StandardizedTaskCard({
                     </Button>
                   </div>
                 </div>
-              ) : !compact && task.description ? (
+              ) : !compact && truncatedDescription ? (
                 <p
                   className="text-xs text-muted-foreground line-clamp-1"
                   onClick={(event) => {
@@ -469,9 +553,46 @@ export function StandardizedTaskCard({
                     openInlineEditor("description");
                   }}
                 >
-                  {task.description.replace(/<[^>]*>/g, '').slice(0, 60)}...
+                  {truncatedDescription}
                 </p>
               ) : null}
+
+              {integrationBadges.length > 0 && (
+                <TooltipProvider>
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                    {integrationBadges.map((badge) => {
+                      const Icon = integrationIconMap[badge.type] ?? GitBranch;
+                      const syncedAt = badge.lastSyncedAt
+                        ? new Date(badge.lastSyncedAt).toLocaleString()
+                        : null;
+                      return (
+                        <Tooltip key={`${badge.id}-${badge.type}`}>
+                          <TooltipTrigger asChild>
+                            <span className="inline-flex">
+                              <Badge
+                                variant="outline"
+                                className={cn(
+                                  "flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-medium",
+                                  integrationStatusClasses[badge.status]
+                                )}
+                              >
+                                <span className="flex items-center gap-1">
+                                  <Icon className="h-3 w-3" aria-hidden="true" />
+                                  {badge.label}
+                                </span>
+                              </Badge>
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-xs text-xs">
+                            <p>{badge.tooltip}</p>
+                            {syncedAt ? <p className="mt-1 text-[11px] text-muted-foreground">Last sync {syncedAt}</p> : null}
+                          </TooltipContent>
+                        </Tooltip>
+                      );
+                    })}
+                  </div>
+                </TooltipProvider>
+              )}
 
               {tagBadges.length > 0 && (
                 <div className="flex flex-wrap gap-1 pt-1">

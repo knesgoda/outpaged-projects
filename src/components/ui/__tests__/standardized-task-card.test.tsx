@@ -79,6 +79,22 @@ describe("StandardizedTaskCard", () => {
       weightedCompleted: 2,
     },
     externalLinks: ["https://example.com/spec"],
+    integrations: [
+      {
+        id: "git",
+        type: "git",
+        status: "connected",
+        label: "Git synced",
+        tooltip: "Latest branch linked",
+      },
+      {
+        id: "ci",
+        type: "ci",
+        status: "warning",
+        label: "CI flaky",
+        tooltip: "Last run failed",
+      },
+    ],
   };
 
   it("renders rollup progress information when provided", () => {
@@ -92,5 +108,33 @@ describe("StandardizedTaskCard", () => {
     render(<StandardizedTaskCard task={baseTask} />);
 
     expect(screen.getByText(/blocks/i)).toBeInTheDocument();
+  });
+
+  it("renders integration badges with tooltips", async () => {
+    render(<StandardizedTaskCard task={baseTask} />);
+
+    expect(screen.getByText("Git synced")).toBeInTheDocument();
+    expect(screen.getByText("CI flaky")).toBeInTheDocument();
+  });
+
+  it("does not append ellipsis for short descriptions", () => {
+    render(<StandardizedTaskCard task={baseTask} />);
+
+    expect(screen.getByText(baseTask.description ?? "")).toBeInTheDocument();
+  });
+
+  it("truncates long descriptions with an ellipsis", () => {
+    const longDescription = "A".repeat(120);
+
+    render(
+      <StandardizedTaskCard
+        task={{
+          ...baseTask,
+          description: longDescription,
+        }}
+      />
+    );
+
+    expect(screen.getByText(`${"A".repeat(60)}…`)).toBeInTheDocument();
   });
 });
