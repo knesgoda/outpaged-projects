@@ -3,6 +3,7 @@ import type {
   MirrorColumnMetadata,
   RollupColumnMetadata,
 } from "@/types/boardColumns";
+import type { TaskConnectionSummary } from "@/types/tasks";
 
 type ContextRecord = Record<string, unknown>;
 
@@ -70,6 +71,104 @@ export interface RollupComputation {
   progress?: number;
 }
 
+const isRecord = (value: unknown): value is ContextRecord =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+const isConnectionSummary = (value: unknown): value is TaskConnectionSummary =>
+  isRecord(value) &&
+  typeof value.id === "string" &&
+  typeof value.recordId === "string" &&
+  (typeof value.boardId === "string" || typeof value.relationshipName === "string");
+
+const extractConnections = (value: unknown): TaskConnectionSummary[] => {
+  if (Array.isArray(value)) {
+    return value.filter(isConnectionSummary);
+  }
+
+  if (isRecord(value) && Array.isArray(value.connections)) {
+    return value.connections.filter(isConnectionSummary);
+  }
+
+  return [];
+};
+
+const matchesConnection = (
+  connection: TaskConnectionSummary,
+  metadata: MirrorColumnMetadata | RollupColumnMetadata
+): boolean => {
+  const boardId = (metadata as MirrorColumnMetadata).sourceBoardId;
+  const columnId = (metadata as MirrorColumnMetadata).sourceColumnId;
+  const collection = (metadata as RollupColumnMetadata).sourceCollection;
+
+  const boardMatches = boardId ? connection.boardId === boardId : true;
+  const columnMatches = columnId ? connection.sourceColumnId === columnId : true;
+  const collectionMatches = collection
+    ? connection.boardId === collection || connection.relationshipName === collection
+    : true;
+
+  return boardMatches && columnMatches && collectionMatches;
+};
+
+const selectConnection = <T extends MirrorColumnMetadata | RollupColumnMetadata>(
+  connections: TaskConnectionSummary[],
+  metadata: T
+): TaskConnectionSummary | null => {
+  if (!connections.length) {
+    return null;
+  }
+
+  const matched = connections.find((connection) => matchesConnection(connection, metadata));
+  return matched ?? connections[0];
+};
+
+interface RollupSourceDescriptor {
+  records: ContextRecord[];
+  aggregation?: RollupColumnMetadata["aggregation"];
+  targetField?: string;
+}
+
+const toRollupSource = (
+  value: unknown,
+  metadata: RollupColumnMetadata
+): RollupSourceDescriptor => {
+  const connections = extractConnections(value);
+  const connection = selectConnection(connections, metadata);
+
+  if (connection?.rollup?.records?.length) {
+    return {
+      records: connection.rollup.records.filter(isRecord),
+      aggregation: connection.rollup.aggregation,
+      targetField: connection.rollup.targetField,
+    };
+  }
+
+  if (connection?.fields) {
+    const payload = connection.fields;
+    if (Array.isArray((payload as { records?: unknown }).records)) {
+      return {
+        records: (payload as { records: unknown[] }).records.filter(isRecord),
+      };
+    }
+  }
+
+  if (Array.isArray(value) && value.every(isRecord)) {
+    return { records: value };
+  }
+
+  if (isRecord(value) && Array.isArray(value.records)) {
+    return {
+      records: value.records.filter(isRecord),
+      aggregation:
+        typeof value.aggregation === "string"
+          ? (value.aggregation as RollupColumnMetadata["aggregation"])
+          : undefined,
+      targetField: typeof value.targetField === "string" ? value.targetField : undefined,
+    };
+  }
+
+  return { records: [] };
+};
+
 const numericField = (record: ContextRecord, field: string): number | null => {
   const value = getValueByPath(record, field);
   const numeric = Number(value);
@@ -77,19 +176,25 @@ const numericField = (record: ContextRecord, field: string): number | null => {
 };
 
 export function calculateRollup(
-  records: ContextRecord[],
+  value: unknown,
   metadata: RollupColumnMetadata
 ): RollupComputation | null {
+  const source = toRollupSource(value, metadata);
+  const records = source.records;
+
   if (!records.length) {
     return null;
   }
 
+  const targetField = source.targetField ?? metadata.targetField;
+  const aggregation = source.aggregation ?? metadata.aggregation;
+
   const values = records
-    .map((record) => numericField(record, metadata.targetField))
+    .map((record) => numericField(record, targetField))
     .filter((value): value is number => value !== null);
 
   const count = records.length;
-  if (metadata.aggregation === "count") {
+  if (aggregation === "count") {
     return { count, value: count, progress: 1 };
   }
 
@@ -103,7 +208,7 @@ export function calculateRollup(
     value: null,
   };
 
-  switch (metadata.aggregation) {
+  switch (aggregation) {
     case "sum":
       computation.value = sum;
       break;
@@ -122,7 +227,7 @@ export function calculateRollup(
   }
 
   const completed = records.filter((record) => {
-    const value = getValueByPath(record, metadata.targetField);
+    const value = getValueByPath(record, targetField);
     if (typeof value === "boolean") {
       return value;
     }
@@ -143,17 +248,50 @@ export function calculateRollup(
   return computation;
 }
 
+const toMirrorSource = (
+  value: unknown,
+  metadata: MirrorColumnMetadata
+): ContextRecord | null => {
+  if (isRecord(value)) {
+    return value;
+  }
+
+  const connections = extractConnections(value);
+  const connection = selectConnection(connections, metadata);
+  if (!connection) {
+    return null;
+  }
+
+  if (connection.mirrorFields && isRecord(connection.mirrorFields)) {
+    return connection.mirrorFields;
+  }
+
+  if (connection.fields && isRecord(connection.fields)) {
+    return connection.fields;
+  }
+
+  const fallback: ContextRecord = {
+    id: connection.recordId,
+    title: connection.recordTitle,
+    status: connection.status,
+  };
+
+  return fallback;
+};
+
 export function hydrateMirrorData(
-  source: ContextRecord | null | undefined,
+  source: ContextRecord | TaskConnectionSummary[] | { connections?: TaskConnectionSummary[] } | null | undefined,
   metadata: MirrorColumnMetadata
 ): ContextRecord {
-  if (!source) {
+  const base = toMirrorSource(source, metadata);
+
+  if (!base) {
     return {};
   }
 
   const result: ContextRecord = {};
   for (const field of metadata.displayFields ?? []) {
-    result[field] = getValueByPath(source, field);
+    result[field] = getValueByPath(base, field);
   }
   return result;
 }

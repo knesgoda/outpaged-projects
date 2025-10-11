@@ -7,7 +7,11 @@ export type BoardFilterField =
   | "taskType"
   | "dueDate"
   | "tag"
-  | "label";
+  | "label"
+  | "project"
+  | "component"
+  | "version"
+  | "relation";
 
 export type BoardFilterOperator =
   | "is"

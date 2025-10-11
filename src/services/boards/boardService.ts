@@ -169,7 +169,7 @@ function normalizeFilters(value: unknown): JsonRecord {
 }
 
 const isViewMode = (value: unknown): value is BoardViewMode =>
-  value === "table" || value === "kanban" || value === "timeline";
+  value === "table" || value === "kanban" || value === "timeline" || value === "master";
 
 const parseColumnPreferences = (
   configuration: JsonRecord

@@ -82,7 +82,7 @@ export interface ViewColumnPreferences {
   hidden: string[];
 }
 
-export type BoardViewMode = "table" | "kanban" | "timeline";
+export type BoardViewMode = "table" | "kanban" | "timeline" | "master";
 
 export interface BoardViewSortRule {
   id: string;
@@ -130,6 +130,17 @@ export interface BoardViewTimelineSettings {
   dependencyField?: string;
 }
 
+export interface MasterBoardViewFilters {
+  projectIds: string[];
+  componentIds: string[];
+  versionIds: string[];
+}
+
+export interface MasterBoardViewSettings {
+  showColorStrips?: boolean;
+  filters?: MasterBoardViewFilters;
+}
+
 export interface BoardViewConfiguration {
   mode: BoardViewMode;
   filters: Record<string, unknown>;
@@ -138,6 +149,7 @@ export interface BoardViewConfiguration {
   columnPreferences: ViewColumnPreferences;
   timeline?: BoardViewTimelineSettings | null;
   colorRules?: BoardColorRule[];
+  master?: MasterBoardViewSettings | null;
 }
 
 export interface BoardViewDefinition {
