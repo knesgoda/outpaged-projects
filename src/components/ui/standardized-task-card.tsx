@@ -2,10 +2,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { 
-  Calendar, 
-  MessageSquare, 
-  Paperclip, 
+import { Progress } from "@/components/ui/progress";
+import {
+  Calendar,
+  MessageSquare,
+  Paperclip,
   Clock,
   Edit,
   Plus
@@ -16,15 +17,27 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import type {
+  TaskFileReference,
+  TaskLinkReference,
+  TaskRelationSummary,
+  TaskRollup,
+  TaskSubitemSummary,
+  TaskTag,
+  TaskHierarchyLevel,
+  TaskPriority,
+  TaskStatus,
+  TaskType,
+} from "@/types/tasks";
 
 export interface StandardizedTask {
   id: string;
   title: string;
   description?: string;
-  status: string;
-  priority: "low" | "medium" | "high" | "urgent";
-  hierarchy_level: "initiative" | "epic" | "story" | "task" | "subtask";
-  task_type: "story" | "epic" | "initiative" | "task" | "subtask" | "bug" | "feature_request" | "design" | "idea" | "request" | "incident" | "change" | "test" | "risk";
+  status: TaskStatus | string;
+  priority: TaskPriority;
+  hierarchy_level: TaskHierarchyLevel;
+  task_type: TaskType;
   parent_id?: string;
   project_id?: string;
   swimlane_id?: string;
@@ -36,9 +49,22 @@ export interface StandardizedTask {
   }>;
   dueDate?: string;
   due_date?: string; // Support both formats
+  start_date?: string | null;
+  end_date?: string | null;
+  estimated_hours?: number | null;
+  actual_hours?: number | null;
   tags: string[];
-  comments: number;
-  attachments: number;
+  tagDetails?: TaskTag[];
+  comments?: number;
+  comment_count?: number;
+  attachments?: number;
+  attachment_count?: number;
+  files?: TaskFileReference[];
+  links?: TaskLinkReference[];
+  relations?: TaskRelationSummary[];
+  subitems?: TaskSubitemSummary[];
+  rollup?: TaskRollup;
+  externalLinks?: string[];
   children?: StandardizedTask[];
   story_points?: number;
   blocked?: boolean;
@@ -51,6 +77,8 @@ export interface StandardizedTask {
   created_at?: string;
   updated_at?: string;
 }
+
+
 
 interface StandardizedTaskCardProps {
   task: StandardizedTask;
@@ -109,8 +137,24 @@ export function StandardizedTaskCard({
   showProject = true,
   interactive = false
 }: StandardizedTaskCardProps) {
-  console.log("StandardizedTaskCard rendering with task:", task.title);
-  const dueDate = task.dueDate || task.due_date;
+  const dueDateDisplay = task.due_date
+    ? new Date(task.due_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+    : task.dueDate;
+  const startDateDisplay = task.start_date
+    ? new Date(task.start_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+    : undefined;
+  const endDateDisplay = task.end_date
+    ? new Date(task.end_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+    : undefined;
+  const commentTotal = task.comment_count ?? task.comments ?? 0;
+  const attachmentTotal =
+    task.attachment_count ?? task.attachments ?? (task.files ? task.files.length : 0);
+  const tagBadges = (task.tagDetails && task.tagDetails.length > 0
+    ? task.tagDetails
+    : task.tags.map((label) => ({ id: label, label, color: undefined as string | undefined })))
+    .filter(Boolean);
+  const rollup = task.rollup;
+  const relations = task.relations ?? [];
 
   const handleCardClick = () => {
     if (onClick) {
@@ -171,6 +215,26 @@ export function StandardizedTaskCard({
                 <p className="text-xs text-muted-foreground line-clamp-1">
                   {task.description.replace(/<[^>]*>/g, '').slice(0, 60)}...
                 </p>
+              )}
+
+              {tagBadges.length > 0 && (
+                <div className="flex flex-wrap gap-1 pt-1">
+                  {tagBadges.slice(0, compact ? 2 : 4).map((tag) => (
+                    <Badge
+                      key={`${task.id}-${tag.id}`}
+                      variant="outline"
+                      className="text-[10px]"
+                      style={tag.color ? { borderColor: tag.color, color: tag.color } : undefined}
+                    >
+                      {tag.label}
+                    </Badge>
+                  ))}
+                  {tagBadges.length > (compact ? 2 : 4) && (
+                    <Badge variant="outline" className="text-[10px]">
+                      +{tagBadges.length - (compact ? 2 : 4)}
+                    </Badge>
+                  )}
+                </div>
               )}
             </div>
             
@@ -233,6 +297,68 @@ export function StandardizedTaskCard({
             )}
           </div>
 
+          {(startDateDisplay || dueDateDisplay || endDateDisplay || task.estimated_hours || task.actual_hours) && (
+            <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+              {startDateDisplay && (
+                <span className="flex items-center gap-1">
+                  <Calendar className="w-3 h-3" />
+                  <span>Start {startDateDisplay}</span>
+                </span>
+              )}
+              {dueDateDisplay && (
+                <span className="flex items-center gap-1">
+                  <Calendar className="w-3 h-3" />
+                  <span>Due {dueDateDisplay}</span>
+                </span>
+              )}
+              {endDateDisplay && (
+                <span className="flex items-center gap-1">
+                  <Calendar className="w-3 h-3" />
+                  <span>End {endDateDisplay}</span>
+                </span>
+              )}
+              {task.estimated_hours != null && (
+                <span className="flex items-center gap-1">
+                  <Clock className="w-3 h-3" />
+                  <span>{task.estimated_hours}h est.</span>
+                </span>
+              )}
+              {task.actual_hours != null && (
+                <span className="flex items-center gap-1">
+                  <Clock className="w-3 h-3" />
+                  <span>{task.actual_hours}h actual</span>
+                </span>
+              )}
+            </div>
+          )}
+
+          {rollup && (
+            <div className="space-y-1">
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>Subitems</span>
+                <span>
+                  {rollup.completed}/{rollup.total}
+                </span>
+              </div>
+              <Progress value={Math.round((rollup.progress ?? 0) * 100)} className="h-1.5" />
+            </div>
+          )}
+
+          {relations.length > 0 && (
+            <div className="flex flex-wrap gap-1 text-xs">
+              {relations.slice(0, compact ? 2 : 4).map((relation) => (
+                <Badge key={`${relation.id}-${relation.direction}`} variant="secondary" className="capitalize">
+                  {relation.direction === 'incoming' ? '⬅' : '➡'} {relation.type.replace('_', ' ')}
+                </Badge>
+              ))}
+              {relations.length > (compact ? 2 : 4) && (
+                <Badge variant="secondary" className="capitalize">
+                  +{relations.length - (compact ? 2 : 4)} more
+                </Badge>
+              )}
+            </div>
+          )}
+
           {/* Bottom Row - Assignees and Meta */}
           <div className={`flex items-center justify-between text-xs text-muted-foreground ${compact ? 'text-xs' : ''}`}>
             <div className="flex items-center gap-2 min-w-0 flex-1">
@@ -258,11 +384,11 @@ export function StandardizedTaskCard({
               )}
 
               {/* Due Date */}
-              {dueDate && (
+              {dueDateDisplay && (
                 <div className="flex items-center gap-1">
                   <Calendar className="w-3 h-3" />
                   <span className="truncate">
-                    {new Date(dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    {dueDateDisplay}
                   </span>
                 </div>
               )}
@@ -272,12 +398,12 @@ export function StandardizedTaskCard({
             <div className="flex items-center gap-2 flex-shrink-0">
               <div className="flex items-center gap-1">
                 <MessageSquare className="w-3 h-3" />
-                <span>{task.comments || 0}</span>
+                <span>{commentTotal}</span>
               </div>
-              {(task.attachments || 0) > 0 && (
+              {attachmentTotal > 0 && (
                 <div className="flex items-center gap-1">
                   <Paperclip className="w-3 h-3" />
-                  <span>{task.attachments}</span>
+                  <span>{attachmentTotal}</span>
                 </div>
               )}
             </div>

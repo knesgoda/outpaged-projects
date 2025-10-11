@@ -2269,6 +2269,151 @@ export type Database = {
           },
         ]
       }
+      task_dependencies: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          dependency_type: Database["public"]["Enums"]["task_dependency_type"]
+          id: string
+          metadata: Json | null
+          source_task_id: string
+          target_task_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          dependency_type: Database["public"]["Enums"]["task_dependency_type"]
+          id?: string
+          metadata?: Json | null
+          source_task_id: string
+          target_task_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          dependency_type?: Database["public"]["Enums"]["task_dependency_type"]
+          id?: string
+          metadata?: Json | null
+          source_task_id?: string
+          target_task_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_dependencies_source_task_id_fkey"
+            columns: ["source_task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_dependencies_target_task_id_fkey"
+            columns: ["target_task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_dependencies_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      task_files: {
+        Row: {
+          created_at: string
+          file_name: string | null
+          file_size: number | null
+          file_url: string
+          id: string
+          mime_type: string | null
+          task_id: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          file_name?: string | null
+          file_size?: number | null
+          file_url: string
+          id?: string
+          mime_type?: string | null
+          task_id: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          file_name?: string | null
+          file_size?: number | null
+          file_url?: string
+          id?: string
+          mime_type?: string | null
+          task_id?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_files_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_files_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      task_links: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          link_type: string | null
+          task_id: string
+          title: string | null
+          url: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          link_type?: string | null
+          task_id: string
+          title?: string | null
+          url: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          link_type?: string | null
+          task_id?: string
+          title?: string | null
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_links_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_links_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       task_relationships: {
         Row: {
           created_at: string
@@ -2312,9 +2457,9 @@ export type Database = {
             foreignKeyName: "fk_target_task"
             columns: ["target_task_id"]
             isOneToOne: false
-            referencedRelation: "tasks"
-            referencedColumns: ["id"]
-          },
+          referencedRelation: "tasks"
+          referencedColumns: ["id"]
+        },
         ]
       }
       task_status_mappings: {
@@ -2344,14 +2489,113 @@ export type Database = {
         }
         Relationships: []
       }
+      task_subitems: {
+        Row: {
+          child_task_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          parent_task_id: string
+          position: number | null
+          rollup_weight: number | null
+        }
+        Insert: {
+          child_task_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          parent_task_id: string
+          position?: number | null
+          rollup_weight?: number | null
+        }
+        Update: {
+          child_task_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          parent_task_id?: string
+          position?: number | null
+          rollup_weight?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_subitems_child_task_id_fkey"
+            columns: ["child_task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_subitems_parent_task_id_fkey"
+            columns: ["parent_task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_subitems_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      task_tags: {
+        Row: {
+          color: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          label: string
+          task_id: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          label: string
+          task_id: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          label?: string
+          task_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_tags_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_tags_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       tasks: {
         Row: {
+          actual_hours: number | null
           assignee_id: string | null
           blocked: boolean | null
           blocking_reason: string | null
+          completed_at: string | null
           created_at: string
           description: string | null
           due_date: string | null
+          end_date: string | null
+          estimated_hours: number | null
+          external_links: Json | null
           hierarchy_level:
             | Database["public"]["Enums"]["task_hierarchy_level"]
             | null
@@ -2364,18 +2608,24 @@ export type Database = {
           status: Database["public"]["Enums"]["task_status"] | null
           story_points: number | null
           swimlane_id: string | null
+          start_date: string | null
           task_type: Database["public"]["Enums"]["task_type"] | null
           ticket_number: number | null
           title: string
           updated_at: string
         }
         Insert: {
+          actual_hours?: number | null
           assignee_id?: string | null
           blocked?: boolean | null
           blocking_reason?: string | null
+          completed_at?: string | null
           created_at?: string
           description?: string | null
           due_date?: string | null
+          end_date?: string | null
+          estimated_hours?: number | null
+          external_links?: Json | null
           hierarchy_level?:
             | Database["public"]["Enums"]["task_hierarchy_level"]
             | null
@@ -2388,18 +2638,24 @@ export type Database = {
           status?: Database["public"]["Enums"]["task_status"] | null
           story_points?: number | null
           swimlane_id?: string | null
+          start_date?: string | null
           task_type?: Database["public"]["Enums"]["task_type"] | null
           ticket_number?: number | null
           title: string
           updated_at?: string
         }
         Update: {
+          actual_hours?: number | null
           assignee_id?: string | null
           blocked?: boolean | null
           blocking_reason?: string | null
+          completed_at?: string | null
           created_at?: string
           description?: string | null
           due_date?: string | null
+          end_date?: string | null
+          estimated_hours?: number | null
+          external_links?: Json | null
           hierarchy_level?:
             | Database["public"]["Enums"]["task_hierarchy_level"]
             | null
@@ -2412,6 +2668,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["task_status"] | null
           story_points?: number | null
           swimlane_id?: string | null
+          start_date?: string | null
           task_type?: Database["public"]["Enums"]["task_type"] | null
           ticket_number?: number | null
           title?: string
@@ -3491,6 +3748,15 @@ export type Database = {
         | "incident"
         | "change"
         | "test"
+        | "risk"
+      task_dependency_type:
+        | "blocks"
+        | "blocked_by"
+        | "relates_to"
+        | "duplicates"
+        | "fixes"
+        | "caused_by"
+        | "follows"
         | "risk"
       team_role:
         | "admin"

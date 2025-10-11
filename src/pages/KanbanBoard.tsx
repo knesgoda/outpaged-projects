@@ -5,6 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useOptionalAuth } from "@/hooks/useOptionalAuth";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { supabase } from "@/integrations/supabase/client";
+import { tasksWithDetails } from "@/services/tasksService";
 import {
   DndContext,
   DragEndEvent,
@@ -438,83 +439,49 @@ function LegacyKanbanBoard() {
         return fetchTasks(); // Retry after creating defaults
       }
 
-      // Fetch tasks for the project
-      const { data: tasks, error: tasksError } = await supabase
-        .from('tasks')
-        .select(`
-          *,
-          projects (
-            name,
-            code
-          )
-        `)
-        .eq('project_id', currentProjectId)
-        .order('created_at', { ascending: false });
-
-      if (tasksError) throw tasksError;
-
-      // Fetch assignees for all tasks
-      const taskIds = tasks?.map(t => t.id) || [];
-      let assigneesData: any[] = [];
-      
-      if (taskIds.length > 0) {
-        const { data: assignees, error: assigneesError } = await supabase
-          .from('task_assignees_with_profiles')
-          .select('*')
-          .in('task_id', taskIds);
-        
-        if (!assigneesError) {
-          assigneesData = assignees || [];
-        }
-      }
-
-      // Transform tasks with assignees
-      const tasksWithDetails = tasks?.map(task => {
-        const taskAssignees = assigneesData
-          .filter(a => a.task_id === task.id)
-          .map(assignee => ({
-            id: assignee.user_id,
-            name: assignee.full_name || 'Unknown User',
-            avatar: assignee.avatar_url,
-            initials: (assignee.full_name || 'U')
-              .split(' ')
-              .map(n => n[0])
-              .join('')
-              .toUpperCase()
-              .slice(0, 2)
-          }));
-
-        return {
-          id: task.id,
-          title: task.title,
-          description: task.description || '',
-          status: task.status,
-          priority: task.priority,
-          hierarchy_level: task.hierarchy_level || 'task',
-          task_type: task.task_type || 'feature_request',
-          parent_id: task.parent_id,
-          project_id: task.project_id,
-          swimlane_id: task.swimlane_id,
-          assignees: taskAssignees,
-          dueDate: task.due_date ? new Date(task.due_date).toLocaleDateString('en-US', { 
-            month: 'short', 
-            day: 'numeric' 
-          }) : undefined,
-          tags: [], // TODO: Implement tags system
-          comments: 0, // TODO: Get actual comment count  
-          attachments: 0, // TODO: Get actual attachment count
-          children: [],
-          project: {
-            name: task.projects?.name,
-            code: task.projects?.code
-          },
-          ticket_number: task.ticket_number,
-          projectName: task.projects?.name,
-          story_points: task.story_points,
-          blocked: task.blocked || false,
-          blocking_reason: task.blocking_reason
-        };
-      }) || [];
+      const detailedTasks = await tasksWithDetails(currentProjectId);
+      const tasksForBoard = detailedTasks.map(task => ({
+        id: task.id,
+        title: task.title,
+        description: task.description || '',
+        status: task.status,
+        priority: task.priority,
+        hierarchy_level: task.hierarchy_level,
+        task_type: task.task_type,
+        parent_id: task.parent_id,
+        project_id: task.project_id,
+        swimlane_id: task.swimlane_id,
+        assignees: task.assignees,
+        dueDate: task.due_date
+          ? new Date(task.due_date).toLocaleDateString('en-US', {
+              month: 'short',
+              day: 'numeric'
+            })
+          : undefined,
+        due_date: task.due_date,
+        start_date: task.start_date,
+        end_date: task.end_date,
+        estimated_hours: task.estimated_hours,
+        actual_hours: task.actual_hours,
+        tags: task.tagNames,
+        tagDetails: task.tags,
+        comments: task.commentCount,
+        comment_count: task.commentCount,
+        attachments: task.attachmentCount,
+        attachment_count: task.attachmentCount,
+        files: task.files,
+        links: task.links,
+        relations: task.relations,
+        subitems: task.subitems,
+        rollup: task.rollup,
+        project: task.project,
+        ticket_number: task.ticket_number,
+        projectName: task.project?.name,
+        story_points: task.story_points,
+        blocked: task.blocked || false,
+        blocking_reason: task.blocking_reason,
+        externalLinks: task.externalLinks,
+      }));
 
       // Get status mappings for all columns
       const { data: statusMappings } = await supabase
@@ -527,7 +494,7 @@ function LegacyKanbanBoard() {
         // Find the status mapping for this column
         const mapping = statusMappings?.find(m => m.column_id === col.id);
         
-        const columnTasks = tasksWithDetails.filter(task => {
+        const columnTasks = tasksForBoard.filter(task => {
           // Handle both custom status mappings and standard statuses
           if (mapping) {
             const targetStatus = mapping.status_value;
