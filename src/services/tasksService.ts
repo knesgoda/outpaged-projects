@@ -438,4 +438,88 @@ export async function tasksWithDetails(projectId: string): Promise<TaskWithDetai
   return Array.from(taskMap.values());
 }
 
+const sanitizeDateInput = (value: unknown): string | null | undefined => {
+  if (value == null || value === "") {
+    return null;
+  }
+
+  if (typeof value === "string") {
+    const date = new Date(value);
+    if (!Number.isNaN(date.valueOf())) {
+      return date.toISOString();
+    }
+    return value;
+  }
+
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+
+  return undefined;
+};
+
+export type TaskUpdateInput = Database["public"]["Tables"]["tasks"]["Update"];
+
+export async function updateTaskFields(
+  taskId: string,
+  patch: TaskUpdateInput
+): Promise<void> {
+  const trimmedId = taskId?.trim();
+  if (!trimmedId) {
+    throw new Error("A task id is required to update a task");
+  }
+
+  const payload: TaskUpdateInput = { ...patch };
+
+  if ("due_date" in payload) {
+    payload.due_date = sanitizeDateInput(payload.due_date ?? null);
+  }
+  if ("start_date" in payload) {
+    payload.start_date = sanitizeDateInput(payload.start_date ?? null);
+  }
+  if ("end_date" in payload) {
+    payload.end_date = sanitizeDateInput(payload.end_date ?? null);
+  }
+
+  const { error } = await supabase.from("tasks").update(payload).eq("id", trimmedId);
+
+  if (error) {
+    throw mapSupabaseError(error, "Unable to update the task");
+  }
+}
+
+export async function replaceTaskAssignees(
+  taskId: string,
+  assigneeIds: string[]
+): Promise<void> {
+  const trimmedId = taskId?.trim();
+  if (!trimmedId) {
+    throw new Error("A task id is required to update assignees");
+  }
+
+  const { error: deleteError } = await supabase
+    .from("task_assignees")
+    .delete()
+    .eq("task_id", trimmedId);
+
+  if (deleteError) {
+    throw mapSupabaseError(deleteError, "Unable to update task assignees");
+  }
+
+  if (!assigneeIds.length) {
+    return;
+  }
+
+  const records = assigneeIds.map((userId) => ({
+    task_id: trimmedId,
+    user_id: userId,
+  }));
+
+  const { error: insertError } = await supabase.from("task_assignees").insert(records);
+
+  if (insertError) {
+    throw mapSupabaseError(insertError, "Unable to assign users to the task");
+  }
+}
+
 export type { TaskWithDetails } from "@/types/tasks";
