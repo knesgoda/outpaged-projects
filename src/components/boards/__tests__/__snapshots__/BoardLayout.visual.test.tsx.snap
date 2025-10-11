@@ -1,0 +1,1015 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`BoardLayout visual regression matches the shell snapshot 1`] = `
+<DocumentFragment>
+  <div
+    class="flex h-full min-h-[720px] flex-col bg-muted/10"
+  >
+    <header
+      class="border-b bg-background px-6 py-4"
+    >
+      <div
+        class="flex flex-wrap items-center justify-between gap-4"
+      >
+        <div
+          class="space-y-3"
+        >
+          <nav
+            aria-label="breadcrumb"
+          >
+            <ol
+              class="flex flex-wrap items-center gap-1.5 break-words text-sm text-muted-foreground sm:gap-2.5"
+            >
+              <li
+                class="inline-flex items-center gap-1.5"
+              >
+                <a
+                  class="transition-colors hover:text-foreground"
+                  href="/"
+                >
+                  Workspace
+                </a>
+              </li>
+              <li
+                aria-hidden="true"
+                class="[&>svg]:size-3.5"
+                role="presentation"
+              >
+                <svg
+                  class="lucide lucide-chevron-right"
+                  fill="none"
+                  height="24"
+                  stroke="currentColor"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  viewBox="0 0 24 24"
+                  width="24"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="m9 18 6-6-6-6"
+                  />
+                </svg>
+              </li>
+              <li
+                class="inline-flex items-center gap-1.5"
+              >
+                <a
+                  class="transition-colors hover:text-foreground"
+                  href="/boards"
+                >
+                  Boards
+                </a>
+              </li>
+              <li
+                aria-hidden="true"
+                class="[&>svg]:size-3.5"
+                role="presentation"
+              >
+                <svg
+                  class="lucide lucide-chevron-right"
+                  fill="none"
+                  height="24"
+                  stroke="currentColor"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  viewBox="0 0 24 24"
+                  width="24"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="m9 18 6-6-6-6"
+                  />
+                </svg>
+              </li>
+              <li
+                class="inline-flex items-center gap-1.5"
+              >
+                <span
+                  aria-current="page"
+                  aria-disabled="true"
+                  class="font-normal text-foreground"
+                  role="link"
+                >
+                  Growth Team
+                </span>
+              </li>
+            </ol>
+          </nav>
+          <div
+            class="mt-4 flex flex-wrap gap-2"
+          >
+            <div
+              class="border transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 text-foreground flex items-center gap-1 rounded-full border-muted-foreground/40 bg-muted/50 px-3 py-1 text-xs font-medium"
+            >
+              <svg
+                aria-hidden="true"
+                class="lucide lucide-trending-down h-3 w-3 text-rose-500"
+                fill="none"
+                height="24"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+                width="24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <polyline
+                  points="22 17 13.5 8.5 8.5 13.5 2 7"
+                />
+                <polyline
+                  points="16 17 22 17 22 11"
+                />
+              </svg>
+              <span>
+                Cycle Time:
+              </span>
+              <span
+                class="text-foreground"
+              >
+                3.2d
+              </span>
+              <span
+                class="text-muted-foreground"
+              >
+                (-12% vs last sprint)
+              </span>
+            </div>
+            <div
+              class="border transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 text-foreground flex items-center gap-1 rounded-full border-muted-foreground/40 bg-muted/50 px-3 py-1 text-xs font-medium"
+            >
+              <svg
+                aria-hidden="true"
+                class="lucide lucide-trending-up h-3 w-3 text-emerald-500"
+                fill="none"
+                height="24"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+                width="24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <polyline
+                  points="22 7 13.5 15.5 8.5 10.5 2 17"
+                />
+                <polyline
+                  points="16 7 22 7 22 13"
+                />
+              </svg>
+              <span>
+                Throughput:
+              </span>
+              <span
+                class="text-foreground"
+              >
+                28 items
+              </span>
+              <span
+                class="text-muted-foreground"
+              >
+                (+6)
+              </span>
+            </div>
+          </div>
+        </div>
+        <div
+          class="flex items-center gap-2"
+        >
+          <button
+            aria-label="Star board"
+            class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 w-10"
+            type="button"
+          >
+            <svg
+              class="lucide lucide-star-off h-4 w-4"
+              fill="none"
+              height="24"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+              width="24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M8.34 8.34 2 9.27l5 4.87L5.82 21 12 17.77 18.18 21l-.59-3.43"
+              />
+              <path
+                d="M18.42 12.76 22 9.27l-6.91-1L12 2l-1.44 2.91"
+              />
+              <line
+                x1="2"
+                x2="22"
+                y1="2"
+                y2="22"
+              />
+            </svg>
+          </button>
+          <button
+            aria-label="Share board"
+            class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 w-10"
+            type="button"
+          >
+            <svg
+              class="lucide lucide-share2 h-4 w-4"
+              fill="none"
+              height="24"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+              width="24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <circle
+                cx="18"
+                cy="5"
+                r="3"
+              />
+              <circle
+                cx="6"
+                cy="12"
+                r="3"
+              />
+              <circle
+                cx="18"
+                cy="19"
+                r="3"
+              />
+              <line
+                x1="8.59"
+                x2="15.42"
+                y1="13.51"
+                y2="17.49"
+              />
+              <line
+                x1="15.41"
+                x2="8.59"
+                y1="6.51"
+                y2="10.49"
+              />
+            </svg>
+          </button>
+        </div>
+      </div>
+    </header>
+    <div
+      class="flex flex-1 overflow-hidden"
+    >
+      <aside
+        aria-label="Board navigation"
+        class="relative flex h-full flex-col border-r bg-background transition-all duration-200 ease-in-out w-72"
+        data-state="expanded"
+      >
+        <div
+          class="flex h-12 items-center justify-between border-b px-2"
+        >
+          <h2
+            class="text-sm font-semibold"
+          >
+            Board Context
+          </h2>
+          <button
+            aria-label="Collapse board sidebar"
+            class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 hover:bg-accent hover:text-accent-foreground h-10 w-10 text-muted-foreground"
+            data-state="closed"
+            type="button"
+          >
+            <svg
+              class="lucide lucide-chevron-left h-4 w-4"
+              fill="none"
+              height="24"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+              width="24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="m15 18-6-6 6-6"
+              />
+            </svg>
+          </button>
+        </div>
+        <div
+          class="relative overflow-hidden flex-1"
+          dir="ltr"
+          style="position: relative; --radix-scroll-area-corner-width: 0px; --radix-scroll-area-corner-height: 0px;"
+        >
+          <style>
+            
+[data-radix-scroll-area-viewport] {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  -webkit-overflow-scrolling: touch;
+}
+[data-radix-scroll-area-viewport]::-webkit-scrollbar {
+  display: none;
+}
+:where([data-radix-scroll-area-viewport]) {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+:where([data-radix-scroll-area-content]) {
+  flex-grow: 1;
+}
+
+          </style>
+          <div
+            class="h-full w-full rounded-[inherit]"
+            data-radix-scroll-area-viewport=""
+            style="overflow-x: hidden; overflow-y: scroll;"
+          >
+            <div
+              data-radix-scroll-area-content=""
+            >
+              <div
+                class="space-y-6 p-4"
+              >
+                <section
+                  aria-labelledby="board-groups-heading"
+                  class="space-y-3"
+                >
+                  <div
+                    class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+                  >
+                    <svg
+                      aria-hidden="true"
+                      class="lucide lucide-layers3 h-3.5 w-3.5"
+                      fill="none"
+                      height="24"
+                      stroke="currentColor"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      viewBox="0 0 24 24"
+                      width="24"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"
+                      />
+                      <path
+                        d="m6.08 9.5-3.5 1.6a1 1 0 0 0 0 1.81l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9a1 1 0 0 0 0-1.83l-3.5-1.59"
+                      />
+                      <path
+                        d="m6.08 14.5-3.5 1.6a1 1 0 0 0 0 1.81l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9a1 1 0 0 0 0-1.83l-3.5-1.59"
+                      />
+                    </svg>
+                    <span
+                      id="board-groups-heading"
+                    >
+                      Groups
+                    </span>
+                  </div>
+                  <ul
+                    class="space-y-1"
+                    data-testid="board-groups"
+                  >
+                    <li>
+                      <button
+                        aria-pressed="false"
+                        class="inline-flex items-center whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 hover:bg-accent hover:text-accent-foreground h-9 rounded-md px-3 w-full justify-start gap-2"
+                        type="button"
+                      >
+                        <span
+                          aria-hidden="true"
+                          class="mr-2 h-2.5 w-2.5 rounded-full"
+                          style="background-color: rgb(14, 165, 233);"
+                        />
+                        <span
+                          class="flex-1 truncate text-left"
+                        >
+                          Now
+                        </span>
+                        <div
+                          class="inline-flex items-center rounded-full border px-2.5 py-0.5 font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 text-foreground ml-auto shrink-0 text-xs"
+                        >
+                          8
+                        </div>
+                      </button>
+                    </li>
+                    <li>
+                      <button
+                        aria-pressed="false"
+                        class="inline-flex items-center whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 hover:bg-accent hover:text-accent-foreground h-9 rounded-md px-3 w-full justify-start gap-2"
+                        type="button"
+                      >
+                        <span
+                          aria-hidden="true"
+                          class="mr-2 h-2.5 w-2.5 rounded-full"
+                          style="background-color: rgb(249, 115, 22);"
+                        />
+                        <span
+                          class="flex-1 truncate text-left"
+                        >
+                          Next
+                        </span>
+                        <div
+                          class="inline-flex items-center rounded-full border px-2.5 py-0.5 font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 text-foreground ml-auto shrink-0 text-xs"
+                        >
+                          12
+                        </div>
+                      </button>
+                    </li>
+                  </ul>
+                </section>
+                <div
+                  class="shrink-0 bg-border h-[1px] w-full"
+                  data-orientation="horizontal"
+                  role="none"
+                />
+                <section
+                  aria-labelledby="board-legends"
+                  class="space-y-3"
+                >
+                  <div
+                    class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+                  >
+                    <svg
+                      aria-hidden="true"
+                      class="lucide lucide-list-tree h-3.5 w-3.5"
+                      fill="none"
+                      height="24"
+                      stroke="currentColor"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      viewBox="0 0 24 24"
+                      width="24"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        d="M21 12h-8"
+                      />
+                      <path
+                        d="M21 6H8"
+                      />
+                      <path
+                        d="M21 18h-8"
+                      />
+                      <path
+                        d="M3 6v4c0 1.1.9 2 2 2h3"
+                      />
+                      <path
+                        d="M3 10v6c0 1.1.9 2 2 2h3"
+                      />
+                    </svg>
+                    <span
+                      id="board-legends"
+                    >
+                      Legends
+                    </span>
+                  </div>
+                  <ul
+                    class="space-y-2"
+                    data-testid="board-legends"
+                  >
+                    <li
+                      class="flex items-start gap-2 text-sm text-muted-foreground"
+                    >
+                      <span
+                        aria-hidden="true"
+                        class="mr-2 inline-flex h-2.5 w-2.5 items-center justify-center rounded-full"
+                        style="background-color: rgb(34, 197, 94);"
+                      />
+                      <div
+                        class="space-y-0.5"
+                      >
+                        <p
+                          class="font-medium text-foreground"
+                        >
+                          Delivery
+                        </p>
+                        <p
+                          class="text-xs"
+                        >
+                          On track
+                        </p>
+                      </div>
+                    </li>
+                    <li
+                      class="flex items-start gap-2 text-sm text-muted-foreground"
+                    >
+                      <span
+                        aria-hidden="true"
+                        class="mr-2 inline-flex h-2.5 w-2.5 items-center justify-center rounded-full"
+                        style="background-color: rgb(239, 68, 68);"
+                      />
+                      <div
+                        class="space-y-0.5"
+                      >
+                        <p
+                          class="font-medium text-foreground"
+                        >
+                          Risk
+                        </p>
+                        <p
+                          class="text-xs"
+                        >
+                          Requires attention
+                        </p>
+                      </div>
+                    </li>
+                  </ul>
+                </section>
+              </div>
+            </div>
+          </div>
+        </div>
+      </aside>
+      <div
+        class="flex flex-1 flex-col overflow-hidden"
+      >
+        <div
+          class="flex flex-wrap items-center justify-between gap-4 border-b bg-background/80 px-6 py-3"
+        >
+          <div
+            class="flex flex-wrap items-center gap-2"
+          >
+            <div
+              class="items-center justify-center gap-1 flex flex-wrap"
+              dir="ltr"
+              role="group"
+              style="outline: none;"
+              tabindex="0"
+            >
+              <button
+                aria-checked="true"
+                aria-label="Switch to Board view"
+                class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors hover:bg-muted hover:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=on]:bg-accent data-[state=on]:text-accent-foreground bg-transparent h-10 px-3"
+                data-radix-collection-item=""
+                data-state="on"
+                role="radio"
+                tabindex="-1"
+                type="button"
+              >
+                Board
+              </button>
+              <button
+                aria-checked="false"
+                aria-label="Switch to Table view"
+                class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors hover:bg-muted hover:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=on]:bg-accent data-[state=on]:text-accent-foreground bg-transparent h-10 px-3"
+                data-radix-collection-item=""
+                data-state="off"
+                role="radio"
+                tabindex="-1"
+                type="button"
+              >
+                Table
+              </button>
+              <button
+                aria-checked="false"
+                aria-label="Switch to Timeline view"
+                class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors hover:bg-muted hover:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=on]:bg-accent data-[state=on]:text-accent-foreground bg-transparent h-10 px-3"
+                data-radix-collection-item=""
+                data-state="off"
+                role="radio"
+                tabindex="-1"
+                type="button"
+              >
+                Timeline
+              </button>
+            </div>
+          </div>
+          <div
+            class="flex flex-wrap items-center gap-2"
+          >
+            <button
+              aria-label="Toggle group by"
+              aria-pressed="true"
+              class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors hover:bg-muted hover:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=on]:bg-accent data-[state=on]:text-accent-foreground bg-transparent h-10 px-3"
+              data-state="on"
+              type="button"
+            >
+              <svg
+                class="lucide lucide-layout-grid mr-2 h-4 w-4"
+                fill="none"
+                height="24"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+                width="24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <rect
+                  height="7"
+                  rx="1"
+                  width="7"
+                  x="3"
+                  y="3"
+                />
+                <rect
+                  height="7"
+                  rx="1"
+                  width="7"
+                  x="14"
+                  y="3"
+                />
+                <rect
+                  height="7"
+                  rx="1"
+                  width="7"
+                  x="14"
+                  y="14"
+                />
+                <rect
+                  height="7"
+                  rx="1"
+                  width="7"
+                  x="3"
+                  y="14"
+                />
+              </svg>
+               Group
+            </button>
+            <button
+              aria-label="Toggle sorting"
+              aria-pressed="false"
+              class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors hover:bg-muted hover:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=on]:bg-accent data-[state=on]:text-accent-foreground bg-transparent h-10 px-3"
+              data-state="off"
+              type="button"
+            >
+              <svg
+                class="lucide lucide-arrow-down-up mr-2 h-4 w-4"
+                fill="none"
+                height="24"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+                width="24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="m3 16 4 4 4-4"
+                />
+                <path
+                  d="M7 20V4"
+                />
+                <path
+                  d="m21 8-4-4-4 4"
+                />
+                <path
+                  d="M17 4v16"
+                />
+              </svg>
+               Sort
+            </button>
+            <button
+              aria-label="Toggle swimlanes"
+              aria-pressed="false"
+              class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors hover:bg-muted hover:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=on]:bg-accent data-[state=on]:text-accent-foreground bg-transparent h-10 px-3"
+              data-state="off"
+              type="button"
+            >
+              <svg
+                class="lucide lucide-rows3 mr-2 h-4 w-4"
+                fill="none"
+                height="24"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+                width="24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <rect
+                  height="18"
+                  rx="2"
+                  width="18"
+                  x="3"
+                  y="3"
+                />
+                <path
+                  d="M21 9H3"
+                />
+                <path
+                  d="M21 15H3"
+                />
+              </svg>
+               Swimlanes
+            </button>
+            <button
+              class="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 rounded-md px-3"
+              type="button"
+            >
+              <svg
+                class="lucide lucide-sliders-horizontal mr-2 h-4 w-4"
+                fill="none"
+                height="24"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+                width="24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <line
+                  x1="21"
+                  x2="14"
+                  y1="4"
+                  y2="4"
+                />
+                <line
+                  x1="10"
+                  x2="3"
+                  y1="4"
+                  y2="4"
+                />
+                <line
+                  x1="21"
+                  x2="12"
+                  y1="12"
+                  y2="12"
+                />
+                <line
+                  x1="8"
+                  x2="3"
+                  y1="12"
+                  y2="12"
+                />
+                <line
+                  x1="21"
+                  x2="16"
+                  y1="20"
+                  y2="20"
+                />
+                <line
+                  x1="12"
+                  x2="3"
+                  y1="20"
+                  y2="20"
+                />
+                <line
+                  x1="14"
+                  x2="14"
+                  y1="2"
+                  y2="6"
+                />
+                <line
+                  x1="8"
+                  x2="8"
+                  y1="10"
+                  y2="14"
+                />
+                <line
+                  x1="16"
+                  x2="16"
+                  y1="18"
+                  y2="22"
+                />
+              </svg>
+              Filters
+            </button>
+          </div>
+        </div>
+        <div
+          class="flex-1 overflow-hidden"
+        >
+          <div
+            class="h-full overflow-auto"
+            data-testid="board-canvas"
+            data-virtualized="false"
+          >
+            <div
+              aria-label="Board canvas"
+              class="space-y-3 p-6"
+            >
+              <button
+                class="w-full rounded-xl border bg-card text-left shadow-sm transition hover:shadow-md focus:outline-none focus:ring-2 focus:ring-ring border-border"
+                data-testid="board-card"
+                type="button"
+              >
+                <div
+                  class="flex flex-col gap-3 p-4"
+                >
+                  <div
+                    class="flex items-start justify-between gap-3"
+                  >
+                    <div
+                      class="space-y-1"
+                    >
+                      <p
+                        class="text-sm font-semibold text-foreground"
+                      >
+                        Design mobile onboarding
+                      </p>
+                      <p
+                        class="text-xs text-muted-foreground line-clamp-2"
+                      >
+                        Refine the responsive layout for the mobile onboarding screens.
+                      </p>
+                    </div>
+                    <div
+                      class="inline-flex items-center rounded-full border px-2.5 py-0.5 font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 text-foreground shrink-0 text-xs capitalize"
+                    >
+                      In Progress
+                    </div>
+                  </div>
+                  <div
+                    class="flex flex-wrap items-center gap-2 text-xs text-muted-foreground"
+                  >
+                    <span>
+                      👤 Jordan Smith
+                    </span>
+                    <span>
+                      • Est. 5 pts
+                    </span>
+                    <span>
+                      • Updated 1h ago
+                    </span>
+                  </div>
+                  <div
+                    class="flex flex-wrap gap-2"
+                  >
+                    <div
+                      class="inline-flex items-center rounded-full border px-2.5 py-0.5 font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80 text-[10px]"
+                    >
+                      onboarding
+                    </div>
+                    <div
+                      class="inline-flex items-center rounded-full border px-2.5 py-0.5 font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80 text-[10px]"
+                    >
+                      ios
+                    </div>
+                  </div>
+                </div>
+              </button>
+              <button
+                class="w-full rounded-xl border bg-card text-left shadow-sm transition hover:shadow-md focus:outline-none focus:ring-2 focus:ring-ring border-border"
+                data-testid="board-card"
+                type="button"
+              >
+                <div
+                  class="flex flex-col gap-3 p-4"
+                >
+                  <div
+                    class="flex items-start justify-between gap-3"
+                  >
+                    <div
+                      class="space-y-1"
+                    >
+                      <p
+                        class="text-sm font-semibold text-foreground"
+                      >
+                        Finalize billing service
+                      </p>
+                      <p
+                        class="text-xs text-muted-foreground line-clamp-2"
+                      >
+                        Coordinate with the security team on token rotation.
+                      </p>
+                    </div>
+                    <div
+                      class="inline-flex items-center rounded-full border px-2.5 py-0.5 font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 text-foreground shrink-0 text-xs capitalize"
+                    >
+                      Blocked
+                    </div>
+                  </div>
+                  <div
+                    class="flex flex-wrap items-center gap-2 text-xs text-muted-foreground"
+                  >
+                    <span>
+                      👤 Taylor Lee
+                    </span>
+                    <span>
+                      • Est. 3 pts
+                    </span>
+                    <span>
+                      • Updated 3h ago
+                    </span>
+                  </div>
+                  <div
+                    class="flex flex-wrap gap-2"
+                  >
+                    <div
+                      class="inline-flex items-center rounded-full border px-2.5 py-0.5 font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80 text-[10px]"
+                    >
+                      backend
+                    </div>
+                  </div>
+                </div>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <aside
+        aria-hidden="true"
+        aria-label="Item detail panel"
+        class="flex h-full flex-col border-l bg-background transition-all duration-200 ease-in-out w-0 pointer-events-none opacity-0"
+        data-state="closed"
+      >
+        <div
+          class="flex h-12 items-center justify-between border-b px-4"
+        >
+          <p
+            class="text-sm font-semibold"
+          >
+            Item Details
+          </p>
+          <div
+            class="flex items-center gap-1"
+          >
+            <button
+              aria-label="Close item details"
+              class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 hover:bg-accent hover:text-accent-foreground h-10 w-10 text-muted-foreground"
+              type="button"
+            >
+              <svg
+                class="lucide lucide-x h-4 w-4"
+                fill="none"
+                height="24"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+                width="24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M18 6 6 18"
+                />
+                <path
+                  d="m6 6 12 12"
+                />
+              </svg>
+            </button>
+          </div>
+        </div>
+        <div
+          class="relative overflow-hidden flex-1"
+          dir="ltr"
+          style="position: relative; --radix-scroll-area-corner-width: 0px; --radix-scroll-area-corner-height: 0px;"
+        >
+          <style>
+            
+[data-radix-scroll-area-viewport] {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  -webkit-overflow-scrolling: touch;
+}
+[data-radix-scroll-area-viewport]::-webkit-scrollbar {
+  display: none;
+}
+:where([data-radix-scroll-area-viewport]) {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+:where([data-radix-scroll-area-content]) {
+  flex-grow: 1;
+}
+
+          </style>
+          <div
+            class="h-full w-full rounded-[inherit]"
+            data-radix-scroll-area-viewport=""
+            style="overflow-x: hidden; overflow-y: scroll;"
+          >
+            <div
+              data-radix-scroll-area-content=""
+            >
+              <div
+                class="space-y-6 p-4"
+              >
+                <div
+                  class="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed p-6 text-center"
+                >
+                  <p
+                    class="text-sm font-medium"
+                  >
+                    Select an item to inspect its details
+                  </p>
+                  <p
+                    class="text-xs text-muted-foreground"
+                  >
+                    Use the board canvas to choose a work item and the panel will populate with rich context automatically.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </div>
+</DocumentFragment>
+`;
