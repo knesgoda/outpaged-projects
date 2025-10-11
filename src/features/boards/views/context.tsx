@@ -8,15 +8,21 @@ export interface BoardViewContextValue {
   items: BoardViewRecord[];
   configuration: BoardViewConfiguration;
   isLoading: boolean;
+  hasMore: boolean;
+  isLoadingMore: boolean;
   updateItem: (index: number, patch: Partial<BoardViewRecord>) => void;
   replaceItems: (items: BoardViewRecord[]) => void;
   updateConfiguration: (patch: Partial<BoardViewConfiguration>) => void;
+  loadMore?: () => Promise<void> | void;
 }
 
 export interface BoardViewProviderProps {
   items: BoardViewRecord[];
   configuration: BoardViewConfiguration;
   isLoading?: boolean;
+  hasMore?: boolean;
+  isLoadingMore?: boolean;
+  onLoadMore?: () => Promise<void> | void;
   onItemsChange?: (items: BoardViewRecord[]) => void;
   onConfigurationChange?: (configuration: BoardViewConfiguration) => void;
 }
@@ -27,6 +33,9 @@ export function BoardViewProvider({
   items,
   configuration,
   isLoading = false,
+  hasMore = false,
+  isLoadingMore = false,
+  onLoadMore,
   onItemsChange,
   onConfigurationChange,
   children,
@@ -61,16 +70,33 @@ export function BoardViewProvider({
     [configuration, onConfigurationChange]
   );
 
+  const loadMore = useCallback(() => {
+    return onLoadMore?.();
+  }, [onLoadMore]);
+
   const value = useMemo<BoardViewContextValue>(
     () => ({
       items,
       configuration,
       isLoading,
+      hasMore,
+      isLoadingMore,
       updateItem,
       replaceItems,
       updateConfiguration,
+      loadMore,
     }),
-    [configuration, isLoading, items, replaceItems, updateConfiguration, updateItem]
+    [
+      configuration,
+      hasMore,
+      isLoading,
+      isLoadingMore,
+      items,
+      loadMore,
+      replaceItems,
+      updateConfiguration,
+      updateItem,
+    ]
   );
 
   return <BoardViewContext.Provider value={value}>{children}</BoardViewContext.Provider>;

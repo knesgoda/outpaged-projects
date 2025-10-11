@@ -23,6 +23,9 @@ export interface BoardViewCanvasProps {
   items: BoardViewRecord[];
   configuration: BoardViewConfiguration;
   isLoading?: boolean;
+  hasMore?: boolean;
+  isLoadingMore?: boolean;
+  onLoadMore?: () => Promise<void> | void;
   onItemsChange?: BoardViewProviderProps["onItemsChange"];
   onConfigurationChange?: BoardViewProviderProps["onConfigurationChange"];
 }
@@ -31,6 +34,9 @@ export function BoardViewCanvas({
   items,
   configuration,
   isLoading = false,
+  hasMore = false,
+  isLoadingMore = false,
+  onLoadMore,
   onItemsChange,
   onConfigurationChange,
 }: BoardViewCanvasProps) {
@@ -41,6 +47,9 @@ export function BoardViewCanvas({
       items={items}
       configuration={configuration}
       isLoading={isLoading}
+      hasMore={hasMore}
+      isLoadingMore={isLoadingMore}
+      onLoadMore={onLoadMore}
       onItemsChange={onItemsChange}
       onConfigurationChange={onConfigurationChange}
     >

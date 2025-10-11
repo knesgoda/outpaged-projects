@@ -847,6 +847,9 @@ export default function BoardsPage() {
         items={items}
         configuration={activeConfiguration}
         isLoading={isLoadingView && !viewResult}
+        hasMore={viewResult?.hasMore ?? false}
+        isLoadingMore={isLoadingMore}
+        onLoadMore={handleLoadMore}
         onItemsChange={handleViewItemsChange}
         onConfigurationChange={handleViewConfigurationChange}
       />
