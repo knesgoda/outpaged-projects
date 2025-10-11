@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useBoardViewContext } from "./context";
+import { BoardMetricsHeader } from "./BoardMetricsHeader";
 
 const DEFAULT_START_FIELDS = ["startDate", "start", "begin"];
 const DEFAULT_END_FIELDS = ["endDate", "dueDate", "end"];
@@ -88,6 +89,7 @@ export function TimelineBoardView() {
 
   return (
     <div className="flex h-full flex-col gap-4">
+      <BoardMetricsHeader items={items} configuration={configuration} />
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-2">
           <Label className="text-xs uppercase text-muted-foreground">Start</Label>

@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { replaceTaskAssignees, updateTaskFields, type TaskUpdateInput } from "@/services/tasksService";
 import { useBoardViewContext } from "./context";
+import { BoardMetricsHeader } from "./BoardMetricsHeader";
 import {
   Select,
   SelectContent,
@@ -239,30 +240,32 @@ export function TableBoardView() {
   }
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[640px] table-fixed border-collapse">
-        <thead>
-          <tr className="bg-muted text-left text-xs uppercase tracking-wide text-muted-foreground">
-            {visibleColumns.map((column) => (
-              <th key={column} className="border-b px-3 py-2 font-medium">
-                {column}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((item, rowIndex) => (
-            <tr key={rowIndex} className="border-b hover:bg-muted/40">
-              {visibleColumns.map((column) => {
-                const value = item[column];
-                const isEditing = editing?.row === rowIndex && editing.column === column;
+    <div className="space-y-4">
+      <BoardMetricsHeader items={items} configuration={configuration} />
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[640px] table-fixed border-collapse">
+          <thead>
+            <tr className="bg-muted text-left text-xs uppercase tracking-wide text-muted-foreground">
+              {visibleColumns.map((column) => (
+                <th key={column} className="border-b px-3 py-2 font-medium">
+                  {column}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((item, rowIndex) => (
+              <tr key={rowIndex} className="border-b hover:bg-muted/40">
+                {visibleColumns.map((column) => {
+                  const value = item[column];
+                  const isEditing = editing?.row === rowIndex && editing.column === column;
 
-                return (
-                  <td
-                    key={column}
-                    className="px-3 py-2 align-top text-sm"
-                    onClick={() => beginEditing(rowIndex, column, value)}
-                  >
+                  return (
+                    <td
+                      key={column}
+                      className="px-3 py-2 align-top text-sm"
+                      onClick={() => beginEditing(rowIndex, column, value)}
+                    >
                     {isEditing ? (
                       <div className="flex items-center gap-2">
                         {editing.mode === "status" ? (
@@ -375,7 +378,8 @@ export function TableBoardView() {
             </tr>
           ))}
         </tbody>
-      </table>
+        </table>
+      </div>
     </div>
   );
 }

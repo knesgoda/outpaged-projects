@@ -18,6 +18,7 @@ import { LeftSidebar } from "@/components/boards/LeftSidebar"
 import type { BoardSwimlaneDefinition, BoardViewSortRule } from "@/types/boards"
 
 import { useBoardViewContext } from "./context"
+import { BoardMetricsHeader } from "./BoardMetricsHeader"
 import {
   buildKanbanDataset,
   deriveSwimlaneDefinitions,
@@ -522,6 +523,8 @@ export function KanbanBoardView() {
             <Badge variant="outline">{dataset.totalItems} items</Badge>
           </div>
         </div>
+
+        <BoardMetricsHeader items={items} configuration={configuration} />
 
         <DragDropContext onDragEnd={handleDragEnd}>
           <div className="flex flex-1 flex-col gap-6 overflow-auto px-4 pb-6">

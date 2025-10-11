@@ -110,6 +110,16 @@ export interface TaskRollup {
   weightedCompleted: number;
 }
 
+export interface TaskIntegrationBadge {
+  id: string;
+  type: "git" | "ci" | "design" | "support" | "calendar";
+  status: "connected" | "warning" | "error" | "pending";
+  label: string;
+  tooltip: string;
+  url?: string;
+  lastSyncedAt?: string;
+}
+
 export interface TaskCoreFields {
   id: string;
   title: string;
