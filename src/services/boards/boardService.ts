@@ -12,7 +12,7 @@ import {
   type BoardViewDefinition,
   type BoardViewConfiguration,
   type BoardViewMode,
-  type BoardViewSortOrder,
+  type BoardViewSortRule,
   type BoardViewTimelineSettings,
   type BoardViewRow,
   type CreateBoardInput,
@@ -23,6 +23,9 @@ import {
   type HydratedBoard,
   type BoardViewResult,
   type ViewColumnPreferences,
+  type BoardColorRule,
+  type BoardSwimlaneDefinition,
+  type BoardViewGroupingConfiguration,
 } from "@/types/boards";
 import { mapSupabaseError, requireUserId } from "../utils";
 
@@ -128,20 +131,180 @@ const parseColumnPreferences = (
   };
 };
 
-const parseSortOrder = (value: unknown): BoardViewSortOrder | null => {
+const parseSortRule = (value: unknown, index: number): BoardViewSortRule | null => {
   if (!isRecord(value)) {
     return null;
   }
 
   const field = typeof value.field === "string" ? value.field : null;
   const direction =
-    value.direction === "asc" || value.direction === "desc" ? value.direction : null;
+    value.direction === "asc" || value.direction === "desc" ? value.direction : "asc";
 
-  if (!field || !direction) {
+  if (!field) {
     return null;
   }
 
-  return { field, direction };
+  const priority =
+    typeof value.priority === "number" && Number.isFinite(value.priority)
+      ? value.priority
+      : index;
+  const manual = value.manual === true;
+  const id = typeof value.id === "string" && value.id.trim().length > 0
+    ? value.id
+    : `${field}-${priority}`;
+  const label = typeof value.label === "string" && value.label.trim().length > 0
+    ? value.label
+    : undefined;
+
+  return { id, field, direction, priority, manual, label };
+};
+
+const parseSortRules = (value: unknown): BoardViewSortRule[] => {
+  if (Array.isArray(value)) {
+    return value
+      .map((entry, index) => parseSortRule(entry, index))
+      .filter((rule): rule is BoardViewSortRule => Boolean(rule))
+      .sort((a, b) => a.priority - b.priority);
+  }
+
+  const legacy = parseSortRule(value, 0);
+  return legacy ? [legacy] : [];
+};
+
+const parseSwimlaneDefinition = (
+  value: unknown,
+  index: number,
+  fallbackField: string | null
+): BoardSwimlaneDefinition | null => {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const id = typeof value.id === "string" && value.id.trim().length > 0
+    ? value.id
+    : `swimlane-${index}`;
+  const label = typeof value.label === "string" && value.label.trim().length > 0
+    ? value.label
+    : `Swimlane ${index + 1}`;
+  const color = typeof value.color === "string" && value.color.trim().length > 0
+    ? value.color
+    : undefined;
+  const description =
+    typeof value.description === "string" && value.description.trim().length > 0
+      ? value.description
+      : undefined;
+  const order =
+    typeof value.order === "number" && Number.isFinite(value.order)
+      ? value.order
+      : index;
+  const isDefault = value.isDefault === true;
+  const field =
+    typeof value.field === "string" && value.field.trim().length > 0
+      ? value.field
+      : fallbackField ?? null;
+  const laneValue = value.value ?? null;
+  const valueKey = typeof value.valueKey === "string" ? value.valueKey : JSON.stringify(laneValue);
+
+  return {
+    id,
+    label,
+    color,
+    description,
+    order,
+    isDefault,
+    field: field ?? undefined,
+    value: laneValue,
+    valueKey: typeof valueKey === "string" ? valueKey : undefined,
+  };
+};
+
+const parseGroupingConfiguration = (
+  value: unknown
+): BoardViewGroupingConfiguration => {
+  if (typeof value === "string" || value == null) {
+    return {
+      primary: typeof value === "string" ? value : null,
+      swimlaneField: null,
+      swimlanes: [],
+    };
+  }
+
+  if (!isRecord(value)) {
+    return { primary: null, swimlaneField: null, swimlanes: [] };
+  }
+
+  const primary = typeof value.primary === "string" ? value.primary : null;
+  const swimlaneField =
+    typeof value.swimlaneField === "string" ? value.swimlaneField : null;
+
+  const swimlanes = Array.isArray(value.swimlanes)
+    ? value.swimlanes
+        .map((entry, index) =>
+          parseSwimlaneDefinition(entry, index, swimlaneField)
+        )
+        .filter((lane): lane is NonNullable<typeof lane> => Boolean(lane))
+        .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+    : [];
+
+  return {
+    primary,
+    swimlaneField,
+    swimlanes,
+  };
+};
+
+const parseColorRules = (value: unknown): BoardColorRule[] => {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((entry, index) => {
+      if (!isRecord(entry)) {
+        return null;
+      }
+
+      const id = typeof entry.id === "string" && entry.id.trim().length > 0
+        ? entry.id
+        : `rule-${index}`;
+      const label = typeof entry.label === "string" && entry.label.trim().length > 0
+        ? entry.label
+        : `Rule ${index + 1}`;
+      const type =
+        entry.type === "priority" || entry.type === "formula" ? entry.type : "status";
+      const color = typeof entry.color === "string" && entry.color.trim().length > 0
+        ? entry.color
+        : null;
+
+      if (!color) {
+        return null;
+      }
+
+      const field =
+        typeof entry.field === "string" && entry.field.trim().length > 0
+          ? entry.field
+          : undefined;
+      const description =
+        typeof entry.description === "string" && entry.description.trim().length > 0
+          ? entry.description
+          : undefined;
+      const expression =
+        typeof entry.expression === "string" && entry.expression.trim().length > 0
+          ? entry.expression
+          : undefined;
+
+      return {
+        id,
+        label,
+        type,
+        color,
+        field,
+        value: entry.value ?? undefined,
+        description,
+        expression,
+      };
+    })
+    .filter((rule): rule is BoardColorRule => Boolean(rule));
 };
 
 const parseTimelineSettings = (
@@ -170,10 +333,11 @@ const parseViewConfiguration = (
   const configuration = normalizeMetadata(rawConfiguration);
   const mode = isViewMode(configuration.mode) ? configuration.mode : "table";
   const filters = normalizeFilters(configuration.filters);
-  const grouping = typeof configuration.grouping === "string" ? configuration.grouping : null;
-  const sort = parseSortOrder(configuration.sort);
+  const grouping = parseGroupingConfiguration(configuration.grouping);
+  const sort = parseSortRules(configuration.sort);
   const columnPreferences = parseColumnPreferences(configuration);
   const timeline = parseTimelineSettings(configuration.timeline);
+  const colorRules = parseColorRules(configuration.colorRules);
 
   return {
     mode,
@@ -182,6 +346,7 @@ const parseViewConfiguration = (
     sort,
     columnPreferences,
     timeline,
+    colorRules,
   };
 };
 

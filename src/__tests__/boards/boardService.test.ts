@@ -200,10 +200,11 @@ describe("boardService", () => {
             configuration: {
               mode: "table",
               filters: {},
-              grouping: "status",
-              sort: null,
+              grouping: { primary: "status", swimlaneField: null, swimlanes: [] },
+              sort: [],
               columnPreferences: { order: [], hidden: [] },
               timeline: null,
+              colorRules: [],
             },
             columnPreferences: { order: [], hidden: [] },
             filterExpression: {
