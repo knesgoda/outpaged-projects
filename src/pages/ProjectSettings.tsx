@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { ArrowLeft, CalendarIcon, Save, Trash2 } from "lucide-react";
+import JSZip from "jszip";
 
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
@@ -16,11 +17,13 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { SettingsSection } from "@/components/projects/settings/SettingsSection";
 import { SettingsSidebar } from "@/components/projects/settings/SettingsSidebar";
+import { ProjectImportWizard } from "@/components/projects/ProjectImportWizard";
 import { useToast } from "@/hooks/use-toast";
 import { useProject } from "@/hooks/useProjects";
 import { useUpdateProject } from "@/hooks/useProjects";
 import { useProjectId } from "@/hooks/useProjectId";
 import { useProjectNavigation } from "@/hooks/useProjectNavigation";
+import { useProjectTemplate } from "@/hooks/useProjectTemplates";
 import { supabase } from "@/integrations/supabase/client";
 import {
   DEFAULT_TIMEZONES,
@@ -35,11 +38,11 @@ import {
   PROJECT_MODULES,
   PROJECT_SCHEMES,
   PROJECT_SCREEN_PACKS,
-  PROJECT_TEMPLATES,
   PROJECT_VERSION_STRATEGIES,
   PROJECT_VIEW_COLLECTIONS,
   PROJECT_WORKFLOW_BLUEPRINTS,
 } from "@/domain/projects/config";
+import { cloneProject, exportProjectBundle } from "@/services/projects";
 import type { ProjectRecord } from "@/services/projects";
 import { PROJECT_STATUS_FILTER_OPTIONS } from "@/utils/project-status";
 
@@ -278,6 +281,23 @@ export default function ProjectSettings({ overrideProjectId }: { overrideProject
   });
   const [deleting, setDeleting] = useState(false);
   const [savingSection, setSavingSection] = useState<string | null>(null);
+  const [isImportOpen, setImportOpen] = useState(false);
+  const [cloneOptions, setCloneOptions] = useState({
+    includeBoards: true,
+    includeAutomations: true,
+    includeFields: true,
+    includeItems: false,
+    includeWorkflows: true,
+    includeSprints: true,
+  });
+  const [cloning, setCloning] = useState(false);
+  const [exportOptions, setExportOptions] = useState({
+    includeBoards: true,
+    includeFields: true,
+    includeAutomations: true,
+    includeTasks: true,
+  });
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     if (!project) {
@@ -392,10 +412,7 @@ export default function ProjectSettings({ overrideProjectId }: { overrideProject
     () => PROJECT_ARCHIVAL_WORKFLOWS.find(item => item.id === lifecycleState.archivalWorkflow),
     [lifecycleState.archivalWorkflow],
   );
-  const selectedTemplate = useMemo(
-    () => PROJECT_TEMPLATES.find(template => template.id === project?.template_key),
-    [project?.template_key],
-  );
+  const { data: selectedTemplate } = useProjectTemplate(project?.template_key ?? null);
 
   const toggleModule = (moduleId: string) => {
     setModuleState(prev => {
@@ -638,6 +655,91 @@ export default function ProjectSettings({ overrideProjectId }: { overrideProject
       });
     } finally {
       setDeleting(false);
+    }
+  };
+
+  const toggleCloneOption = (key: keyof typeof cloneOptions) => {
+    setCloneOptions(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const toggleExportOption = (key: keyof typeof exportOptions) => {
+    setExportOptions(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const handleCloneProject = async () => {
+    if (!project) {
+      return;
+    }
+    try {
+      setCloning(true);
+      const result = await cloneProject(project.id, {
+        name: `${project.name} Sandbox`,
+        options: {
+          includeBoards: cloneOptions.includeBoards,
+          includeAutomations: cloneOptions.includeAutomations,
+          includeFields: cloneOptions.includeFields,
+          includeItems: cloneOptions.includeItems,
+          includeWorkflows: cloneOptions.includeWorkflows,
+          includeSprints: cloneOptions.includeSprints,
+        },
+      });
+      toast({
+        title: "Sandbox created",
+        description: `New project ${result.projectId ?? result.id ?? ""} ready for import review.`,
+      });
+    } catch (cloneError: any) {
+      console.error(cloneError);
+      toast({
+        title: "Clone failed",
+        description: cloneError?.message ?? "Unable to create sandbox project.",
+        variant: "destructive",
+      });
+    } finally {
+      setCloning(false);
+    }
+  };
+
+  const handleExportProject = async () => {
+    if (!project) {
+      return;
+    }
+    try {
+      setExporting(true);
+      const { bundle, files } = await exportProjectBundle(project.id, {
+        includeBoards: exportOptions.includeBoards,
+        includeAutomations: exportOptions.includeAutomations,
+        includeFields: exportOptions.includeFields,
+        includeTasks: exportOptions.includeTasks,
+      });
+
+      const zip = new JSZip();
+      zip.file("project.json", JSON.stringify(bundle.project, null, 2));
+      if (files?.fieldsCsv) zip.file("fields.csv", files.fieldsCsv);
+      if (files?.tasksCsv) zip.file("tasks.csv", files.tasksCsv);
+      if (files?.automationsCsv) zip.file("automations.csv", files.automationsCsv);
+
+      const blob = await zip.generateAsync({ type: "blob" });
+      const anchor = document.createElement("a");
+      const filename = `${(project.code || project.name || "project")
+        .replace(/[^a-z0-9-_]+/gi, "-")
+        .toLowerCase()}-export.zip`;
+      const url = URL.createObjectURL(blob);
+      anchor.href = url;
+      anchor.download = filename;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      URL.revokeObjectURL(url);
+      toast({ title: "Export ready", description: "Project archive downloaded." });
+    } catch (exportError: any) {
+      console.error(exportError);
+      toast({
+        title: "Export failed",
+        description: exportError?.message ?? "Unable to export project data.",
+        variant: "destructive",
+      });
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -1424,6 +1526,89 @@ export default function ProjectSettings({ overrideProjectId }: { overrideProject
             </div>
           </SettingsSection>
 
+          <SettingsSection
+            id="sandbox"
+            title="Copy & Sandbox"
+            description="Create a sandbox copy of this project to validate imports, workflows, or new automations."
+            actionSlot={
+              <Button onClick={handleCloneProject} disabled={cloning} className="gap-2">
+                {cloning ? "Cloning..." : "Create sandbox copy"}
+              </Button>
+            }
+          >
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Choose which modules to bring across when cloning. Workflows are always copied so transitions remain intact.
+              </p>
+              <div className="grid gap-3 md:grid-cols-2">
+                <label className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
+                  <span>Boards & views</span>
+                  <Switch checked={cloneOptions.includeBoards} onCheckedChange={() => toggleCloneOption("includeBoards")} />
+                </label>
+                <label className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
+                  <span>Automations</span>
+                  <Switch checked={cloneOptions.includeAutomations} onCheckedChange={() => toggleCloneOption("includeAutomations")} />
+                </label>
+                <label className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
+                  <span>Custom fields</span>
+                  <Switch checked={cloneOptions.includeFields} onCheckedChange={() => toggleCloneOption("includeFields")} />
+                </label>
+                <label className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
+                  <span>Active items</span>
+                  <Switch checked={cloneOptions.includeItems} onCheckedChange={() => toggleCloneOption("includeItems")} />
+                </label>
+                <label className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
+                  <span>Workflows</span>
+                  <Switch checked={cloneOptions.includeWorkflows} onCheckedChange={() => toggleCloneOption("includeWorkflows")} />
+                </label>
+                <label className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
+                  <span>Sprints</span>
+                  <Switch checked={cloneOptions.includeSprints} onCheckedChange={() => toggleCloneOption("includeSprints")} />
+                </label>
+              </div>
+            </div>
+          </SettingsSection>
+
+          <SettingsSection
+            id="export"
+            title="Export & Import"
+            description="Extract project data as JSON/CSV bundles or stage imports from Jira, Monday.com, Trello, or spreadsheets."
+            actionSlot={
+              <div className="flex gap-2">
+                <Button onClick={handleExportProject} disabled={exporting}>
+                  {exporting ? "Exporting..." : "Export bundle"}
+                </Button>
+                <Button type="button" variant="outline" onClick={() => setImportOpen(true)}>
+                  Launch import wizard
+                </Button>
+              </div>
+            }
+          >
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Export includes structured JSON and CSV for downstream systems. Adjust the scope before generating the archive.
+              </p>
+              <div className="grid gap-3 md:grid-cols-2">
+                <label className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
+                  <span>Include boards & views</span>
+                  <Switch checked={exportOptions.includeBoards} onCheckedChange={() => toggleExportOption("includeBoards")} />
+                </label>
+                <label className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
+                  <span>Include automations</span>
+                  <Switch checked={exportOptions.includeAutomations} onCheckedChange={() => toggleExportOption("includeAutomations")} />
+                </label>
+                <label className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
+                  <span>Include custom fields</span>
+                  <Switch checked={exportOptions.includeFields} onCheckedChange={() => toggleExportOption("includeFields")} />
+                </label>
+                <label className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
+                  <span>Include items/tasks</span>
+                  <Switch checked={exportOptions.includeTasks} onCheckedChange={() => toggleExportOption("includeTasks")} />
+                </label>
+              </div>
+            </div>
+          </SettingsSection>
+
           <section className="space-y-4">
             <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-6">
               <h3 className="text-lg font-semibold text-destructive">Danger Zone</h3>
@@ -1458,6 +1643,18 @@ export default function ProjectSettings({ overrideProjectId }: { overrideProject
           </section>
         </div>
       </div>
+      <ProjectImportWizard
+        projectId={project.id}
+        projectName={project.name}
+        open={isImportOpen}
+        onOpenChange={nextOpen => setImportOpen(nextOpen)}
+        onComplete={({ imported, sandboxProjectId }) => {
+          const baseDescription = sandboxProjectId
+            ? `Imported ${imported} items into sandbox ${sandboxProjectId}.`
+            : `Imported ${imported} items into ${project.name}.`;
+          toast({ title: "Import applied", description: baseDescription });
+        }}
+      />
     </div>
   );
 }

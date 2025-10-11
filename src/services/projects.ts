@@ -467,6 +467,89 @@ export async function updateProject(
   return project;
 }
 
+const PROJECT_LIFECYCLE_FUNCTION = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/project-lifecycle`;
+
+async function getLifecycleToken() {
+  const { data, error } = await supabase.auth.getSession();
+  if (error) {
+    throw error;
+  }
+  const token = data?.session?.access_token;
+  if (!token) {
+    throw new Error("Missing Supabase access token");
+  }
+  return token;
+}
+
+export interface CloneProjectOptions {
+  includeItems?: boolean;
+  includeBoards?: boolean;
+  includeAutomations?: boolean;
+  includeFields?: boolean;
+  includeWorkflows?: boolean;
+  includeSprints?: boolean;
+  moduleOverrides?: string[] | null;
+}
+
+export async function cloneProject(
+  sourceProjectId: string,
+  input: { name?: string; code?: string; options?: CloneProjectOptions } = {},
+) {
+  const token = await getLifecycleToken();
+  const response = await fetch(PROJECT_LIFECYCLE_FUNCTION, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      action: "clone",
+      sourceProjectId,
+      name: input.name,
+      code: input.code,
+      options: input.options ?? {},
+    }),
+  });
+
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}));
+    throw new Error(payload.error ?? "Failed to clone project");
+  }
+
+  return response.json();
+}
+
+export interface ExportProjectOptions {
+  includeHistory?: boolean;
+  includeAutomations?: boolean;
+  includeBoards?: boolean;
+  includeFields?: boolean;
+  includeTasks?: boolean;
+}
+
+export async function exportProjectBundle(projectId: string, options: ExportProjectOptions = {}) {
+  const token = await getLifecycleToken();
+  const response = await fetch(PROJECT_LIFECYCLE_FUNCTION, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      action: "export",
+      projectId,
+      options,
+    }),
+  });
+
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}));
+    throw new Error(payload.error ?? "Failed to export project");
+  }
+
+  return response.json();
+}
+
 export async function archiveProject(id: string, options?: ProjectServiceOptions): Promise<ProjectRecord> {
   const project = await updateProject(
     id,

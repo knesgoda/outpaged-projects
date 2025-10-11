@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { format } from "date-fns";
 import { CalendarIcon, Check } from "lucide-react";
 
@@ -20,6 +20,7 @@ import { Textarea } from "@/components/ui/textarea";
 
 import { useToast } from "@/hooks/use-toast";
 import { useCreateProject } from "@/hooks/useProjects";
+import { useApplyProjectTemplate, useProjectTemplates } from "@/hooks/useProjectTemplates";
 import type { ProjectStatus } from "@/services/projects";
 import { PROJECT_STATUS_FILTER_OPTIONS } from "@/utils/project-status";
 import { cn } from "@/lib/utils";
@@ -36,7 +37,6 @@ import {
   PROJECT_MODULES,
   PROJECT_SCHEMES,
   PROJECT_SCREEN_PACKS,
-  PROJECT_TEMPLATES,
   PROJECT_VERSION_STRATEGIES,
   PROJECT_VIEW_COLLECTIONS,
   PROJECT_WORKFLOW_BLUEPRINTS,
@@ -140,75 +140,20 @@ interface ProjectDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess?: (project: any) => void;
+  initialTemplateId?: string;
 }
 
-const templateDefaults: Record<string, Partial<CreationState>> = {
-  agile_delivery: {
-    modules: PROJECT_TEMPLATES.find(t => t.id === "agile_delivery")?.recommendedModules ?? [],
-    permissionScheme: "standard_delivery",
-    notificationScheme: "iterative_updates",
-    slaScheme: "team_owned",
-    fieldPreset: "software_standard",
-    workflowBlueprint: "agile_incremental",
-    screenPack: "delivery_starter",
-    componentPack: "platform_stack",
-    versionStrategy: "timeboxed",
-    automationRecipe: "quality_guardrails",
-    integrationOptions: ["slack", "github"],
-    viewCollection: "delivery_views",
-    dashboardStarter: "delivery_dashboard",
-    lifecyclePreset: "discover_deliver",
-    reviewCadence: "Bi-weekly sprint reviews",
-    maintenanceWindow: "Fridays 16:00-18:00 UTC",
-    importStrategy: "blank_slate",
-    archivalWorkflow: "governed_export",
-  },
-  it_service: {
-    modules: PROJECT_TEMPLATES.find(t => t.id === "it_service")?.recommendedModules ?? [],
-    permissionScheme: "support_desk",
-    notificationScheme: "major_incident",
-    slaScheme: "24x7_premium",
-    fieldPreset: "service_desk",
-    workflowBlueprint: "service_lifecycle",
-    screenPack: "support_center",
-    componentPack: "service_catalog",
-    versionStrategy: "continuous",
-    automationRecipe: "support_triage",
-    integrationOptions: ["slack", "zendesk", "pagerduty"],
-    viewCollection: "service_views",
-    dashboardStarter: "service_dashboard",
-    lifecyclePreset: "service_runbook",
-    reviewCadence: "Weekly ops review",
-    maintenanceWindow: "Sundays 02:00-04:00 UTC",
-    importStrategy: "external_sync",
-    archivalWorkflow: "lightweight_close",
-  },
-  business_program: {
-    modules: PROJECT_TEMPLATES.find(t => t.id === "business_program")?.recommendedModules ?? [],
-    permissionScheme: "executive_program",
-    notificationScheme: "stakeholder_digest",
-    slaScheme: "milestone_commitments",
-    fieldPreset: "software_standard",
-    workflowBlueprint: "agile_incremental",
-    screenPack: "delivery_starter",
-    componentPack: "platform_stack",
-    versionStrategy: "timeboxed",
-    automationRecipe: "quality_guardrails",
-    integrationOptions: ["slack"],
-    viewCollection: "delivery_views",
-    dashboardStarter: "delivery_dashboard",
-    lifecyclePreset: "discover_deliver",
-    reviewCadence: "Monthly steering committee",
-    maintenanceWindow: "Change-free during critical launches",
-    importStrategy: "spreadsheet_upload",
-    archivalWorkflow: "governed_export",
-  },
-};
-
-export function ProjectDialog({ open, onOpenChange, onSuccess }: ProjectDialogProps) {
-  const defaultTemplate = PROJECT_TEMPLATES[0];
+export function ProjectDialog({ open, onOpenChange, onSuccess, initialTemplateId }: ProjectDialogProps) {
   const { toast } = useToast();
   const createProject = useCreateProject();
+  const applyTemplate = useApplyProjectTemplate();
+  const { data: templates = [], isLoading: loadingTemplates } = useProjectTemplates();
+
+  const templateMap = useMemo(() => {
+    const map = new Map<string, (typeof templates)[number]>();
+    templates.forEach(template => map.set(template.id, template));
+    return map;
+  }, [templates]);
 
   const [activeStep, setActiveStep] = useState<StepId>(steps[0].id);
   const [formData, setFormData] = useState<CreationState>(() => ({
@@ -218,11 +163,11 @@ export function ProjectDialog({ open, onOpenChange, onSuccess }: ProjectDialogPr
     status: "planning",
     startDate: undefined,
     endDate: undefined,
-    templateKey: defaultTemplate?.id ?? "",
-    modules: defaultTemplate?.recommendedModules ?? [],
-    permissionScheme: defaultTemplate?.defaultSchemes.permission ?? "",
-    notificationScheme: defaultTemplate?.defaultSchemes.notification ?? "",
-    slaScheme: defaultTemplate?.defaultSchemes.sla ?? "",
+    templateKey: initialTemplateId ?? "",
+    modules: [],
+    permissionScheme: "",
+    notificationScheme: "",
+    slaScheme: "",
     fieldPreset: PROJECT_FIELD_PRESETS[0]?.id ?? "",
     workflowBlueprint: PROJECT_WORKFLOW_BLUEPRINTS[0]?.id ?? "",
     screenPack: PROJECT_SCREEN_PACKS[0]?.id ?? "",
@@ -248,6 +193,17 @@ export function ProjectDialog({ open, onOpenChange, onSuccess }: ProjectDialogPr
     timezone: DEFAULT_TIMEZONES[0] ?? "UTC",
     archivalWorkflow: PROJECT_ARCHIVAL_WORKFLOWS[0]?.id ?? "",
   }));
+
+  useEffect(() => {
+    if (!templates.length) {
+      return;
+    }
+    if (initialTemplateId && templateMap.has(initialTemplateId)) {
+      handleTemplateChange(initialTemplateId);
+    } else if (!formData.templateKey) {
+      handleTemplateChange(templates[0].id);
+    }
+  }, [initialTemplateId, templates, templateMap, formData.templateKey, handleTemplateChange]);
 
   const permissionSchemes = useMemo(
     () => PROJECT_SCHEMES.filter(scheme => scheme.type === "permission"),
@@ -283,6 +239,7 @@ export function ProjectDialog({ open, onOpenChange, onSuccess }: ProjectDialogPr
       status: "planning",
       startDate: undefined,
       endDate: undefined,
+      templateKey: initialTemplateId ?? "",
       lifecycleNotes: "",
       lifecycleMission: "",
       lifecycleSuccessMetrics: "",
@@ -306,32 +263,25 @@ export function ProjectDialog({ open, onOpenChange, onSuccess }: ProjectDialogPr
     setActiveStep(prevStep.id);
   };
 
-  const handleTemplateChange = (templateId: string) => {
-    const template = PROJECT_TEMPLATES.find(item => item.id === templateId);
-    const defaults = templateDefaults[templateId] ?? {};
-    setFormData(prev => ({
-      ...prev,
-      templateKey: templateId,
-      modules: Array.from(new Set(defaults.modules ?? template?.recommendedModules ?? [])),
-      permissionScheme: defaults.permissionScheme ?? template?.defaultSchemes.permission ?? prev.permissionScheme,
-      notificationScheme: defaults.notificationScheme ?? template?.defaultSchemes.notification ?? prev.notificationScheme,
-      slaScheme: defaults.slaScheme ?? template?.defaultSchemes.sla ?? prev.slaScheme,
-      fieldPreset: defaults.fieldPreset ?? prev.fieldPreset,
-      workflowBlueprint: defaults.workflowBlueprint ?? prev.workflowBlueprint,
-      screenPack: defaults.screenPack ?? prev.screenPack,
-      componentPack: defaults.componentPack ?? prev.componentPack,
-      versionStrategy: defaults.versionStrategy ?? prev.versionStrategy,
-      automationRecipe: defaults.automationRecipe ?? prev.automationRecipe,
-      integrationOptions: defaults.integrationOptions ?? prev.integrationOptions,
-      viewCollection: defaults.viewCollection ?? prev.viewCollection,
-      dashboardStarter: defaults.dashboardStarter ?? prev.dashboardStarter,
-      lifecyclePreset: defaults.lifecyclePreset ?? prev.lifecyclePreset,
-      reviewCadence: defaults.reviewCadence ?? prev.reviewCadence,
-      maintenanceWindow: defaults.maintenanceWindow ?? prev.maintenanceWindow,
-      importStrategy: defaults.importStrategy ?? prev.importStrategy,
-      archivalWorkflow: defaults.archivalWorkflow ?? prev.archivalWorkflow,
-    }));
-  };
+  const handleTemplateChange = useCallback(
+    (templateId: string) => {
+      const template = templateMap.get(templateId);
+      if (!template) return;
+      const manifest = template.templateData ?? {};
+      const modules = manifest.modules ?? template.recommendedModules ?? [];
+      const schemes = manifest.schemes ?? {};
+
+      setFormData(prev => ({
+        ...prev,
+        templateKey: templateId,
+        modules: Array.from(new Set(modules)),
+        permissionScheme: schemes.permission ?? prev.permissionScheme,
+        notificationScheme: schemes.notification ?? prev.notificationScheme,
+        slaScheme: schemes.sla ?? prev.slaScheme,
+      }));
+    },
+    [templateMap],
+  );
 
   const toggleModule = (moduleId: string) => {
     setFormData(prev => {
@@ -358,8 +308,8 @@ export function ProjectDialog({ open, onOpenChange, onSuccess }: ProjectDialogPr
   };
 
   const selectedTemplate = useMemo(
-    () => PROJECT_TEMPLATES.find(template => template.id === formData.templateKey),
-    [formData.templateKey],
+    () => templates.find(template => template.id === formData.templateKey) ?? null,
+    [templates, formData.templateKey],
   );
   const selectedFieldPreset = useMemo(
     () => PROJECT_FIELD_PRESETS.find(preset => preset.id === formData.fieldPreset),
@@ -499,6 +449,21 @@ export function ProjectDialog({ open, onOpenChange, onSuccess }: ProjectDialogPr
     try {
       const payload = buildPayload();
       const project = await createProject.mutateAsync(payload);
+
+      if (formData.templateKey) {
+        try {
+          await applyTemplate.mutateAsync({ projectId: project.id, templateId: formData.templateKey });
+        } catch (templateError: any) {
+          console.error("Error applying template:", templateError);
+          toast({
+            title: "Template apply failed",
+            description:
+              templateError?.message ??
+              "The project was created but the template manifest could not be applied automatically.",
+            variant: "destructive",
+          });
+        }
+      }
 
       toast({
         title: "Project Created",
@@ -717,43 +682,60 @@ export function ProjectDialog({ open, onOpenChange, onSuccess }: ProjectDialogPr
                 <Label className="text-sm font-medium">Project Templates</Label>
                 <RadioGroup value={formData.templateKey} onValueChange={handleTemplateChange}>
                   <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                    {PROJECT_TEMPLATES.map(template => {
-                      const isSelected = formData.templateKey === template.id;
-                      return (
-                        <Card
-                          key={template.id}
-                          className={cn(
-                            "cursor-pointer border transition",
-                            isSelected ? "border-primary shadow-sm" : "border-border hover:border-primary/40",
-                          )}
-                          onClick={() => handleTemplateChange(template.id)}
-                        >
-                          <CardHeader className="space-y-3">
-                            <div className="flex items-start justify-between">
-                              <div>
-                                <CardTitle className="text-base">{template.name}</CardTitle>
-                                <p className="text-xs uppercase text-muted-foreground">{template.category}</p>
+                    {loadingTemplates ? (
+                      <Card className="border-dashed">
+                        <CardHeader>
+                          <CardTitle className="text-base text-muted-foreground">Loading templates…</CardTitle>
+                        </CardHeader>
+                      </Card>
+                    ) : templates.length === 0 ? (
+                      <Card className="border-dashed">
+                        <CardHeader>
+                          <CardTitle className="text-base">No templates available</CardTitle>
+                          <CardDescription>
+                            Create a custom template from an existing project to jumpstart your workspace configuration.
+                          </CardDescription>
+                        </CardHeader>
+                      </Card>
+                    ) : (
+                      templates.map(template => {
+                        const isSelected = formData.templateKey === template.id;
+                        return (
+                          <Card
+                            key={template.id}
+                            className={cn(
+                              "cursor-pointer border transition",
+                              isSelected ? "border-primary shadow-sm" : "border-border hover:border-primary/40",
+                            )}
+                            onClick={() => handleTemplateChange(template.id)}
+                          >
+                            <CardHeader className="space-y-3">
+                              <div className="flex items-start justify-between">
+                                <div>
+                                  <CardTitle className="text-base">{template.name}</CardTitle>
+                                  <p className="text-xs uppercase text-muted-foreground">{template.category}</p>
+                                </div>
+                                <RadioGroupItem value={template.id} className="mt-1" />
                               </div>
-                              <RadioGroupItem value={template.id} className="mt-1" />
-                            </div>
-                            <CardDescription>{template.description}</CardDescription>
-                          </CardHeader>
-                          <CardContent className="space-y-2">
-                            <p className="text-xs font-medium text-muted-foreground">Recommended Modules</p>
-                            <div className="flex flex-wrap gap-2">
-                              {template.recommendedModules.map(moduleId => {
-                                const module = PROJECT_MODULES.find(item => item.id === moduleId);
-                                return (
-                                  <Badge key={moduleId} variant="outline">
-                                    {module?.name ?? moduleId}
-                                  </Badge>
-                                );
-                              })}
-                            </div>
-                          </CardContent>
-                        </Card>
-                      );
-                    })}
+                              <CardDescription>{template.description}</CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-2">
+                              <p className="text-xs font-medium text-muted-foreground">Recommended Modules</p>
+                              <div className="flex flex-wrap gap-2">
+                                {template.recommendedModules.map(moduleId => {
+                                  const module = PROJECT_MODULES.find(item => item.id === moduleId);
+                                  return (
+                                    <Badge key={moduleId} variant="outline">
+                                      {module?.name ?? moduleId}
+                                    </Badge>
+                                  );
+                                })}
+                              </div>
+                            </CardContent>
+                          </Card>
+                        );
+                      })
+                    )}
                   </div>
                 </RadioGroup>
               </div>
