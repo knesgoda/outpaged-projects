@@ -26,6 +26,7 @@ export interface ContainerBoardScope {
   containerId: NonNullable<BoardScopeRow["container_id"]>;
   containerFilters: Record<string, unknown>;
   metadata: Record<string, unknown>;
+  defaults: BoardDefaultSettings;
   createdAt: BoardScopeRow["created_at"];
   updatedAt: BoardScopeRow["updated_at"];
 }
@@ -37,6 +38,7 @@ export interface QueryBoardScope {
   query: NonNullable<BoardScopeRow["query_definition"]>;
   queryFilters: Record<string, unknown>;
   metadata: Record<string, unknown>;
+  defaults: BoardDefaultSettings;
   createdAt: BoardScopeRow["created_at"];
   updatedAt: BoardScopeRow["updated_at"];
 }
@@ -82,7 +84,42 @@ export interface ViewColumnPreferences {
   hidden: string[];
 }
 
-export type BoardViewMode = "table" | "kanban" | "timeline" | "master";
+export type BoardViewMode = "table" | "kanban" | "timeline" | "calendar" | "master";
+
+export interface BoardTimelineWorkingHours {
+  timezone: string;
+  startHour: number;
+  endHour: number;
+}
+
+export interface BoardWorkingTimeDefaults extends BoardTimelineWorkingHours {}
+
+export interface BoardCardFieldPreset {
+  field: string;
+  visible: boolean;
+}
+
+export type BoardBacklogRankingMode = "manual" | "automatic";
+
+export interface BoardDefaultSettings {
+  defaultViewMode: BoardViewMode;
+  availableViewModes: BoardViewMode[];
+  colorField: string;
+  colorMode: "status" | "priority" | "custom";
+  wipEnabled: boolean;
+  backlogRanking: BoardBacklogRankingMode;
+  showWeekendShading: boolean;
+  workingTime: BoardWorkingTimeDefaults;
+  cardFieldPresets: BoardCardFieldPreset[];
+}
+
+export type PartialBoardDefaultSettings = Partial<
+  Omit<BoardDefaultSettings, "availableViewModes" | "cardFieldPresets" | "workingTime">
+> & {
+  availableViewModes?: BoardViewMode[];
+  cardFieldPresets?: BoardCardFieldPreset[];
+  workingTime?: Partial<BoardWorkingTimeDefaults>;
+};
 
 export interface BoardViewSortRule {
   id: string;
@@ -128,6 +165,8 @@ export interface BoardViewTimelineSettings {
   startField: string;
   endField: string;
   dependencyField?: string;
+  showWeekends?: boolean;
+  workingHours?: BoardTimelineWorkingHours;
 }
 
 export interface MasterBoardViewFilters {
@@ -191,6 +230,7 @@ export interface CreateContainerScopeInput {
   containerId: string;
   containerFilters?: Record<string, unknown>;
   metadata?: Record<string, unknown>;
+  defaults?: PartialBoardDefaultSettings;
 }
 
 export interface CreateQueryScopeInput {
@@ -198,6 +238,7 @@ export interface CreateQueryScopeInput {
   query: string;
   queryFilters?: Record<string, unknown>;
   metadata?: Record<string, unknown>;
+  defaults?: PartialBoardDefaultSettings;
 }
 
 export interface CreateHybridScopeInput {
@@ -207,6 +248,7 @@ export interface CreateHybridScopeInput {
   containerFilters?: Record<string, unknown>;
   queryFilters?: Record<string, unknown>;
   metadata?: Record<string, unknown>;
+  defaults?: PartialBoardDefaultSettings;
 }
 
 export type CreateBoardScopeInput =
