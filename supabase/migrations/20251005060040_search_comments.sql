@@ -2,15 +2,9 @@
 DO $$
 BEGIN
   IF to_regclass('public.comments') IS NOT NULL THEN
-    ALTER TABLE public.comments ADD COLUMN IF NOT EXISTS search tsvector;
-    CREATE INDEX IF NOT EXISTS comments_search_idx ON public.comments USING gin(search);
-    CREATE OR REPLACE FUNCTION public.comments_tsv_update() RETURNS trigger LANGUAGE plpgsql AS $$
-    BEGIN
-      NEW.search := setweight(to_tsvector('simple', coalesce(NEW.body_markdown, '')), 'B');
-      RETURN NEW;
-    END$$;
+    ALTER TABLE public.comments DROP COLUMN IF EXISTS search;
     DROP TRIGGER IF EXISTS trg_comments_tsv ON public.comments;
-    CREATE TRIGGER trg_comments_tsv BEFORE INSERT OR UPDATE ON public.comments
-    FOR EACH ROW EXECUTE FUNCTION public.comments_tsv_update();
+    DROP FUNCTION IF EXISTS public.comments_tsv_update();
+    PERFORM search_private.register_source('public.comments', 'comment', 'id', 'workspace_id');
   END IF;
-END$$;
+END $$;
