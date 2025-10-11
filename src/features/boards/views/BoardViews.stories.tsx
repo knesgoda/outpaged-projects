@@ -7,10 +7,11 @@ type BoardViewStory = StoryObj<typeof BoardViewCanvas>;
 const buildConfig = (overrides: Partial<BoardViewConfiguration>): BoardViewConfiguration => ({
   mode: "table",
   filters: {},
-  grouping: null,
-  sort: null,
+  grouping: { primary: null, swimlaneField: null, swimlanes: [] },
+  sort: [],
   columnPreferences: { order: [], hidden: [] },
   timeline: null,
+  colorRules: [],
   ...overrides,
 });
 
@@ -46,7 +47,7 @@ export const Kanban: BoardViewStory = {
     ],
     configuration: buildConfig({
       mode: "kanban",
-      grouping: "status",
+      grouping: { primary: "status", swimlaneField: null, swimlanes: [] },
     }),
   },
 };

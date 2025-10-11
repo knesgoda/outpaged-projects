@@ -26,13 +26,14 @@ describe("TimelineBoardView", () => {
   const configuration: BoardViewConfiguration = {
     mode: "timeline",
     filters: {},
-    grouping: null,
-    sort: null,
+    grouping: { primary: null, swimlaneField: null, swimlanes: [] },
+    sort: [],
     columnPreferences: { order: [], hidden: [] },
     timeline: {
       startField: "startDate",
       endField: "endDate",
     },
+    colorRules: [],
   };
 
   const buildItems = () => [

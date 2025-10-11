@@ -6,10 +6,11 @@ import type { BoardViewConfiguration } from "@/types/boards";
 const buildConfiguration = (): BoardViewConfiguration => ({
   mode: "table",
   filters: {},
-  grouping: null,
-  sort: null,
+  grouping: { primary: null, swimlaneField: null, swimlanes: [] },
+  sort: [],
   columnPreferences: { order: ["title"], hidden: [] },
   timeline: null,
+  colorRules: [],
 });
 
 describe("TableBoardView", () => {

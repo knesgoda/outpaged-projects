@@ -48,10 +48,11 @@ const EMPTY_COLUMN_PREFERENCES: ViewColumnPreferences = {
 const buildDefaultViewConfiguration = (): BoardViewConfiguration => ({
   mode: "table",
   filters: {},
-  grouping: null,
-  sort: null,
+  grouping: { primary: null, swimlaneField: null, swimlanes: [] },
+  sort: [],
   columnPreferences: { order: [], hidden: [] },
   timeline: null,
+  colorRules: [],
 });
 
 const VIEW_STORAGE_PREFIX = "boards:last-view:";

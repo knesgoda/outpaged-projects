@@ -84,9 +84,44 @@ export interface ViewColumnPreferences {
 
 export type BoardViewMode = "table" | "kanban" | "timeline";
 
-export interface BoardViewSortOrder {
+export interface BoardViewSortRule {
+  id: string;
   field: string;
   direction: "asc" | "desc";
+  priority: number;
+  manual?: boolean;
+  label?: string;
+}
+
+export interface BoardSwimlaneDefinition {
+  id: string;
+  label: string;
+  value: unknown;
+  order?: number;
+  color?: string;
+  description?: string;
+  isDefault?: boolean;
+  field?: string;
+  valueKey?: string;
+}
+
+export interface BoardViewGroupingConfiguration {
+  primary: string | null;
+  swimlaneField?: string | null;
+  swimlanes: BoardSwimlaneDefinition[];
+}
+
+export type BoardColorRuleType = "status" | "priority" | "formula";
+
+export interface BoardColorRule {
+  id: string;
+  label: string;
+  type: BoardColorRuleType;
+  color: string;
+  field?: string;
+  value?: unknown;
+  description?: string;
+  expression?: string;
 }
 
 export interface BoardViewTimelineSettings {
@@ -98,10 +133,11 @@ export interface BoardViewTimelineSettings {
 export interface BoardViewConfiguration {
   mode: BoardViewMode;
   filters: Record<string, unknown>;
-  grouping: string | null;
-  sort: BoardViewSortOrder | null;
+  grouping: BoardViewGroupingConfiguration;
+  sort: BoardViewSortRule[];
   columnPreferences: ViewColumnPreferences;
   timeline?: BoardViewTimelineSettings | null;
+  colorRules?: BoardColorRule[];
 }
 
 export interface BoardViewDefinition {
