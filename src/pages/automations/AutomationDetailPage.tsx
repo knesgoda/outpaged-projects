@@ -9,22 +9,17 @@ import {
   BreadcrumbList,
   BreadcrumbPage,
 } from "@/components/ui/breadcrumb";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAutomation, useAutomationRuns, useDeleteAutomation, useEnqueueAutomationTest, useUpdateAutomation } from "@/hooks/useAutomations";
 import { useProjectOptions } from "@/hooks/useProjectOptions";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { useToast } from "@/hooks/use-toast";
-import { AutomationForm, type AutomationFormValues } from "./AutomationForm";
+import {
+  AutomationDesigner,
+  automationToDesignerState,
+  designerStateToPayload,
+  type AutomationDesignerState,
+} from "@/components/automation/AutomationDesigner";
 
 export default function AutomationDetailPage() {
   const { automationId } = useParams<{ automationId: string }>();
@@ -53,16 +48,22 @@ export default function AutomationDetailPage() {
 
   useDocumentTitle(automation ? `Automations / ${automation.name}` : "Automations");
 
-  const handleSubmit = async (values: AutomationFormValues) => {
+  const designerState = useMemo(() => {
+    return automationToDesignerState(automation, { defaultProjectId: automation?.project_id ?? null });
+  }, [automation]);
+
+  const handleDesignerSubmit = async (state: AutomationDesignerState) => {
     if (!automationId) return;
+    const payload = designerStateToPayload(state);
     await updateAutomation.mutateAsync({
-      name: values.name,
-      enabled: values.enabled,
-      project_id: values.project_id ?? null,
-      trigger_type: values.trigger_type,
-      trigger_config: values.trigger_config,
-      action_type: values.action_type,
-      action_config: values.action_config,
+      name: payload.name,
+      description: payload.description ?? null,
+      enabled: payload.enabled,
+      project_id: payload.project_id ?? null,
+      trigger_type: payload.trigger_type,
+      trigger_config: payload.trigger_config,
+      action_type: payload.action_type,
+      action_config: payload.action_config,
     });
   };
 
@@ -138,92 +139,40 @@ export default function AutomationDetailPage() {
             </BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="space-y-1">
-            <h1 className="text-2xl font-semibold tracking-tight">{automation.name}</h1>
-            <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-              <span>Project: {projectLabel}</span>
-              <span>
-                Updated {formatDistanceToNow(new Date(automation.updated_at), { addSuffix: true })}
-              </span>
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge variant={automation.enabled ? "default" : "outline"}>
-              {automation.enabled ? "Enabled" : "Disabled"}
-            </Badge>
-            <Button
-              onClick={handleTestRun}
-              disabled={!automation.enabled || testRun.isPending}
-              variant="secondary"
-            >
-              {testRun.isPending ? "Testing" : "Test run"}
-            </Button>
-            <Button variant="destructive" onClick={handleDelete} disabled={deleteAutomation.isPending}>
-              Delete
-            </Button>
+        <div className="space-y-1">
+          <h1 className="text-2xl font-semibold tracking-tight">{automation.name}</h1>
+          <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+            <span>Scoped to: {projectLabel}</span>
+            <span>
+              Updated {formatDistanceToNow(new Date(automation.updated_at), { addSuffix: true })}
+            </span>
           </div>
         </div>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Edit automation</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <AutomationForm
-            initial={automation}
-            onSubmit={handleSubmit}
-            isSubmitting={updateAutomation.isPending}
-            projectOptions={projectOptions}
-            submitLabel="Save changes"
-          />
-        </CardContent>
-      </Card>
+      {runsError ? (
+        <p className="text-sm text-destructive">Unable to load runs.</p>
+      ) : null}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Recent runs</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {runsLoading ? (
-            <Skeleton className="h-32 w-full" />
-          ) : runsError ? (
-            <p className="text-sm text-destructive">Unable to load runs.</p>
-          ) : runs.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No test runs recorded yet.</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Message</TableHead>
-                    <TableHead className="text-right">Created</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {runs.map((run) => (
-                    <TableRow key={run.id}>
-                      <TableCell>
-                        <Badge variant={run.status === "success" ? "default" : "outline"}>
-                          {run.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="max-w-[420px] truncate text-sm">
-                        {run.message ?? "—"}
-                      </TableCell>
-                      <TableCell className="text-right text-sm text-muted-foreground">
-                        {formatDistanceToNow(new Date(run.created_at), { addSuffix: true })}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <AutomationDesigner
+        initialState={designerState}
+        onSubmit={handleDesignerSubmit}
+        onTest={automation.enabled ? handleTestRun : undefined}
+        projectOptions={projectOptions}
+        runs={runsLoading ? [] : runs}
+        isSubmitting={updateAutomation.isPending}
+        isTesting={testRun.isPending}
+        submitLabel="Save changes"
+        headerActions={
+          <Button
+            variant="destructive"
+            onClick={handleDelete}
+            disabled={deleteAutomation.isPending}
+          >
+            Delete
+          </Button>
+        }
+      />
     </section>
   );
 }

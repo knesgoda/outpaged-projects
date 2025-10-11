@@ -33,7 +33,7 @@ import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { useToast } from "@/hooks/use-toast";
 import { AutomationForm, type AutomationFormValues } from "@/pages/automations/AutomationForm";
 
-const formatType = (value: string) => value.replace(/_/g, " ");
+const formatType = (value: string) => value.replace(/[._]/g, " ");
 
 export default function ProjectAutomationsPage() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -81,6 +81,7 @@ export default function ProjectAutomationsPage() {
     try {
       const automation = await createAutomation.mutateAsync({
         name: values.name,
+        description: values.description ?? null,
         enabled: values.enabled,
         project_id: projectId,
         trigger_type: values.trigger_type,
@@ -213,7 +214,7 @@ export default function ProjectAutomationsPage() {
           No automations yet. Create one to start automating tasks.
         </div>
         <Dialog open={isCreateOpen} onOpenChange={setCreateOpen}>
-          <DialogContent className="max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-h-[90vh] overflow-y-auto max-w-5xl">
             <DialogHeader>
               <DialogTitle>New automation</DialogTitle>
               <DialogDescription>
@@ -330,7 +331,7 @@ export default function ProjectAutomationsPage() {
       {isFetching ? <p className="text-xs text-muted-foreground">Refreshing…</p> : null}
 
       <Dialog open={isCreateOpen} onOpenChange={setCreateOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-h-[90vh] overflow-y-auto max-w-5xl">
           <DialogHeader>
             <DialogTitle>New automation</DialogTitle>
             <DialogDescription>

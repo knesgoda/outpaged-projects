@@ -47,12 +47,15 @@ export async function createAutomation(
   input: Omit<Automation, "id" | "owner" | "created_at" | "updated_at">
 ): Promise<Automation> {
   const ownerId = await requireUserId();
+  const normalizedDescription =
+    typeof input.description === "string" ? input.description.trim() : input.description ?? null;
   const payload = {
     ...input,
     owner: ownerId,
     project_id: input.project_id ?? null,
     trigger_config: input.trigger_config ?? {},
     action_config: input.action_config ?? {},
+    description: normalizedDescription && normalizedDescription.length > 0 ? normalizedDescription : null,
   };
 
   if (!payload.name?.trim()) {
@@ -80,7 +83,14 @@ export async function updateAutomation(
   patch: Partial<
     Pick<
       Automation,
-      "name" | "enabled" | "trigger_type" | "trigger_config" | "action_type" | "action_config" | "project_id"
+      | "name"
+      | "description"
+      | "enabled"
+      | "trigger_type"
+      | "trigger_config"
+      | "action_type"
+      | "action_config"
+      | "project_id"
     >
   >
 ): Promise<Automation> {
@@ -96,6 +106,12 @@ export async function updateAutomation(
       throw new Error("Name cannot be empty.");
     }
     updates.name = trimmed;
+  }
+
+  if (patch.description !== undefined) {
+    const trimmedDescription =
+      typeof patch.description === "string" ? patch.description.trim() : patch.description ?? null;
+    updates.description = trimmedDescription && trimmedDescription.length > 0 ? trimmedDescription : null;
   }
 
   if (patch.enabled !== undefined) {
