@@ -18,6 +18,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SettingsSection } from "@/components/projects/settings/SettingsSection";
 import { SettingsSidebar } from "@/components/projects/settings/SettingsSidebar";
+import { ProjectGovernancePanel } from "@/components/projects/settings/ProjectGovernancePanel";
 import { useToast } from "@/hooks/use-toast";
 import { useProject } from "@/hooks/useProjects";
 import { useUpdateProject } from "@/hooks/useProjects";
@@ -47,9 +48,11 @@ import {
 } from "@/domain/projects/config";
 import type { ProjectRecord } from "@/services/projects";
 import { PROJECT_STATUS_FILTER_OPTIONS } from "@/utils/project-status";
+import { ProjectGovernanceProvider } from "@/state/projectGovernance";
 
 const sections = [
   { id: "general", label: "General" },
+  { id: "governance", label: "Governance & Access" },
   { id: "modules", label: "Modules & Schemes" },
   { id: "structure", label: "Fields & Structure" },
   { id: "versions", label: "Versions & Automations" },
@@ -816,6 +819,16 @@ export default function ProjectSettings({ overrideProjectId }: { overrideProject
               </div>
             </div>
           </SettingsSection>
+
+          <ProjectGovernanceProvider projectId={project.id}>
+            <SettingsSection
+              id="governance"
+              title="Governance & access"
+              description="Manage membership, roles, privacy controls, and audit history for this project."
+            >
+              <ProjectGovernancePanel />
+            </SettingsSection>
+          </ProjectGovernanceProvider>
 
           <SettingsSection
             id="modules"
