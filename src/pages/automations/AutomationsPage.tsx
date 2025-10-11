@@ -40,7 +40,7 @@ import { useToast } from "@/hooks/use-toast";
 import type { Automation } from "@/types";
 import { AutomationForm, type AutomationFormValues } from "./AutomationForm";
 
-const formatType = (value: string) => value.replace(/_/g, " ");
+const formatType = (value: string) => value.replace(/[._]/g, " ");
 
 const sortAutomations = (items: Automation[]) =>
   [...items].sort(
@@ -95,6 +95,7 @@ export default function AutomationsPage() {
     try {
       const automation = await createAutomation.mutateAsync({
         name: values.name,
+        description: values.description ?? null,
         enabled: values.enabled,
         project_id: values.project_id ?? null,
         trigger_type: values.trigger_type,
@@ -174,7 +175,7 @@ export default function AutomationsPage() {
           <Button onClick={() => setCreateOpen(true)}>New automation</Button>
         </div>
         <Dialog open={isCreateOpen} onOpenChange={setCreateOpen}>
-          <DialogContent className="max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-h-[90vh] overflow-y-auto max-w-5xl">
             <DialogHeader>
               <DialogTitle>New automation</DialogTitle>
               <DialogDescription>
@@ -296,7 +297,7 @@ export default function AutomationsPage() {
       {isFetching ? <p className="text-xs text-muted-foreground">Refreshing…</p> : null}
 
       <Dialog open={isCreateOpen} onOpenChange={setCreateOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-h-[90vh] overflow-y-auto max-w-5xl">
           <DialogHeader>
             <DialogTitle>New automation</DialogTitle>
             <DialogDescription>
