@@ -19,6 +19,9 @@ jest.mock("@/state/workspace", () => ({
   useWorkspaceContext: () => ({
     currentWorkspace: { id: "workspace-1", name: "Workspace" },
   }),
+  useWorkspaceContextOptional: () => ({
+    currentWorkspace: { id: "workspace-1", name: "Workspace" },
+  }),
 }));
 
 jest.mock("@/components/ui/use-toast", () => ({

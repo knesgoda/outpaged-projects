@@ -197,7 +197,15 @@ describe("boardService", () => {
             description: undefined,
             isDefault: true,
             order: 0,
-            configuration: { grouping: "status" },
+            configuration: {
+              mode: "table",
+              filters: {},
+              grouping: "status",
+              sort: null,
+              columnPreferences: { order: [], hidden: [] },
+              timeline: null,
+            },
+            columnPreferences: { order: [], hidden: [] },
             filterExpression: {
               id: "filter-1",
               boardId: "board-1",

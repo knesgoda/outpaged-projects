@@ -10,6 +10,10 @@ import {
   type BoardSubscription,
   type BoardType,
   type BoardViewDefinition,
+  type BoardViewConfiguration,
+  type BoardViewMode,
+  type BoardViewSortOrder,
+  type BoardViewTimelineSettings,
   type BoardViewRow,
   type CreateBoardInput,
   type CreateBoardScopeInput,
@@ -102,7 +106,12 @@ function normalizeFilters(value: unknown): JsonRecord {
   return toRecord(value);
 }
 
-function parseColumnPreferences(configuration: JsonRecord): ViewColumnPreferences {
+const isViewMode = (value: unknown): value is BoardViewMode =>
+  value === "table" || value === "kanban" || value === "timeline";
+
+const parseColumnPreferences = (
+  configuration: JsonRecord
+): ViewColumnPreferences => {
   const preferences = configuration.columnPreferences;
 
   const order = Array.isArray((preferences as JsonRecord | undefined)?.order)
@@ -117,7 +126,64 @@ function parseColumnPreferences(configuration: JsonRecord): ViewColumnPreference
     order,
     hidden,
   };
-}
+};
+
+const parseSortOrder = (value: unknown): BoardViewSortOrder | null => {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const field = typeof value.field === "string" ? value.field : null;
+  const direction =
+    value.direction === "asc" || value.direction === "desc" ? value.direction : null;
+
+  if (!field || !direction) {
+    return null;
+  }
+
+  return { field, direction };
+};
+
+const parseTimelineSettings = (
+  value: unknown
+): BoardViewTimelineSettings | null => {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const startField = typeof value.startField === "string" ? value.startField : null;
+  const endField = typeof value.endField === "string" ? value.endField : null;
+
+  if (!startField || !endField) {
+    return null;
+  }
+
+  const dependencyField =
+    typeof value.dependencyField === "string" ? value.dependencyField : undefined;
+
+  return { startField, endField, dependencyField };
+};
+
+const parseViewConfiguration = (
+  rawConfiguration: unknown
+): BoardViewConfiguration => {
+  const configuration = normalizeMetadata(rawConfiguration);
+  const mode = isViewMode(configuration.mode) ? configuration.mode : "table";
+  const filters = normalizeFilters(configuration.filters);
+  const grouping = typeof configuration.grouping === "string" ? configuration.grouping : null;
+  const sort = parseSortOrder(configuration.sort);
+  const columnPreferences = parseColumnPreferences(configuration);
+  const timeline = parseTimelineSettings(configuration.timeline);
+
+  return {
+    mode,
+    filters,
+    grouping,
+    sort,
+    columnPreferences,
+    timeline,
+  };
+};
 
 function deriveFilterFromScope(scope: CreateBoardScopeInput): CreateFilterExpressionInput {
   switch (scope.type) {
@@ -260,9 +326,8 @@ function mapScope(row: BoardScopeRow): BoardScope {
 function mapView(
   row: BoardViewRow & { filter_expression?: BoardFilterExpressionRow | null }
 ): BoardViewDefinition {
-  const configuration = normalizeMetadata(row.configuration);
-  const columnPreferences = parseColumnPreferences(configuration);
-  configuration.columnPreferences = columnPreferences;
+  const configuration = parseViewConfiguration(row.configuration);
+  const columnPreferences = configuration.columnPreferences;
   const filterExpression = row.filter_expression
     ? mapFilterExpression(row.filter_expression)
     : null;

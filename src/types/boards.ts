@@ -77,6 +77,33 @@ export type BoardFilterExpression =
   | (QueryFilterExpression & { type: "query" })
   | (ContainerFilterExpression & QueryFilterExpression & { type: "hybrid" });
 
+export interface ViewColumnPreferences {
+  order: string[];
+  hidden: string[];
+}
+
+export type BoardViewMode = "table" | "kanban" | "timeline";
+
+export interface BoardViewSortOrder {
+  field: string;
+  direction: "asc" | "desc";
+}
+
+export interface BoardViewTimelineSettings {
+  startField: string;
+  endField: string;
+  dependencyField?: string;
+}
+
+export interface BoardViewConfiguration {
+  mode: BoardViewMode;
+  filters: Record<string, unknown>;
+  grouping: string | null;
+  sort: BoardViewSortOrder | null;
+  columnPreferences: ViewColumnPreferences;
+  timeline?: BoardViewTimelineSettings | null;
+}
+
 export interface BoardViewDefinition {
   id: BoardViewRow["id"];
   boardId: BoardViewRow["board_id"];
@@ -85,16 +112,11 @@ export interface BoardViewDefinition {
   description?: BoardViewRow["description"];
   isDefault: BoardViewRow["is_default"];
   order: BoardViewRow["position"];
-  configuration: Record<string, unknown>;
+  configuration: BoardViewConfiguration;
   columnPreferences: ViewColumnPreferences;
   filterExpression?: BoardFilterExpression | null;
   createdAt: BoardViewRow["created_at"];
   updatedAt: BoardViewRow["updated_at"];
-}
-
-export interface ViewColumnPreferences {
-  order: string[];
-  hidden: string[];
 }
 
 export type HydratedBoard = Board & {

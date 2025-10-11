@@ -25,12 +25,14 @@ import type {
   BoardType,
   HydratedBoard,
   BoardViewResult,
+  BoardViewConfiguration,
   CreateBoardScopeInput,
   CreateFilterExpressionInput,
   ViewColumnPreferences,
 } from "@/types/boards";
 import { useWorkspaceContextOptional } from "@/state/workspace";
 import { ViewColumnSchemaControls } from "@/components/boards/columns/ViewColumnSchemaControls";
+import { BoardViewCanvas, type BoardViewRecord } from "@/features/boards/views";
 
 const BOARD_TYPE_LABELS: Record<BoardType, string> = {
   container: "Container",
@@ -42,6 +44,15 @@ const EMPTY_COLUMN_PREFERENCES: ViewColumnPreferences = {
   order: [],
   hidden: [],
 };
+
+const buildDefaultViewConfiguration = (): BoardViewConfiguration => ({
+  mode: "table",
+  filters: {},
+  grouping: null,
+  sort: null,
+  columnPreferences: { order: [], hidden: [] },
+  timeline: null,
+});
 
 const VIEW_STORAGE_PREFIX = "boards:last-view:";
 
@@ -141,6 +152,8 @@ export default function BoardsPage() {
   const [viewResult, setViewResult] = useState<BoardViewResult | null>(null);
   const [pendingPreferences, setPendingPreferences] =
     useState<ViewColumnPreferences | null>(null);
+  const [configurationDraft, setConfigurationDraft] =
+    useState<BoardViewConfiguration | null>(null);
   const [isSavingPreferences, setIsSavingPreferences] = useState(false);
 
   const [isLoadingBoards, setIsLoadingBoards] = useState(false);
@@ -220,8 +233,10 @@ export default function BoardsPage() {
   useEffect(() => {
     if (selectedView) {
       setPendingPreferences(selectedView.columnPreferences);
+      setConfigurationDraft(selectedView.configuration);
     } else {
       setPendingPreferences(null);
+      setConfigurationDraft(null);
     }
   }, [selectedView]);
 
@@ -242,28 +257,6 @@ export default function BoardsPage() {
 
     return Array.from(keys);
   }, [effectivePreferences.hidden, effectivePreferences.order, viewResult]);
-
-  const orderedColumns = useMemo(() => {
-    if (effectivePreferences.order.length === 0) {
-      return availableColumns;
-    }
-
-    const inPreferences = effectivePreferences.order.filter((column) =>
-      availableColumns.includes(column)
-    );
-    const remaining = availableColumns.filter(
-      (column) => !inPreferences.includes(column)
-    );
-    return [...inPreferences, ...remaining];
-  }, [availableColumns, effectivePreferences.order]);
-
-  const visibleColumns = useMemo(
-    () =>
-      orderedColumns.filter(
-        (column) => !effectivePreferences.hidden.includes(column)
-      ),
-    [orderedColumns, effectivePreferences.hidden]
-  );
 
   useEffect(() => {
     if (!selectedBoard) {
@@ -399,6 +392,75 @@ export default function BoardsPage() {
     }
   }, [selectedBoardIdRef, selectedViewId, viewResult]);
 
+  const handleViewItemsChange = useCallback(
+    (items: BoardViewRecord[]) => {
+      setViewResult((current) => {
+        if (!current) {
+          return {
+            items,
+            cursor: null,
+            hasMore: false,
+            refreshedAt: new Date().toISOString(),
+            durationMs: null,
+          } satisfies BoardViewResult;
+        }
+
+        return {
+          ...current,
+          items,
+        } satisfies BoardViewResult;
+      });
+    },
+    []
+  );
+
+  const handleViewConfigurationChange = useCallback(
+    async (next: BoardViewConfiguration) => {
+      if (!selectedBoard || !selectedView) {
+        return;
+      }
+
+      setConfigurationDraft(next);
+
+      try {
+        await updateBoardViewConfiguration(
+          selectedView.id,
+          next,
+          next.columnPreferences
+        );
+
+        setBoards((previous) =>
+          previous.map((board) => {
+            if (board.id !== selectedBoard.id) {
+              return board;
+            }
+
+            return {
+              ...board,
+              views: board.views.map((view) =>
+                view.id === selectedView.id
+                  ? {
+                      ...view,
+                      configuration: next,
+                      columnPreferences: next.columnPreferences,
+                    }
+                  : view
+              ),
+            } satisfies HydratedBoard;
+          })
+        );
+      } catch (error) {
+        setConfigurationDraft(selectedView.configuration);
+        toast({
+          title: "Unable to update view",
+          description: error instanceof Error ? error.message : String(error),
+          variant: "destructive",
+        });
+      }
+    },
+    [selectedBoard, selectedView, setBoards, toast]
+  );
+
   const handlePreferencesChange = useCallback(
     (next: ViewColumnPreferences) => {
       setPendingPreferences(next);
@@ -450,6 +512,7 @@ export default function BoardsPage() {
         })
       );
 
+      setConfigurationDraft(updatedConfiguration as BoardViewConfiguration);
       setPendingPreferences(next);
       toast({
         title: "View updated",
@@ -476,11 +539,13 @@ export default function BoardsPage() {
     setSelectedBoardId(value);
     setSelectedViewId(null);
     setViewResult(null);
+    setConfigurationDraft(null);
   };
 
   const handleViewChange = (value: string) => {
     setSelectedViewId(value);
     setViewResult(null);
+    setConfigurationDraft(null);
   };
 
   const handleCreateBoard = async (event: React.FormEvent) => {
@@ -633,7 +698,7 @@ export default function BoardsPage() {
   };
 
   const renderViewItems = () => {
-    if (isLoadingView) {
+    if (isLoadingView && !viewResult) {
       return <p className="text-sm text-muted-foreground">Loading view…</p>;
     }
 
@@ -646,78 +711,30 @@ export default function BoardsPage() {
       );
     }
 
-    if (!viewResult || viewResult.items.length === 0) {
+    if (!selectedView) {
       return (
         <div className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
-          No results match this view yet.
+          Select a saved view to explore the board.
         </div>
       );
     }
 
-    const columnsToRender =
-      visibleColumns.length > 0
-        ? visibleColumns
-        : orderedColumns.length > 0
-        ? orderedColumns
-        : availableColumns;
-
-    const renderValue = (value: unknown) => {
-      if (value === null || value === undefined) {
-        return "—";
-      }
-      if (typeof value === "string" || typeof value === "number") {
-        return String(value);
-      }
-      if (typeof value === "boolean") {
-        return value ? "true" : "false";
-      }
-      if (Array.isArray(value)) {
-        return value.length ? JSON.stringify(value) : "[]";
-      }
-      return JSON.stringify(value);
+    const baseConfiguration = configurationDraft ?? selectedView.configuration ?? buildDefaultViewConfiguration();
+    const activeConfiguration: BoardViewConfiguration = {
+      ...baseConfiguration,
+      columnPreferences: effectivePreferences,
     };
 
+    const items = (viewResult?.items ?? []) as BoardViewRecord[];
+
     return (
-      <ul className="space-y-4">
-        {viewResult.items.map((item, index) => {
-          const key = getItemKey(item, index);
-          const title =
-            (typeof item.title === "string" && item.title) ||
-            (typeof item.name === "string" && item.name) ||
-            (typeof item.id === "string" && item.id) ||
-            `Record ${index + 1}`;
-
-          const record =
-            item && typeof item === "object" && !Array.isArray(item)
-              ? (item as Record<string, unknown>)
-              : {};
-
-          return (
-            <li
-              key={key}
-              className="rounded-lg border bg-card p-4 shadow-sm transition hover:border-primary/50"
-            >
-              <div className="mb-2 font-medium leading-tight">{title}</div>
-              {columnsToRender.length === 0 ? (
-                <pre className="max-h-48 overflow-auto rounded-md bg-muted p-3 text-xs leading-snug">
-                  {JSON.stringify(item, null, 2)}
-                </pre>
-              ) : (
-                <dl className="grid gap-2 sm:grid-cols-2">
-                  {columnsToRender.map((column) => (
-                    <div key={column} className="flex items-baseline gap-2 text-xs">
-                      <dt className="font-medium text-muted-foreground">{column}</dt>
-                      <dd className="text-foreground">
-                        {renderValue(record[column])}
-                      </dd>
-                    </div>
-                  ))}
-                </dl>
-              )}
-            </li>
-          );
-        })}
-      </ul>
+      <BoardViewCanvas
+        items={items}
+        configuration={activeConfiguration}
+        isLoading={isLoadingView && !viewResult}
+        onItemsChange={handleViewItemsChange}
+        onConfigurationChange={handleViewConfigurationChange}
+      />
     );
   };
 
