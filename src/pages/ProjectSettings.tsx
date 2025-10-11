@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
-import { ArrowLeft, CalendarIcon, Save, Trash2 } from "lucide-react";
+import { AlertCircle, AlertTriangle, ArrowLeft, CalendarIcon, Save, Trash2 } from "lucide-react";
 
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -14,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { Skeleton } from "@/components/ui/skeleton";
 import { SettingsSection } from "@/components/projects/settings/SettingsSection";
 import { SettingsSidebar } from "@/components/projects/settings/SettingsSidebar";
 import { useToast } from "@/hooks/use-toast";
@@ -22,6 +24,9 @@ import { useUpdateProject } from "@/hooks/useProjects";
 import { useProjectId } from "@/hooks/useProjectId";
 import { useProjectNavigation } from "@/hooks/useProjectNavigation";
 import { supabase } from "@/integrations/supabase/client";
+import { CustomFieldDefinitionManager } from "@/components/custom-fields/CustomFieldDefinitionManager";
+import { useCustomFieldDefinitions } from "@/hooks/useCustomFields";
+import { listCustomFieldUsageMetrics, type CustomFieldUsageMetric } from "@/services/customFields";
 import {
   DEFAULT_TIMEZONES,
   PROJECT_ARCHIVAL_WORKFLOWS,
@@ -278,6 +283,17 @@ export default function ProjectSettings({ overrideProjectId }: { overrideProject
   });
   const [deleting, setDeleting] = useState(false);
   const [savingSection, setSavingSection] = useState<string | null>(null);
+  const {
+    definitions: customFieldDefinitions,
+    isLoading: loadingCustomFieldDefinitions,
+  } = useCustomFieldDefinitions({
+    projectId: project?.id,
+    contexts: ["tasks", "boards", "forms", "reports", "automations"],
+  });
+  const [customFieldUsage, setCustomFieldUsage] = useState<CustomFieldUsageMetric[]>([]);
+  const [loadingCustomFieldUsage, setLoadingCustomFieldUsage] = useState(false);
+  const [customFieldUsageNotice, setCustomFieldUsageNotice] = useState<string | null>(null);
+  const [customFieldUsageError, setCustomFieldUsageError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!project) {
@@ -335,6 +351,46 @@ export default function ProjectSettings({ overrideProjectId }: { overrideProject
     });
   }, [project]);
 
+  useEffect(() => {
+    let isMounted = true;
+    if (!project?.id) {
+      setCustomFieldUsage([]);
+      setCustomFieldUsageNotice(null);
+      setCustomFieldUsageError(null);
+      return;
+    }
+    setLoadingCustomFieldUsage(true);
+    setCustomFieldUsageError(null);
+    setCustomFieldUsageNotice(null);
+    listCustomFieldUsageMetrics({ projectId: project.id })
+      .then(result => {
+        if (isMounted) {
+          setCustomFieldUsage(result.metrics);
+          setCustomFieldUsageNotice(
+            result.isFallback
+              ? "Detailed usage analytics aren't enabled yet. We're showing available fields until analytics is configured."
+              : null,
+          );
+        }
+      })
+      .catch(error => {
+        console.warn("Failed to load custom field usage", error);
+        if (isMounted) {
+          setCustomFieldUsageError("Usage analytics are temporarily unavailable. Please try again later.");
+          setCustomFieldUsage([]);
+        }
+      })
+      .finally(() => {
+        if (isMounted) {
+          setLoadingCustomFieldUsage(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [project?.id]);
+
   const permissionSchemes = useMemo(
     () => PROJECT_SCHEMES.filter(scheme => scheme.type === "permission"),
     [],
@@ -347,6 +403,13 @@ export default function ProjectSettings({ overrideProjectId }: { overrideProject
     () => PROJECT_SCHEMES.filter(scheme => scheme.type === "sla"),
     [],
   );
+  const customFieldTypeSummary = useMemo(() => {
+    const counts = new Map<string, number>();
+    customFieldDefinitions.forEach(definition => {
+      counts.set(definition.fieldType, (counts.get(definition.fieldType) ?? 0) + 1);
+    });
+    return Array.from(counts.entries()).sort((a, b) => b[1] - a[1]);
+  }, [customFieldDefinitions]);
 
   const selectedFieldPreset = useMemo(
     () => PROJECT_FIELD_PRESETS.find(preset => preset.id === structureState.fieldPreset),
@@ -978,6 +1041,86 @@ export default function ProjectSettings({ overrideProjectId }: { overrideProject
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+            </div>
+            <Separator className="my-6" />
+            <div className="grid gap-6 lg:grid-cols-2">
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Field gallery</h3>
+                  <p className="text-xs text-muted-foreground">
+                    Manage the custom fields powering forms, boards, automations, and reports for this project.
+                  </p>
+                </div>
+                <CustomFieldDefinitionManager projectId={project?.id ?? undefined} />
+              </div>
+              <div className="space-y-4 rounded-lg border bg-muted/40 p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-semibold">Governance & usage</h3>
+                    <p className="text-xs text-muted-foreground">
+                      Track adoption across screens, automations, and reporting packages.
+                    </p>
+                  </div>
+                  <Badge variant="outline">
+                    {loadingCustomFieldDefinitions ? "…" : `${customFieldDefinitions.length} fields`}
+                  </Badge>
+                </div>
+                <div className="space-y-3">
+                  {customFieldTypeSummary.length ? (
+                    customFieldTypeSummary.slice(0, 4).map(([type, count]) => (
+                      <div key={type} className="flex items-center justify-between text-sm">
+                        <span className="capitalize">{type.replace(/_/g, " ")}</span>
+                        <span className="text-muted-foreground">{count}</span>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-xs text-muted-foreground">No custom fields configured yet.</p>
+                  )}
+                </div>
+                <Separator />
+                <div className="space-y-2">
+                  <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Recent activity</h4>
+                  {customFieldUsageError ? (
+                    <Alert variant="destructive" className="bg-destructive/10">
+                      <AlertTriangle className="h-4 w-4" />
+                      <AlertTitle>Unable to load analytics</AlertTitle>
+                      <AlertDescription>{customFieldUsageError}</AlertDescription>
+                    </Alert>
+                  ) : (
+                    <div className="space-y-2">
+                      {customFieldUsageNotice ? (
+                        <Alert className="bg-muted">
+                          <AlertCircle className="h-4 w-4" />
+                          <AlertTitle>Limited analytics</AlertTitle>
+                          <AlertDescription>{customFieldUsageNotice}</AlertDescription>
+                        </Alert>
+                      ) : null}
+                      {loadingCustomFieldUsage ? (
+                        <div className="space-y-2">
+                          {[0, 1].map(index => (
+                            <Skeleton key={index} className="h-6 w-full" />
+                          ))}
+                        </div>
+                      ) : customFieldUsage.length ? (
+                        <ul className="space-y-1 text-sm">
+                          {customFieldUsage.slice(0, 5).map(metric => (
+                            <li key={metric.fieldId} className="flex items-center justify-between">
+                              <span className="truncate pr-3" title={metric.fieldName}>
+                                {metric.fieldName}
+                              </span>
+                              <span className="text-xs text-muted-foreground">
+                                {metric.usageCount} uses
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">No usage captured yet.</p>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </SettingsSection>

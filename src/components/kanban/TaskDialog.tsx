@@ -54,6 +54,9 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import type { TaskLinkReference, TaskSubitemSummary, TaskRollup, TaskRelationSummary, TaskStatus } from "@/types/tasks";
 import { calculateRollup } from "@/services/tasksService";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useCustomFieldDefinitions, useVisibleCustomFields } from "@/hooks/useCustomFields";
+import { isComputedField } from "@/domain/customFields";
 
 function getInitials(name?: string | null) {
   if (!name) return "U";
@@ -160,6 +163,164 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId,
   const [savingStoryPoints, setSavingStoryPoints] = useState(false);
   const { isAdmin } = useIsAdmin();
   const [projectOwnerId, setProjectOwnerId] = useState<string | null>(null);
+
+  const {
+    definitions: customFieldDefinitions,
+    defaults: customFieldDefaults,
+    isLoading: customFieldsLoading,
+  } = useCustomFieldDefinitions({ projectId, contexts: ["tasks", "boards", "forms"] });
+  const [customFieldValues, setCustomFieldValues] = useState<Record<string, unknown>>({});
+
+  useEffect(() => {
+    const initial: Record<string, unknown> = { ...customFieldDefaults };
+    if (task?.custom_fields && typeof task.custom_fields === "object") {
+      Object.assign(initial, task.custom_fields as Record<string, unknown>);
+    }
+    setCustomFieldValues(initial);
+  }, [task?.id, task?.custom_fields, customFieldDefaults]);
+
+  const editableCustomFields = useMemo(
+    () => customFieldDefinitions.filter(definition => !isComputedField(definition)),
+    [customFieldDefinitions],
+  );
+
+  const orderedCustomFields = useMemo(
+    () =>
+      [...editableCustomFields].sort((a, b) => (a.position ?? 0) - (b.position ?? 0) || a.name.localeCompare(b.name)),
+    [editableCustomFields],
+  );
+
+  const visibleCustomFieldIds = useVisibleCustomFields(orderedCustomFields, customFieldValues);
+  const visibleCustomFields = useMemo(
+    () => orderedCustomFields.filter(definition => visibleCustomFieldIds.has(definition.id)),
+    [orderedCustomFields, visibleCustomFieldIds],
+  );
+
+  const handleCustomFieldChange = (fieldId: string, value: unknown) => {
+    setCustomFieldValues(prev => ({ ...prev, [fieldId]: value }));
+  };
+
+  const renderCustomFieldInput = (definition: (typeof visibleCustomFields)[number]) => {
+    const value = customFieldValues[definition.id];
+    switch (definition.fieldType) {
+      case "text":
+      case "url": {
+        return (
+          <Input
+            value={typeof value === "string" ? value : ""}
+            onChange={(event) => handleCustomFieldChange(definition.id, event.target.value)}
+            placeholder={definition.description ?? "Enter a value"}
+          />
+        );
+      }
+      case "number":
+      case "story_points":
+      case "time_estimate":
+      case "effort":
+      case "risk": {
+        const numeric = typeof value === "number" ? value : value == null ? "" : Number(value) || "";
+        return (
+          <Input
+            type="number"
+            value={numeric}
+            onChange={(event) => {
+              const next = event.target.value;
+              handleCustomFieldChange(definition.id, next === "" ? null : Number(next));
+            }}
+            placeholder={definition.description ?? "0"}
+          />
+        );
+      }
+      case "single_select": {
+        if (definition.optionSet?.options?.length) {
+          const stringValue = typeof value === "string" ? value : value == null ? "" : String(value);
+          return (
+            <Select
+              value={stringValue}
+              onValueChange={(next) => handleCustomFieldChange(definition.id, next)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select option" />
+              </SelectTrigger>
+              <SelectContent className="z-[80]">
+                {definition.optionSet.options.map(option => (
+                  <SelectItem key={option.id} value={option.id}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          );
+        }
+        return (
+          <Input
+            value={typeof value === "string" ? value : ""}
+            onChange={(event) => handleCustomFieldChange(definition.id, event.target.value)}
+            placeholder="Enter a value"
+          />
+        );
+      }
+      case "multi_select": {
+        const options = Array.isArray(value) ? (value as unknown[]).map(item => String(item)) : [];
+        return (
+          <Input
+            value={options.join(", ")}
+            onChange={(event) => {
+              const next = event.target.value
+                .split(",")
+                .map(item => item.trim())
+                .filter(item => item.length > 0);
+              handleCustomFieldChange(definition.id, next);
+            }}
+            placeholder={definition.optionSet?.options?.length ? "Select or enter options" : "Enter comma separated values"}
+          />
+        );
+      }
+      case "date": {
+        const dateValue = typeof value === "string" ? value : value instanceof Date ? value.toISOString().slice(0, 10) : "";
+        return (
+          <Input
+            type="date"
+            value={dateValue}
+            onChange={(event) => handleCustomFieldChange(definition.id, event.target.value || null)}
+          />
+        );
+      }
+      case "date_range": {
+        const rangeValue =
+          value && typeof value === "object" && !Array.isArray(value)
+            ? (value as { start?: string; end?: string })
+            : { start: "", end: "" };
+        return (
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <Input
+              type="date"
+              value={rangeValue.start ?? ""}
+              onChange={(event) =>
+                handleCustomFieldChange(definition.id, { ...rangeValue, start: event.target.value || null })
+              }
+            />
+            <Input
+              type="date"
+              value={rangeValue.end ?? ""}
+              onChange={(event) =>
+                handleCustomFieldChange(definition.id, { ...rangeValue, end: event.target.value || null })
+              }
+            />
+          </div>
+        );
+      }
+      default: {
+        return (
+          <Input
+            value={typeof value === "string" ? value : value == null ? "" : String(value)}
+            onChange={(event) => handleCustomFieldChange(definition.id, event.target.value)}
+            placeholder="Enter a value"
+          />
+        );
+      }
+    }
+  };
 
   const combinedRelations = useMemo(() => {
     const relationMap = new Map<string, TaskRelationSummary>();
@@ -402,6 +563,7 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId,
       blocked: formData.blocked,
       blocking_reason: formData.blocked ? formData.blocking_reason : null,
       story_points: formData.story_points,
+      custom_fields: customFieldValues,
       links,
       subitems,
       rollup: subitemRollup,
@@ -771,6 +933,35 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId,
                       </PopoverContent>
                     </Popover>
                   </div>
+
+                  {customFieldsLoading ? (
+                    <div className="space-y-3" aria-live="polite">
+                      {[0, 1, 2].map((index) => (
+                        <Skeleton key={index} className="h-10 w-full" />
+                      ))}
+                    </div>
+                  ) : visibleCustomFields.length > 0 ? (
+                    <div className="space-y-4 rounded-lg border bg-muted/30 p-4">
+                      <div>
+                        <p className="text-sm font-semibold text-foreground">Custom fields</p>
+                        <p className="text-xs text-muted-foreground">
+                          Aligns with project governance and drives automations, boards, and reports.
+                        </p>
+                      </div>
+                      {visibleCustomFields.map((definition) => (
+                        <div key={definition.id} className="space-y-2">
+                          <Label className="text-xs font-medium text-muted-foreground">
+                            {definition.name}
+                            {definition.isRequired ? <span className="ml-1 text-destructive">*</span> : null}
+                          </Label>
+                          {renderCustomFieldInput(definition)}
+                          {definition.description ? (
+                            <p className="text-xs text-muted-foreground">{definition.description}</p>
+                          ) : null}
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
 
                   {/* Due Date */}
                   <div>

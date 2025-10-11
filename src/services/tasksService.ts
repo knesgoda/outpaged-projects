@@ -116,6 +116,8 @@ export function serializeTaskRow(row: TaskRowWithProject): TaskWithDetails {
     commentCount: 0,
     attachmentCount: 0,
     externalLinks,
+    customFields: {},
+    customFieldHistory: [],
   };
 }
 
@@ -454,6 +456,7 @@ export async function tasksWithDetails(projectId: string): Promise<TaskWithDetai
     relationshipTargetRes,
     connectionsRes,
     commentsRes,
+    customFieldsRes,
   ] = await Promise.all([
     supabase.from("task_assignees_with_profiles").select("task_id, user_id, full_name, avatar_url").in("task_id", taskIds),
     supabase.from("task_tags").select("*").in("task_id", taskIds),
@@ -468,6 +471,7 @@ export async function tasksWithDetails(projectId: string): Promise<TaskWithDetai
       .select("*")
       .in("task_id", taskIds),
     supabase.from("comments").select("id, task_id").in("task_id", taskIds),
+    supabase.from("task_custom_fields").select("task_id, custom_field_id, value").in("task_id", taskIds),
   ]);
 
   if (assigneesRes.error) throw mapSupabaseError(assigneesRes.error, "Unable to load task assignees");
@@ -481,6 +485,7 @@ export async function tasksWithDetails(projectId: string): Promise<TaskWithDetai
   if (relationshipTargetRes.error) throw mapSupabaseError(relationshipTargetRes.error, "Unable to load task relationships");
   if (connectionsRes.error) throw mapSupabaseError(connectionsRes.error, "Unable to load task connections");
   if (commentsRes.error) throw mapSupabaseError(commentsRes.error, "Unable to load task comments");
+  if (customFieldsRes.error) throw mapSupabaseError(customFieldsRes.error, "Unable to load task custom fields");
 
   const assigneeMap = mapAssignees((assigneesRes.data ?? []) as TaskAssigneeRow[]);
   const tagMap = mapTags((tagsRes.data ?? []) as TaskTagRow[]);
@@ -509,6 +514,17 @@ export async function tasksWithDetails(projectId: string): Promise<TaskWithDetai
   );
   const connectionMap = mapConnections(((connectionsRes.data ?? []) as TaskConnectionRow[]));
   const commentCounts = mapCommentCounts((commentsRes.data ?? []) as CommentRow[]);
+  const customFieldMap = new Map<string, Record<string, unknown>>();
+  for (const row of (customFieldsRes.data ?? []) as {
+    task_id: string;
+    custom_field_id: string;
+    value: unknown;
+  }[]) {
+    if (!customFieldMap.has(row.task_id)) {
+      customFieldMap.set(row.task_id, {});
+    }
+    customFieldMap.get(row.task_id)![row.custom_field_id] = row.value ?? null;
+  }
 
   for (const task of taskMap.values()) {
     const assignees = assigneeMap.get(task.id) ?? [];
@@ -536,6 +552,9 @@ export async function tasksWithDetails(projectId: string): Promise<TaskWithDetai
     task.connections = connections;
 
     task.commentCount = commentCounts.get(task.id) ?? 0;
+
+    const customFieldValues = customFieldMap.get(task.id) ?? {};
+    task.customFields = customFieldValues;
   }
 
   return Array.from(taskMap.values());

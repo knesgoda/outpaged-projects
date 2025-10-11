@@ -34,6 +34,7 @@ import {
 import { TaskDialog } from "@/components/kanban/TaskDialog";
 import { CreateTaskDialog } from "@/components/tasks/CreateTaskDialog";
 import { StandardizedTaskCard, StandardizedTask } from "@/components/ui/standardized-task-card";
+import { upsertTaskCustomFieldValues } from "@/services/customFields";
 
 interface TaskType {
   id: string;
@@ -314,6 +315,15 @@ export default function Tasks() {
           }
         }
 
+        if (taskData.custom_fields && typeof taskData.custom_fields === "object") {
+          const entries = Object.entries(taskData.custom_fields as Record<string, unknown>)
+            .map(([customFieldId, value]) => ({ customFieldId, value }))
+            .filter(entry => entry.value !== undefined);
+          if (entries.length) {
+            await upsertTaskCustomFieldValues(selectedTask.id, entries);
+          }
+        }
+
         toast({
           title: "Success",
           description: "Task updated successfully",
@@ -383,6 +393,15 @@ export default function Tasks() {
           title: "Success",
           description: "Task created successfully",
         });
+
+        if (taskData.custom_fields && newTask?.id) {
+          const entries = Object.entries(taskData.custom_fields as Record<string, unknown>)
+            .map(([customFieldId, value]) => ({ customFieldId, value }))
+            .filter(entry => entry.value !== undefined);
+          if (entries.length) {
+            await upsertTaskCustomFieldValues(newTask.id, entries);
+          }
+        }
       }
 
       setIsTaskDialogOpen(false);
