@@ -7,7 +7,7 @@ import { InboxPage, type InboxTab } from "@/pages/inbox/InboxPage";
 import HomePage from "@/pages/ia/HomePage";
 import TimelinePage from "@/pages/ia/TimelinePage";
 import MyWorkPage from "@/pages/ia/MyWorkPage";
-import KanbanBoard from "@/pages/KanbanBoard";
+import BoardsPage from "@/pages/BoardsPage";
 import CalendarPage from "@/pages/calendar/CalendarPage";
 import Projects from "@/pages/Projects";
 import ProjectDetails from "@/pages/ProjectDetails";
@@ -72,7 +72,7 @@ export function AppRoutes() {
       children: [
         { index: true, element: <HomePage /> },
         { path: "my-work", element: <MyWorkPage /> },
-        { path: "boards", element: <KanbanBoard /> },
+        { path: "boards", element: <BoardsPage /> },
         { path: "calendar", element: <CalendarPage /> },
         { path: "timeline", element: <TimelinePage /> },
         { path: "inbox", element: <InboxRoute tab="all" /> },
