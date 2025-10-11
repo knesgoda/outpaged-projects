@@ -563,6 +563,11 @@ const sanitizeDateInput = (value: unknown): string | null | undefined => {
 
 export type TaskUpdateInput = Database["public"]["Tables"]["tasks"]["Update"];
 
+export interface BatchedTaskUpdateInput {
+  id: string;
+  patch: TaskUpdateInput;
+}
+
 export async function updateTaskFields(
   taskId: string,
   patch: TaskUpdateInput
@@ -623,6 +628,61 @@ export async function replaceTaskAssignees(
   if (insertError) {
     throw mapSupabaseError(insertError, "Unable to assign users to the task");
   }
+}
+
+const sanitizePatch = (patch: TaskUpdateInput): TaskUpdateInput => {
+  const payload: TaskUpdateInput = { ...patch };
+
+  if ("due_date" in payload) {
+    payload.due_date = sanitizeDateInput(payload.due_date ?? null);
+  }
+  if ("start_date" in payload) {
+    payload.start_date = sanitizeDateInput(payload.start_date ?? null);
+  }
+  if ("end_date" in payload) {
+    payload.end_date = sanitizeDateInput(payload.end_date ?? null);
+  }
+
+  return payload;
+};
+
+export async function batchUpdateTaskFields(
+  updates: BatchedTaskUpdateInput[]
+): Promise<TaskRowWithProject[]> {
+  if (!Array.isArray(updates) || updates.length === 0) {
+    return [];
+  }
+
+  const payload = updates
+    .map(({ id, patch }) => {
+      const trimmedId = id?.trim();
+      if (!trimmedId) {
+        return null;
+      }
+
+      const sanitized = sanitizePatch(patch ?? {});
+
+      return {
+        id: trimmedId,
+        ...sanitized,
+      } satisfies TaskUpdateInput & { id: string };
+    })
+    .filter((entry): entry is TaskUpdateInput & { id: string } => entry !== null);
+
+  if (payload.length === 0) {
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from("tasks")
+    .upsert(payload, { onConflict: "id" })
+    .select("*, projects:projects(id, name, code)");
+
+  if (error) {
+    throw mapSupabaseError(error, "Unable to update tasks");
+  }
+
+  return Array.isArray(data) ? (data as TaskRowWithProject[]) : [];
 }
 
 export type { TaskWithDetails } from "@/types/tasks";

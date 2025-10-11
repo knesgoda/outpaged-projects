@@ -1,6 +1,16 @@
-import { useMemo, useCallback, useState, useEffect } from "react"
-import { DragDropContext, Draggable, Droppable, type DropResult } from "@hello-pangea/dnd"
+import { useMemo, useCallback, useState, useEffect, useRef } from "react"
+import {
+  DragDropContext,
+  Draggable,
+  Droppable,
+  type DropResult,
+  type DraggableProvided,
+  type DraggableStateSnapshot,
+  type DroppableProvided,
+  type DroppableStateSnapshot,
+} from "@hello-pangea/dnd"
 import { ArrowDown, ArrowUp, Hand, PlusCircle, X } from "lucide-react"
+import { useVirtualizer } from "@tanstack/react-virtual"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -25,6 +35,11 @@ import {
   parseDroppableId,
   UNGROUPED_KEY,
 } from "./kanbanDataset"
+import { useBoardPerformanceTracker } from "./useBoardPerformance"
+
+type KanbanDataset = ReturnType<typeof buildKanbanDataset>
+type KanbanColumnModel = KanbanDataset["swimlanes"][number]["groups"][number]
+type KanbanCardModel = KanbanColumnModel["items"][number]
 
 const DEFAULT_GROUPING_FIELDS = ["status", "stage", "state"]
 const NO_SWIMLANE_KEY = "__no_swimlane__"
@@ -203,8 +218,18 @@ export const moveKanbanCard = ({
 }
 
 export function KanbanBoardView() {
-  const { items, configuration, replaceItems, updateConfiguration, isLoading } =
-    useBoardViewContext()
+  const {
+    items,
+    configuration,
+    replaceItems,
+    updateConfiguration,
+    isLoading,
+    hasMore,
+    isLoadingMore,
+    loadMore,
+  } = useBoardViewContext()
+
+  useBoardPerformanceTracker("kanban-board-view", items.length)
 
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
 
@@ -548,105 +573,14 @@ export function KanbanBoardView() {
                     {lane.groups.map((column) => (
                       <Droppable key={column.id} droppableId={column.id}>
                         {(provided, snapshot) => (
-                          <Card
-                            ref={provided.innerRef}
-                            {...provided.droppableProps}
-                            className={cn(
-                              "flex h-full flex-col border transition",
-                              snapshot.isDraggingOver ? "border-primary" : "border-border"
-                            )}
-                          >
-                            <CardHeader className="flex items-center justify-between gap-2 border-b bg-muted/40 py-3">
-                              <CardTitle className="text-sm font-semibold">
-                                {column.label}
-                              </CardTitle>
-                              <Badge variant="secondary">
-                                {column.rollup.completed}/{column.rollup.total}
-                              </Badge>
-                            </CardHeader>
-                            <CardContent className="space-y-3 py-3">
-                              {column.items.map((card, index) => (
-                                <Draggable key={card.id} draggableId={`card-${card.id}`} index={index}>
-                                  {(dragProvided, dragSnapshot) => (
-                                    <div
-                                      ref={dragProvided.innerRef}
-                                      {...dragProvided.draggableProps}
-                                      {...dragProvided.dragHandleProps}
-                                    >
-                                      <button
-                                        type="button"
-                                        className={cn(
-                                          "w-full rounded-xl border bg-card text-left shadow-sm transition focus:outline-none focus:ring-2 focus:ring-primary/40",
-                                          dragSnapshot.isDragging
-                                            ? "border-primary"
-                                            : "border-border"
-                                        )}
-                                        data-testid="board-card"
-                                        data-color={card.color ?? undefined}
-                                        style={
-                                          card.color
-                                            ? {
-                                                borderTopColor: card.color,
-                                                borderTopWidth: 4,
-                                                borderTopStyle: "solid",
-                                              }
-                                            : undefined
-                                        }
-                                      >
-                                        <div className="flex flex-col gap-3 p-4">
-                                          <div className="flex items-start justify-between gap-3">
-                                            <div className="space-y-1">
-                                              <p className="text-sm font-semibold text-foreground">
-                                                {getTitle(card.record)}
-                                              </p>
-                                              {card.record.description ? (
-                                                <p className="text-xs text-muted-foreground line-clamp-2">
-                                                  {String(card.record.description)}
-                                                </p>
-                                              ) : null}
-                                            </div>
-                                            {card.record.status ? (
-                                              <Badge variant="outline" className="shrink-0 text-xs capitalize">
-                                                {String(card.record.status)}
-                                              </Badge>
-                                            ) : null}
-                                          </div>
-                                          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                                            {card.record.assignee ? (
-                                              <span>👤 {String(card.record.assignee)}</span>
-                                            ) : (
-                                              <span>Unassigned</span>
-                                            )}
-                                            {card.record.estimate ? (
-                                              <span>• Est. {String(card.record.estimate)}</span>
-                                            ) : null}
-                                            {card.record.updatedAt ? (
-                                              <span>• Updated {String(card.record.updatedAt)}</span>
-                                            ) : null}
-                                          </div>
-                                          {Array.isArray(card.record.tags) && card.record.tags.length ? (
-                                            <div className="flex flex-wrap gap-2">
-                                              {card.record.tags.map((tag) => (
-                                                <Badge key={String(tag)} variant="secondary" className="text-[10px]">
-                                                  {String(tag)}
-                                                </Badge>
-                                              ))}
-                                            </div>
-                                          ) : null}
-                                        </div>
-                                      </button>
-                                    </div>
-                                  )}
-                                </Draggable>
-                              ))}
-                              {provided.placeholder}
-                              {!column.items.length ? (
-                                <div className="rounded-md border border-dashed p-4 text-center text-xs text-muted-foreground">
-                                  No items yet
-                                </div>
-                              ) : null}
-                            </CardContent>
-                          </Card>
+                          <KanbanColumn
+                            column={column}
+                            provided={provided}
+                            snapshot={snapshot}
+                            hasMore={hasMore}
+                            isLoadingMore={isLoadingMore}
+                            loadMore={loadMore}
+                          />
                         )}
                       </Droppable>
                     ))}
@@ -658,5 +592,194 @@ export function KanbanBoardView() {
         </DragDropContext>
       </div>
     </div>
+  )
+}
+
+interface KanbanColumnProps {
+  column: KanbanColumnModel
+  provided: DroppableProvided
+  snapshot: DroppableStateSnapshot
+  hasMore: boolean
+  isLoadingMore: boolean
+  loadMore?: () => Promise<void> | void
+}
+
+function KanbanColumn({
+  column,
+  provided,
+  snapshot,
+  hasMore,
+  isLoadingMore,
+  loadMore,
+}: KanbanColumnProps) {
+  const scrollRef = useRef<HTMLDivElement | null>(null)
+  const setRefs = useCallback(
+    (node: HTMLDivElement | null) => {
+      scrollRef.current = node
+      provided.innerRef(node)
+    },
+    [provided]
+  )
+
+  const virtualizer = useVirtualizer({
+    count: column.items.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => 208,
+    overscan: 6,
+  })
+
+  const virtualCards = virtualizer.getVirtualItems()
+  const totalHeight = column.items.length > 0 ? virtualizer.getTotalSize() : 160
+
+  useEffect(() => {
+    if (!hasMore || !loadMore || isLoadingMore) {
+      return
+    }
+    const last = virtualCards[virtualCards.length - 1]
+    if (!last) {
+      return
+    }
+    if (last.index >= column.items.length - 4) {
+      void loadMore()
+    }
+  }, [column.items.length, hasMore, isLoadingMore, loadMore, virtualCards])
+
+  return (
+    <Card
+      className={cn(
+        "flex h-full flex-col border transition",
+        snapshot.isDraggingOver ? "border-primary" : "border-border"
+      )}
+    >
+      <CardHeader className="flex items-center justify-between gap-2 border-b bg-muted/40 py-3">
+        <CardTitle className="text-sm font-semibold">{column.label}</CardTitle>
+        <Badge variant="secondary">
+          {column.rollup.completed}/{column.rollup.total}
+        </Badge>
+      </CardHeader>
+      <CardContent className="py-3">
+        <div
+          ref={setRefs}
+          {...provided.droppableProps}
+          className="relative max-h-[60vh] overflow-y-auto"
+        >
+          <div style={{ height: totalHeight, position: "relative" }}>
+            {column.items.length === 0 ? (
+              <div className="absolute inset-x-0 top-0 rounded-md border border-dashed p-4 text-center text-xs text-muted-foreground">
+                No items yet
+              </div>
+            ) : null}
+            {virtualCards.map((virtualCard) => {
+              const card = column.items[virtualCard.index] as KanbanCardModel | undefined
+              if (!card) {
+                return null
+              }
+
+              return (
+                <div
+                  key={card.id}
+                  ref={virtualizer.measureElement}
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    width: "100%",
+                    transform: `translateY(${virtualCard.start}px)`,
+                    paddingBottom: 12,
+                  }}
+                >
+                  <Draggable draggableId={`card-${card.id}`} index={virtualCard.index}>
+                    {(dragProvided, dragSnapshot) => (
+                      <div
+                        ref={dragProvided.innerRef}
+                        {...dragProvided.draggableProps}
+                        {...dragProvided.dragHandleProps}
+                      >
+                        <KanbanCard card={card} isDragging={dragSnapshot.isDragging} />
+                      </div>
+                    )}
+                  </Draggable>
+                </div>
+              )
+            })}
+            <div
+              style={{
+                position: "absolute",
+                left: 0,
+                right: 0,
+                transform: `translateY(${totalHeight}px)`,
+              }}
+            >
+              {provided.placeholder}
+              {hasMore ? (
+                <div className="py-3 text-center text-xs text-muted-foreground">
+                  {isLoadingMore ? "Loading more cards…" : "Scroll to load additional cards"}
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+interface KanbanCardProps {
+  card: KanbanCardModel
+  isDragging: boolean
+}
+
+function KanbanCard({ card, isDragging }: KanbanCardProps) {
+  return (
+    <button
+      type="button"
+      className={cn(
+        "w-full rounded-xl border bg-card text-left shadow-sm transition focus:outline-none focus:ring-2 focus:ring-primary/40",
+        isDragging ? "border-primary" : "border-border"
+      )}
+      data-testid="board-card"
+      data-color={card.color ?? undefined}
+      style={
+        card.color
+          ? {
+              borderTopColor: card.color,
+              borderTopWidth: 4,
+              borderTopStyle: "solid",
+            }
+          : undefined
+      }
+    >
+      <div className="flex flex-col gap-3 p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="space-y-1">
+            <p className="text-sm font-semibold text-foreground">{getTitle(card.record)}</p>
+            {card.record.description ? (
+              <p className="line-clamp-2 text-xs text-muted-foreground">
+                {String(card.record.description)}
+              </p>
+            ) : null}
+          </div>
+          {card.record.status ? (
+            <Badge variant="outline" className="shrink-0 text-xs capitalize">
+              {String(card.record.status)}
+            </Badge>
+          ) : null}
+        </div>
+        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+          {card.record.assignee ? <span>👤 {String(card.record.assignee)}</span> : <span>Unassigned</span>}
+          {card.record.estimate ? <span>• Est. {String(card.record.estimate)}</span> : null}
+          {card.record.updatedAt ? <span>• Updated {String(card.record.updatedAt)}</span> : null}
+        </div>
+        {Array.isArray(card.record.tags) && card.record.tags.length ? (
+          <div className="flex flex-wrap gap-2">
+            {card.record.tags.map((tag) => (
+              <Badge key={String(tag)} variant="secondary" className="text-[10px]">
+                {String(tag)}
+              </Badge>
+            ))}
+          </div>
+        ) : null}
+      </div>
+    </button>
   )
 }

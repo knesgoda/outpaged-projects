@@ -615,6 +615,7 @@ function TimelineGrid({
   } | null>(null);
   const [contextInfo, setContextInfo] =
     useState<TimelineContextMenuInfo | null>(null);
+  const [hoveredRow, setHoveredRow] = useState<number | null>(null);
 
   const selectionSet = useMemo(
     () => new Set(interactions.selection),
@@ -976,13 +977,27 @@ function TimelineGrid({
       }
     }
 
-    if (showDependencies) {
+    const hoveredItemId = hoveredRow != null ? rows[hoveredRow]?.itemId ?? null : null;
+    const hasSelectionDemand = selectionSet.size > 0;
+
+    if (showDependencies && (hoveredItemId || hasSelectionDemand)) {
       ctx.strokeStyle = "rgba(59, 130, 246, 0.45)";
       ctx.lineWidth = 2;
       for (const dependency of dependencies) {
         const fromIndex = rowIndexByItemId.get(dependency.fromId);
         const toIndex = rowIndexByItemId.get(dependency.toId);
         if (fromIndex == null || toIndex == null) continue;
+
+        if (
+          hoveredItemId &&
+          dependency.fromId !== hoveredItemId &&
+          dependency.toId !== hoveredItemId &&
+          !selectionSet.has(dependency.fromId) &&
+          !selectionSet.has(dependency.toId)
+        ) {
+          continue;
+        }
+
         const fromRow = rows[fromIndex];
         const toRow = rows[toIndex];
         const fromEnd = safeParseIso(fromRow?.end);
@@ -1025,6 +1040,8 @@ function TimelineGrid({
     showWeekends,
     startDate,
     totalHeight,
+    hoveredRow,
+    selectionSet,
   ]);
 
   const contextRow =
@@ -1064,6 +1081,14 @@ function TimelineGrid({
                     style={{ top: virtualRow.start, height: virtualRow.size }}
                     data-row-index={virtualRow.index}
                     onPointerDown={(event) => handleRowPointerDown(event, row)}
+                    onPointerEnter={() => setHoveredRow(virtualRow.index)}
+                    onPointerLeave={() =>
+                      setHoveredRow((current) => (current === virtualRow.index ? null : current))
+                    }
+                    onFocus={() => setHoveredRow(virtualRow.index)}
+                    onBlur={() =>
+                      setHoveredRow((current) => (current === virtualRow.index ? null : current))
+                    }
                   >
                     {row?.type === "item" ? renderBar(row, virtualRow) : null}
                   </div>

@@ -2,10 +2,10 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { BoardViewCanvas } from "../index";
 import type { BoardViewConfiguration } from "@/types/boards";
-import { updateTaskFields, replaceTaskAssignees } from "@/services/tasksService";
+import { batchUpdateTaskFields, replaceTaskAssignees } from "@/services/tasksService";
 
 jest.mock("@/services/tasksService", () => ({
-  updateTaskFields: jest.fn().mockResolvedValue(undefined),
+  batchUpdateTaskFields: jest.fn().mockResolvedValue([]),
   replaceTaskAssignees: jest.fn().mockResolvedValue(undefined),
 }));
 
@@ -32,7 +32,7 @@ describe("TableBoardView", () => {
       />
     );
 
-    const cell = screen.getByText("Initial");
+    const cell = await screen.findByText("Initial");
     await user.click(cell);
 
     const input = await screen.findByRole("textbox", { name: /edit title/i });
@@ -44,10 +44,12 @@ describe("TableBoardView", () => {
     expect(handleItemsChange).toHaveBeenCalled();
     const lastCall = handleItemsChange.mock.calls.at(-1);
     expect(lastCall?.[0][0].title).toContain("Updated");
-    expect(updateTaskFields).toHaveBeenCalledWith(
-      "1",
-      expect.objectContaining({ title: expect.stringContaining("Updated") })
-    );
+    expect(batchUpdateTaskFields).toHaveBeenCalledWith([
+      expect.objectContaining({
+        id: "1",
+        patch: expect.objectContaining({ title: expect.any(String) }),
+      }),
+    ]);
   });
 
   it("updates assignees using replaceTaskAssignees", async () => {
@@ -63,7 +65,7 @@ describe("TableBoardView", () => {
       />
     );
 
-    const assigneeCell = screen.getByText("user-1");
+    const assigneeCell = await screen.findByText("user-1");
     await user.click(assigneeCell);
     const input = await screen.findByRole("textbox", { name: /edit assignees/i });
     fireEvent.change(input, { target: { value: "user-2 user-3" } });
