@@ -230,6 +230,100 @@ export interface CreateBoardInput {
   views?: CreateBoardViewInput[];
 }
 
+export type BoardTemplateVisibility =
+  Database["public"]["Enums"]["board_template_visibility"];
+
+export interface BoardTemplateField {
+  id: string;
+  templateId: string;
+  key: string;
+  label: string;
+  type: string;
+  configuration: Record<string, unknown>;
+  isRequired: boolean;
+  isPrimary: boolean;
+  position: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BoardTemplateAutomation {
+  id: string;
+  templateId: string;
+  recipeSlug: string;
+  name: string;
+  description?: string | null;
+  triggerConfig: Record<string, unknown>;
+  actionConfig: Record<string, unknown>;
+  isEnabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BoardTemplateItem {
+  id: string;
+  templateId: string;
+  name: string;
+  data: Record<string, unknown>;
+  position: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BoardTemplateView {
+  id: string;
+  templateId: string;
+  name: string;
+  slug: string;
+  description?: string;
+  isDefault: boolean;
+  order: number;
+  configuration: BoardViewConfiguration;
+  filter: CreateFilterExpressionInput | null;
+  colorRules: BoardColorRule[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BoardTemplate {
+  id: string;
+  workspaceId?: string | null;
+  slug: string;
+  name: string;
+  description?: string | null;
+  type: BoardType;
+  visibility: BoardTemplateVisibility;
+  previewUrl?: string | null;
+  tags: string[];
+  metadata: Record<string, unknown>;
+  scope: CreateBoardScopeInput;
+  supportsItems: boolean;
+  supportsAutomations: boolean;
+  fields: BoardTemplateField[];
+  views: BoardTemplateView[];
+  automations: BoardTemplateAutomation[];
+  items: BoardTemplateItem[];
+  createdBy?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BoardTemplateSummary {
+  id: string;
+  name: string;
+  description?: string | null;
+  type: BoardType;
+  visibility: BoardTemplateVisibility;
+  previewUrl?: string | null;
+  tags: string[];
+  viewCount: number;
+  fieldCount: number;
+  automationCount: number;
+  itemCount: number;
+  supportsItems: boolean;
+  supportsAutomations: boolean;
+}
+
 export type BoardRealtimeEvent = {
   table: "boards" | "board_views" | "board_scopes" | "board_filter_expressions";
   eventType: "INSERT" | "UPDATE" | "DELETE";

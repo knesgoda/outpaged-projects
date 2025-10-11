@@ -26,6 +26,12 @@ import {
   type BoardColorRule,
   type BoardSwimlaneDefinition,
   type BoardViewGroupingConfiguration,
+  type BoardTemplate,
+  type BoardTemplateSummary,
+  type BoardTemplateView,
+  type BoardTemplateAutomation,
+  type BoardTemplateItem,
+  type BoardTemplateField,
 } from "@/types/boards";
 import { mapSupabaseError, requireUserId } from "../utils";
 
@@ -42,6 +48,14 @@ const BOARD_SELECT = `
   board_views(*, filter_expression:board_filter_expressions(*))
 `;
 
+const BOARD_TEMPLATE_SELECT = `
+  *,
+  fields:board_template_fields(*),
+  views:board_template_views(*, color_rules:board_template_view_color_rules(*)),
+  automations:board_template_automations(*),
+  items:board_template_items(*)
+`;
+
 type BoardRow = Database["public"]["Tables"]["boards"]["Row"];
 type BoardInsert = Database["public"]["Tables"]["boards"]["Insert"];
 type BoardScopeInsert = Database["public"]["Tables"]["board_scopes"]["Insert"];
@@ -54,6 +68,22 @@ type BoardRowWithRelations = BoardRow & {
   board_views?: (BoardViewRow & {
     filter_expression?: BoardFilterExpressionRow | null;
   })[] | null;
+};
+
+type BoardTemplateRow = Database["public"]["Tables"]["board_templates"]["Row"];
+type BoardTemplateFieldRow = Database["public"]["Tables"]["board_template_fields"]["Row"];
+type BoardTemplateViewRow = Database["public"]["Tables"]["board_template_views"]["Row"];
+type BoardTemplateColorRuleRow = Database["public"]["Tables"]["board_template_view_color_rules"]["Row"];
+type BoardTemplateAutomationRow = Database["public"]["Tables"]["board_template_automations"]["Row"];
+type BoardTemplateItemRow = Database["public"]["Tables"]["board_template_items"]["Row"];
+
+type BoardTemplateRowWithRelations = BoardTemplateRow & {
+  fields?: BoardTemplateFieldRow[] | null;
+  views?: (BoardTemplateViewRow & {
+    color_rules?: BoardTemplateColorRuleRow[] | null;
+  })[] | null;
+  automations?: BoardTemplateAutomationRow[] | null;
+  items?: BoardTemplateItemRow[] | null;
 };
 
 type ExecuteBoardViewResponse = {
@@ -89,6 +119,9 @@ const ensureString = (value: unknown): string => {
   return "";
 };
 
+const sortByPosition = <T extends { position: number }>(a: T, b: T) =>
+  (a.position ?? 0) - (b.position ?? 0);
+
 const slugify = (input: string) => {
   return (
     input
@@ -100,6 +133,32 @@ const slugify = (input: string) => {
 };
 
 const DEFAULT_VIEW_LIMIT = 50;
+
+export interface InstantiateBoardTemplateOptions {
+  templateId: string;
+  workspaceId: string;
+  name?: string;
+  description?: string | null;
+  includeItems?: boolean;
+  includeAutomations?: boolean;
+  itemIds?: string[];
+  automationRecipeSlugs?: string[];
+}
+
+export interface CopyBoardOptions {
+  sourceBoardId: string;
+  workspaceId: string;
+  name?: string;
+  description?: string | null;
+  includeItems?: boolean;
+  itemIds?: string[];
+  includeAutomations?: boolean;
+  automationRecipeSlugs?: string[];
+  permissions?: {
+    canCopyItems?: boolean;
+    canCopyAutomations?: boolean;
+  };
+}
 
 function normalizeMetadata(value: unknown): JsonRecord {
   return toRecord(value);
@@ -379,6 +438,307 @@ function deriveFilterFromScope(scope: CreateBoardScopeInput): CreateFilterExpres
   }
 }
 
+const normalizeColorRuleType = (value: unknown): BoardColorRule["type"] => {
+  if (value === "priority" || value === "formula") {
+    return value;
+  }
+  return "status";
+};
+
+function parseTemplateScopeDefinition(raw: unknown): CreateBoardScopeInput {
+  const definition = normalizeMetadata(raw);
+  const metadata = normalizeMetadata(definition.metadata);
+  const typeValue = ensureString(definition.type).toLowerCase();
+  const containerFilters = normalizeFilters(
+    definition.containerFilters ?? definition.container_filters ?? {}
+  );
+  const queryFilters = normalizeFilters(
+    definition.queryFilters ?? definition.query_filters ?? {}
+  );
+
+  if (typeValue === "query") {
+    const query = ensureString(definition.query ?? definition.query_definition);
+    if (!query) {
+      throw new Error("Board template scope is missing a query definition.");
+    }
+    return {
+      type: "query",
+      query,
+      queryFilters,
+      metadata,
+    };
+  }
+
+  if (typeValue === "hybrid") {
+    const containerId = ensureString(definition.containerId ?? definition.container_id);
+    const query = ensureString(definition.query ?? definition.query_definition);
+    if (!containerId || !query) {
+      throw new Error(
+        "Board template scope requires both container and query identifiers."
+      );
+    }
+    return {
+      type: "hybrid",
+      containerId,
+      query,
+      containerFilters,
+      queryFilters,
+      metadata,
+    };
+  }
+
+  const containerId = ensureString(definition.containerId ?? definition.container_id);
+  if (!containerId) {
+    throw new Error("Board template scope is missing a container identifier.");
+  }
+
+  return {
+    type: "container",
+    containerId,
+    containerFilters,
+    metadata,
+  };
+}
+
+function parseTemplateFilterDefinition(
+  raw: unknown
+): CreateFilterExpressionInput | null {
+  if (!raw || typeof raw !== "object") {
+    return null;
+  }
+
+  const definition = normalizeMetadata(raw);
+  const metadata = normalizeMetadata(definition.metadata);
+  const refreshInterval =
+    typeof definition.refreshIntervalSeconds === "number" &&
+    Number.isFinite(definition.refreshIntervalSeconds)
+      ? definition.refreshIntervalSeconds
+      : undefined;
+
+  const typeValue = ensureString(definition.type).toLowerCase();
+  switch (typeValue) {
+    case "container": {
+      const containerId = ensureString(definition.containerId ?? definition.container_id);
+      if (!containerId) {
+        return null;
+      }
+      return {
+        type: "container",
+        containerId,
+        containerFilters: normalizeFilters(
+          definition.containerFilters ?? definition.container_filters ?? {}
+        ),
+        metadata,
+        refreshIntervalSeconds: refreshInterval,
+      };
+    }
+    case "query": {
+      const query = ensureString(definition.query ?? definition.query_definition);
+      if (!query) {
+        return null;
+      }
+      return {
+        type: "query",
+        query,
+        queryFilters: normalizeFilters(
+          definition.queryFilters ?? definition.query_filters ?? {}
+        ),
+        metadata,
+        refreshIntervalSeconds: refreshInterval,
+      };
+    }
+    case "hybrid": {
+      const containerId = ensureString(definition.containerId ?? definition.container_id);
+      const query = ensureString(definition.query ?? definition.query_definition);
+      if (!containerId || !query) {
+        return null;
+      }
+      return {
+        type: "hybrid",
+        containerId,
+        query,
+        containerFilters: normalizeFilters(
+          definition.containerFilters ?? definition.container_filters ?? {}
+        ),
+        queryFilters: normalizeFilters(
+          definition.queryFilters ?? definition.query_filters ?? {}
+        ),
+        metadata,
+        refreshIntervalSeconds: refreshInterval,
+      };
+    }
+    default:
+      return null;
+  }
+}
+
+function mapTemplateField(row: BoardTemplateFieldRow): BoardTemplateField {
+  return {
+    id: row.id,
+    templateId: row.template_id,
+    key: row.field_key,
+    label: row.label,
+    type: row.field_type,
+    configuration: normalizeMetadata(row.configuration),
+    isRequired: row.is_required,
+    isPrimary: row.is_primary,
+    position: row.position,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function mapTemplateAutomation(row: BoardTemplateAutomationRow): BoardTemplateAutomation {
+  return {
+    id: row.id,
+    templateId: row.template_id,
+    recipeSlug: row.recipe_slug,
+    name: row.name,
+    description: row.description,
+    triggerConfig: normalizeMetadata(row.trigger_config),
+    actionConfig: normalizeMetadata(row.action_config),
+    isEnabled: row.is_enabled,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function mapTemplateItem(row: BoardTemplateItemRow): BoardTemplateItem {
+  return {
+    id: row.id,
+    templateId: row.template_id,
+    name: row.name,
+    data: normalizeMetadata(row.data),
+    position: row.position,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function mapTemplateColorRule(row: BoardTemplateColorRuleRow): BoardColorRule {
+  return {
+    id: row.id,
+    label: row.label,
+    type: normalizeColorRuleType(row.rule_type),
+    color: row.color,
+    field: row.field ?? undefined,
+    value: row.value ?? undefined,
+    description: row.description ?? undefined,
+    expression: row.expression ?? undefined,
+  };
+}
+
+function mapTemplateView(
+  row: BoardTemplateViewRow & { color_rules?: BoardTemplateColorRuleRow[] | null }
+): BoardTemplateView {
+  const configuration = parseViewConfiguration(row.configuration);
+  const colorRules = [...(row.color_rules ?? [])]
+    .sort(sortByPosition)
+    .map(mapTemplateColorRule);
+
+  return {
+    id: row.id,
+    templateId: row.template_id,
+    name: row.name,
+    slug: row.slug,
+    description: row.description ?? undefined,
+    isDefault: row.is_default,
+    order: row.position,
+    configuration: { ...configuration, colorRules },
+    filter: parseTemplateFilterDefinition(row.filter_definition),
+    colorRules,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function mapTemplate(row: BoardTemplateRowWithRelations): BoardTemplate {
+  const scope = parseTemplateScopeDefinition(row.scope_definition);
+  const fields = [...(row.fields ?? [])].sort(sortByPosition).map(mapTemplateField);
+  const views = [...(row.views ?? [])].sort(sortByPosition).map(mapTemplateView);
+  const automations = [...(row.automations ?? [])]
+    .map(mapTemplateAutomation)
+    .sort((a, b) => a.name.localeCompare(b.name));
+  const items = [...(row.items ?? [])].sort(sortByPosition).map(mapTemplateItem);
+
+  return {
+    id: row.id,
+    workspaceId: row.workspace_id,
+    slug: row.slug,
+    name: row.name,
+    description: row.description,
+    type: row.type,
+    visibility: row.visibility,
+    previewUrl: row.preview_asset_url,
+    tags: Array.isArray(row.tags) ? row.tags : [],
+    metadata: normalizeMetadata(row.metadata),
+    scope,
+    supportsItems: row.supports_items || items.length > 0,
+    supportsAutomations: row.supports_automations || automations.length > 0,
+    fields,
+    views,
+    automations,
+    items,
+    createdBy: row.created_by ?? undefined,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function mapTemplateSummary(row: BoardTemplateRowWithRelations): BoardTemplateSummary {
+  const views = row.views ?? [];
+  const fields = row.fields ?? [];
+  const automations = row.automations ?? [];
+  const items = row.items ?? [];
+
+  return {
+    id: row.id,
+    name: row.name,
+    description: row.description,
+    type: row.type,
+    visibility: row.visibility,
+    previewUrl: row.preview_asset_url,
+    tags: Array.isArray(row.tags) ? row.tags : [],
+    viewCount: views.length,
+    fieldCount: fields.length,
+    automationCount: automations.length,
+    itemCount: items.length,
+    supportsItems: row.supports_items || items.length > 0,
+    supportsAutomations: row.supports_automations || automations.length > 0,
+  };
+}
+
+function templateViewToCreateInput(
+  view: BoardTemplateView,
+  scope: CreateBoardScopeInput
+): CreateBoardViewInput {
+  const configuration: Record<string, unknown> = {
+    ...view.configuration,
+    filters: { ...view.configuration.filters },
+    grouping: {
+      ...view.configuration.grouping,
+      swimlanes: [...view.configuration.grouping.swimlanes],
+    },
+    sort: [...view.configuration.sort],
+    columnPreferences: {
+      order: [...view.configuration.columnPreferences.order],
+      hidden: [...view.configuration.columnPreferences.hidden],
+    },
+    timeline: view.configuration.timeline ?? null,
+    colorRules: [...view.colorRules],
+  };
+
+  return {
+    name: view.name,
+    description: view.description,
+    slug: view.slug,
+    isDefault: view.isDefault,
+    order: view.order,
+    configuration,
+    filter: view.filter ?? deriveFilterFromScope(scope),
+  };
+}
+
 function mapContainerExpression(row: BoardFilterExpressionRow, payload: JsonRecord) {
   const containerId = ensureString(
     payload.containerId ?? payload.container_id ?? payload.container
@@ -535,6 +895,115 @@ function mapBoard(row: BoardRowWithRelations): HydratedBoard {
   };
 }
 
+function scopeToCreateInput(scope: BoardScope | null): CreateBoardScopeInput {
+  if (!scope) {
+    throw new Error("Source board is missing scope configuration.");
+  }
+
+  switch (scope.type) {
+    case "container":
+      return {
+        type: "container",
+        containerId: scope.containerId,
+        containerFilters: scope.containerFilters ?? {},
+        metadata: scope.metadata ?? {},
+      };
+    case "query":
+      return {
+        type: "query",
+        query: scope.query,
+        queryFilters: scope.queryFilters ?? {},
+        metadata: scope.metadata ?? {},
+      };
+    case "hybrid":
+    default:
+      return {
+        type: "hybrid",
+        containerId: scope.containerId,
+        query: scope.query,
+        containerFilters: scope.containerFilters ?? {},
+        queryFilters: scope.queryFilters ?? {},
+        metadata: scope.metadata ?? {},
+      };
+  }
+}
+
+function filterToCreateInput(
+  filter: BoardFilterExpression | null,
+  scope: CreateBoardScopeInput
+): CreateFilterExpressionInput {
+  if (!filter) {
+    return deriveFilterFromScope(scope);
+  }
+
+  const metadata = filter.metadata ?? {};
+  const refreshIntervalSeconds =
+    typeof filter.refreshIntervalSeconds === "number"
+      ? filter.refreshIntervalSeconds
+      : undefined;
+
+  switch (filter.type) {
+    case "container":
+      return {
+        type: "container",
+        containerId: filter.containerId,
+        containerFilters: filter.containerFilters ?? {},
+        metadata,
+        refreshIntervalSeconds,
+      };
+    case "query":
+      return {
+        type: "query",
+        query: filter.query,
+        queryFilters: filter.queryFilters ?? {},
+        metadata,
+        refreshIntervalSeconds,
+      };
+    case "hybrid":
+    default:
+      return {
+        type: "hybrid",
+        containerId: filter.containerId,
+        query: filter.query,
+        containerFilters: filter.containerFilters ?? {},
+        queryFilters: filter.queryFilters ?? {},
+        metadata,
+        refreshIntervalSeconds,
+      };
+  }
+}
+
+function viewToCreateInput(
+  view: BoardViewDefinition,
+  scope: CreateBoardScopeInput
+): CreateBoardViewInput {
+  const configuration: Record<string, unknown> = {
+    ...view.configuration,
+    filters: { ...view.configuration.filters },
+    grouping: {
+      ...view.configuration.grouping,
+      swimlanes: [...view.configuration.grouping.swimlanes],
+    },
+    sort: [...view.configuration.sort],
+    columnPreferences: {
+      order: [...view.configuration.columnPreferences.order],
+      hidden: [...view.configuration.columnPreferences.hidden],
+    },
+    timeline: view.configuration.timeline ?? null,
+    colorRules: [...(view.configuration.colorRules ?? [])],
+  };
+
+  return {
+    name: view.name,
+    description: view.description,
+    slug: view.slug,
+    isDefault: view.isDefault,
+    order: view.order,
+    configuration,
+    filter: filterToCreateInput(view.filterExpression ?? null, scope),
+  };
+}
+
 async function fetchBoardById(boardId: string): Promise<HydratedBoard | null> {
   const { data, error } = await supabase
     .from("boards")
@@ -552,6 +1021,157 @@ async function fetchBoardById(boardId: string): Promise<HydratedBoard | null> {
   }
 
   return mapBoard(data as BoardRowWithRelations);
+}
+
+async function fetchBoardTemplateById(
+  templateId: string
+): Promise<BoardTemplate | null> {
+  const { data, error } = await supabase
+    .from("board_templates")
+    .select(BOARD_TEMPLATE_SELECT)
+    .eq("id", templateId)
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw mapSupabaseError(error, "Unable to load the requested board template.");
+  }
+
+  if (!data) {
+    return null;
+  }
+
+  return mapTemplate(data as BoardTemplateRowWithRelations);
+}
+
+export async function listBoardTemplates(
+  workspaceId: string
+): Promise<BoardTemplateSummary[]> {
+  await requireUserId();
+  const trimmedWorkspaceId = workspaceId?.trim();
+  if (!trimmedWorkspaceId) {
+    throw new Error("A workspace id is required to load board templates.");
+  }
+
+  const { data, error } = await supabase
+    .from("board_templates")
+    .select(
+      `
+        *,
+        fields:board_template_fields(id, position),
+        views:board_template_views(id, position),
+        automations:board_template_automations(id),
+        items:board_template_items(id)
+      `
+    )
+    .or(`visibility.eq.public,workspace_id.eq.${trimmedWorkspaceId}`)
+    .order("name", { ascending: true });
+
+  if (error) {
+    throw mapSupabaseError(error, "Unable to load board templates.");
+  }
+
+  return (data ?? []).map((row) =>
+    mapTemplateSummary(row as BoardTemplateRowWithRelations)
+  );
+}
+
+export async function instantiateBoardTemplate(
+  options: InstantiateBoardTemplateOptions
+): Promise<HydratedBoard> {
+  await requireUserId();
+
+  const templateId = options.templateId?.trim();
+  if (!templateId) {
+    throw new Error("A template id is required to instantiate a board.");
+  }
+
+  const workspaceId = options.workspaceId?.trim();
+  if (!workspaceId) {
+    throw new Error("A workspace id is required to instantiate a board template.");
+  }
+
+  const template = await fetchBoardTemplateById(templateId);
+  if (!template) {
+    throw new Error("The selected board template could not be found.");
+  }
+
+  const name = options.name?.trim() || template.name.trim();
+  if (!name) {
+    throw new Error("A board name is required to instantiate a template.");
+  }
+
+  const description = options.description ?? template.description ?? undefined;
+  const scope = template.scope;
+
+  const views = template.views.length
+    ? template.views.map((view) => templateViewToCreateInput(view, scope))
+    : [
+        {
+          name: "Default view",
+          isDefault: true,
+          configuration: {},
+          filter: deriveFilterFromScope(scope),
+        },
+      ];
+
+  const createdBoard = await createBoard({
+    workspaceId,
+    name,
+    description,
+    scope,
+    views,
+  });
+
+  const availableItemIds = new Set(template.items.map((item) => item.id));
+  const includeItems =
+    template.supportsItems &&
+    template.items.length > 0 &&
+    (options.includeItems ?? template.supportsItems);
+  const selectedItemIds = (options.itemIds ?? template.items.map((item) => item.id)).filter(
+    (id): id is string => typeof id === "string" && availableItemIds.has(id)
+  );
+
+  if (includeItems && selectedItemIds.length > 0) {
+    const { error } = await (supabase as any).rpc("seed_board_template_items", {
+      template_id: template.id,
+      board_id: createdBoard.id,
+      item_ids: selectedItemIds.length > 0 ? selectedItemIds : null,
+    });
+
+    if (error) {
+      throw mapSupabaseError(error, "Unable to seed template items for this board.");
+    }
+  }
+
+  const availableAutomationSlugs = new Set(
+    template.automations.map((automation) => automation.recipeSlug)
+  );
+  const includeAutomations =
+    template.supportsAutomations &&
+    template.automations.length > 0 &&
+    (options.includeAutomations ?? template.supportsAutomations);
+  const automationSlugs = (
+    options.automationRecipeSlugs ??
+    template.automations.map((automation) => automation.recipeSlug)
+  ).filter((slug): slug is string => availableAutomationSlugs.has(slug));
+
+  if (includeAutomations && automationSlugs.length > 0) {
+    const { error } = await (supabase as any).rpc("seed_board_template_automations", {
+      template_id: template.id,
+      board_id: createdBoard.id,
+      recipe_slugs: automationSlugs.length > 0 ? automationSlugs : null,
+    });
+
+    if (error) {
+      throw mapSupabaseError(
+        error,
+        "Unable to seed template automations for this board."
+      );
+    }
+  }
+
+  return createdBoard;
 }
 
 function buildScopePayload(
@@ -772,6 +1392,92 @@ export async function createBoard(input: CreateBoardInput): Promise<HydratedBoar
   }
 
   return board;
+}
+
+export async function copyBoard(options: CopyBoardOptions): Promise<HydratedBoard> {
+  await requireUserId();
+
+  const sourceBoardId = options.sourceBoardId?.trim();
+  if (!sourceBoardId) {
+    throw new Error("A source board id is required to copy a board.");
+  }
+
+  const workspaceId = options.workspaceId?.trim();
+  if (!workspaceId) {
+    throw new Error("A workspace id is required to copy a board.");
+  }
+
+  const sourceBoard = await fetchBoardById(sourceBoardId);
+  if (!sourceBoard) {
+    throw new Error("Unable to locate the source board to copy.");
+  }
+
+  if (sourceBoard.workspaceId !== workspaceId) {
+    throw new Error("You do not have access to copy this board.");
+  }
+
+  const scopeInput = scopeToCreateInput(sourceBoard.scope);
+  const name = options.name?.trim() || `${sourceBoard.name} copy`;
+  const description = options.description ?? sourceBoard.description ?? undefined;
+
+  const permissions = options.permissions ?? {};
+  const requestedItemIds = options.itemIds ?? [];
+  const shouldCopyItems = Boolean(options.includeItems) || requestedItemIds.length > 0;
+  if (shouldCopyItems && !permissions.canCopyItems) {
+    throw new Error("You do not have permission to copy board items.");
+  }
+
+  const requestedAutomationSlugs = options.automationRecipeSlugs ?? [];
+  const shouldCopyAutomations =
+    Boolean(options.includeAutomations) || requestedAutomationSlugs.length > 0;
+  if (shouldCopyAutomations && !permissions.canCopyAutomations) {
+    throw new Error("You do not have permission to copy board automations.");
+  }
+
+  const views = sourceBoard.views.length
+    ? sourceBoard.views.map((view) => viewToCreateInput(view, scopeInput))
+    : [
+        {
+          name: "Default view",
+          isDefault: true,
+          configuration: {},
+          filter: deriveFilterFromScope(scopeInput),
+        },
+      ];
+
+  const createdBoard = await createBoard({
+    workspaceId,
+    name,
+    description,
+    scope: scopeInput,
+    views,
+  });
+
+  if (shouldCopyItems) {
+    const { error } = await (supabase as any).rpc("copy_board_items", {
+      source_board_id: sourceBoardId,
+      target_board_id: createdBoard.id,
+      item_ids: requestedItemIds.length > 0 ? requestedItemIds : null,
+    });
+
+    if (error) {
+      throw mapSupabaseError(error, "Unable to copy board items.");
+    }
+  }
+
+  if (shouldCopyAutomations) {
+    const { error } = await (supabase as any).rpc("copy_board_automations", {
+      source_board_id: sourceBoardId,
+      target_board_id: createdBoard.id,
+      recipe_slugs: requestedAutomationSlugs.length > 0 ? requestedAutomationSlugs : null,
+    });
+
+    if (error) {
+      throw mapSupabaseError(error, "Unable to copy board automations.");
+    }
+  }
+
+  return createdBoard;
 }
 
 export async function updateBoardViewConfiguration(

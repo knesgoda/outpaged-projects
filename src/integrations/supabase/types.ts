@@ -277,6 +277,316 @@ export type Database = {
           },
         ]
       }
+      board_template_automations: {
+        Row: {
+          action_config: Json
+          created_at: string
+          description: string | null
+          id: string
+          is_enabled: boolean
+          name: string
+          recipe_slug: string
+          template_id: string
+          trigger_config: Json
+          updated_at: string
+        }
+        Insert: {
+          action_config?: Json
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_enabled?: boolean
+          name: string
+          recipe_slug: string
+          template_id: string
+          trigger_config?: Json
+          updated_at?: string
+        }
+        Update: {
+          action_config?: Json
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_enabled?: boolean
+          name?: string
+          recipe_slug?: string
+          template_id?: string
+          trigger_config?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "board_template_automations_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "board_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      board_template_fields: {
+        Row: {
+          configuration: Json
+          created_at: string
+          field_key: string
+          field_type: string
+          id: string
+          is_primary: boolean
+          is_required: boolean
+          label: string
+          position: number
+          template_id: string
+          updated_at: string
+        }
+        Insert: {
+          configuration?: Json
+          created_at?: string
+          field_key: string
+          field_type: string
+          id?: string
+          is_primary?: boolean
+          is_required?: boolean
+          label: string
+          position?: number
+          template_id: string
+          updated_at?: string
+        }
+        Update: {
+          configuration?: Json
+          created_at?: string
+          field_key?: string
+          field_type?: string
+          id?: string
+          is_primary?: boolean
+          is_required?: boolean
+          label?: string
+          position?: number
+          template_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "board_template_fields_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "board_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      board_template_items: {
+        Row: {
+          created_at: string
+          data: Json
+          id: string
+          name: string
+          position: number
+          template_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          data?: Json
+          id?: string
+          name: string
+          position?: number
+          template_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          data?: Json
+          id?: string
+          name?: string
+          position?: number
+          template_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "board_template_items_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "board_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      board_template_view_color_rules: {
+        Row: {
+          color: string
+          created_at: string
+          description: string | null
+          expression: string | null
+          field: string | null
+          id: string
+          label: string
+          position: number
+          rule_type: string
+          template_view_id: string
+          updated_at: string
+          value: Json | null
+        }
+        Insert: {
+          color: string
+          created_at?: string
+          description?: string | null
+          expression?: string | null
+          field?: string | null
+          id?: string
+          label: string
+          position?: number
+          rule_type: string
+          template_view_id: string
+          updated_at?: string
+          value?: Json | null
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          description?: string | null
+          expression?: string | null
+          field?: string | null
+          id?: string
+          label?: string
+          position?: number
+          rule_type?: string
+          template_view_id?: string
+          updated_at?: string
+          value?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "board_template_view_color_rules_template_view_id_fkey"
+            columns: ["template_view_id"]
+            isOneToOne: false
+            referencedRelation: "board_template_views"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      board_template_views: {
+        Row: {
+          configuration: Json
+          created_at: string
+          description: string | null
+          filter_definition: Json
+          id: string
+          is_default: boolean
+          name: string
+          position: number
+          slug: string
+          template_id: string
+          updated_at: string
+        }
+        Insert: {
+          configuration?: Json
+          created_at?: string
+          description?: string | null
+          filter_definition?: Json
+          id?: string
+          is_default?: boolean
+          name: string
+          position?: number
+          slug: string
+          template_id: string
+          updated_at?: string
+        }
+        Update: {
+          configuration?: Json
+          created_at?: string
+          description?: string | null
+          filter_definition?: Json
+          id?: string
+          is_default?: boolean
+          name?: string
+          position?: number
+          slug?: string
+          template_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "board_template_views_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "board_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      board_templates: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          metadata: Json
+          name: string
+          preview_asset_url: string | null
+          scope_definition: Json
+          slug: string
+          supports_automations: boolean
+          supports_items: boolean
+          tags: string[]
+          type: Database["public"]["Enums"]["board_type"]
+          updated_at: string
+          visibility: Database["public"]["Enums"]["board_template_visibility"]
+          workspace_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          metadata?: Json
+          name: string
+          preview_asset_url?: string | null
+          scope_definition?: Json
+          slug: string
+          supports_automations?: boolean
+          supports_items?: boolean
+          tags?: string[]
+          type: Database["public"]["Enums"]["board_type"]
+          updated_at?: string
+          visibility?: Database["public"]["Enums"]["board_template_visibility"]
+          workspace_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          metadata?: Json
+          name?: string
+          preview_asset_url?: string | null
+          scope_definition?: Json
+          slug?: string
+          supports_automations?: boolean
+          supports_items?: boolean
+          tags?: string[]
+          type?: Database["public"]["Enums"]["board_type"]
+          updated_at?: string
+          visibility?: Database["public"]["Enums"]["board_template_visibility"]
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "board_templates_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "board_templates_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       boards: {
         Row: {
           created_at: string
@@ -3700,6 +4010,7 @@ export type Database = {
         | "comment_added"
         | "time_logged"
       board_type: "container" | "query" | "hybrid"
+      board_template_visibility: "public" | "workspace" | "private"
       challenge_type:
         | "sprint"
         | "milestone"
