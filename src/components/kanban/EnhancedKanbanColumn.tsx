@@ -9,6 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { TaskCard, Task } from "./TaskCard";
 import { QuickTaskEntry } from "./QuickTaskEntry";
 import { Plus, MoreHorizontal, Settings, Zap } from "lucide-react";
+import type { ColumnBaseMetadata, KanbanColumnType } from "@/types/boardColumns";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,6 +23,8 @@ export interface Column {
   tasks: Task[];
   color?: string;
   limit?: number;
+  metadata?: ColumnBaseMetadata;
+  columnType?: KanbanColumnType;
 }
 
 interface EnhancedKanbanColumnProps {
@@ -63,8 +66,13 @@ export function EnhancedKanbanColumn({
   projectId = "",
   availableAssignees = []
 }: EnhancedKanbanColumnProps) {
+  const droppableId = swimlaneId ? `${column.id}::${swimlaneId}` : column.id;
   const { setNodeRef, isOver } = useDroppable({
-    id: column.id,
+    id: droppableId,
+    data: {
+      columnId: column.id,
+      swimlaneId: swimlaneId ?? null,
+    },
   });
 
   const {
@@ -88,7 +96,19 @@ export function EnhancedKanbanColumn({
     transition,
   };
 
-  const isOverLimit = column.limit && column.tasks.length >= column.limit;
+  const laneKey = swimlaneId ?? "__unassigned__";
+  const laneLimit = column.metadata?.wip?.laneLimits?.[laneKey];
+  const columnLimit = column.metadata?.wip?.columnLimit ?? column.limit;
+  const displayLimit =
+    typeof laneLimit === "number"
+      ? laneLimit
+      : typeof columnLimit === "number"
+        ? columnLimit
+        : undefined;
+  const limitSource = typeof laneLimit === "number" ? "Lane limit" : "Column limit";
+  const appliedLimit = displayLimit;
+  const isOverLimit =
+    typeof appliedLimit === "number" && column.tasks.length >= appliedLimit;
   const isShowingQuickAdd = showQuickAdd?.columnId === column.id && showQuickAdd?.swimlaneId === swimlaneId;
   const columnSelectedTasks = column.tasks.filter(task => selectedTasks.includes(task.id));
   const isAllSelected = columnSelectedTasks.length === column.tasks.length && column.tasks.length > 0;
@@ -152,11 +172,11 @@ export function EnhancedKanbanColumn({
               </CardTitle>
               <Badge variant="secondary" className="text-xs">
                 {column.tasks.length}
-                {column.limit && `/${column.limit}`}
+                {typeof displayLimit === "number" && `/${displayLimit}`}
               </Badge>
               {isOverLimit && (
                 <Badge variant="destructive" className="text-xs">
-                  Limit Reached
+                  {limitSource} reached
                 </Badge>
               )}
             </div>
@@ -232,6 +252,7 @@ export function EnhancedKanbanColumn({
             )}
             
             <SortableContext
+              id={droppableId}
               items={column.tasks.map(task => task.id)}
               strategy={verticalListSortingStrategy}
             >

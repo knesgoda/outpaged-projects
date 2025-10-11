@@ -31,7 +31,9 @@ import { SmartTaskTypeSelector, SMART_TASK_TYPE_OPTIONS } from "@/components/tas
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { SafeHtml } from "@/components/ui/safe-html";
 import { Task } from "./TaskCard";
-import { CalendarIcon, X, User, Tag, MessageSquare, Paperclip, GitBranch, Check, XCircle, Link as LinkIcon, Trash2 } from "lucide-react";
+import { CalendarIcon, X, User, Tag, MessageSquare, Paperclip, GitBranch, Check, XCircle, CheckCircle, Link as LinkIcon, Trash2 } from "lucide-react";
+import type { ColumnBaseMetadata } from "@/types/boardColumns";
+import { evaluateDefinitionChecklists, type ChecklistItemEvaluation } from "@/features/boards/guards";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useFileUpload } from "@/hooks/useFileUpload";
@@ -67,6 +69,7 @@ interface TaskDialogProps {
   onSave: (task: Partial<Task>) => void;
   columnId?: string;
   projectId?: string;
+  columnMetadata?: ColumnBaseMetadata;
 }
 
 // Helper component for metadata rows
@@ -81,9 +84,32 @@ function InfoRow({ label, children }: { label: string; children: React.ReactNode
   );
 }
 
-export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId }: TaskDialogProps) {
+export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId, columnMetadata }: TaskDialogProps) {
   const isMobile = useIsMobile();
-  
+
+  const checklistEvaluation = useMemo(() => {
+    if (!columnMetadata || !task) return null;
+    return evaluateDefinitionChecklists(columnMetadata, task);
+  }, [columnMetadata, task]);
+
+  const ChecklistList = ({ title, items }: { title: string; items: ChecklistItemEvaluation[] }) => (
+    <div>
+      <p className="text-sm font-semibold text-foreground">{title}</p>
+      <ul className="mt-1 space-y-1">
+        {items.map((item) => (
+          <li key={item.id} className="flex items-start gap-2 text-xs text-muted-foreground">
+            {item.satisfied ? (
+              <CheckCircle className="h-4 w-4 text-primary mt-0.5" />
+            ) : (
+              <XCircle className="h-4 w-4 text-destructive mt-0.5" />
+            )}
+            <span className="text-foreground">{item.label}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+
   // Editing states for inline editing
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [isEditingDescription, setIsEditingDescription] = useState(false);
@@ -604,7 +630,16 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <Label className="text-sm font-medium text-muted-foreground">Status</Label>
-                      <Select value={formData.status} onValueChange={(value) => setFormData(prev => ({ ...prev, status: value }))}>
+                      <Select
+                        value={formData.status}
+                        onValueChange={(value) =>
+                          setFormData(prev => ({
+                            ...prev,
+                            status: value,
+                            blocked: value === 'blocked',
+                          }))
+                        }
+                      >
                         <SelectTrigger className="mt-1">
                           <SelectValue />
                         </SelectTrigger>
@@ -613,24 +648,47 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
                           <SelectItem value="in_progress">In Progress</SelectItem>
                           <SelectItem value="in_review">In Review</SelectItem>
                           <SelectItem value="done">Done</SelectItem>
+                          <SelectItem value="blocked">Blocked</SelectItem>
+                          <SelectItem value="waiting">Waiting</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
-                    <div>
-                      <Label className="text-sm font-medium text-muted-foreground">Priority</Label>
-                      <Select value={formData.priority} onValueChange={(value) => setFormData(prev => ({ ...prev, priority: value as "low" | "medium" | "high" | "urgent" }))}>
-                        <SelectTrigger className="mt-1">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="low">Low</SelectItem>
-                          <SelectItem value="medium">Medium</SelectItem>
-                          <SelectItem value="high">High</SelectItem>
-                          <SelectItem value="urgent">Urgent</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
+                  <div>
+                    <Label className="text-sm font-medium text-muted-foreground">Priority</Label>
+                    <Select value={formData.priority} onValueChange={(value) => setFormData(prev => ({ ...prev, priority: value as "low" | "medium" | "high" | "urgent" }))}>
+                      <SelectTrigger className="mt-1">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="low">Low</SelectItem>
+                        <SelectItem value="medium">Medium</SelectItem>
+                        <SelectItem value="high">High</SelectItem>
+                        <SelectItem value="urgent">Urgent</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
+                  </div>
+
+                  {checklistEvaluation && (
+                    <div className="rounded-lg border bg-muted/30 p-3 space-y-3">
+                      <ChecklistList title="Definition of Ready" items={checklistEvaluation.ready} />
+                      <ChecklistList title="Definition of Done" items={checklistEvaluation.done} />
+                    </div>
+                  )}
+
+                  {(formData.blocked || formData.status === 'blocked') && (
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium text-muted-foreground">Blocking reason</Label>
+                      <Textarea
+                        value={formData.blocking_reason}
+                        onChange={(event) =>
+                          setFormData(prev => ({ ...prev, blocking_reason: event.target.value }))
+                        }
+                        placeholder="Explain what is preventing progress"
+                        className="min-h-[80px]"
+                      />
+                    </div>
+                  )}
 
                   {/* Assignees */}
                   <div>
@@ -1167,7 +1225,16 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
                     <h3 className="font-medium text-foreground">Task Info</h3>
                     
                     <InfoRow label="Status">
-                      <Select value={formData.status} onValueChange={(value) => setFormData(prev => ({ ...prev, status: value }))}>
+                      <Select
+                        value={formData.status}
+                        onValueChange={(value) =>
+                          setFormData(prev => ({
+                            ...prev,
+                            status: value,
+                            blocked: value === 'blocked',
+                          }))
+                        }
+                      >
                         <SelectTrigger className="w-28">
                           <SelectValue />
                         </SelectTrigger>
@@ -1176,6 +1243,8 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
                           <SelectItem value="in_progress">In Progress</SelectItem>
                           <SelectItem value="in_review">In Review</SelectItem>
                           <SelectItem value="done">Done</SelectItem>
+                          <SelectItem value="blocked">Blocked</SelectItem>
+                          <SelectItem value="waiting">Waiting</SelectItem>
                         </SelectContent>
                       </Select>
                     </InfoRow>
@@ -1294,6 +1363,20 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
                         className="w-32"
                       />
                     </InfoRow>
+
+                    {(formData.blocked || formData.status === 'blocked') && (
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium text-muted-foreground">Blocking reason</Label>
+                        <Textarea
+                          value={formData.blocking_reason}
+                          onChange={(event) =>
+                            setFormData(prev => ({ ...prev, blocking_reason: event.target.value }))
+                          }
+                          placeholder="Explain what is preventing progress"
+                          className="min-h-[80px]"
+                        />
+                      </div>
+                    )}
                   </section>
 
                   {/* Assignees */}
@@ -1331,6 +1414,14 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId 
                       </div>
                     )}
                   </section>
+
+                  {checklistEvaluation && (
+                    <section className="bg-muted/30 rounded-lg p-4 space-y-3">
+                      <h3 className="font-medium text-foreground">Workflow checklists</h3>
+                      <ChecklistList title="Definition of Ready" items={checklistEvaluation.ready} />
+                      <ChecklistList title="Definition of Done" items={checklistEvaluation.done} />
+                    </section>
+                  )}
                 </div>
               </div>
             )}

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { TaskCard, Task } from "./TaskCard";
 import { Plus, MoreHorizontal, Settings } from "lucide-react";
+import type { ColumnBaseMetadata, KanbanColumnType } from "@/types/boardColumns";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,6 +20,8 @@ export interface Column {
   tasks: Task[];
   color?: string;
   limit?: number;
+  metadata?: ColumnBaseMetadata;
+  columnType?: KanbanColumnType;
 }
 
 interface KanbanColumnProps {
@@ -32,8 +35,8 @@ interface KanbanColumnProps {
   isDraggable?: boolean;
 }
 
-export function KanbanColumn({ 
-  column, 
+export function KanbanColumn({
+  column,
   onAddTask, 
   onEditTask, 
   onDeleteTask,
@@ -42,8 +45,13 @@ export function KanbanColumn({
   onViewTask,
   isDraggable = false
 }: KanbanColumnProps) {
+  const droppableId = `legacy-${column.id}`;
   const { setNodeRef, isOver } = useDroppable({
-    id: column.id,
+    id: droppableId,
+    data: {
+      columnId: column.id,
+      swimlaneId: null,
+    },
   });
 
   const {
@@ -67,7 +75,9 @@ export function KanbanColumn({
     transition,
   };
 
-  const isOverLimit = column.limit && column.tasks.length >= column.limit;
+  const columnLimit = column.metadata?.wip?.columnLimit ?? column.limit;
+  const isOverLimit =
+    typeof columnLimit === "number" && column.tasks.length >= columnLimit;
 
   return (
     <div 
@@ -89,11 +99,11 @@ export function KanbanColumn({
               </CardTitle>
               <Badge variant="secondary" className="text-xs">
                 {column.tasks.length}
-                {column.limit && `/${column.limit}`}
+                {typeof columnLimit === "number" && `/${columnLimit}`}
               </Badge>
               {isOverLimit && (
                 <Badge variant="destructive" className="text-xs">
-                  Limit Reached
+                  WIP limit reached
                 </Badge>
               )}
             </div>

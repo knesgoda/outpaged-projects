@@ -611,9 +611,14 @@ export function StandardizedTaskCard({
                 {task.story_points} SP
               </Badge>
             )}
+            {task.status === 'waiting' && (
+              <Badge variant="outline" className="text-xs bg-warning/20 text-warning">
+                ⏳ Waiting
+              </Badge>
+            )}
             {task.blocked && (
               <Badge variant="destructive" className="text-xs">
-                🚫 Blocked
+                {`🚫 Blocked${task.blocking_reason ? ` – ${task.blocking_reason}` : ''}`}
               </Badge>
             )}
           </div>

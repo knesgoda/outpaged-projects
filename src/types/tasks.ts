@@ -3,7 +3,7 @@
  */
 export type TaskHierarchyLevel = "initiative" | "epic" | "story" | "task" | "subtask";
 export type TaskPriority = "low" | "medium" | "high" | "urgent";
-export type TaskStatus = "todo" | "in_progress" | "in_review" | "done";
+export type TaskStatus = "todo" | "in_progress" | "in_review" | "done" | "blocked" | "waiting";
 export type TaskType =
   | "bug"
   | "feature_request"
