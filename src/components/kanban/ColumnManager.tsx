@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -7,6 +7,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -24,6 +31,29 @@ import { Plus, MoreHorizontal, GripVertical, Edit, Trash, Settings } from "lucid
 import { DndContext, DragEndEvent, closestCenter } from "@dnd-kit/core";
 import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import {
+  ConnectColumnConfigurator,
+  ConnectColumnRenderer,
+  DependencyColumnConfigurator,
+  DependencyColumnRenderer,
+  FormulaColumnConfigurator,
+  FormulaColumnRenderer,
+  MirrorColumnConfigurator,
+  MirrorColumnRenderer,
+  RollupColumnConfigurator,
+  RollupColumnRenderer,
+} from "@/components/boards/columns";
+import {
+  type KanbanColumnType,
+  type ColumnMetadataValue,
+  type DependencyColumnMetadata,
+  type FormulaColumnMetadata,
+  type RollupColumnMetadata,
+  type MirrorColumnMetadata,
+  type ConnectColumnMetadata,
+  getDefaultMetadata,
+  isAdvancedColumnType,
+} from "@/types/boardColumns";
 
 interface KanbanColumnData {
   id: string;
@@ -33,6 +63,8 @@ interface KanbanColumnData {
   wip_limit?: number;
   is_default: boolean;
   project_id: string;
+  column_type: KanbanColumnType;
+  metadata: Record<string, unknown> | null;
 }
 
 interface ColumnManagerProps {
@@ -40,6 +72,80 @@ interface ColumnManagerProps {
   columns: KanbanColumnData[];
   onUpdate: () => void;
 }
+
+const COLUMN_TYPE_LABELS: Record<KanbanColumnType, string> = {
+  status: "Status",
+  assignee: "Assignee",
+  dependency: "Dependency",
+  formula: "Formula",
+  rollup: "Rollup",
+  mirror: "Mirror",
+  connect: "Connect",
+};
+
+const DEPENDENCY_SAMPLE = [
+  { id: "task-1", title: "Design dependency", status: "in_review", blocked: false },
+  { id: "task-2", title: "API contract", status: "blocked", blocked: true },
+];
+
+const ROLLUP_SAMPLE = [
+  { completed: 1 },
+  { completed: 0 },
+  { completed: 1 },
+  { completed: 1 },
+];
+
+const MIRROR_SAMPLE = {
+  status: "In progress",
+  assignee: "Jordan",
+  due_date: "2024-12-01",
+};
+
+const CONNECT_SAMPLE = [
+  { id: "PR-101", title: "Review PR" },
+  { id: "DOC-17", title: "Architecture" },
+];
+
+const FORMULA_SAMPLE = {
+  completed: 6,
+  total: 8,
+  story_points: 21,
+};
+
+type MetadataState = ColumnMetadataValue;
+
+type ColumnFormState = {
+  name: string;
+  color: string;
+  wip_limit: string;
+  column_type: KanbanColumnType;
+  metadata: MetadataState;
+};
+
+function normalizeMetadata(
+  type: KanbanColumnType,
+  metadata: unknown
+): MetadataState {
+  if (!isAdvancedColumnType(type)) {
+    return {};
+  }
+
+  const base = getDefaultMetadata(type);
+  if (metadata && typeof metadata === "object") {
+    return { ...base, ...(metadata as Record<string, unknown>) } as MetadataState;
+  }
+  return base;
+}
+
+const serializeMetadata = (
+  type: KanbanColumnType,
+  metadata: MetadataState
+): Record<string, unknown> => {
+  if (!isAdvancedColumnType(type)) {
+    return {};
+  }
+  return metadata as Record<string, unknown>;
+};
 
 function SortableColumn({ column, onEdit, onDelete }: {
   column: KanbanColumnData;
@@ -93,6 +199,14 @@ function SortableColumn({ column, onEdit, onDelete }: {
             </Badge>
           )}
         </div>
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <span>{COLUMN_TYPE_LABELS[column.column_type]}</span>
+          {isAdvancedColumnType(column.column_type) ? (
+            <Badge variant="outline" className="text-[10px] uppercase">
+              Advanced
+            </Badge>
+          ) : null}
+        </div>
       </div>
       
       <DropdownMenu>
@@ -125,11 +239,23 @@ export function ColumnManager({ projectId, columns, onUpdate }: ColumnManagerPro
   const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingColumn, setEditingColumn] = useState<KanbanColumnData | null>(null);
-  const [formData, setFormData] = useState({
-    name: '',
-    color: '#6b7280',
-    wip_limit: ''
+  const [formData, setFormData] = useState<ColumnFormState>({
+    name: "",
+    color: "#6b7280",
+    wip_limit: "",
+    column_type: "status" as KanbanColumnType,
+    metadata: getDefaultMetadata("status"),
   });
+  const handleMetadataChange = (metadata: MetadataState) => {
+    setFormData((prev) => ({ ...prev, metadata }));
+  };
+  const handleColumnTypeChange = (nextType: KanbanColumnType) => {
+    setFormData((prev) => ({
+      ...prev,
+      column_type: nextType,
+      metadata: getDefaultMetadata(nextType),
+    }));
+  };
 
   const handleSave = async () => {
     if (!formData.name.trim()) {
@@ -150,6 +276,8 @@ export function ColumnManager({ projectId, columns, onUpdate }: ColumnManagerPro
             name: formData.name.trim(),
             color: formData.color,
             wip_limit: formData.wip_limit ? parseInt(formData.wip_limit) : null,
+            column_type: formData.column_type,
+            metadata: serializeMetadata(formData.column_type, formData.metadata),
           })
           .eq('id', editingColumn.id);
 
@@ -171,7 +299,9 @@ export function ColumnManager({ projectId, columns, onUpdate }: ColumnManagerPro
             color: formData.color,
             position: maxPosition + 1,
             wip_limit: formData.wip_limit ? parseInt(formData.wip_limit) : null,
-            is_default: false
+            is_default: false,
+            column_type: formData.column_type,
+            metadata: serializeMetadata(formData.column_type, formData.metadata),
           });
 
         if (error) throw error;
@@ -184,7 +314,13 @@ export function ColumnManager({ projectId, columns, onUpdate }: ColumnManagerPro
 
       setIsDialogOpen(false);
       setEditingColumn(null);
-      setFormData({ name: '', color: '#6b7280', wip_limit: '' });
+      setFormData({
+        name: "",
+        color: "#6b7280",
+        wip_limit: "",
+        column_type: "status",
+        metadata: getDefaultMetadata("status"),
+      });
       onUpdate();
     } catch (error) {
       console.error('Error saving column:', error);
@@ -200,8 +336,10 @@ export function ColumnManager({ projectId, columns, onUpdate }: ColumnManagerPro
     setEditingColumn(column);
     setFormData({
       name: column.name,
-      color: column.color,
-      wip_limit: column.wip_limit?.toString() || ''
+      color: column.color ?? "#6b7280",
+      wip_limit: column.wip_limit?.toString() || "",
+      column_type: column.column_type,
+      metadata: normalizeMetadata(column.column_type, column.metadata ?? {}),
     });
     setIsDialogOpen(true);
   };
@@ -279,6 +417,94 @@ export function ColumnManager({ projectId, columns, onUpdate }: ColumnManagerPro
     }
   };
 
+  const configurator = useMemo(() => {
+    switch (formData.column_type) {
+      case "dependency":
+        return (
+          <DependencyColumnConfigurator
+            metadata={formData.metadata as DependencyColumnMetadata}
+            onChange={(metadata) => handleMetadataChange(metadata)}
+          />
+        );
+      case "formula":
+        return (
+          <FormulaColumnConfigurator
+            metadata={formData.metadata as FormulaColumnMetadata}
+            onChange={(metadata) => handleMetadataChange(metadata)}
+          />
+        );
+      case "rollup":
+        return (
+          <RollupColumnConfigurator
+            metadata={formData.metadata as RollupColumnMetadata}
+            onChange={(metadata) => handleMetadataChange(metadata)}
+          />
+        );
+      case "mirror":
+        return (
+          <MirrorColumnConfigurator
+            metadata={formData.metadata as MirrorColumnMetadata}
+            onChange={(metadata) => handleMetadataChange(metadata)}
+          />
+        );
+      case "connect":
+        return (
+          <ConnectColumnConfigurator
+            metadata={formData.metadata as ConnectColumnMetadata}
+            onChange={(metadata) => handleMetadataChange(metadata)}
+          />
+        );
+      default:
+        return null;
+    }
+  }, [formData.column_type, formData.metadata]);
+
+  const preview = useMemo(() => {
+    switch (formData.column_type) {
+      case "dependency":
+        return (
+          <DependencyColumnRenderer
+            value={DEPENDENCY_SAMPLE}
+            metadata={formData.metadata as DependencyColumnMetadata}
+          />
+        );
+      case "formula":
+        return (
+          <FormulaColumnRenderer
+            value={FORMULA_SAMPLE}
+            metadata={formData.metadata as FormulaColumnMetadata}
+          />
+        );
+      case "rollup":
+        return (
+          <RollupColumnRenderer
+            value={ROLLUP_SAMPLE}
+            metadata={formData.metadata as RollupColumnMetadata}
+          />
+        );
+      case "mirror":
+        return (
+          <MirrorColumnRenderer
+            value={MIRROR_SAMPLE}
+            metadata={formData.metadata as MirrorColumnMetadata}
+          />
+        );
+      case "connect":
+        return (
+          <ConnectColumnRenderer
+            value={CONNECT_SAMPLE}
+            metadata={formData.metadata as ConnectColumnMetadata}
+          />
+        );
+      default:
+        return (
+          <p className="text-xs text-muted-foreground">
+            Preview is not required for this column type.
+          </p>
+        );
+    }
+  }, [formData.column_type, formData.metadata]);
+
   return (
     <Card>
       <CardHeader>
@@ -286,11 +512,17 @@ export function ColumnManager({ projectId, columns, onUpdate }: ColumnManagerPro
           <CardTitle className="text-lg">Board Columns</CardTitle>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
-              <Button 
+              <Button
                 size="sm"
                 onClick={() => {
                   setEditingColumn(null);
-                  setFormData({ name: '', color: '#6b7280', wip_limit: '' });
+                  setFormData({
+                    name: "",
+                    color: "#6b7280",
+                    wip_limit: "",
+                    column_type: "status",
+                    metadata: getDefaultMetadata("status"),
+                  });
                 }}
               >
                 <Plus className="w-4 h-4 mr-2" />
@@ -340,6 +572,42 @@ export function ColumnManager({ projectId, columns, onUpdate }: ColumnManagerPro
                     placeholder="e.g. 5"
                     min="1"
                   />
+                </div>
+                <div>
+                  <Label htmlFor="column-type">Column type</Label>
+                  <Select
+                    value={formData.column_type}
+                    onValueChange={(value) =>
+                      handleColumnTypeChange(value as KanbanColumnType)
+                    }
+                  >
+                    <SelectTrigger id="column-type">
+                      <SelectValue placeholder="Select a column type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(COLUMN_TYPE_LABELS).map(([value, label]) => (
+                        <SelectItem key={value} value={value}>
+                          {label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Advanced column types unlock richer automation, visualization,
+                    and rollups without altering the underlying board schema.
+                  </p>
+                </div>
+                {configurator && (
+                  <div className="space-y-4 rounded-lg border bg-muted/30 p-4">
+                    <h3 className="text-sm font-semibold">Type configuration</h3>
+                    {configurator}
+                  </div>
+                )}
+                <div className="space-y-2">
+                  <Label>Live preview</Label>
+                  <div className="rounded-lg border bg-background p-4 text-sm">
+                    {preview}
+                  </div>
                 </div>
                 <div className="flex justify-end gap-2">
                   <Button variant="outline" onClick={() => setIsDialogOpen(false)}>

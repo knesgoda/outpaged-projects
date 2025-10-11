@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,7 @@ import {
 import { Settings, Layers, Columns } from "lucide-react";
 import { SwimlanesManager } from "./SwimlanesManager";
 import { ColumnManager } from "./ColumnManager";
+import type { KanbanColumnType } from "@/types/boardColumns";
 
 interface Swimlane {
   id: string;
@@ -33,6 +34,8 @@ interface KanbanColumnData {
   wip_limit?: number;
   is_default: boolean;
   project_id: string;
+  column_type: KanbanColumnType;
+  metadata: Record<string, unknown> | null;
 }
 
 interface BoardSettingsProps {
