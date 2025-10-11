@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -17,8 +17,13 @@ import {
   Share2,
 } from "lucide-react";
 
-import { searchAll } from "@/services/search";
-import type { SearchResult } from "@/types";
+import { opqlSuggest, searchAll } from "@/services/search";
+import type {
+  OpqlSuggestionItem,
+  SearchResult,
+  SuggestionHistoryEntry,
+  SuggestionKind,
+} from "@/types";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -58,6 +63,12 @@ import {
 import { supabase, supabaseConfigured } from "@/integrations/supabase/client";
 import { SearchResultItem } from "./SearchResultItem";
 import { cn } from "@/lib/utils";
+import {
+  loadOpqlHistory,
+  persistOpqlHistory,
+  recordOpqlSelection,
+} from "@/lib/opqlHistory";
+import { formatSuggestionValue } from "@/lib/opqlSuggestions";
 
 const DEFAULT_LIMIT = 50;
 const CONTEXTUAL_ACTIONS = [
@@ -347,12 +358,45 @@ export const GlobalSearchPage = () => {
   const [exportMasking, setExportMasking] = useState(true);
   const [customFieldFocus, setCustomFieldFocus] = useState<string | null>(null);
 
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [inputCursor, setInputCursor] = useState(queryParam.length);
+  const [opqlHistory, setOpqlHistory] = useState<SuggestionHistoryEntry[]>(loadOpqlHistory);
+
+  useEffect(() => {
+    persistOpqlHistory(opqlHistory);
+  }, [opqlHistory]);
+
+  const updateOpqlHistory = useCallback(
+    (kind: SuggestionKind, id: string) => {
+      setOpqlHistory((prev) => recordOpqlSelection(prev, kind, id));
+    },
+    []
+  );
+
+  const syncInputCursor = useCallback(() => {
+    const element = inputRef.current;
+    if (!element) return;
+    const next = element.selectionStart ?? inputValue.length;
+    setInputCursor(next);
+  }, [inputValue.length]);
+
+  useEffect(() => {
+    const handler = () => syncInputCursor();
+    document.addEventListener("selectionchange", handler);
+    return () => document.removeEventListener("selectionchange", handler);
+  }, [syncInputCursor]);
+
+  useEffect(() => {
+    syncInputCursor();
+  }, [inputValue, syncInputCursor]);
+
   const filterPaneRef = useRef<HTMLDivElement>(null);
   const resultsPaneRef = useRef<HTMLDivElement>(null);
   const previewPaneRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setInputValue(queryParam);
+    setInputCursor(queryParam.length);
   }, [queryParam]);
 
   useEffect(() => {
@@ -387,6 +431,37 @@ export const GlobalSearchPage = () => {
         variant: "destructive",
       });
     },
+  });
+
+  const opqlHistorySignature = useMemo(
+    () =>
+      opqlHistory
+        .map((entry) => `${entry.kind}:${entry.id}:${entry.frequency}:${entry.lastUsed}`)
+        .join("|"),
+    [opqlHistory]
+  );
+
+  const opqlSuggestionQuery = useQuery({
+    queryKey: [
+      "global-opql-suggest",
+      inputValue,
+      inputCursor,
+      projectFilter,
+      mode,
+      opqlHistorySignature,
+    ],
+    queryFn: () =>
+      opqlSuggest({
+        text: inputValue,
+        cursor: inputCursor,
+        grammarState: "root",
+        context: {
+          projectId: projectFilter !== "all" ? projectFilter : undefined,
+        },
+        history: opqlHistory,
+      }),
+    enabled: mode !== "builder",
+    staleTime: 1000 * 15,
   });
 
   const deleteSavedSearchMutation = useMutation({
@@ -557,6 +632,78 @@ export const GlobalSearchPage = () => {
     });
   };
 
+  const applyInputReplacement = useCallback(
+    (replacement: string, range?: { start: number; end: number }) => {
+      const tokenRange = range ?? opqlSuggestionQuery.data?.token ?? {
+        start: inputValue.length,
+        end: inputValue.length,
+      };
+      const safeRange = {
+        start: Math.max(0, Math.min(tokenRange.start, inputValue.length)),
+        end: Math.max(0, Math.min(tokenRange.end, inputValue.length)),
+      };
+      const before = inputValue.slice(0, safeRange.start);
+      const after = inputValue.slice(safeRange.end).replace(/^\s+/u, "");
+      const nextValue = `${before}${replacement}${after}`;
+      const nextCursor = safeRange.start + replacement.length;
+      setInputValue(nextValue);
+      setInputCursor(nextCursor);
+      requestAnimationFrame(() => {
+        const element = inputRef.current;
+        if (!element) return;
+        element.focus();
+        element.setSelectionRange(nextCursor, nextCursor);
+      });
+    },
+    [inputValue, opqlSuggestionQuery.data?.token]
+  );
+
+  const acceptOpqlCompletion = useCallback(() => {
+    const completion = opqlSuggestionQuery.data?.completion;
+    if (!completion) {
+      const first = opqlSuggestionQuery.data?.items?.[0];
+      if (first) {
+        applyInputReplacement(`${formatSuggestionValue(first)} `);
+        updateOpqlHistory(first.kind, first.id);
+      }
+      return;
+    }
+    applyInputReplacement(completion.insertText, completion.range);
+    updateOpqlHistory(completion.kind, completion.id);
+  }, [applyInputReplacement, opqlSuggestionQuery.data, updateOpqlHistory]);
+
+  const handleSuggestionChip = useCallback(
+    (item: OpqlSuggestionItem) => {
+      applyInputReplacement(`${formatSuggestionValue(item)} `);
+      updateOpqlHistory(item.kind, item.id);
+    },
+    [applyInputReplacement, updateOpqlHistory]
+  );
+
+  const handleCorrectionChip = useCallback(
+    (text: string) => {
+      applyInputReplacement(`${text} `);
+      updateOpqlHistory("correction", text);
+    },
+    [applyInputReplacement, updateOpqlHistory]
+  );
+
+  const handleOpqlKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLInputElement>) => {
+      if (mode === "builder") return;
+      if (event.key === "Tab" || event.key === "ArrowRight") {
+        const completion = opqlSuggestionQuery.data?.completion;
+        const hasGhost = Boolean(completion?.ghostSuffix && completion.ghostSuffix.trim().length);
+        const caretAtEnd = inputCursor >= (opqlSuggestionQuery.data?.token?.end ?? inputCursor);
+        if (completion && (event.key === "Tab" || (event.key === "ArrowRight" && hasGhost && caretAtEnd))) {
+          event.preventDefault();
+          acceptOpqlCompletion();
+        }
+      }
+    },
+    [acceptOpqlCompletion, inputCursor, mode, opqlSuggestionQuery.data?.completion, opqlSuggestionQuery.data?.token?.end]
+  );
+
   const toggleFacet = (facet: FacetKey, value: string, exclude = false) => {
     setFacetSelections((prev) => toggleFacetValue(cloneFacetSelections(prev), facet, value, exclude));
   };
@@ -645,6 +792,11 @@ export const GlobalSearchPage = () => {
     setIsExportDialogOpen(false);
   };
 
+  const opqlGhostSuffix = opqlSuggestionQuery.data?.completion?.ghostSuffix ?? "";
+  const showOpqlGhost =
+    mode !== "builder" && opqlGhostSuffix.trim().length > 0;
+  const typedBeforeCursor = inputValue.slice(0, inputCursor);
+
   return (
     <div className="flex h-full flex-col gap-4">
       <header className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-4 shadow-sm">
@@ -652,12 +804,29 @@ export const GlobalSearchPage = () => {
           <div className="relative flex-1">
             <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
+              ref={inputRef}
               value={inputValue}
-              onChange={(event) => setInputValue(event.target.value)}
+              onChange={(event) => {
+                const value = event.target.value;
+                setInputValue(value);
+                setInputCursor(event.target.selectionStart ?? value.length);
+              }}
+              onKeyDown={handleOpqlKeyDown}
+              onClick={syncInputCursor}
+              onKeyUp={syncInputCursor}
+              onFocus={() => requestAnimationFrame(() => syncInputCursor())}
               placeholder="Search tasks, docs, files, and more"
               className="pl-9"
               aria-label="Search workspace"
             />
+            {showOpqlGhost ? (
+              <div className="pointer-events-none absolute inset-0 flex items-center">
+                <span className="ml-9 text-sm text-muted-foreground/60 whitespace-pre">
+                  <span className="opacity-0">{typedBeforeCursor}</span>
+                  {opqlGhostSuffix}
+                </span>
+              </div>
+            ) : null}
           </div>
           <Button type="submit" disabled={resultsQuery.isFetching}>
             {resultsQuery.isFetching ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
@@ -668,6 +837,48 @@ export const GlobalSearchPage = () => {
             Save
           </Button>
         </form>
+
+        {mode !== "builder" && (opqlSuggestionQuery.data?.corrections.length ?? 0) > 0 ? (
+          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+            <span className="font-medium">Did you mean</span>
+            {opqlSuggestionQuery.data?.corrections.map((correction) => (
+              <button
+                key={correction.id}
+                type="button"
+                onClick={() => handleCorrectionChip(correction.text)}
+                className="inline-flex items-center gap-1 rounded-full border border-dashed border-muted-foreground/40 px-2.5 py-1 text-xs font-medium text-muted-foreground transition hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring"
+              >
+                {correction.text}
+                <span className="text-[10px] font-normal text-muted-foreground/80">
+                  {correction.reason}
+                </span>
+              </button>
+            ))}
+          </div>
+        ) : null}
+
+        {mode !== "builder" && (opqlSuggestionQuery.data?.items?.length ?? 0) > 0 ? (
+          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+            <span className="inline-flex items-center gap-1 font-medium">
+              <Sparkles className="h-3.5 w-3.5 text-amber-500" /> Query suggestions
+            </span>
+            {opqlSuggestionQuery.data?.items.slice(0, 6).map((item) => (
+              <button
+                key={`opql-chip-${item.id}`}
+                type="button"
+                onClick={() => handleSuggestionChip(item)}
+                className="inline-flex items-center gap-1 rounded-full border border-muted-foreground/30 px-2.5 py-1 text-xs font-medium text-muted-foreground transition hover:border-muted-foreground/50 hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring"
+              >
+                {formatSuggestionValue(item)}
+                {item.description ? (
+                  <span className="text-[10px] font-normal text-muted-foreground/70">
+                    {item.description}
+                  </span>
+                ) : null}
+              </button>
+            ))}
+          </div>
+        ) : null}
 
         <div className="flex flex-wrap items-center gap-2">
           {CONTEXTUAL_ACTIONS.map(({ id, label, icon: Icon }) => (

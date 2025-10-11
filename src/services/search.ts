@@ -1,5 +1,10 @@
 import { supabase } from "@/integrations/supabase/client";
-import type { SearchResult } from "@/types";
+import type {
+  OpqlSuggestionRequest,
+  OpqlSuggestionResponse,
+  SearchResult,
+} from "@/types";
+import { getOpqlSuggestions } from "@/server/search/suggest";
 import { escapeLikePattern, normalizeSearchTerm } from "./utils";
 
 const DEFAULT_LIMIT = 20;
@@ -429,6 +434,12 @@ export const searchSuggest = async ({
   limit = SUGGEST_LIMIT,
 }: SearchSuggestParams): Promise<SearchResult[]> => {
   return searchAll({ q: query, projectId, types, limit });
+};
+
+export const opqlSuggest = async (
+  request: OpqlSuggestionRequest
+): Promise<OpqlSuggestionResponse> => {
+  return getOpqlSuggestions(request);
 };
 
 export const globalSearch = async (
