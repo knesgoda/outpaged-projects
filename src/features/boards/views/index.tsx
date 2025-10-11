@@ -9,6 +9,7 @@ import { KanbanBoardView } from "./KanbanBoardView";
 import { MasterBoardView } from "./MasterBoardView";
 import { TableBoardView } from "./TableBoardView";
 import { TimelineBoardView } from "./TimelineBoardView";
+import { BoardStateProvider, BoardStateShell } from "./BoardStateProvider";
 
 export type BoardViewComponent = ComponentType;
 
@@ -43,18 +44,22 @@ export function BoardViewCanvas({
   const Component = boardViewRegistry[configuration.mode] ?? TableBoardView;
 
   return (
-    <BoardViewProvider
-      items={items}
-      configuration={configuration}
-      isLoading={isLoading}
-      hasMore={hasMore}
-      isLoadingMore={isLoadingMore}
-      onLoadMore={onLoadMore}
-      onItemsChange={onItemsChange}
-      onConfigurationChange={onConfigurationChange}
-    >
-      <Component />
-    </BoardViewProvider>
+    <BoardStateProvider>
+      <BoardViewProvider
+        items={items}
+        configuration={configuration}
+        isLoading={isLoading}
+        hasMore={hasMore}
+        isLoadingMore={isLoadingMore}
+        onLoadMore={onLoadMore}
+        onItemsChange={onItemsChange}
+        onConfigurationChange={onConfigurationChange}
+      >
+        <BoardStateShell>
+          <Component />
+        </BoardStateShell>
+      </BoardViewProvider>
+    </BoardStateProvider>
   );
 }
 
