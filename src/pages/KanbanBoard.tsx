@@ -318,7 +318,9 @@ function LegacyKanbanBoard() {
     swimlaneId?: string;
   }>({ isOpen: false });
   const [detailViewTask, setDetailViewTask] = useState<Task | null>(null);
-  const [availableAssignees, setAvailableAssignees] = useState<Array<{ id: string; name: string }>>([]);
+  const [availableAssignees, setAvailableAssignees] = useState<Array<{ id: string; name: string; avatar?: string | null }>>([]);
+  const [availableSprints, setAvailableSprints] = useState<Array<{ id: string; name: string }>>([]);
+  const [availableLabels, setAvailableLabels] = useState<Array<{ id: string; label: string; color?: string | null }>>([]);
   const [showSwimlanes, setShowSwimlanes] = useState(false);
   const [selectedTasks, setSelectedTasks] = useState<string[]>([]);
   const [showQuickAdd, setShowQuickAdd] = useState<{ columnId: string; swimlaneId?: string } | null>(null);
@@ -364,6 +366,7 @@ function LegacyKanbanBoard() {
       fetchTasks();
       fetchProjectMembers();
       fetchSwimlanes();
+      fetchSprints();
     }
   }, [currentProjectId]);
 
@@ -429,7 +432,8 @@ function LegacyKanbanBoard() {
 
       const assignees = members?.map(member => ({
         id: member.user_id,
-        name: (member as any).profiles?.full_name || 'Unknown User'
+        name: (member as any).profiles?.full_name || 'Unknown User',
+        avatar: (member as any).profiles?.avatar_url || null,
       })) || [];
 
       setAvailableAssignees(assignees);
@@ -452,6 +456,23 @@ function LegacyKanbanBoard() {
       setSwimlanes(swimlanesData || []);
     } catch (error) {
       console.error('Error fetching swimlanes:', error);
+    }
+  };
+
+  const fetchSprints = async () => {
+    if (!currentProjectId) return;
+
+    try {
+      const { data: sprintData, error } = await supabase
+        .from('sprints')
+        .select('id, name')
+        .eq('project_id', currentProjectId)
+        .order('start_date', { ascending: false });
+
+      if (error) throw error;
+      setAvailableSprints(sprintData || []);
+    } catch (error) {
+      console.error('Error fetching sprints:', error);
     }
   };
 
@@ -523,6 +544,21 @@ function LegacyKanbanBoard() {
         blocking_reason: task.blocking_reason,
         externalLinks: task.externalLinks,
       }));
+
+      const labelMap = new Map<string, { id: string; label: string; color?: string | null }>();
+      for (const task of tasksForBoard) {
+        const tagDetails = task.tagDetails ?? [];
+        for (const tag of tagDetails) {
+          if (!labelMap.has(tag.id)) {
+            labelMap.set(tag.id, {
+              id: tag.id,
+              label: tag.label,
+              color: tag.color,
+            });
+          }
+        }
+      }
+      setAvailableLabels(Array.from(labelMap.values()));
 
       // Get status mappings for all columns
       const { data: statusMappings } = await supabase
@@ -1221,6 +1257,10 @@ function LegacyKanbanBoard() {
         onOperationComplete={fetchTasks}
         availableAssignees={availableAssignees}
         availableColumns={columns}
+        availableSwimlanes={swimlanes}
+        availableSprints={availableSprints}
+        availableLabels={availableLabels}
+        availableWatchers={availableAssignees}
       />
 
       {/* Kanban Board */}
