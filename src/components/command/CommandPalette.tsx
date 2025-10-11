@@ -16,9 +16,20 @@ import {
 import { useCommandK } from "./useCommandK";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { searchSuggest } from "@/services/search";
-import type { SearchResult } from "@/types";
+import { opqlSuggest, searchSuggest } from "@/services/search";
+import type {
+  OpqlSuggestionItem,
+  SearchResult,
+  SuggestionHistoryEntry,
+  SuggestionKind,
+} from "@/types";
 import { listSavedSearches } from "@/services/savedSearches";
+import {
+  loadOpqlHistory,
+  persistOpqlHistory,
+  recordOpqlSelection,
+} from "@/lib/opqlHistory";
+import { formatSuggestionValue } from "@/lib/opqlSuggestions";
 import {
   CircleHelp,
   FileText,
@@ -32,6 +43,7 @@ import {
   PlusCircle,
   Sun,
   User,
+  Sparkles,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -85,12 +97,81 @@ export const CommandPalette = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const lastPathnameRef = useRef(location.pathname);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [cursor, setCursor] = useState(0);
   const debouncedQuery = useDebouncedValue(query, 250);
+  const [history, setHistory] = useState<SuggestionHistoryEntry[]>(loadOpqlHistory);
   const savedSearchesQuery = useQuery({
     queryKey: ["saved-searches"],
     queryFn: listSavedSearches,
     enabled: open,
     staleTime: 1000 * 60 * 5,
+  });
+
+  useEffect(() => {
+    persistOpqlHistory(history);
+  }, [history]);
+
+  const updateHistory = useCallback(
+    (kind: SuggestionKind, id: string) => {
+      setHistory((prev) => recordOpqlSelection(prev, kind, id));
+    },
+    []
+  );
+
+  const syncCursor = useCallback(() => {
+    const element = inputRef.current;
+    if (!element) return;
+    if (document.activeElement !== element) return;
+    const next = element.selectionStart ?? query.length;
+    setCursor(next);
+  }, [query.length]);
+
+  useEffect(() => {
+    if (!open) {
+      setCursor(0);
+      return;
+    }
+    const handle = () => syncCursor();
+    document.addEventListener("selectionchange", handle);
+    return () => document.removeEventListener("selectionchange", handle);
+  }, [open, syncCursor]);
+
+  useEffect(() => {
+    if (!open) return;
+    syncCursor();
+  }, [open, query, syncCursor]);
+
+  const historySignature = useMemo(
+    () =>
+      history
+        .map((entry) => `${entry.kind}:${entry.id}:${entry.frequency}:${entry.lastUsed}`)
+        .join("|"),
+    [history]
+  );
+
+  const opqlSuggestions = useQuery({
+    queryKey: [
+      "opql-suggest",
+      debouncedQuery,
+      cursor,
+      scope.projectId ?? null,
+      scope.types?.join(",") ?? null,
+      historySignature,
+    ],
+    queryFn: () =>
+      opqlSuggest({
+        text: query,
+        cursor,
+        grammarState: "root",
+        context: {
+          projectId: scope.projectId,
+          types: scope.types,
+        },
+        history,
+      }),
+    enabled: open && tab === "search",
+    staleTime: 1000 * 15,
   });
 
   const navigateAndClose = useCallback(
@@ -115,6 +196,65 @@ export const CommandPalette = () => {
     closePalette();
     navigate(`/search?${params.toString()}`);
   }, [closePalette, navigate, query, scope.projectId, scope.types]);
+
+  const applyReplacement = useCallback(
+    (replacement: string, range?: { start: number; end: number }) => {
+      const tokenRange = range ?? opqlSuggestions.data?.token ?? {
+        start: query.length,
+        end: query.length,
+      };
+      const safeRange = {
+        start: Math.max(0, Math.min(tokenRange.start, query.length)),
+        end: Math.max(0, Math.min(tokenRange.end, query.length)),
+      };
+      const before = query.slice(0, safeRange.start);
+      const after = query.slice(safeRange.end).replace(/^\s+/u, "");
+      const nextValue = `${before}${replacement}${after}`;
+      const nextCursor = safeRange.start + replacement.length;
+      setQuery(nextValue);
+      setCursor(nextCursor);
+      requestAnimationFrame(() => {
+        const element = inputRef.current;
+        if (!element) return;
+        element.focus();
+        element.setSelectionRange(nextCursor, nextCursor);
+      });
+    },
+    [opqlSuggestions.data?.token, query, setQuery]
+  );
+
+  const applyCompletion = useCallback(() => {
+    const completion = opqlSuggestions.data?.completion;
+    if (!completion) {
+      const first = opqlSuggestions.data?.items?.[0];
+      if (first) {
+        const insertion = `${formatSuggestionValue(first)} `;
+        applyReplacement(insertion);
+        updateHistory(first.kind, first.id);
+      }
+      return;
+    }
+    applyReplacement(completion.insertText, completion.range);
+    updateHistory(completion.kind, completion.id);
+  }, [applyReplacement, opqlSuggestions.data, updateHistory]);
+
+  const handleSuggestionItem = useCallback(
+    (item: OpqlSuggestionItem) => {
+      const insertion = `${formatSuggestionValue(item)} `;
+      applyReplacement(insertion);
+      updateHistory(item.kind, item.id);
+    },
+    [applyReplacement, updateHistory]
+  );
+
+  const handleCorrection = useCallback(
+    (text: string) => {
+      const insertion = `${text} `;
+      applyReplacement(insertion);
+      updateHistory("correction", text);
+    },
+    [applyReplacement, updateHistory]
+  );
 
   const quickActions: QuickAction[] = useMemo(
     () => [
@@ -227,8 +367,24 @@ export const CommandPalette = () => {
     return groups;
   }, [suggestions.data]);
 
+  const ghostSuffix = opqlSuggestions.data?.completion?.ghostSuffix ?? "";
+  const showGhostText =
+    tab === "search" && open && ghostSuffix.trim().length > 0;
+  const typedUntilCursor = query.slice(0, cursor);
+
   const handleInputKeyDown = useCallback(
     (event: React.KeyboardEvent<HTMLInputElement>) => {
+      if (tab === "search" && (event.key === "Tab" || event.key === "ArrowRight")) {
+        const completion = opqlSuggestions.data?.completion;
+        const hasGhost = Boolean(completion?.ghostSuffix && completion.ghostSuffix.trim().length);
+        const caretAtEnd = cursor >= (opqlSuggestions.data?.token?.end ?? cursor);
+        if (completion && (event.key === "Tab" || (event.key === "ArrowRight" && hasGhost && caretAtEnd))) {
+          event.preventDefault();
+          applyCompletion();
+          return;
+        }
+      }
+
       if (event.key === "Enter" && tab === "search" && query.trim()) {
         const activeItem = document.querySelector(
           "[cmdk-item][data-selected='true']"
@@ -239,7 +395,7 @@ export const CommandPalette = () => {
         }
       }
     },
-    [goToSearchPage, query, tab]
+    [applyCompletion, cursor, goToSearchPage, opqlSuggestions.data?.completion, opqlSuggestions.data?.token?.end, query, tab]
   );
 
   const renderSuggestion = (item: Suggestion) => {
@@ -278,13 +434,50 @@ export const CommandPalette = () => {
           </TabsList>
         </Tabs>
       </div>
-      <CommandInput
-        placeholder={tab === "search" ? "Search tasks, docs, people..." : "Filter actions"}
-        value={query}
-        onValueChange={setQuery}
-        onKeyDown={handleInputKeyDown}
-        aria-label={tab === "search" ? "Search" : "Filter actions"}
-      />
+      <div className="relative">
+        <CommandInput
+          ref={inputRef}
+          placeholder={
+            tab === "search" ? "Search tasks, docs, people..." : "Filter actions"
+          }
+          value={query}
+          onValueChange={(value) => {
+            setQuery(value);
+            setCursor(value.length);
+          }}
+          onKeyDown={handleInputKeyDown}
+          onClick={syncCursor}
+          onKeyUp={syncCursor}
+          onFocus={() => requestAnimationFrame(() => syncCursor())}
+          aria-label={tab === "search" ? "Search" : "Filter actions"}
+        />
+        {showGhostText ? (
+          <div className="pointer-events-none absolute inset-0 flex items-center px-3">
+            <span className="pl-6 text-sm text-muted-foreground/60 whitespace-pre">
+              <span className="opacity-0">{typedUntilCursor}</span>
+              {ghostSuffix}
+            </span>
+          </div>
+        ) : null}
+      </div>
+      {tab === "search" && (opqlSuggestions.data?.corrections.length ?? 0) > 0 ? (
+        <div className="flex flex-wrap items-center gap-2 border-b px-3 py-2 text-xs text-muted-foreground">
+          <span className="font-medium">Did you mean</span>
+          {opqlSuggestions.data?.corrections.map((correction) => (
+            <button
+              key={correction.id}
+              type="button"
+              onClick={() => handleCorrection(correction.text)}
+              className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground transition hover:bg-muted/80 focus:outline-none focus:ring-2 focus:ring-ring"
+            >
+              {correction.text}
+              <span className="text-[10px] font-normal text-muted-foreground/80">
+                {correction.reason}
+              </span>
+            </button>
+          ))}
+        </div>
+      ) : null}
       <CommandList>
         {tab === "search" ? (
           <>
@@ -302,6 +495,27 @@ export const CommandPalette = () => {
                 </span>
               </div>
             </CommandEmpty>
+            {opqlSuggestions.data?.items?.length ? (
+              <CommandGroup heading="Query suggestions">
+                {opqlSuggestions.data.items.map((item) => (
+                  <CommandItem
+                    key={`opql-${item.id}`}
+                    value={`${item.label} ${item.description ?? ""}`}
+                    onSelect={() => handleSuggestionItem(item)}
+                  >
+                    <Sparkles className="mr-2 h-4 w-4 text-amber-500" aria-hidden="true" />
+                    <div className="flex flex-col">
+                      <span className="text-sm font-medium">
+                        {formatSuggestionValue(item)}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {item.description ?? item.label}
+                      </span>
+                    </div>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            ) : null}
             {Array.from(groupedSuggestions.entries()).map(([type, items]) => (
               <CommandGroup key={type} heading={TYPE_LABELS[type]}>
                 {items.map((item) => renderSuggestion(item))}
