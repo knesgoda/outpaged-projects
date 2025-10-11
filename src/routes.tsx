@@ -51,6 +51,7 @@ import ApiExplorerPage from "@/pages/admin/ApiExplorerPage";
 import BillingPage from "@/pages/admin/BillingPage";
 import BoardGovernancePage from "@/pages/admin/BoardGovernancePage";
 import ViewSchemaPlayground from "@/pages/dev/ViewSchemaPlayground";
+import MobileBoardPreview from "@/pages/mobile/MobileBoardPreview";
 
 function InboxRoute({ tab }: { tab: InboxTab }) {
   return <InboxPage tab={tab} />;
@@ -121,6 +122,7 @@ export function AppRoutes() {
           ],
         },
         { path: "__dev__/view-schema", element: <ViewSchemaPlayground /> },
+        { path: "__mobile__/board-preview", element: <MobileBoardPreview /> },
         { path: "notifications", element: <NotificationsPage /> },
         { path: "profile", element: <ProfilePage /> },
         { path: "team", element: <TeamDirectoryPage /> },
