@@ -49,6 +49,7 @@ import DataPage from "@/pages/admin/DataPage";
 import WebhooksPage from "@/pages/admin/WebhooksPage";
 import ApiExplorerPage from "@/pages/admin/ApiExplorerPage";
 import BillingPage from "@/pages/admin/BillingPage";
+import BoardGovernancePage from "@/pages/admin/BoardGovernancePage";
 import ViewSchemaPlayground from "@/pages/dev/ViewSchemaPlayground";
 
 function InboxRoute({ tab }: { tab: InboxTab }) {
@@ -133,6 +134,7 @@ export function AppRoutes() {
             { path: "members", element: <MembersPage /> },
             { path: "permissions", element: <PermissionsPage /> },
             { path: "security", element: <SecurityPage /> },
+            { path: "boards", element: <BoardGovernancePage /> },
             { path: "audit", element: <AuditLogsPage /> },
             { path: "data", element: <DataPage /> },
             { path: "webhooks", element: <WebhooksPage /> },

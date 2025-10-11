@@ -169,6 +169,251 @@ export type Database = {
           },
         ]
       }
+      board_field_visibility: {
+        Row: {
+          board_id: string
+          created_at: string
+          field_key: string
+          hidden_for_roles: Database["public"]["Enums"]["board_role"][]
+          id: string
+          is_sensitive: boolean
+          updated_at: string
+        }
+        Insert: {
+          board_id: string
+          created_at?: string
+          field_key: string
+          hidden_for_roles?: Database["public"]["Enums"]["board_role"][]
+          id?: string
+          is_sensitive?: boolean
+          updated_at?: string
+        }
+        Update: {
+          board_id?: string
+          created_at?: string
+          field_key?: string
+          hidden_for_roles?: Database["public"]["Enums"]["board_role"][]
+          id?: string
+          is_sensitive?: boolean
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "board_field_visibility_board_id_fkey"
+            columns: ["board_id"]
+            isOneToOne: false
+            referencedRelation: "boards"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      board_item_privacy: {
+        Row: {
+          board_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          item_id: string
+          reason: string | null
+          updated_at: string
+          visibility: Database["public"]["Enums"]["board_role"]
+        }
+        Insert: {
+          board_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          item_id: string
+          reason?: string | null
+          updated_at?: string
+          visibility?: Database["public"]["Enums"]["board_role"]
+        }
+        Update: {
+          board_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          item_id?: string
+          reason?: string | null
+          updated_at?: string
+          visibility?: Database["public"]["Enums"]["board_role"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "board_item_privacy_board_id_fkey"
+            columns: ["board_id"]
+            isOneToOne: false
+            referencedRelation: "boards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "board_item_privacy_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      board_governance_settings: {
+        Row: {
+          allowed_field_types: string[]
+          created_at: string
+          default_template_ids: string[]
+          id: string
+          lifecycle_rules: Json
+          naming_rules: Json
+          taxonomy: Json
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          allowed_field_types?: string[]
+          created_at?: string
+          default_template_ids?: string[]
+          id?: string
+          lifecycle_rules?: Json
+          naming_rules?: Json
+          taxonomy?: Json
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          allowed_field_types?: string[]
+          created_at?: string
+          default_template_ids?: string[]
+          id?: string
+          lifecycle_rules?: Json
+          naming_rules?: Json
+          taxonomy?: Json
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "board_governance_settings_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: true
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      board_members: {
+        Row: {
+          board_id: string
+          created_at: string
+          id: string
+          invitation_message: string | null
+          invited_by: string | null
+          role: Database["public"]["Enums"]["board_role"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          board_id: string
+          created_at?: string
+          id?: string
+          invitation_message?: string | null
+          invited_by?: string | null
+          role?: Database["public"]["Enums"]["board_role"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          board_id?: string
+          created_at?: string
+          id?: string
+          invitation_message?: string | null
+          invited_by?: string | null
+          role?: Database["public"]["Enums"]["board_role"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "board_members_board_id_fkey"
+            columns: ["board_id"]
+            isOneToOne: false
+            referencedRelation: "boards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "board_members_invited_by_fkey"
+            columns: ["invited_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "board_members_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      board_share_links: {
+        Row: {
+          allowed_role: Database["public"]["Enums"]["board_role"]
+          board_id: string
+          created_at: string
+          created_by: string
+          expires_at: string | null
+          id: string
+          last_used_at: string | null
+          max_uses: number | null
+          password_hash: string | null
+          revoked_at: string | null
+          slug: string
+          usage_count: number
+        }
+        Insert: {
+          allowed_role?: Database["public"]["Enums"]["board_role"]
+          board_id: string
+          created_at?: string
+          created_by: string
+          expires_at?: string | null
+          id?: string
+          last_used_at?: string | null
+          max_uses?: number | null
+          password_hash?: string | null
+          revoked_at?: string | null
+          slug: string
+          usage_count?: number
+        }
+        Update: {
+          allowed_role?: Database["public"]["Enums"]["board_role"]
+          board_id?: string
+          created_at?: string
+          created_by?: string
+          expires_at?: string | null
+          id?: string
+          last_used_at?: string | null
+          max_uses?: number | null
+          password_hash?: string | null
+          revoked_at?: string | null
+          slug?: string
+          usage_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "board_share_links_board_id_fkey"
+            columns: ["board_id"]
+            isOneToOne: false
+            referencedRelation: "boards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "board_share_links_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       board_scopes: {
         Row: {
           board_id: string
@@ -3817,6 +4062,28 @@ export type Database = {
       }
     }
     Views: {
+      board_members_with_profiles: {
+        Row: {
+          avatar_url: string | null
+          board_id: string | null
+          created_at: string | null
+          department: string | null
+          full_name: string | null
+          role: Database["public"]["Enums"]["board_role"] | null
+          title: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "board_members_board_id_fkey"
+            columns: ["board_id"]
+            isOneToOne: false
+            referencedRelation: "boards"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       project_members_with_profiles: {
         Row: {
           avatar_url: string | null
@@ -4011,6 +4278,13 @@ export type Database = {
         | "time_logged"
       board_type: "container" | "query" | "hybrid"
       board_template_visibility: "public" | "workspace" | "private"
+      board_role:
+        | "owner"
+        | "manager"
+        | "editor"
+        | "commenter"
+        | "viewer"
+        | "guest"
       challenge_type:
         | "sprint"
         | "milestone"
