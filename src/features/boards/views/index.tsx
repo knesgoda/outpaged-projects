@@ -6,6 +6,7 @@ import {
   type BoardViewRecord,
 } from "./context";
 import { KanbanBoardView } from "./KanbanBoardView";
+import { MasterBoardView } from "./MasterBoardView";
 import { TableBoardView } from "./TableBoardView";
 import { TimelineBoardView } from "./TimelineBoardView";
 
@@ -15,6 +16,7 @@ export const boardViewRegistry: Record<BoardViewMode, BoardViewComponent> = {
   table: TableBoardView,
   kanban: KanbanBoardView,
   timeline: TimelineBoardView,
+  master: MasterBoardView,
 };
 
 export interface BoardViewCanvasProps {

@@ -58,12 +58,124 @@ interface EvaluationContext {
   currentUserId?: string | null;
 }
 
+const collectUniqueStrings = (values: unknown[]): string[] => {
+  const result = new Set<string>();
+  values.forEach((value) => {
+    if (typeof value === "string" && value.trim()) {
+      result.add(value);
+    }
+  });
+  return Array.from(result);
+};
+
+const collectProjectFields = (item: Record<string, any>): string[] => {
+  const candidates: unknown[] = [];
+  if (typeof item.project_id === "string") candidates.push(item.project_id);
+  if (typeof item.projectId === "string") candidates.push(item.projectId);
+  if (Array.isArray(item.projectIds)) candidates.push(...item.projectIds);
+
+  if (item.project && typeof item.project === "object") {
+    const project = item.project as Record<string, unknown>;
+    candidates.push(project.id, project.key, project.code, project.name);
+  }
+
+  return collectUniqueStrings(candidates);
+};
+
+const collectComponentFields = (item: Record<string, any>): string[] => {
+  const candidates: unknown[] = [];
+  if (Array.isArray(item.componentIds)) candidates.push(...item.componentIds);
+  if (Array.isArray(item.components)) candidates.push(...item.components);
+  if (Array.isArray(item.component_names)) candidates.push(...item.component_names);
+  if (typeof item.component === "string") candidates.push(item.component);
+  if (typeof item.components_text === "string") candidates.push(...item.components_text.split(/[,\s]+/));
+  return collectUniqueStrings(candidates);
+};
+
+const collectVersionFields = (item: Record<string, any>): string[] => {
+  const candidates: unknown[] = [];
+  if (Array.isArray(item.versionIds)) candidates.push(...item.versionIds);
+  if (Array.isArray(item.fixVersions)) candidates.push(...item.fixVersions);
+  if (Array.isArray(item.versions)) candidates.push(...item.versions);
+  if (typeof item.version === "string") candidates.push(item.version);
+  return collectUniqueStrings(candidates);
+};
+
+const collectRelationFields = (
+  item: Record<string, any>,
+  meta: BoardFilterCondition["meta"]
+): string[] => {
+  const relationType = typeof meta?.relationType === "string" ? meta.relationType.toLowerCase() : null;
+  const direction = typeof meta?.direction === "string" ? meta.direction.toLowerCase() : null;
+  const values: unknown[] = [];
+
+  const pushRelation = (entry: any) => {
+    if (!entry) return;
+    values.push(entry.id, entry.recordId, entry.relatedTaskId, entry.relatedTaskTitle, entry.recordTitle);
+    if (typeof entry === "string") values.push(entry);
+  };
+
+  if (!relationType || relationType === "parent") {
+    pushRelation({ id: item.parent_id ?? item.parentId });
+    if (item.parent && typeof item.parent === "object") {
+      pushRelation({
+        id: (item.parent as Record<string, unknown>).id,
+        relatedTaskTitle: (item.parent as Record<string, unknown>).title,
+      });
+    }
+  }
+
+  if (!relationType || relationType === "child") {
+    const children = Array.isArray(item.subitems) ? item.subitems : Array.isArray(item.children) ? item.children : [];
+    children.forEach((child: any) => pushRelation(child));
+  }
+
+  const relations = Array.isArray(item.relations) ? item.relations : [];
+  relations.forEach((relation: any) => {
+    if (relationType && typeof relation.type === "string" && relation.type.toLowerCase() !== relationType) {
+      return;
+    }
+    if (direction && typeof relation.direction === "string" && relation.direction.toLowerCase() !== direction) {
+      return;
+    }
+    pushRelation(relation);
+  });
+
+  const connections = Array.isArray(item.connections) ? item.connections : [];
+  connections.forEach((connection: any) => {
+    if (relationType && typeof connection.relationshipName === "string" && connection.relationshipName.toLowerCase() !== relationType) {
+      return;
+    }
+    pushRelation(connection);
+  });
+
+  return collectUniqueStrings(values);
+};
+
+const resolveFilterValue = (
+  condition: BoardFilterCondition,
+  item: Record<string, any>
+): unknown => {
+  switch (condition.field) {
+    case "project":
+      return collectProjectFields(item);
+    case "component":
+      return collectComponentFields(item);
+    case "version":
+      return collectVersionFields(item);
+    case "relation":
+      return collectRelationFields(item, condition.meta);
+    default:
+      return item[condition.field];
+  }
+};
+
 function evaluateCondition(
   condition: BoardFilterCondition,
   item: Record<string, any>,
   context: EvaluationContext
 ): boolean {
-  const value = item[condition.field];
+  const value = resolveFilterValue(condition, item);
   const normalizedValue = Array.isArray(value)
     ? value.map(normalizeString)
     : normalizeString(value);

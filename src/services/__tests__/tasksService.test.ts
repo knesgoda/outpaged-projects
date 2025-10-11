@@ -48,6 +48,7 @@ describe("tasksService serialization", () => {
     expect(task.actual_hours).toEqual(12);
     expect(task.externalLinks).toEqual(["https://example.com/spec"]);
     expect(task.project?.code).toEqual("GROW");
+    expect(task.connections).toEqual([]);
   });
 });
 

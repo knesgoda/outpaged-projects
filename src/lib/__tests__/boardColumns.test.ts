@@ -9,6 +9,7 @@ import {
   DEFAULT_MIRROR_METADATA,
   DEFAULT_ROLLUP_METADATA,
 } from "@/types/boardColumns";
+import type { TaskConnectionSummary } from "@/types/tasks";
 
 describe("columnCalculations", () => {
   describe("evaluateFormula", () => {
@@ -74,6 +75,44 @@ describe("columnCalculations", () => {
 
       expect(result).toEqual({ count: 2, value: null });
     });
+
+    it("pulls rollup data from linked board connections", () => {
+      const metadata = {
+        ...DEFAULT_ROLLUP_METADATA,
+        sourceCollection: "child-board",
+        targetField: "progress",
+        aggregation: "avg" as const,
+      };
+
+      const connection: TaskConnectionSummary = {
+        id: "rel-1",
+        boardId: "child-board",
+        recordId: "task-1",
+        boardName: "Child Board",
+        recordTitle: "Linked work",
+        status: "in_progress",
+        relationshipName: "Linked work",
+        sourceColumnId: "connect-1",
+        fields: null,
+        mirrorFields: null,
+        rollup: {
+          targetField: "progress",
+          aggregation: "avg",
+          records: [
+            { progress: 0.5 },
+            { progress: 1 },
+            { progress: 0 },
+          ],
+        },
+      };
+
+      const result = calculateRollup([connection], metadata);
+
+      expect(result).toBeDefined();
+      expect(result?.count).toBe(3);
+      expect(result?.value).toBeCloseTo(0.5, 5);
+      expect(typeof result?.progress === "number").toBe(true);
+    });
   });
 
   describe("hydrateMirrorData", () => {
@@ -100,6 +139,40 @@ describe("columnCalculations", () => {
 
     it("returns an empty object when the source record is missing", () => {
       expect(hydrateMirrorData(null, DEFAULT_MIRROR_METADATA)).toEqual({});
+    });
+
+    it("hydrates from connection summaries when provided", () => {
+      const metadata = {
+        ...DEFAULT_MIRROR_METADATA,
+        sourceBoardId: "design-board",
+        sourceColumnId: "mirror-1",
+        displayFields: ["status", "owner"],
+      };
+
+      const connections: TaskConnectionSummary[] = [
+        {
+          id: "conn-1",
+          boardId: "design-board",
+          recordId: "design-123",
+          recordTitle: "Design polish",
+          status: "review",
+          relationshipName: "Design",
+          sourceColumnId: "mirror-1",
+          fields: {
+            status: "review",
+            owner: "samira",
+          },
+          mirrorFields: null,
+          rollup: null,
+        },
+      ];
+
+      const result = hydrateMirrorData(connections, metadata);
+
+      expect(result).toEqual({
+        status: "review",
+        owner: "samira",
+      });
     });
   });
 

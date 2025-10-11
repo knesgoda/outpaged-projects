@@ -2,6 +2,8 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import type {
   TaskAssignee,
+  TaskConnectionRollupSummary,
+  TaskConnectionSummary,
   TaskDependencyType,
   TaskFileReference,
   TaskLinkReference,
@@ -34,6 +36,25 @@ type TaskLinkRow = Database["public"]["Tables"]["task_links"]["Row"];
 type TaskSubitemRow = Database["public"]["Tables"]["task_subitems"]["Row"];
 type TaskDependencyRow = Database["public"]["Tables"]["task_dependencies"]["Row"];
 type TaskRelationshipRow = Database["public"]["Tables"]["task_relationships"]["Row"];
+
+type JsonValue = Record<string, unknown> | null | undefined;
+
+interface TaskConnectionRow {
+  id: string;
+  task_id: string;
+  board_id: string;
+  board_name?: string | null;
+  linked_record_id: string;
+  linked_record_title?: string | null;
+  linked_record_status?: string | null;
+  relationship_name?: string | null;
+  source_column_id?: string | null;
+  linked_record_fields?: JsonValue;
+  mirror_fields?: JsonValue;
+  rollup_records?: unknown;
+  rollup_target_field?: string | null;
+  rollup_aggregation?: string | null;
+}
 
 type TaskAssigneeRow = Database["public"]["Views"]["task_assignees_with_profiles"]["Row"];
 
@@ -89,6 +110,7 @@ export function serializeTaskRow(row: TaskRowWithProject): TaskWithDetails {
     files: [],
     links: [],
     relations: [],
+    connections: [],
     subitems: [],
     rollup: undefined,
     commentCount: 0,
@@ -298,6 +320,78 @@ function mapRelations(
   return map;
 }
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+const toRecordArray = (value: unknown): Record<string, unknown>[] => {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.filter(isRecord);
+};
+
+const normalizeRollupSummary = (
+  row: TaskConnectionRow
+): TaskConnectionRollupSummary | null => {
+  const records = toRecordArray(row.rollup_records);
+  if (!records.length) {
+    return null;
+  }
+
+  const aggregation = row.rollup_aggregation;
+  const targetField = row.rollup_target_field;
+
+  const supported: TaskConnectionRollupSummary["aggregation"][] = [
+    "sum",
+    "avg",
+    "min",
+    "max",
+    "count",
+  ];
+
+  const resolvedAggregation = supported.includes((aggregation as any) ?? "")
+    ? (aggregation as TaskConnectionRollupSummary["aggregation"])
+    : "sum";
+
+  const resolvedTarget = typeof targetField === "string" && targetField.trim().length > 0
+    ? targetField
+    : "value";
+
+  return {
+    targetField: resolvedTarget,
+    aggregation: resolvedAggregation,
+    records,
+  };
+};
+
+function mapConnections(rows: TaskConnectionRow[]): Map<string, TaskConnectionSummary[]> {
+  const map = new Map<string, TaskConnectionSummary[]>();
+
+  for (const row of rows) {
+    const summary: TaskConnectionSummary = {
+      id: row.id,
+      boardId: row.board_id,
+      boardName: row.board_name ?? null,
+      recordId: row.linked_record_id,
+      recordTitle: row.linked_record_title ?? null,
+      status: row.linked_record_status ?? null,
+      relationshipName: row.relationship_name ?? null,
+      sourceColumnId: row.source_column_id ?? null,
+      fields: isRecord(row.linked_record_fields) ? row.linked_record_fields : null,
+      mirrorFields: isRecord(row.mirror_fields) ? row.mirror_fields : null,
+      rollup: normalizeRollupSummary(row),
+    };
+
+    if (!map.has(row.task_id)) {
+      map.set(row.task_id, [summary]);
+    } else {
+      map.get(row.task_id)!.push(summary);
+    }
+  }
+
+  return map;
+}
+
 function mapSubitems(
   rows: TaskSubitemRow[],
   taskLookup: Map<string, TaskWithDetails>,
@@ -358,6 +452,7 @@ export async function tasksWithDetails(projectId: string): Promise<TaskWithDetai
     dependencyTargetRes,
     relationshipSourceRes,
     relationshipTargetRes,
+    connectionsRes,
     commentsRes,
   ] = await Promise.all([
     supabase.from("task_assignees_with_profiles").select("task_id, user_id, full_name, avatar_url").in("task_id", taskIds),
@@ -369,6 +464,9 @@ export async function tasksWithDetails(projectId: string): Promise<TaskWithDetai
     supabase.from("task_dependencies").select("*").in("target_task_id", taskIds),
     supabase.from("task_relationships").select("*").in("source_task_id", taskIds),
     supabase.from("task_relationships").select("*").in("target_task_id", taskIds),
+    (supabase.from("task_board_connections") as any)
+      .select("*")
+      .in("task_id", taskIds),
     supabase.from("comments").select("id, task_id").in("task_id", taskIds),
   ]);
 
@@ -381,6 +479,7 @@ export async function tasksWithDetails(projectId: string): Promise<TaskWithDetai
   if (dependencyTargetRes.error) throw mapSupabaseError(dependencyTargetRes.error, "Unable to load task dependencies");
   if (relationshipSourceRes.error) throw mapSupabaseError(relationshipSourceRes.error, "Unable to load task relationships");
   if (relationshipTargetRes.error) throw mapSupabaseError(relationshipTargetRes.error, "Unable to load task relationships");
+  if (connectionsRes.error) throw mapSupabaseError(connectionsRes.error, "Unable to load task connections");
   if (commentsRes.error) throw mapSupabaseError(commentsRes.error, "Unable to load task comments");
 
   const assigneeMap = mapAssignees((assigneesRes.data ?? []) as TaskAssigneeRow[]);
@@ -408,6 +507,7 @@ export async function tasksWithDetails(projectId: string): Promise<TaskWithDetai
     Array.from(relationshipRowsMap.values()),
     taskMap,
   );
+  const connectionMap = mapConnections(((connectionsRes.data ?? []) as TaskConnectionRow[]));
   const commentCounts = mapCommentCounts((commentsRes.data ?? []) as CommentRow[]);
 
   for (const task of taskMap.values()) {
@@ -431,6 +531,9 @@ export async function tasksWithDetails(projectId: string): Promise<TaskWithDetai
 
     const relations = relationMap.get(task.id) ?? [];
     task.relations = relations;
+
+    const connections = connectionMap.get(task.id) ?? [];
+    task.connections = connections;
 
     task.commentCount = commentCounts.get(task.id) ?? 0;
   }

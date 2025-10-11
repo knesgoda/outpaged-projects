@@ -71,6 +71,26 @@ export interface TaskRelationSummary {
   relatedTaskStatus?: TaskStatus | null;
 }
 
+export interface TaskConnectionRollupSummary {
+  targetField: string;
+  aggregation: "sum" | "avg" | "min" | "max" | "count";
+  records: Record<string, unknown>[];
+}
+
+export interface TaskConnectionSummary {
+  id: string;
+  boardId: string;
+  boardName?: string | null;
+  recordId: string;
+  recordTitle?: string | null;
+  status?: string | null;
+  relationshipName?: string | null;
+  sourceColumnId?: string | null;
+  fields?: Record<string, unknown> | null;
+  mirrorFields?: Record<string, unknown> | null;
+  rollup?: TaskConnectionRollupSummary | null;
+}
+
 export interface TaskSubitemSummary {
   id: string;
   title: string;
@@ -127,6 +147,7 @@ export interface TaskWithDetails extends TaskCoreFields {
   files: TaskFileReference[];
   links: TaskLinkReference[];
   relations: TaskRelationSummary[];
+  connections: TaskConnectionSummary[];
   subitems: TaskSubitemSummary[];
   rollup?: TaskRollup;
   commentCount: number;

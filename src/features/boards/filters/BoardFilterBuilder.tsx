@@ -33,6 +33,10 @@ const FIELD_OPTIONS: Array<{ value: BoardFilterField; label: string }> = [
   { value: "dueDate", label: "Due Date" },
   { value: "tag", label: "Tag" },
   { value: "label", label: "Label" },
+  { value: "project", label: "Project" },
+  { value: "component", label: "Component" },
+  { value: "version", label: "Version" },
+  { value: "relation", label: "Relation" },
 ];
 
 const OPERATOR_OPTIONS: Array<{ value: BoardFilterOperator; label: string }> = [
