@@ -1,15 +1,23 @@
 import { Card, CardContent } from "@/components/ui/card";
+import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/hooks/use-toast";
 import {
   Calendar,
   MessageSquare,
   Paperclip,
   Clock,
   Edit,
-  Plus
+  Plus,
+  UserPlus,
+  ListPlus,
+  Timer,
+  Clock3,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -17,6 +25,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type {
   TaskFileReference,
   TaskLinkReference,
@@ -80,7 +95,7 @@ export interface StandardizedTask {
 
 
 
-interface StandardizedTaskCardProps {
+export interface StandardizedTaskCardProps {
   task: StandardizedTask;
   onEdit?: (task: StandardizedTask) => void;
   onDelete?: (taskId: string) => void;
@@ -90,6 +105,14 @@ interface StandardizedTaskCardProps {
   onClick?: (task: StandardizedTask) => void;
   showProject?: boolean;
   interactive?: boolean; // For kanban drag functionality
+  enableInlineEditing?: boolean;
+  onInlineUpdate?: (
+    field: "title" | "status" | "due_date" | "description" | "assignees",
+    value: unknown,
+    task: StandardizedTask
+  ) => Promise<void> | void;
+  onLogTime?: (task: StandardizedTask) => void;
+  onStartTimer?: (task: StandardizedTask) => void;
 }
 
 const priorityColors = {
@@ -135,8 +158,13 @@ export function StandardizedTaskCard({
   compact = false,
   onClick,
   showProject = true,
-  interactive = false
+  interactive = false,
+  enableInlineEditing = false,
+  onInlineUpdate,
+  onLogTime,
+  onStartTimer,
 }: StandardizedTaskCardProps) {
+  const { toast } = useToast();
   const dueDateDisplay = task.due_date
     ? new Date(task.due_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })
     : task.dueDate;
@@ -155,6 +183,93 @@ export function StandardizedTaskCard({
     .filter(Boolean);
   const rollup = task.rollup;
   const relations = task.relations ?? [];
+
+  const [inlineField, setInlineField] = useState<
+    | "title"
+    | "status"
+    | "due_date"
+    | "description"
+    | "assignees"
+    | null
+  >(null);
+  const [inlineDraft, setInlineDraft] = useState("");
+  const [inlineSaving, setInlineSaving] = useState(false);
+
+  const openInlineEditor = (
+    field: Exclude<Parameters<NonNullable<StandardizedTaskCardProps["onInlineUpdate"]>>[0], undefined>
+  ) => {
+    if (!enableInlineEditing) return;
+    setInlineField(field);
+    switch (field) {
+      case "title":
+        setInlineDraft(task.title ?? "");
+        break;
+      case "description":
+        setInlineDraft(task.description ? task.description.replace(/<[^>]*>/g, "") : "");
+        break;
+      case "status":
+        setInlineDraft(String(task.status ?? ""));
+        break;
+      case "due_date":
+        if (task.due_date) {
+          setInlineDraft(task.due_date.slice(0, 10));
+        } else if (task.dueDate) {
+          const parsed = new Date(task.dueDate);
+          setInlineDraft(Number.isNaN(parsed.valueOf()) ? "" : parsed.toISOString().slice(0, 10));
+        } else {
+          setInlineDraft("");
+        }
+        break;
+      case "assignees":
+        setInlineDraft((task.assignees ?? []).map((assignee) => assignee.id).join(", "));
+        break;
+      default:
+        setInlineDraft("");
+    }
+  };
+
+  const closeInlineEditor = () => {
+    setInlineField(null);
+    setInlineDraft("");
+    setInlineSaving(false);
+  };
+
+  const commitInlineUpdate = async (overrideDraft?: string) => {
+    if (!inlineField || !onInlineUpdate) {
+      closeInlineEditor();
+      return;
+    }
+
+    setInlineSaving(true);
+
+    const draftValue = overrideDraft ?? inlineDraft;
+
+    const normalizeValue = () => {
+      switch (inlineField) {
+        case "assignees":
+          return draftValue
+            .split(/[,\s]+/)
+            .map((entry) => entry.trim())
+            .filter(Boolean);
+        case "due_date":
+          return draftValue ? new Date(draftValue).toISOString() : null;
+        default:
+          return draftValue;
+      }
+    };
+
+    try {
+      await onInlineUpdate(inlineField, normalizeValue(), task);
+      closeInlineEditor();
+    } catch (error) {
+      setInlineSaving(false);
+      toast({
+        title: "Unable to update task",
+        description: error instanceof Error ? error.message : String(error),
+        variant: "destructive",
+      });
+    }
+  };
 
   const handleCardClick = () => {
     if (onClick) {
@@ -180,21 +295,80 @@ export function StandardizedTaskCard({
   };
 
   return (
-    <Card 
-      className={`hover:shadow-medium transition-all duration-200 cursor-pointer group ${
+    <Card
+      className={`hover:shadow-medium transition-all duration-200 cursor-pointer group relative ${
         compact ? 'p-3' : ''
       } ${interactive ? 'hover:scale-[1.02]' : ''}`}
       onClick={handleCardClick}
     >
       <CardContent className={compact ? "p-3" : "p-6"}>
-        <div className={`space-y-${compact ? '2' : '3'}`}>
+        {enableInlineEditing && (
+          <div className="absolute right-2 top-2 hidden items-center gap-1 group-hover:flex">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={(event) => {
+                event.stopPropagation();
+                openInlineEditor("assignees");
+              }}
+              aria-label="Assign task"
+            >
+              <UserPlus className="h-4 w-4" />
+            </Button>
+            {onCreateSubTask && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onCreateSubTask(task);
+                }}
+                aria-label="Add subitem"
+              >
+                <ListPlus className="h-4 w-4" />
+              </Button>
+            )}
+            {onLogTime && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onLogTime(task);
+                }}
+                aria-label="Log time"
+              >
+                <Clock3 className="h-4 w-4" />
+              </Button>
+            )}
+            {onStartTimer && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onStartTimer(task);
+                }}
+                aria-label="Start timer"
+              >
+                <Timer className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+        )}
+
+        <div className={compact ? "space-y-2" : "space-y-3"}>
           {/* Header */}
           <div className="flex items-start justify-between">
             <div className="space-y-1 flex-1 min-w-0">
               {/* Task ID */}
               <div className="flex items-center gap-2">
                 <p className="text-xs text-muted-foreground font-mono">
-                  {task.project?.code && task.ticket_number 
+                  {task.project?.code && task.ticket_number
                     ? `${task.project.code}-${task.ticket_number}`
                     : task.id?.slice(0, 8) || 'NEW'
                   }
@@ -204,18 +378,100 @@ export function StandardizedTaskCard({
                   {compact ? task.hierarchy_level.slice(0, 4) : task.hierarchy_level}
                 </Badge>
               </div>
-              
+
               {/* Title */}
-              <h3 className={`font-semibold text-foreground leading-tight line-clamp-2 ${compact ? 'text-sm' : ''}`}>
-                {task.title}
-              </h3>
-              
+              {enableInlineEditing && inlineField === "title" ? (
+                <div className="flex items-center gap-2">
+                  <Input
+                    autoFocus
+                    value={inlineDraft}
+                    onChange={(event) => setInlineDraft(event.target.value)}
+                    onClick={(event) => event.stopPropagation()}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        void commitInlineUpdate();
+                      }
+                      if (event.key === "Escape") {
+                        event.preventDefault();
+                        closeInlineEditor();
+                      }
+                    }}
+                    onBlur={() => void commitInlineUpdate()}
+                    aria-label="Edit title"
+                  />
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    disabled={inlineSaving}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      void commitInlineUpdate();
+                    }}
+                  >
+                    {inlineSaving ? "Saving…" : "Save"}
+                  </Button>
+                </div>
+              ) : (
+                <h3
+                  className={`font-semibold text-foreground leading-tight line-clamp-2 ${compact ? 'text-sm' : ''}`}
+                  onClick={(event) => {
+                    if (!enableInlineEditing) return;
+                    event.stopPropagation();
+                    openInlineEditor("title");
+                  }}
+                >
+                  {task.title}
+                </h3>
+              )}
+
               {/* Description - only show in non-compact mode */}
-              {!compact && task.description && (
-                <p className="text-xs text-muted-foreground line-clamp-1">
+              {!compact && enableInlineEditing && inlineField === "description" ? (
+                <div className="flex flex-col gap-2">
+                  <Textarea
+                    autoFocus
+                    value={inlineDraft}
+                    rows={3}
+                    onChange={(event) => setInlineDraft(event.target.value)}
+                    onClick={(event) => event.stopPropagation()}
+                    aria-label="Edit description"
+                  />
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      disabled={inlineSaving}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        void commitInlineUpdate();
+                      }}
+                    >
+                      {inlineSaving ? "Saving…" : "Save"}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        closeInlineEditor();
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              ) : !compact && task.description ? (
+                <p
+                  className="text-xs text-muted-foreground line-clamp-1"
+                  onClick={(event) => {
+                    if (!enableInlineEditing) return;
+                    event.stopPropagation();
+                    openInlineEditor("description");
+                  }}
+                >
                   {task.description.replace(/<[^>]*>/g, '').slice(0, 60)}...
                 </p>
-              )}
+              ) : null}
 
               {tagBadges.length > 0 && (
                 <div className="flex flex-wrap gap-1 pt-1">
@@ -258,6 +514,39 @@ export function StandardizedTaskCard({
                       Edit Task
                     </DropdownMenuItem>
                   )}
+                  {enableInlineEditing && (
+                    <DropdownMenuItem
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        openInlineEditor("assignees");
+                      }}
+                    >
+                      <UserPlus className="w-4 h-4 mr-2" />
+                      Assign
+                    </DropdownMenuItem>
+                  )}
+                  {onLogTime && (
+                    <DropdownMenuItem
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onLogTime(task);
+                      }}
+                    >
+                      <Clock3 className="w-4 h-4 mr-2" />
+                      Log Time
+                    </DropdownMenuItem>
+                  )}
+                  {onStartTimer && (
+                    <DropdownMenuItem
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onStartTimer(task);
+                      }}
+                    >
+                      <Timer className="w-4 h-4 mr-2" />
+                      Start Timer
+                    </DropdownMenuItem>
+                  )}
                   {onCreateSubTask && (task.hierarchy_level === 'epic' || task.hierarchy_level === 'initiative' || task.hierarchy_level === 'story') && (
                     <DropdownMenuItem onClick={handleCreateSubTaskClick}>
                       <Plus className="w-4 h-4 mr-2" />
@@ -265,7 +554,7 @@ export function StandardizedTaskCard({
                     </DropdownMenuItem>
                   )}
                   {onDelete && (
-                    <DropdownMenuItem 
+                    <DropdownMenuItem
                       className="text-destructive"
                       onClick={handleDeleteClick}
                     >
@@ -282,9 +571,41 @@ export function StandardizedTaskCard({
             <Badge className={priorityColors[task.priority]} variant="secondary">
               {compact ? task.priority.charAt(0).toUpperCase() : task.priority}
             </Badge>
-            <Badge className={statusColors[task.status as keyof typeof statusColors] || statusColors.todo} variant="secondary">
-              {compact ? task.status.replace('_', '').charAt(0).toUpperCase() : task.status.replace('_', ' ')}
-            </Badge>
+            {enableInlineEditing && inlineField === "status" ? (
+              <Select
+                value={inlineDraft}
+                onValueChange={(value) => {
+                  setInlineDraft(value);
+                  void commitInlineUpdate(value);
+                }}
+              >
+                <SelectTrigger
+                  className="h-7 w-32 text-xs"
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.keys(statusColors).map((status) => (
+                    <SelectItem key={status} value={status}>
+                      {status.replace('_', ' ')}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <Badge
+                className={statusColors[task.status as keyof typeof statusColors] || statusColors.todo}
+                variant="secondary"
+                onClick={(event) => {
+                  if (!enableInlineEditing) return;
+                  event.stopPropagation();
+                  openInlineEditor("status");
+                }}
+              >
+                {compact ? task.status.replace('_', '').charAt(0).toUpperCase() : task.status.replace('_', ' ')}
+              </Badge>
+            )}
             {task.story_points && (
               <Badge variant="outline" className="text-xs bg-primary/10 text-primary">
                 {task.story_points} SP
@@ -363,10 +684,28 @@ export function StandardizedTaskCard({
           <div className={`flex items-center justify-between text-xs text-muted-foreground ${compact ? 'text-xs' : ''}`}>
             <div className="flex items-center gap-2 min-w-0 flex-1">
               {/* Assignees */}
-              {task.assignees && task.assignees.length > 0 && (
-                <div className="flex items-center gap-1">
+              {enableInlineEditing && inlineField === "assignees" ? (
+                <Input
+                  autoFocus
+                  className="h-7"
+                  value={inlineDraft}
+                  onChange={(event) => setInlineDraft(event.target.value)}
+                  onClick={(event) => event.stopPropagation()}
+                  onBlur={() => void commitInlineUpdate()}
+                  placeholder="user-id-1, user-id-2"
+                  aria-label="Edit assignees"
+                />
+              ) : task.assignees && task.assignees.length > 0 ? (
+                <div
+                  className="flex items-center gap-1"
+                  onClick={(event) => {
+                    if (!enableInlineEditing) return;
+                    event.stopPropagation();
+                    openInlineEditor("assignees");
+                  }}
+                >
                   <div className="flex -space-x-1">
-                    {task.assignees.slice(0, compact ? 1 : 2).map((assignee, index) => (
+                    {task.assignees.slice(0, compact ? 1 : 2).map((assignee) => (
                       <Avatar key={assignee.id} className={`${compact ? 'w-4 h-4' : 'w-5 h-5'} border border-background`}>
                         <AvatarImage src={assignee.avatar} />
                         <AvatarFallback className="text-xs">
@@ -381,17 +720,33 @@ export function StandardizedTaskCard({
                     )}
                   </div>
                 </div>
-              )}
+              ) : null}
 
               {/* Due Date */}
-              {dueDateDisplay && (
-                <div className="flex items-center gap-1">
+              {enableInlineEditing && inlineField === "due_date" ? (
+                <Input
+                  type="date"
+                  autoFocus
+                  value={inlineDraft}
+                  className="h-7 w-32"
+                  onChange={(event) => setInlineDraft(event.target.value)}
+                  onClick={(event) => event.stopPropagation()}
+                  onBlur={() => void commitInlineUpdate()}
+                  aria-label="Edit due date"
+                />
+              ) : dueDateDisplay ? (
+                <div
+                  className="flex items-center gap-1"
+                  onClick={(event) => {
+                    if (!enableInlineEditing) return;
+                    event.stopPropagation();
+                    openInlineEditor("due_date");
+                  }}
+                >
                   <Calendar className="w-3 h-3" />
-                  <span className="truncate">
-                    {dueDateDisplay}
-                  </span>
+                  <span className="truncate">{dueDateDisplay}</span>
                 </div>
-              )}
+              ) : null}
             </div>
 
             {/* Right side meta */}

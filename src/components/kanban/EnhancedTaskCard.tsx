@@ -126,7 +126,7 @@ export function EnhancedTaskCard({
         isOverdue ? "border-destructive border-r-4" : isDueSoon ? "border-warning border-r-4" : ""
       }`}
     >
-      <CardContent className={`${compact ? 'p-3' : 'p-4'} space-y-${compact ? '2' : '3'}`}>
+      <CardContent className={compact ? "p-3 space-y-2" : "p-4 space-y-3"}>
         {/* Header with hierarchy level, task type and priority */}
         <div className="flex items-start justify-between">
           <div className="flex flex-wrap gap-1">
