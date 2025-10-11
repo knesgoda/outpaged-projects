@@ -1,7 +1,16 @@
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { cn } from "@/lib/utils";
 
-export type CalendarView = "month" | "week" | "day";
+export type CalendarView =
+  | "day"
+  | "work-week"
+  | "week"
+  | "month"
+  | "quarter"
+  | "year"
+  | "timeline"
+  | "agenda"
+  | "gantt";
 
 interface ViewSwitchProps {
   value: CalendarView;
@@ -10,9 +19,15 @@ interface ViewSwitchProps {
 }
 
 const OPTIONS: Array<{ value: CalendarView; label: string }> = [
-  { value: "month", label: "Month" },
-  { value: "week", label: "Week" },
   { value: "day", label: "Day" },
+  { value: "work-week", label: "Work Week" },
+  { value: "week", label: "Week" },
+  { value: "month", label: "Month" },
+  { value: "quarter", label: "Quarter" },
+  { value: "year", label: "Year" },
+  { value: "timeline", label: "Timeline" },
+  { value: "agenda", label: "Agenda" },
+  { value: "gantt", label: "Gantt" },
 ];
 
 export function ViewSwitch({ value, onChange, className }: ViewSwitchProps) {
