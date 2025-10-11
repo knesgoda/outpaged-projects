@@ -38,6 +38,50 @@
     outline-offset: 3px;
   }
 
+  .skip-link {
+    position: absolute;
+    left: 1rem;
+    top: 1rem;
+    transform: translateY(-150%);
+    background: hsl(var(--primary));
+    color: hsl(var(--primary-foreground));
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.5rem;
+    font-weight: 600;
+    box-shadow: 0 0 0 0 hsl(var(--ring));
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    z-index: 10;
+  }
+
+  .skip-link:focus-visible {
+    transform: translateY(0);
+    box-shadow: 0 0 0 2px hsl(var(--ring)), 0 0 0 4px hsl(var(--background));
+    outline: none;
+  }
+
+  .board-card {
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+  }
+
+  .board-card:focus-visible {
+    outline: none;
+  }
+
+  .high-contrast .skip-link {
+    background: CanvasText;
+    color: Canvas;
+  }
+
+  .high-contrast .board-card {
+    background: Canvas;
+    color: CanvasText;
+    border-color: CanvasText;
+  }
+
+  .high-contrast .board-card:focus-visible {
+    box-shadow: 0 0 0 2px CanvasText;
+  }
+
   [data-font-size="small"] {
     font-size: 0.875rem;
   }
@@ -72,6 +116,26 @@
 
   .card-hover {
     box-shadow: var(--shadow-medium);
+  }
+
+  @media (forced-colors: active) {
+    .skip-link {
+      forced-color-adjust: none;
+      background: CanvasText;
+      color: Canvas;
+    }
+
+    .board-card {
+      forced-color-adjust: none;
+      border: 1px solid CanvasText;
+      background: Canvas;
+      color: CanvasText;
+    }
+
+    .board-card:focus-visible {
+      outline: 2px solid Highlight;
+      outline-offset: 2px;
+    }
   }
 
   @media (prefers-reduced-motion: no-preference) {

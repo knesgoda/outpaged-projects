@@ -103,6 +103,21 @@ test('create and complete a task', async ({ page }) => {
 });
 ```
 
+### Accessibility Tests
+
+Accessibility-focused unit tests leverage Jest, React Testing Library, and [`jest-axe`](https://github.com/nickcolley/jest-axe) for WCAG coverage.
+
+**Location:** `src/components/**/__tests__/*accessibility.test.tsx`
+
+**Running Accessibility Tests:**
+```bash
+npm test
+```
+
+**What They Cover:**
+- Presence of skip links or other required keyboard affordances on interactive views.
+- Automated axe-core assertions that fail the suite if ARIA relationships, color contrast, or landmark structure regresses.
+
 ## Coverage Requirements
 
 - **Overall Coverage:** Minimum 80%
