@@ -5,6 +5,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { useOptionalAuth } from "@/hooks/useOptionalAuth";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { supabase } from "@/integrations/supabase/client";
+import { enqueueAutomationEvent } from "@/services/automations";
+import { queueAutomationForTaskMovement } from "@/pages/kanban/automationEvents";
 import { tasksWithDetails } from "@/services/tasksService";
 import {
   DndContext,
@@ -835,6 +837,26 @@ function LegacyKanbanBoard() {
           });
         });
 
+        if (currentProjectId) {
+          const context = {
+            fromColumnId: (activeData as any)?.column?.id ?? (activeData as any)?.columnId ?? null,
+            toColumnId: overColumn.id,
+            fromStatus: activeTask.status,
+            toStatus: newStatus,
+          };
+
+          try {
+            await queueAutomationForTaskMovement({
+              projectId: currentProjectId,
+              taskId: activeId,
+              userId: user?.id,
+              context,
+            });
+          } catch (automationError) {
+            console.warn("Failed to enqueue automation event", automationError);
+          }
+        }
+
         toast({
           title: "Success",
           description: "Task moved successfully",
@@ -962,6 +984,38 @@ function LegacyKanbanBoard() {
 
         if (error) throw error;
 
+        if (currentProjectId && taskDialog.task) {
+          const nextStatus = ((taskData as any).status ?? taskDialog.task.status) as string;
+          const context = {
+            fromStatus: taskDialog.task.status,
+            toStatus: nextStatus,
+            projectId: currentProjectId,
+          };
+          try {
+            await enqueueAutomationEvent({
+              projectId: currentProjectId,
+              type: "task.updated",
+              taskId: taskDialog.task.id,
+              actorId: user?.id ?? undefined,
+              context: {
+                ...context,
+                fields: Object.keys(taskData ?? {}),
+              },
+            });
+            if (nextStatus !== taskDialog.task.status) {
+              await enqueueAutomationEvent({
+                projectId: currentProjectId,
+                type: "task.status_changed",
+                taskId: taskDialog.task.id,
+                actorId: user?.id ?? undefined,
+                context,
+              });
+            }
+          } catch (automationError) {
+            console.warn("Failed to enqueue automation event", automationError);
+          }
+        }
+
         toast({
           title: "Success",
           description: "Task updated successfully",
@@ -1015,8 +1069,25 @@ function LegacyKanbanBoard() {
           }
         }
 
+        if (currentProjectId && newTask) {
+          try {
+            await enqueueAutomationEvent({
+              projectId: currentProjectId,
+              type: "task.created",
+              taskId: newTask.id,
+              actorId: user?.id ?? undefined,
+              context: {
+                status: newTask.status,
+                columnId: taskDialog.columnId ?? null,
+              },
+            });
+          } catch (automationError) {
+            console.warn("Failed to enqueue automation event", automationError);
+          }
+        }
+
         toast({
-          title: "Success", 
+          title: "Success",
           description: "Task created successfully",
         });
       }
