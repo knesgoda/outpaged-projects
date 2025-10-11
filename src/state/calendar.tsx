@@ -14,8 +14,10 @@ import type {
   CalendarConflictPreference,
   CalendarDelegation,
   CalendarDensity,
+  CalendarDocumentationEntry,
   CalendarFilterGroup,
   CalendarFollower,
+  CalendarGovernanceSettings,
   CalendarHoliday,
   CalendarInvitation,
   CalendarIntegration,
@@ -29,6 +31,7 @@ import type {
   CalendarSearchToken,
   CalendarShareSetting,
   CalendarWorkingHours,
+  CalendarDefaultSettings,
 } from "@/types/calendar";
 import {
   connectIntegration,
@@ -49,6 +52,11 @@ import {
   MOCK_SHARE_SETTINGS,
   MOCK_WORKING_HOURS,
 } from "@/data/calendarIntegrations";
+import {
+  CALENDAR_DEFAULT_SETTINGS,
+  CALENDAR_DOCUMENTATION,
+  CALENDAR_GOVERNANCE_SETTINGS,
+} from "@/data/calendarGovernance";
 
 export interface CalendarStateContextValue {
   calendars: CalendarLayer[];
@@ -113,6 +121,18 @@ export interface CalendarStateContextValue {
   acceptSchedulingSuggestion: (suggestionId: string) => void;
   refreshSchedulingSuggestions: () => void;
   delegations: CalendarDelegation[];
+  defaults: CalendarDefaultSettings;
+  updateDefaultSetting: <K extends keyof CalendarDefaultSettings>(
+    key: K,
+    value: CalendarDefaultSettings[K]
+  ) => void;
+  resetDefaults: () => void;
+  governance: CalendarGovernanceSettings;
+  updateGovernanceSetting: <K extends keyof CalendarGovernanceSettings>(
+    key: K,
+    value: CalendarGovernanceSettings[K]
+  ) => void;
+  documentation: CalendarDocumentationEntry[];
 }
 
 const CalendarStateContext = createContext<CalendarStateContextValue | undefined>(undefined);
@@ -195,6 +215,9 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
     MOCK_SCHEDULING_SUGGESTIONS
   );
   const [delegations] = useState<CalendarDelegation[]>(MOCK_CALENDAR_DELEGATIONS);
+  const [defaults, setDefaults] = useState<CalendarDefaultSettings>(CALENDAR_DEFAULT_SETTINGS);
+  const [governance, setGovernance] = useState<CalendarGovernanceSettings>(CALENDAR_GOVERNANCE_SETTINGS);
+  const [documentation] = useState<CalendarDocumentationEntry[]>(CALENDAR_DOCUMENTATION);
 
   const refreshCalendars = useCallback(async () => {
     setLoading(true);
@@ -470,6 +493,31 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
     setSchedulingSuggestions(MOCK_SCHEDULING_SUGGESTIONS.map((suggestion) => ({ ...suggestion })));
   }, []);
 
+  const updateDefaultSetting = useCallback(
+    <K extends keyof CalendarDefaultSettings>(key: K, value: CalendarDefaultSettings[K]) => {
+      setDefaults((current) => {
+        const next = { ...current, [key]: value };
+        persistCalendarPreferences({
+          density,
+          ...next,
+        }).catch(() => undefined);
+        return next;
+      });
+    },
+    [density]
+  );
+
+  const resetDefaults = useCallback(() => {
+    setDefaults(CALENDAR_DEFAULT_SETTINGS);
+  }, []);
+
+  const updateGovernanceSetting = useCallback(
+    <K extends keyof CalendarGovernanceSettings>(key: K, value: CalendarGovernanceSettings[K]) => {
+      setGovernance((current) => ({ ...current, [key]: value }));
+    },
+    []
+  );
+
   const visibleCalendars = useMemo(
     () => calendars.filter((calendar) => calendar.visible && calendar.subscribed),
     [calendars]
@@ -536,6 +584,12 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
       acceptSchedulingSuggestion,
       refreshSchedulingSuggestions,
       delegations,
+      defaults,
+      updateDefaultSetting,
+      resetDefaults,
+      governance,
+      updateGovernanceSetting,
+      documentation,
     }),
     [
       calendars,
@@ -593,6 +647,12 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
       acceptSchedulingSuggestion,
       refreshSchedulingSuggestions,
       delegations,
+      defaults,
+      updateDefaultSetting,
+      resetDefaults,
+      governance,
+      updateGovernanceSetting,
+      documentation,
     ]
   );
 

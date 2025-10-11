@@ -205,9 +205,23 @@ export interface CalendarEvent {
   privacyOverrides?: CalendarShareSetting[];
   workingHoursImpact?: "within" | "outside" | "holiday";
   automationRuleIds?: string[];
+  isDeadline?: boolean;
+  isReleaseWindow?: boolean;
+  isRecurringException?: boolean;
+  completed?: boolean;
 }
 
 export type CalendarColorEncoding = "calendar" | "status" | "type" | "priority" | "custom";
+
+export type CalendarVisualCategory =
+  | "priority"
+  | "tentative"
+  | "recurrence-exception"
+  | "multi-day"
+  | "milestone"
+  | "deadline"
+  | "release"
+  | "focus";
 
 export type CalendarFilterField =
   | "calendar"
@@ -360,4 +374,41 @@ export interface CalendarDelegation {
   delegateName: string;
   scope: "view" | "edit" | "manage";
   expiresAt?: string;
+}
+
+export interface CalendarDefaultSettings {
+  defaultView: string;
+  workingHoursStart: number;
+  workingHoursEnd: number;
+  snapMinutes: number;
+  defaultReminderMinutes: number;
+  defaultVisibility: CalendarEventVisibility;
+  defaultTimezone: string;
+  maxEventDurationHours: number;
+  colorEncoding: CalendarColorEncoding;
+}
+
+export interface CalendarGovernanceSettings {
+  activeHolidaySet: string;
+  holidaySets: { id: string; name: string; active: boolean }[];
+  integrationLimits: { provider: CalendarIntegrationProvider; maxConnections: number }[];
+  retentionPolicy: { retainEventsMonths: number; purgeAttachments: boolean };
+  dataResidency: string;
+  delegationPolicies: { id: string; name: string; enabled: boolean }[];
+  complianceExportsEnabled: boolean;
+  encryptionAtRest: boolean;
+}
+
+export interface CalendarDocumentationEntry {
+  id: string;
+  title: string;
+  description: string;
+  href: string;
+}
+
+export interface CalendarExportOptions {
+  includePrivate: boolean;
+  includeAttachments: boolean;
+  expandRecurrence: boolean;
+  format: "ics" | "csv" | "pdf";
 }

@@ -14,6 +14,7 @@ import {
   MOCK_EVENT_COMMENTS,
   MOCK_INVITATIONS,
 } from "@/data/calendarIntegrations";
+import { generateDerivedEvents } from "@/data/calendarDerived";
 
 type CalendarRange = {
   from: Date;
@@ -121,6 +122,7 @@ const MOCK_EVENTS: CalendarEvent[] = [
     automationRuleIds: ["automation-post-channel"],
     invitations: MOCK_INVITATIONS.filter((invite) => invite.eventId === "event-2"),
     workingHoursImpact: "within",
+    isDeadline: true,
   },
   {
     id: "event-3",
@@ -249,6 +251,8 @@ const MOCK_EVENTS: CalendarEvent[] = [
     hasReminders: true,
     automationRuleIds: ["automation-add-sprint"],
     workingHoursImpact: "within",
+    recurrenceExceptions: ["2024-07-19T15:00:00.000Z"],
+    isRecurringException: true,
   },
   {
     id: "event-8",
@@ -293,6 +297,8 @@ const MOCK_EVENTS: CalendarEvent[] = [
     hasReminders: true,
     automationRuleIds: ["automation-create-task"],
     workingHoursImpact: "outside",
+    isDeadline: true,
+    metadata: { conflicts: ["room-orion"] },
   },
 ];
 
@@ -330,7 +336,9 @@ export function useCalendarRange(range: CalendarRange) {
     queryKey: key,
     queryFn: async () => {
       await new Promise((resolve) => setTimeout(resolve, 90));
-      const filtered = MOCK_EVENTS.filter((event) => {
+      const derivedEvents = generateDerivedEvents({ from, to });
+      const combined = [...MOCK_EVENTS, ...derivedEvents];
+      const filtered = combined.filter((event) => {
         if (projectId && event.projectId !== projectId) {
           return false;
         }

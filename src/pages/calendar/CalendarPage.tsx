@@ -23,6 +23,7 @@ import {
   startOfQuarter,
   startOfWeek,
   startOfYear,
+  formatDistanceToNowStrict,
 } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
@@ -35,6 +36,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogCancel,
+} from "@/components/ui/alert-dialog";
 import {
   AlertCircle,
   CalendarDays,
@@ -51,6 +62,11 @@ import {
   Share2,
   Users,
   Trash2,
+  HelpCircle,
+  Undo2,
+  Redo2,
+  RefreshCw,
+  WifiOff,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DateRangeControls, type CalendarUnit, type DateRange } from "@/components/common/DateRangeControls";
@@ -69,6 +85,12 @@ import { IntegrationManager } from "@/components/calendar/IntegrationManager";
 import { AutomationRulesPanel } from "@/components/calendar/AutomationRulesPanel";
 import { SharingPermissionsPanel } from "@/components/calendar/SharingPermissionsPanel";
 import { SchedulingAssistantPanel } from "@/components/calendar/SchedulingAssistantPanel";
+import { CalendarLegend } from "@/components/calendar/CalendarLegend";
+import { AgendaPane } from "@/components/calendar/AgendaPane";
+import { CalendarAnalyticsPanel } from "@/components/calendar/CalendarAnalyticsPanel";
+import { CalendarExportPanel } from "@/components/calendar/CalendarExportPanel";
+import { CalendarMobileShell } from "@/components/calendar/CalendarMobileShell";
+import { CalendarAdminPanel } from "@/components/calendar/CalendarAdminPanel";
 import { CalendarProvider, useCalendarState } from "@/state/calendar";
 import type {
   CalendarColorEncoding,
@@ -79,6 +101,9 @@ import type {
   CalendarSavedFilter,
   CalendarSearchToken,
   CalendarComment,
+  CalendarVisualCategory,
+  CalendarExportOptions,
+  CalendarRSVPStatus,
 } from "@/types/calendar";
 import {
   MOCK_AVAILABILITY,
@@ -86,6 +111,7 @@ import {
   MOCK_CALENDAR_RESOURCES,
   MOCK_NOTIFICATIONS,
 } from "@/data/calendarAvailability";
+import { VISUAL_CATEGORIES, eventMatchesVisualCategory } from "@/components/calendar/visualEncoding";
 
 const WEEK_OPTIONS = { weekStartsOn: 1 as const };
 
@@ -96,6 +122,8 @@ const HOUR_HEIGHT_BY_DENSITY: Record<string, number> = {
 };
 
 const SNAP_OPTIONS = [5, 15, 30];
+
+const CALENDAR_CACHE_KEY = "calendar.cachedEvents";
 
 const WORKING_HOURS = { start: 9, end: 17 };
 
@@ -381,6 +409,14 @@ interface QuickAddResult {
   start: Date;
   end: Date;
   calendarId?: string;
+}
+
+function cloneEventsForHistory(events: CalendarEvent[]): CalendarEvent[] {
+  try {
+    return typeof structuredClone === "function" ? structuredClone(events) : JSON.parse(JSON.stringify(events));
+  } catch {
+    return events.map((event) => ({ ...event }));
+  }
 }
 
 function parseQuickAddInput(input: string, fallbackDate: Date): QuickAddResult | null {
@@ -690,6 +726,7 @@ interface DayCellProps {
   secondaryTimezone: string;
   conflicts: Set<string>;
   onDeleteEvent: (id: string) => void;
+  highlightCategory: CalendarVisualCategory | null;
 }
 
 function DayCell({
@@ -709,6 +746,7 @@ function DayCell({
   secondaryTimezone,
   conflicts,
   onDeleteEvent,
+  highlightCategory,
 }: DayCellProps) {
   const hours = focusMode ? Array.from({ length: WORKING_HOURS.end - WORKING_HOURS.start }, (_, idx) => WORKING_HOURS.start + idx) : Array.from({ length: 24 }, (_, idx) => idx);
 
@@ -786,6 +824,7 @@ function DayCell({
                   onOpenDetail={onOpenDetail}
                   onJoinMeeting={onJoinMeeting}
                   onDragStart={onDragStart}
+                  highlightCategory={highlightCategory}
                 />
               </div>
             </EventContextMenu>
@@ -805,6 +844,7 @@ function AgendaView({
   onJoinMeeting,
   onDragStart,
   onDeleteEvent,
+  highlightCategory,
 }: {
   events: CalendarEvent[];
   onSelect: (id: string, additive: boolean) => void;
@@ -814,6 +854,7 @@ function AgendaView({
   onJoinMeeting: (id: string) => void;
   onDragStart: (eventId: string, mode: Exclude<DragMode, null>) => void;
   onDeleteEvent: (id: string) => void;
+  highlightCategory: CalendarVisualCategory | null;
 }) {
   const sorted = useMemo(
     () => [...events].sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime()),
@@ -838,15 +879,16 @@ function AgendaView({
             onCopyId={() => navigator.clipboard.writeText(event.id).catch(() => undefined)}
             onDelete={() => onDeleteEvent(event.id)}
           >
-            <EventCard
-              event={event}
-              colorEncoding={colorEncoding}
-              isSelected={selectedEvents.has(event.id)}
-              onSelect={onSelect}
-              onOpenDetail={onOpenDetail}
-              onJoinMeeting={onJoinMeeting}
-              onDragStart={onDragStart}
-            />
+          <EventCard
+            event={event}
+            colorEncoding={colorEncoding}
+            isSelected={selectedEvents.has(event.id)}
+            onSelect={onSelect}
+            onOpenDetail={onOpenDetail}
+            onJoinMeeting={onJoinMeeting}
+            onDragStart={onDragStart}
+            highlightCategory={highlightCategory}
+          />
           </EventContextMenu>
         </div>
       )}
@@ -865,6 +907,7 @@ function MonthView({
   onDragStart,
   conflicts,
   onDeleteEvent,
+  highlightCategory,
 }: {
   range: DateRange;
   events: CalendarEvent[];
@@ -876,6 +919,7 @@ function MonthView({
   onDragStart: (eventId: string, mode: Exclude<DragMode, null>) => void;
   conflicts: Set<string>;
   onDeleteEvent: (id: string) => void;
+  highlightCategory: CalendarVisualCategory | null;
 }) {
   const days = eachDayOfInterval(range);
   const byDay = useMemo(() => {
@@ -928,6 +972,7 @@ function MonthView({
                       onOpenDetail={onOpenDetail}
                       onJoinMeeting={onJoinMeeting}
                       onDragStart={onDragStart}
+                      highlightCategory={highlightCategory}
                     />
                     {conflicts.has(event.id) && <p className="mt-1 text-[10px] text-destructive">Conflict</p>}
                   </EventContextMenu>
@@ -1091,6 +1136,12 @@ function CalendarPageContent() {
     acceptSchedulingSuggestion,
     refreshSchedulingSuggestions,
     delegations,
+    defaults,
+    updateDefaultSetting,
+    resetDefaults,
+    governance,
+    updateGovernanceSetting,
+    documentation,
   } = useCalendarState();
 
   const visibleCalendars = useMemo(
@@ -1098,14 +1149,16 @@ function CalendarPageContent() {
     [calendars]
   );
 
-  const [view, setView] = useState<CalendarView>("week");
+  const [view, setView] = useState<CalendarView>((defaults.defaultView as CalendarView) ?? "week");
   const [pivot, setPivot] = useState(new Date());
   const [range, setRange] = useState<DateRange>(() => getRangeForView(view, pivot));
-  const [colorEncoding, setColorEncoding] = useState<CalendarColorEncoding>("calendar");
-  const [snapInterval, setSnapInterval] = useState<number>(15);
+  const [colorEncoding, setColorEncoding] = useState<CalendarColorEncoding>(
+    (defaults.colorEncoding as CalendarColorEncoding) ?? "calendar"
+  );
+  const [snapInterval, setSnapInterval] = useState<number>(defaults.snapMinutes);
   const [focusMode, setFocusMode] = useState(false);
   const [dualTimezone, setDualTimezone] = useState(false);
-  const [secondaryTimezone, setSecondaryTimezone] = useState("UTC");
+  const [secondaryTimezone, setSecondaryTimezone] = useState(defaults.defaultTimezone);
   const [zoom, setZoom] = useState(1);
   const [quickAddValue, setQuickAddValue] = useState("");
   const [selectedEventIds, setSelectedEventIds] = useState<string[]>([]);
@@ -1115,6 +1168,22 @@ function CalendarPageContent() {
   const [lockedResourceEvents, setLockedResourceEvents] = useState<string[]>([]);
   const [filterPopoverOpen, setFilterPopoverOpen] = useState(false);
   const [commentDraft, setCommentDraft] = useState("");
+  const [highlightCategory, setHighlightCategory] = useState<CalendarVisualCategory | null>(null);
+  const [undoStack, setUndoStack] = useState<CalendarEvent[][]>([]);
+  const [redoStack, setRedoStack] = useState<CalendarEvent[][]>([]);
+  const [syncStatus, setSyncStatus] = useState<{
+    state: "idle" | "syncing" | "offline" | "error";
+    lastSyncedAt?: string;
+    message?: string;
+  }>({ state: "idle", message: "Calendar is up to date." });
+  const [cacheMeta, setCacheMeta] = useState<{ lastCachedAt: string; count: number } | null>(null);
+  const cacheLoadedRef = useRef(false);
+  const [helpOpen, setHelpOpen] = useState(false);
+  const [statusBanner, setStatusBanner] = useState<{ message: string; variant: "default" | "destructive" } | null>(null);
+  const [offline, setOffline] = useState<boolean>(false);
+  const handleLegendActivate = useCallback((category: CalendarVisualCategory | null) => {
+    setHighlightCategory(category);
+  }, []);
 
   const [gotoOpen, setGotoOpen] = useState(false);
 
@@ -1132,7 +1201,7 @@ function CalendarPageContent() {
     }
   }, [view]);
 
-  const { events: remoteEvents, isLoading } = useCalendarRange({
+  const { events: remoteEvents, isLoading, error: rangeError, refetch } = useCalendarRange({
     from: range.from,
     to: range.to,
     calendarIds: visibleCalendars.map((calendar) => calendar.id),
@@ -1158,6 +1227,169 @@ function CalendarPageContent() {
     () => applyFiltersToEvents(events, filters, searchTokens),
     [events, filters, searchTokens]
   );
+
+  const rangeErrorMessage = useMemo(() => {
+    if (!rangeError) return null;
+    if (rangeError instanceof Error) {
+      return rangeError.message;
+    }
+    return "Failed to load calendar events.";
+  }, [rangeError]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || cacheLoadedRef.current) {
+      return;
+    }
+    cacheLoadedRef.current = true;
+    try {
+      const raw = window.localStorage.getItem(CALENDAR_CACHE_KEY);
+      if (!raw) {
+        return;
+      }
+      const parsed = JSON.parse(raw) as { events?: CalendarEvent[]; cachedAt?: string };
+      if (parsed?.events && Array.isArray(parsed.events) && parsed.events.length > 0) {
+        setEvents(parsed.events);
+        if (parsed.cachedAt) {
+          setCacheMeta({ lastCachedAt: parsed.cachedAt, count: parsed.events.length });
+        }
+      }
+    } catch (error) {
+      console.warn("Failed to restore cached calendar events", error);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    try {
+      const cachedAt = new Date().toISOString();
+      const payload = JSON.stringify({ events, cachedAt });
+      window.localStorage.setItem(CALENDAR_CACHE_KEY, payload);
+      setCacheMeta({ lastCachedAt: cachedAt, count: events.length });
+    } catch (error) {
+      console.warn("Failed to cache calendar events", error);
+    }
+  }, [events]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    const updateNetworkStatus = () => {
+      setOffline(!navigator.onLine);
+    };
+    updateNetworkStatus();
+    window.addEventListener("online", updateNetworkStatus);
+    window.addEventListener("offline", updateNetworkStatus);
+    return () => {
+      window.removeEventListener("online", updateNetworkStatus);
+      window.removeEventListener("offline", updateNetworkStatus);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (rangeErrorMessage) {
+      setStatusBanner({ message: rangeErrorMessage, variant: "destructive" });
+      return;
+    }
+    if (offline) {
+      setStatusBanner({ message: "You are offline. Viewing cached calendar data.", variant: "default" });
+      return;
+    }
+    setStatusBanner(null);
+  }, [offline, rangeErrorMessage]);
+
+  useEffect(() => {
+    if (offline) {
+      setSyncStatus((current) => ({
+        ...current,
+        state: "offline",
+        message: "Offline – displaying cached events.",
+      }));
+      return;
+    }
+    if (isLoading) {
+      setSyncStatus((current) => ({
+        ...current,
+        state: "syncing",
+        message: "Syncing latest updates…",
+      }));
+      return;
+    }
+    if (rangeErrorMessage) {
+      setSyncStatus((current) => ({
+        ...current,
+        state: "error",
+        message: rangeErrorMessage,
+      }));
+      return;
+    }
+    setSyncStatus({
+      state: "idle",
+      lastSyncedAt: new Date().toISOString(),
+      message: "Calendar is up to date.",
+    });
+  }, [isLoading, offline, rangeErrorMessage]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    const handler = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "z" && !event.shiftKey) {
+        event.preventDefault();
+        if (canUndo) {
+          handleUndo();
+        }
+        return;
+      }
+      if ((event.metaKey || event.ctrlKey) && (event.key.toLowerCase() === "z" && event.shiftKey)) {
+        event.preventDefault();
+        if (canRedo) {
+          handleRedo();
+        }
+        return;
+      }
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "g") {
+        event.preventDefault();
+        setGotoOpen(true);
+        return;
+      }
+      if ((event.metaKey || event.ctrlKey) && event.key === "/") {
+        event.preventDefault();
+        setHelpOpen(true);
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [canRedo, canUndo, handleRedo, handleUndo]);
+
+  const lastSyncedRelative = useMemo(() => {
+    if (!syncStatus.lastSyncedAt) {
+      return null;
+    }
+    return formatDistanceToNowStrict(parseISO(syncStatus.lastSyncedAt), { addSuffix: true });
+  }, [syncStatus.lastSyncedAt]);
+
+  const cacheRelative = useMemo(() => {
+    if (!cacheMeta?.lastCachedAt) {
+      return null;
+    }
+    return formatDistanceToNowStrict(parseISO(cacheMeta.lastCachedAt), { addSuffix: true });
+  }, [cacheMeta?.lastCachedAt]);
+
+  const visualCategoryCounts = useMemo(() => {
+    const counts: Partial<Record<CalendarVisualCategory, number>> = {};
+    filteredEvents.forEach((event) => {
+      VISUAL_CATEGORIES.forEach((definition) => {
+        if (eventMatchesVisualCategory(event, definition.id)) {
+          counts[definition.id] = (counts[definition.id] ?? 0) + 1;
+        }
+      });
+    });
+    return counts;
+  }, [filteredEvents]);
 
   const conflicts = useMemo(() => detectConflicts(filteredEvents), [filteredEvents]);
 
@@ -1218,6 +1450,45 @@ function CalendarPageContent() {
 
   const hourHeight = useMemo(() => HOUR_HEIGHT_BY_DENSITY[density] * zoom, [density, zoom]);
 
+  const commitEvents = useCallback(
+    (updater: (events: CalendarEvent[]) => CalendarEvent[]) => {
+      setEvents((current) => {
+        const snapshot = cloneEventsForHistory(current);
+        setUndoStack((stack) => [...stack.slice(-19), snapshot]);
+        setRedoStack([]);
+        return updater(current);
+      });
+    },
+    []
+  );
+
+  const handleUndo = useCallback(() => {
+    setUndoStack((stack) => {
+      if (stack.length === 0) {
+        return stack;
+      }
+      const previous = stack[stack.length - 1];
+      setRedoStack((redo) => [...redo, cloneEventsForHistory(events)]);
+      setEvents(previous);
+      return stack.slice(0, -1);
+    });
+  }, [events]);
+
+  const handleRedo = useCallback(() => {
+    setRedoStack((stack) => {
+      if (stack.length === 0) {
+        return stack;
+      }
+      const next = stack[stack.length - 1];
+      setUndoStack((undo) => [...undo, cloneEventsForHistory(events)]);
+      setEvents(next);
+      return stack.slice(0, -1);
+    });
+  }, [events]);
+
+  const canUndo = undoStack.length > 0;
+  const canRedo = redoStack.length > 0;
+
   const handleSelectEvent = useCallback(
     (eventId: string, additive: boolean) => {
       setSelectedEventIds((current) => {
@@ -1249,14 +1520,41 @@ function CalendarPageContent() {
     [handleJoinMeeting]
   );
 
+  const handleRefresh = useCallback(() => {
+    setSyncStatus((current) => ({
+      ...current,
+      state: offline ? "offline" : "syncing",
+      message: offline ? "Offline – unable to sync." : "Syncing latest updates…",
+    }));
+    refreshCalendars();
+    refetch();
+    refreshSchedulingSuggestions();
+  }, [offline, refetch, refreshCalendars, refreshSchedulingSuggestions]);
+
+  const handleExport = useCallback(
+    (options: CalendarExportOptions) => {
+      setSyncStatus((current) => ({
+        ...current,
+        message: `Prepared ${options.format.toUpperCase()} export for ${filteredEvents.length} events.`,
+      }));
+      // Placeholder for actual export integration
+      console.info("Calendar export requested", options);
+    },
+    [filteredEvents.length]
+  );
+
+  const handleOpenReports = useCallback(() => {
+    window.open("/reports/calendar", "_blank", "noopener,noreferrer");
+  }, []);
+
   const handleEventUpdate = useCallback((updated: CalendarEvent) => {
     const normalized: CalendarEvent = {
       ...updated,
       hasReminders: updated.hasReminders ?? (updated.reminders?.length ?? 0) > 0,
       hasAttachments: updated.hasAttachments ?? (updated.attachments?.length ?? 0) > 0,
     };
-    setEvents((current) => current.map((event) => (event.id === normalized.id ? normalized : event)));
-  }, []);
+    commitEvents((current) => current.map((event) => (event.id === normalized.id ? normalized : event)));
+  }, [commitEvents]);
 
   const handleSnoozeNotification = useCallback(
     (notificationId: string, minutes: number) => {
@@ -1280,12 +1578,12 @@ function CalendarPageContent() {
   );
 
   const handleEventDelete = useCallback((eventId: string) => {
-    setEvents((current) => current.filter((event) => event.id !== eventId));
+    commitEvents((current) => current.filter((event) => event.id !== eventId));
     setSelectedEventIds((current) => current.filter((id) => id !== eventId));
     if (activeEventId === eventId) {
       setActiveEventId(null);
     }
-  }, [activeEventId]);
+  }, [activeEventId, commitEvents]);
 
   const handleAddComment = useCallback(() => {
     if (!activeEventId || commentDraft.trim().length === 0) {
@@ -1301,7 +1599,7 @@ function CalendarPageContent() {
       body: commentDraft.trim(),
     };
     addComment(newComment);
-    setEvents((current) =>
+    commitEvents((current) =>
       current.map((event) =>
         event.id === activeEventId
           ? { ...event, comments: [...(event.comments ?? []), newComment], updatedAt: now }
@@ -1309,17 +1607,17 @@ function CalendarPageContent() {
       )
     );
     setCommentDraft("");
-  }, [activeEventId, addComment, commentDraft, setEvents]);
+  }, [activeEventId, addComment, commentDraft, commitEvents]);
 
   const handleQuickAdd = useCallback(() => {
     const parsed = parseQuickAddInput(quickAddValue, range.from);
     if (!parsed) return;
     const defaultCalendar = visibleCalendars[0]?.id ?? "calendar.personal";
     const newEvent = createEventFromQuickAdd(parsed, defaultCalendar);
-    setEvents((current) => [...current, newEvent]);
+    commitEvents((current) => [...current, newEvent]);
     setQuickAddValue("");
     setActiveEventId(newEvent.id);
-  }, [quickAddValue, range.from, visibleCalendars]);
+  }, [commitEvents, quickAddValue, range.from, visibleCalendars]);
 
   const handleReassignOwner = useCallback(
     (eventId: string, ownerId: string) => {
@@ -1332,7 +1630,7 @@ function CalendarPageContent() {
             .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
             .join(" ")
         : undefined;
-      setEvents((current) =>
+      commitEvents((current) =>
         current.map((event) =>
           event.id === eventId
             ? {
@@ -1347,7 +1645,7 @@ function CalendarPageContent() {
         )
       );
     },
-    [setEvents]
+    [commitEvents]
   );
 
   const handleToggleResourceLock = useCallback((eventId: string) => {
@@ -1357,13 +1655,13 @@ function CalendarPageContent() {
   }, []);
 
   const handleBulkStatusChange = (status: CalendarEvent["status"]) => {
-    setEvents((current) =>
+    commitEvents((current) =>
       current.map((event) => (selectedEvents.has(event.id) ? { ...event, status, updatedAt: new Date().toISOString() } : event))
     );
   };
 
   const handleBulkReminder = (offsetMinutes: number) => {
-    setEvents((current) =>
+    commitEvents((current) =>
       current.map((event) =>
         selectedEvents.has(event.id)
           ? {
@@ -1376,6 +1674,44 @@ function CalendarPageContent() {
       )
     );
   };
+
+  const handleMarkEventDone = useCallback(
+    (eventId: string) => {
+      const completedAt = new Date().toISOString();
+      commitEvents((current) =>
+        current.map((event) =>
+          event.id === eventId
+            ? {
+                ...event,
+                completed: true,
+                metadata: { ...(event.metadata ?? {}), completedAt },
+              }
+            : event
+        )
+      );
+      setNotifications((current) => current.filter((notification) => notification.eventId !== eventId));
+    },
+    [commitEvents, setNotifications]
+  );
+
+  const handleAgendaRsvp = useCallback(
+    (invitationId: string, status: CalendarRSVPStatus) => {
+      updateInvitationStatus(invitationId, status);
+      commitEvents((current) =>
+        current.map((event) =>
+          event.invitations
+            ? {
+                ...event,
+                invitations: event.invitations.map((invitation) =>
+                  invitation.id === invitationId ? { ...invitation, status } : invitation
+                ),
+              }
+            : event
+        )
+      );
+    },
+    [commitEvents, updateInvitationStatus]
+  );
 
   const handleDeleteFilter = useCallback(
     (filterId: string) => {
@@ -1403,43 +1739,46 @@ function CalendarPageContent() {
     });
   };
 
-  const handleDrop = (eventId: string, mode: Exclude<DragMode, null>, target: Date) => {
-    const event = events.find((item) => item.id === eventId);
-    if (!event) return;
-    const duration = differenceInMinutes(new Date(event.end), new Date(event.start));
-    const snapped = roundToSnap(target, snapInterval);
-    const withinDay = clampDateWithinDay(snapped, parseISO(event.start));
-    if (mode === "move") {
-      const newStart = withinDay;
-      const newEnd = new Date(newStart.getTime() + duration * 60 * 1000);
-      setEvents((current) =>
-        current.map((item) =>
-          item.id === eventId
-            ? { ...item, start: newStart.toISOString(), end: newEnd.toISOString(), updatedAt: new Date().toISOString() }
-            : item
-        )
-      );
-    } else if (mode === "resize-start") {
-      setEvents((current) =>
-        current.map((item) =>
-          item.id === eventId
-            ? { ...item, start: withinDay.toISOString(), updatedAt: new Date().toISOString() }
-            : item
-        )
-      );
-    } else if (mode === "resize-end") {
-      const startDate = new Date(event.start);
-      const candidate = withinDay > startDate ? withinDay : new Date(startDate.getTime() + snapInterval * 60 * 1000);
-      const newEnd = candidate;
-      setEvents((current) =>
-        current.map((item) =>
-          item.id === eventId
-            ? { ...item, end: newEnd.toISOString(), updatedAt: new Date().toISOString() }
-            : item
-        )
-      );
-    }
-  };
+  const handleDrop = useCallback(
+    (eventId: string, mode: Exclude<DragMode, null>, target: Date) => {
+      const event = events.find((item) => item.id === eventId);
+      if (!event) return;
+      const duration = differenceInMinutes(new Date(event.end), new Date(event.start));
+      const snapped = roundToSnap(target, snapInterval);
+      const withinDay = clampDateWithinDay(snapped, parseISO(event.start));
+      if (mode === "move") {
+        const newStart = withinDay;
+        const newEnd = new Date(newStart.getTime() + duration * 60 * 1000);
+        commitEvents((current) =>
+          current.map((item) =>
+            item.id === eventId
+              ? { ...item, start: newStart.toISOString(), end: newEnd.toISOString(), updatedAt: new Date().toISOString() }
+              : item
+          )
+        );
+      } else if (mode === "resize-start") {
+        commitEvents((current) =>
+          current.map((item) =>
+            item.id === eventId
+              ? { ...item, start: withinDay.toISOString(), updatedAt: new Date().toISOString() }
+              : item
+          )
+        );
+      } else if (mode === "resize-end") {
+        const startDate = new Date(event.start);
+        const candidate = withinDay > startDate ? withinDay : new Date(startDate.getTime() + snapInterval * 60 * 1000);
+        const newEnd = candidate;
+        commitEvents((current) =>
+          current.map((item) =>
+            item.id === eventId
+              ? { ...item, end: newEnd.toISOString(), updatedAt: new Date().toISOString() }
+              : item
+          )
+        );
+      }
+    },
+    [commitEvents, events, snapInterval]
+  );
 
   const handleDragStart = (_eventId: string, _mode: Exclude<DragMode, null>) => {
     // placeholder for analytics hooks
@@ -1455,7 +1794,7 @@ function CalendarPageContent() {
       return;
     }
     conflictSignatureRef.current = signature;
-    setEvents((current) => {
+    commitEvents((current) => {
       const updated = [...current];
       for (const id of ids) {
         const index = updated.findIndex((event) => event.id === id);
@@ -1474,7 +1813,7 @@ function CalendarPageContent() {
       }
       return updated;
     });
-  }, [autoOffsetConflicts, conflicts]);
+  }, [autoOffsetConflicts, commitEvents, conflicts]);
 
   useEffect(() => {
     if (conflicts.size === 0) {
@@ -1517,6 +1856,7 @@ function CalendarPageContent() {
                   secondaryTimezone={secondaryTimezone}
                   conflicts={conflicts}
                   onDeleteEvent={handleEventDelete}
+                  highlightCategory={highlightCategory}
                 />
               ))}
             </div>
@@ -1536,6 +1876,7 @@ function CalendarPageContent() {
             onDragStart={handleDragStart}
             conflicts={conflicts}
             onDeleteEvent={handleEventDelete}
+            highlightCategory={highlightCategory}
           />
         );
       case "agenda":
@@ -1549,6 +1890,7 @@ function CalendarPageContent() {
             onJoinMeeting={handleJoinMeeting}
             onDragStart={handleDragStart}
             onDeleteEvent={handleEventDelete}
+            highlightCategory={highlightCategory}
           />
         );
       case "timeline":
@@ -1767,6 +2109,18 @@ function CalendarPageContent() {
           onDeleteFilter={handleDeleteFilter}
         />
         <div className="flex min-w-0 flex-1 flex-col">
+          {statusBanner && (
+            <div className="px-4 pt-4 lg:px-6">
+              <Alert variant={statusBanner.variant}>
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Calendar status</AlertTitle>
+                <AlertDescription>{statusBanner.message}</AlertDescription>
+              </Alert>
+            </div>
+          )}
+          <div className="px-4 pt-4 lg:hidden">
+            <CalendarMobileShell events={filteredEvents} onOpenEvent={handleOpenDetail} />
+          </div>
           <div className="space-y-4 border-b bg-background/95 px-6 py-4 shadow-sm">
             <div className="flex flex-wrap items-center gap-3">
               <ViewSwitch value={view} onChange={(next) => {
@@ -1810,6 +2164,20 @@ function CalendarPageContent() {
                   <ChevronRight className="h-4 w-4" />
                 </Button>
               </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button variant="outline" size="sm" onClick={handleUndo} disabled={!canUndo}>
+                <Undo2 className="mr-2 h-4 w-4" />Undo
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleRedo} disabled={!canRedo}>
+                <Redo2 className="mr-2 h-4 w-4" />Redo
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleRefresh}>
+                <RefreshCw className="mr-2 h-4 w-4" />Refresh
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => setHelpOpen(true)}>
+                <HelpCircle className="mr-2 h-4 w-4" />Shortcuts
+              </Button>
             </div>
             <div className="text-sm font-semibold text-muted-foreground">{headerLabel}</div>
             <div className="flex flex-wrap items-center gap-3">
@@ -1890,6 +2258,44 @@ function CalendarPageContent() {
                 </Button>
               </div>
             )}
+            <div className="flex flex-wrap items-center gap-3 rounded-md border bg-muted/30 px-4 py-2 text-xs" role="status">
+              <span className="flex items-center gap-2 text-foreground">
+                {syncStatus.state === "offline" ? (
+                  <WifiOff className="h-3 w-3" />
+                ) : (
+                  <RefreshCw
+                    className={cn("h-3 w-3", syncStatus.state === "syncing" && "animate-spin")}
+                  />
+                )}
+                <span>{syncStatus.message ?? ""}</span>
+              </span>
+              {lastSyncedRelative && (
+                <span className="text-muted-foreground">Last sync {lastSyncedRelative}</span>
+              )}
+              {cacheMeta && cacheRelative && (
+                <span className="text-muted-foreground">
+                  Cached {cacheMeta.count} events {cacheRelative}
+                </span>
+              )}
+            </div>
+            <div className="hidden gap-4 lg:grid lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+              <AgendaPane
+                events={filteredEvents}
+                notifications={notifications}
+                onJoin={handleJoinMeeting}
+                onSnooze={handleSnoozeNotification}
+                onDismiss={handleDismissNotification}
+                onRsvp={handleAgendaRsvp}
+                onMarkDone={handleMarkEventDone}
+              />
+              <div className="grid gap-4">
+                <CalendarLegend
+                  counts={visualCategoryCounts}
+                  activeCategory={highlightCategory}
+                  onActivate={handleLegendActivate}
+                />
+              </div>
+            </div>
             <div className="flex flex-wrap items-center gap-3">
               <Input
                 className="flex-1"
@@ -1953,7 +2359,7 @@ function CalendarPageContent() {
             </div>
             {renderDetailPanel()}
           </div>
-          <div className="grid gap-4 border-t bg-muted/20 px-6 py-4 xl:grid-cols-2 2xl:grid-cols-4">
+          <div className="grid gap-4 border-t bg-muted/20 px-6 py-4 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
             <IntegrationManager
               integrations={integrations}
               onConnect={connectCalendarIntegration}
@@ -1981,6 +2387,16 @@ function CalendarPageContent() {
               onAcceptSuggestion={acceptSchedulingSuggestion}
               onRefresh={refreshSchedulingSuggestions}
             />
+            <CalendarAnalyticsPanel events={filteredEvents} onOpenReports={handleOpenReports} />
+            <CalendarExportPanel onExport={handleExport} />
+            <CalendarAdminPanel
+              defaults={defaults}
+              onUpdateDefault={updateDefaultSetting}
+              onResetDefaults={resetDefaults}
+              governance={governance}
+              onUpdateGovernance={updateGovernanceSetting}
+              documentation={documentation}
+            />
           </div>
           <footer className="flex flex-wrap items-center justify-between gap-3 border-t bg-background/80 px-6 py-3 text-xs text-muted-foreground">
             <span>Primary time zone: {Intl.DateTimeFormat().resolvedOptions().timeZone}</span>
@@ -1996,6 +2412,57 @@ function CalendarPageContent() {
         onSave={(event) => handleEventUpdate(event)}
         onDelete={handleEventDelete}
       />
+      <AlertDialog open={helpOpen} onOpenChange={setHelpOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Keyboard shortcuts</AlertDialogTitle>
+            <AlertDialogDescription>
+              Use these shortcuts to navigate and manage the calendar efficiently.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-3 text-sm">
+            <div className="flex items-center justify-between gap-4">
+              <span>Move between periods</span>
+              <span className="flex items-center gap-2">
+                <kbd className="rounded border bg-muted px-1.5 py-0.5 text-xs">←</kbd>
+                <kbd className="rounded border bg-muted px-1.5 py-0.5 text-xs">→</kbd>
+              </span>
+            </div>
+            <div className="flex items-center justify-between gap-4">
+              <span>Jump to today</span>
+              <kbd className="rounded border bg-muted px-1.5 py-0.5 text-xs">T</kbd>
+            </div>
+            <div className="flex items-center justify-between gap-4">
+              <span>Open go to date</span>
+              <span className="flex items-center gap-2">
+                <kbd className="rounded border bg-muted px-1.5 py-0.5 text-xs">Ctrl</kbd>
+                <kbd className="rounded border bg-muted px-1.5 py-0.5 text-xs">G</kbd>
+              </span>
+            </div>
+            <div className="flex items-center justify-between gap-4">
+              <span>Undo / Redo</span>
+              <span className="flex items-center gap-2">
+                <kbd className="rounded border bg-muted px-1.5 py-0.5 text-xs">Ctrl</kbd>
+                <kbd className="rounded border bg-muted px-1.5 py-0.5 text-xs">Z</kbd>
+                <span>/</span>
+                <kbd className="rounded border bg-muted px-1.5 py-0.5 text-xs">Ctrl</kbd>
+                <kbd className="rounded border bg-muted px-1.5 py-0.5 text-xs">Shift</kbd>
+                <kbd className="rounded border bg-muted px-1.5 py-0.5 text-xs">Z</kbd>
+              </span>
+            </div>
+            <div className="flex items-center justify-between gap-4">
+              <span>Open shortcut help</span>
+              <span className="flex items-center gap-2">
+                <kbd className="rounded border bg-muted px-1.5 py-0.5 text-xs">Ctrl</kbd>
+                <kbd className="rounded border bg-muted px-1.5 py-0.5 text-xs">/</kbd>
+              </span>
+            </div>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Close</AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
