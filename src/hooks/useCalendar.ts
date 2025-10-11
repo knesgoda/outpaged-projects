@@ -9,6 +9,11 @@ import type {
   CalendarEventType,
   CalendarEventResource,
 } from "@/types/calendar";
+import {
+  MOCK_CALENDAR_FOLLOWERS,
+  MOCK_EVENT_COMMENTS,
+  MOCK_INVITATIONS,
+} from "@/data/calendarIntegrations";
 
 type CalendarRange = {
   from: Date;
@@ -69,6 +74,10 @@ const MOCK_EVENTS: CalendarEvent[] = [
       { id: "task-99", type: "task", label: "Finalize demo" },
       { id: "sprint-12", type: "sprint", label: "Sprint 24" },
     ],
+    derivedFrom: [
+      { id: "task-99", type: "task", label: "Finalize demo" },
+      { id: "sprint-12", type: "sprint", label: "Sprint 24" },
+    ],
     description: "Review sprint goals and demo progress.",
     createdAt: "2024-07-01T12:00:00.000Z",
     updatedAt: "2024-07-09T12:00:00.000Z",
@@ -79,6 +88,12 @@ const MOCK_EVENTS: CalendarEvent[] = [
     labels: ["meeting", "sprint"],
     hasAttachments: true,
     hasReminders: true,
+    syncSource: "google",
+    automationRuleIds: ["automation-create-task", "automation-post-channel"],
+    invitations: MOCK_INVITATIONS.filter((invite) => invite.eventId === "event-1"),
+    followers: MOCK_CALENDAR_FOLLOWERS,
+    comments: MOCK_EVENT_COMMENTS,
+    workingHoursImpact: "within",
   },
   {
     id: "event-2",
@@ -102,6 +117,10 @@ const MOCK_EVENTS: CalendarEvent[] = [
     teamName: "Product",
     labels: ["milestone", "release"],
     hasReminders: true,
+    syncSource: "outlook",
+    automationRuleIds: ["automation-post-channel"],
+    invitations: MOCK_INVITATIONS.filter((invite) => invite.eventId === "event-2"),
+    workingHoursImpact: "within",
   },
   {
     id: "event-3",
@@ -128,6 +147,9 @@ const MOCK_EVENTS: CalendarEvent[] = [
     resources: [ROOMS[1]],
     resourceIds: [ROOMS[1].id],
     hasReminders: true,
+    syncSource: "google",
+    invitations: MOCK_INVITATIONS.filter((invite) => invite.eventId === "event-3"),
+    workingHoursImpact: "within",
   },
   {
     id: "event-4",
@@ -147,6 +169,7 @@ const MOCK_EVENTS: CalendarEvent[] = [
     teamName: "Engineering",
     labels: ["focus"],
     hasReminders: true,
+    workingHoursImpact: "within",
   },
   {
     id: "event-5",
@@ -175,6 +198,9 @@ const MOCK_EVENTS: CalendarEvent[] = [
     resources: [ROOMS[0]],
     resourceIds: [ROOMS[0].id],
     hasReminders: true,
+    syncSource: "outlook",
+    invitations: MOCK_INVITATIONS.filter((invite) => invite.eventId === "event-5"),
+    workingHoursImpact: "outside",
   },
   {
     id: "event-6",
@@ -198,6 +224,9 @@ const MOCK_EVENTS: CalendarEvent[] = [
     resources: [ROOMS[2]],
     resourceIds: [ROOMS[2].id],
     hasReminders: true,
+    syncSource: "google",
+    invitations: MOCK_INVITATIONS.filter((invite) => invite.eventId === "event-6"),
+    workingHoursImpact: "outside",
   },
   {
     id: "event-7",
@@ -218,6 +247,8 @@ const MOCK_EVENTS: CalendarEvent[] = [
     teamName: "Engineering",
     labels: ["daily"],
     hasReminders: true,
+    automationRuleIds: ["automation-add-sprint"],
+    workingHoursImpact: "within",
   },
   {
     id: "event-8",
@@ -236,6 +267,7 @@ const MOCK_EVENTS: CalendarEvent[] = [
     teamId: "team-engineering",
     teamName: "Engineering",
     labels: ["ooo"],
+    workingHoursImpact: "holiday",
   },
   {
     id: "event-9",
@@ -259,6 +291,8 @@ const MOCK_EVENTS: CalendarEvent[] = [
     labels: ["prototype", "lab"],
     hasAttachments: true,
     hasReminders: true,
+    automationRuleIds: ["automation-create-task"],
+    workingHoursImpact: "outside",
   },
 ];
 

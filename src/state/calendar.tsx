@@ -9,14 +9,46 @@ import {
 } from "react";
 import { fetchCalendarLayers, persistCalendarPreferences } from "@/services/calendarLayers";
 import type {
+  CalendarAutomationRule,
+  CalendarComment,
+  CalendarConflictPreference,
+  CalendarDelegation,
   CalendarDensity,
   CalendarFilterGroup,
-  CalendarNotification,
-  CalendarSavedFilter,
+  CalendarFollower,
+  CalendarHoliday,
+  CalendarInvitation,
+  CalendarIntegration,
+  CalendarIntegrationProvider,
   CalendarLayer,
+  CalendarNotification,
+  CalendarOutOfOffice,
+  CalendarSavedFilter,
   CalendarSavedView,
+  CalendarSchedulingSuggestion,
   CalendarSearchToken,
+  CalendarShareSetting,
+  CalendarWorkingHours,
 } from "@/types/calendar";
+import {
+  connectIntegration,
+  disconnectIntegration,
+  triggerIntegrationSync,
+  updateConflictPreference,
+} from "@/services/calendarIntegrations";
+import {
+  MOCK_AUTOMATION_RULES,
+  MOCK_CALENDAR_DELEGATIONS,
+  MOCK_CALENDAR_FOLLOWERS,
+  MOCK_CALENDAR_INTEGRATIONS,
+  MOCK_EVENT_COMMENTS,
+  MOCK_HOLIDAYS,
+  MOCK_INVITATIONS,
+  MOCK_OUT_OF_OFFICE,
+  MOCK_SCHEDULING_SUGGESTIONS,
+  MOCK_SHARE_SETTINGS,
+  MOCK_WORKING_HOURS,
+} from "@/data/calendarIntegrations";
 
 export interface CalendarStateContextValue {
   calendars: CalendarLayer[];
@@ -51,6 +83,36 @@ export interface CalendarStateContextValue {
   setSearchTokens: (tokens: CalendarSearchToken[]) => void;
   notifications: CalendarNotification[];
   setNotifications: (updater: (current: CalendarNotification[]) => CalendarNotification[]) => void;
+  integrations: CalendarIntegration[];
+  connectCalendarIntegration: (provider: CalendarIntegrationProvider, accountEmail: string) => Promise<void>;
+  disconnectCalendarIntegration: (integrationId: string) => Promise<void>;
+  syncCalendarIntegration: (integrationId: string) => Promise<void>;
+  setIntegrationConflictPreference: (
+    integrationId: string,
+    preference: CalendarConflictPreference
+  ) => Promise<void>;
+  automationRules: CalendarAutomationRule[];
+  toggleAutomationRule: (ruleId: string) => void;
+  shareSettings: CalendarShareSetting[];
+  updateShareRole: (shareId: string, role: CalendarShareSetting["role"]) => void;
+  removeShareTarget: (shareId: string) => void;
+  addShareTarget: (share: CalendarShareSetting) => void;
+  invitations: CalendarInvitation[];
+  updateInvitationStatus: (invitationId: string, status: CalendarInvitation["status"]) => void;
+  followers: CalendarFollower[];
+  addFollower: (follower: CalendarFollower) => void;
+  removeFollower: (followerId: string) => void;
+  comments: CalendarComment[];
+  addComment: (comment: CalendarComment) => void;
+  workingHours: CalendarWorkingHours[];
+  updateWorkingHours: (ownerId: string, hours: Partial<CalendarWorkingHours>) => void;
+  holidays: CalendarHoliday[];
+  outOfOffice: CalendarOutOfOffice[];
+  upsertOutOfOffice: (entry: CalendarOutOfOffice) => void;
+  schedulingSuggestions: CalendarSchedulingSuggestion[];
+  acceptSchedulingSuggestion: (suggestionId: string) => void;
+  refreshSchedulingSuggestions: () => void;
+  delegations: CalendarDelegation[];
 }
 
 const CalendarStateContext = createContext<CalendarStateContextValue | undefined>(undefined);
@@ -120,6 +182,19 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchTokens, setSearchTokens] = useState<CalendarSearchToken[]>([]);
   const [notifications, setNotificationsState] = useState<CalendarNotification[]>([]);
+  const [integrations, setIntegrations] = useState<CalendarIntegration[]>(MOCK_CALENDAR_INTEGRATIONS);
+  const [automationRules, setAutomationRules] = useState<CalendarAutomationRule[]>(MOCK_AUTOMATION_RULES);
+  const [shareSettings, setShareSettings] = useState<CalendarShareSetting[]>(MOCK_SHARE_SETTINGS);
+  const [invitations, setInvitations] = useState<CalendarInvitation[]>(MOCK_INVITATIONS);
+  const [followers, setFollowers] = useState<CalendarFollower[]>(MOCK_CALENDAR_FOLLOWERS);
+  const [comments, setComments] = useState<CalendarComment[]>(MOCK_EVENT_COMMENTS);
+  const [workingHours, setWorkingHours] = useState<CalendarWorkingHours[]>(MOCK_WORKING_HOURS);
+  const [holidays] = useState<CalendarHoliday[]>(MOCK_HOLIDAYS);
+  const [outOfOffice, setOutOfOffice] = useState<CalendarOutOfOffice[]>(MOCK_OUT_OF_OFFICE);
+  const [schedulingSuggestions, setSchedulingSuggestions] = useState<CalendarSchedulingSuggestion[]>(
+    MOCK_SCHEDULING_SUGGESTIONS
+  );
+  const [delegations] = useState<CalendarDelegation[]>(MOCK_CALENDAR_DELEGATIONS);
 
   const refreshCalendars = useCallback(async () => {
     setLoading(true);
@@ -292,6 +367,109 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
     []
   );
 
+  const connectCalendarIntegration = useCallback(
+    async (provider: CalendarIntegrationProvider, accountEmail: string) => {
+      const integration = await connectIntegration(provider, accountEmail);
+      setIntegrations((current) => [...current, integration]);
+    },
+    []
+  );
+
+  const disconnectCalendarIntegration = useCallback(async (integrationId: string) => {
+    await disconnectIntegration(integrationId);
+    setIntegrations((current) => current.filter((integration) => integration.id !== integrationId));
+  }, []);
+
+  const syncCalendarIntegration = useCallback(async (integrationId: string) => {
+    const result = await triggerIntegrationSync(integrationId);
+    setIntegrations((current) =>
+      current.map((integration) =>
+        integration.id === result.id ? { ...integration, lastSyncAt: result.syncedAt, status: "connected" } : integration
+      )
+    );
+  }, []);
+
+  const setIntegrationConflictPreference = useCallback(
+    async (integrationId: string, preference: CalendarConflictPreference) => {
+      await updateConflictPreference(integrationId, preference);
+      setIntegrations((current) =>
+        current.map((integration) =>
+          integration.id === integrationId ? { ...integration, conflictPreference: preference } : integration
+        )
+      );
+    },
+    []
+  );
+
+  const toggleAutomationRule = useCallback((ruleId: string) => {
+    setAutomationRules((current) =>
+      current.map((rule) => (rule.id === ruleId ? { ...rule, enabled: !rule.enabled } : rule))
+    );
+  }, []);
+
+  const updateShareRole = useCallback((shareId: string, role: CalendarShareSetting["role"]) => {
+    setShareSettings((current) =>
+      current.map((share) => (share.id === shareId ? { ...share, role } : share))
+    );
+  }, []);
+
+  const removeShareTarget = useCallback((shareId: string) => {
+    setShareSettings((current) => current.filter((share) => share.id !== shareId));
+  }, []);
+
+  const addShareTarget = useCallback((share: CalendarShareSetting) => {
+    setShareSettings((current) => [...current, share]);
+  }, []);
+
+  const updateInvitationStatus = useCallback(
+    (invitationId: string, status: CalendarInvitation["status"]) => {
+      setInvitations((current) =>
+        current.map((invitation) => (invitation.id === invitationId ? { ...invitation, status } : invitation))
+      );
+    },
+    []
+  );
+
+  const addFollower = useCallback((follower: CalendarFollower) => {
+    setFollowers((current) => [...current, follower]);
+  }, []);
+
+  const removeFollower = useCallback((followerId: string) => {
+    setFollowers((current) => current.filter((follower) => follower.id !== followerId));
+  }, []);
+
+  const addComment = useCallback((comment: CalendarComment) => {
+    setComments((current) => [...current, comment]);
+  }, []);
+
+  const updateWorkingHours = useCallback((ownerId: string, hours: Partial<CalendarWorkingHours>) => {
+    setWorkingHours((current) =>
+      current.map((item) =>
+        item.ownerId === ownerId ? { ...item, ...hours, days: { ...item.days, ...(hours.days ?? {}) } } : item
+      )
+    );
+  }, []);
+
+  const upsertOutOfOffice = useCallback((entry: CalendarOutOfOffice) => {
+    setOutOfOffice((current) => {
+      const index = current.findIndex((item) => item.id === entry.id);
+      if (index === -1) {
+        return [...current, entry];
+      }
+      const next = [...current];
+      next[index] = { ...next[index], ...entry };
+      return next;
+    });
+  }, []);
+
+  const acceptSchedulingSuggestion = useCallback((suggestionId: string) => {
+    setSchedulingSuggestions((current) => current.filter((suggestion) => suggestion.id !== suggestionId));
+  }, []);
+
+  const refreshSchedulingSuggestions = useCallback(() => {
+    setSchedulingSuggestions(MOCK_SCHEDULING_SUGGESTIONS.map((suggestion) => ({ ...suggestion })));
+  }, []);
+
   const visibleCalendars = useMemo(
     () => calendars.filter((calendar) => calendar.visible && calendar.subscribed),
     [calendars]
@@ -331,6 +509,33 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
       setSearchTokens,
       notifications,
       setNotifications,
+      integrations,
+      connectCalendarIntegration,
+      disconnectCalendarIntegration,
+      syncCalendarIntegration,
+      setIntegrationConflictPreference,
+      automationRules,
+      toggleAutomationRule,
+      shareSettings,
+      updateShareRole,
+      removeShareTarget,
+      addShareTarget,
+      invitations,
+      updateInvitationStatus,
+      followers,
+      addFollower,
+      removeFollower,
+      comments,
+      addComment,
+      workingHours,
+      updateWorkingHours,
+      holidays,
+      outOfOffice,
+      upsertOutOfOffice,
+      schedulingSuggestions,
+      acceptSchedulingSuggestion,
+      refreshSchedulingSuggestions,
+      delegations,
     }),
     [
       calendars,
@@ -361,6 +566,33 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
       searchTokens,
       notifications,
       setNotifications,
+      integrations,
+      connectCalendarIntegration,
+      disconnectCalendarIntegration,
+      syncCalendarIntegration,
+      setIntegrationConflictPreference,
+      automationRules,
+      toggleAutomationRule,
+      shareSettings,
+      updateShareRole,
+      removeShareTarget,
+      addShareTarget,
+      invitations,
+      updateInvitationStatus,
+      followers,
+      addFollower,
+      removeFollower,
+      comments,
+      addComment,
+      workingHours,
+      updateWorkingHours,
+      holidays,
+      outOfOffice,
+      upsertOutOfOffice,
+      schedulingSuggestions,
+      acceptSchedulingSuggestion,
+      refreshSchedulingSuggestions,
+      delegations,
     ]
   );
 

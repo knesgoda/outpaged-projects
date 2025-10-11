@@ -65,6 +65,10 @@ import { ResourceScheduleView } from "@/components/calendar/ResourceScheduleView
 import { AvailabilityHeatmap } from "@/components/calendar/AvailabilityHeatmap";
 import { FilterBuilder } from "@/components/calendar/FilterBuilder";
 import { NotificationCenter } from "@/components/calendar/NotificationCenter";
+import { IntegrationManager } from "@/components/calendar/IntegrationManager";
+import { AutomationRulesPanel } from "@/components/calendar/AutomationRulesPanel";
+import { SharingPermissionsPanel } from "@/components/calendar/SharingPermissionsPanel";
+import { SchedulingAssistantPanel } from "@/components/calendar/SchedulingAssistantPanel";
 import { CalendarProvider, useCalendarState } from "@/state/calendar";
 import type {
   CalendarColorEncoding,
@@ -74,6 +78,7 @@ import type {
   CalendarLayer,
   CalendarSavedFilter,
   CalendarSearchToken,
+  CalendarComment,
 } from "@/types/calendar";
 import {
   MOCK_AVAILABILITY,
@@ -1062,6 +1067,30 @@ function CalendarPageContent() {
     setSearchTokens,
     notifications,
     setNotifications,
+    integrations,
+    connectCalendarIntegration,
+    disconnectCalendarIntegration,
+    syncCalendarIntegration,
+    setIntegrationConflictPreference,
+    automationRules,
+    toggleAutomationRule,
+    shareSettings,
+    updateShareRole,
+    removeShareTarget,
+    addShareTarget,
+    invitations,
+    updateInvitationStatus,
+    followers,
+    removeFollower,
+    comments,
+    addComment,
+    workingHours,
+    holidays,
+    outOfOffice,
+    schedulingSuggestions,
+    acceptSchedulingSuggestion,
+    refreshSchedulingSuggestions,
+    delegations,
   } = useCalendarState();
 
   const visibleCalendars = useMemo(
@@ -1085,6 +1114,7 @@ function CalendarPageContent() {
   const [autoOffsetConflicts, setAutoOffsetConflicts] = useState(true);
   const [lockedResourceEvents, setLockedResourceEvents] = useState<string[]>([]);
   const [filterPopoverOpen, setFilterPopoverOpen] = useState(false);
+  const [commentDraft, setCommentDraft] = useState("");
 
   const [gotoOpen, setGotoOpen] = useState(false);
 
@@ -1256,6 +1286,30 @@ function CalendarPageContent() {
       setActiveEventId(null);
     }
   }, [activeEventId]);
+
+  const handleAddComment = useCallback(() => {
+    if (!activeEventId || commentDraft.trim().length === 0) {
+      return;
+    }
+    const now = new Date().toISOString();
+    const newComment: CalendarComment = {
+      id: `comment-${Date.now()}`,
+      eventId: activeEventId,
+      authorId: "user-avery",
+      authorName: "Avery",
+      createdAt: now,
+      body: commentDraft.trim(),
+    };
+    addComment(newComment);
+    setEvents((current) =>
+      current.map((event) =>
+        event.id === activeEventId
+          ? { ...event, comments: [...(event.comments ?? []), newComment], updatedAt: now }
+          : event
+      )
+    );
+    setCommentDraft("");
+  }, [activeEventId, addComment, commentDraft, setEvents]);
 
   const handleQuickAdd = useCallback(() => {
     const parsed = parseQuickAddInput(quickAddValue, range.from);
@@ -1543,6 +1597,14 @@ function CalendarPageContent() {
         </aside>
       );
     }
+    const eventInvitations =
+      activeEvent.invitations && activeEvent.invitations.length > 0
+        ? activeEvent.invitations
+        : invitations.filter((invitation) => invitation.eventId === activeEvent.id);
+    const eventComments =
+      activeEvent.comments && activeEvent.comments.length > 0
+        ? activeEvent.comments
+        : comments.filter((comment) => comment.eventId === activeEvent.id);
     return (
       <aside className="hidden w-80 flex-col border-l bg-card xl:flex">
         <div className="border-b px-4 py-3">
@@ -1614,6 +1676,51 @@ function CalendarPageContent() {
               <Label>Attachments</Label>
               <div className="rounded-md border border-dashed p-3 text-xs text-muted-foreground">
                 Drag files here to attach (mocked).
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Invitations & RSVP</Label>
+              <div className="space-y-2 text-xs">
+                {eventInvitations.length === 0 ? (
+                  <p className="text-muted-foreground">No invitations tracked.</p>
+                ) : (
+                  eventInvitations.map((invitation) => (
+                    <div key={invitation.id} className="flex items-center justify-between rounded-md border bg-muted/20 px-2 py-1">
+                      <div>
+                        <p className="font-medium text-foreground">{invitation.invitee.name}</p>
+                        <p className="text-muted-foreground">{invitation.invitee.email}</p>
+                      </div>
+                      <Badge variant={invitation.status === "accepted" ? "secondary" : "outline"}>{invitation.status}</Badge>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Comments</Label>
+              <div className="space-y-2 text-xs">
+                {eventComments.length === 0 ? (
+                  <p className="text-muted-foreground">No comments yet.</p>
+                ) : (
+                  eventComments.map((comment) => (
+                    <div key={comment.id} className="rounded-md border bg-muted/10 p-2">
+                      <p className="font-medium text-foreground">{comment.authorName}</p>
+                      <p className="text-muted-foreground">{format(parseISO(comment.createdAt), "MMM d, HH:mm")}</p>
+                      <p className="mt-1 whitespace-pre-wrap">{comment.body}</p>
+                    </div>
+                  ))
+                )}
+              </div>
+              <div className="space-y-2">
+                <textarea
+                  className="h-20 w-full rounded-md border bg-background p-2 text-xs"
+                  value={commentDraft}
+                  onChange={(event) => setCommentDraft(event.target.value)}
+                  placeholder="Add a comment with @mentions"
+                />
+                <Button size="sm" onClick={handleAddComment} disabled={commentDraft.trim().length === 0}>
+                  Post comment
+                </Button>
               </div>
             </div>
             <div className="space-y-2">
@@ -1845,6 +1952,35 @@ function CalendarPageContent() {
               </div>
             </div>
             {renderDetailPanel()}
+          </div>
+          <div className="grid gap-4 border-t bg-muted/20 px-6 py-4 xl:grid-cols-2 2xl:grid-cols-4">
+            <IntegrationManager
+              integrations={integrations}
+              onConnect={connectCalendarIntegration}
+              onDisconnect={disconnectCalendarIntegration}
+              onSync={syncCalendarIntegration}
+              onChangePreference={setIntegrationConflictPreference}
+            />
+            <AutomationRulesPanel rules={automationRules} onToggle={toggleAutomationRule} />
+            <SharingPermissionsPanel
+              shareSettings={shareSettings}
+              invitations={invitations}
+              followers={followers}
+              delegations={delegations}
+              onUpdateRole={updateShareRole}
+              onRemoveShare={removeShareTarget}
+              onAddShare={addShareTarget}
+              onUpdateInvitation={updateInvitationStatus}
+              onRemoveFollower={removeFollower}
+            />
+            <SchedulingAssistantPanel
+              suggestions={schedulingSuggestions}
+              workingHours={workingHours}
+              holidays={holidays}
+              outOfOffice={outOfOffice}
+              onAcceptSuggestion={acceptSchedulingSuggestion}
+              onRefresh={refreshSchedulingSuggestions}
+            />
           </div>
           <footer className="flex flex-wrap items-center justify-between gap-3 border-t bg-background/80 px-6 py-3 text-xs text-muted-foreground">
             <span>Primary time zone: {Intl.DateTimeFormat().resolvedOptions().timeZone}</span>

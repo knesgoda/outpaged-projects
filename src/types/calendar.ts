@@ -71,6 +71,94 @@ export interface CalendarEventAttachment {
   size?: number;
 }
 
+export type CalendarIntegrationProvider = "google" | "outlook" | "apple";
+
+export type CalendarIntegrationStatus = "disconnected" | "connecting" | "connected" | "syncing" | "error";
+
+export type CalendarConflictPreference = "platform" | "external";
+
+export interface CalendarIntegration {
+  id: string;
+  provider: CalendarIntegrationProvider;
+  accountEmail: string;
+  status: CalendarIntegrationStatus;
+  lastSyncAt?: string;
+  syncError?: string | null;
+  conflictPreference: CalendarConflictPreference;
+  calendarsLinked?: number;
+  scopes?: string[];
+}
+
+export type CalendarAutomationTrigger =
+  | "event-created"
+  | "event-updated"
+  | "event-starting"
+  | "event-conflict"
+  | "external-sync";
+
+export type CalendarAutomationAction = "create-task" | "post-channel" | "add-to-sprint" | "notify-owner";
+
+export interface CalendarAutomationRule {
+  id: string;
+  name: string;
+  description?: string;
+  trigger: CalendarAutomationTrigger;
+  action: CalendarAutomationAction;
+  enabled: boolean;
+  config?: Record<string, unknown>;
+}
+
+export type CalendarShareRole = "viewer" | "editor" | "manager";
+
+export interface CalendarShareTarget {
+  id: string;
+  type: "user" | "team" | "group" | "external";
+  name: string;
+  email?: string;
+}
+
+export interface CalendarShareSetting {
+  id: string;
+  calendarId: string;
+  target: CalendarShareTarget;
+  role: CalendarShareRole;
+  canShare?: boolean;
+  subscribed?: boolean;
+}
+
+export type CalendarRSVPStatus = "accepted" | "declined" | "tentative" | "needs-action";
+
+export interface CalendarInvitation {
+  id: string;
+  eventId: string;
+  invitee: CalendarShareTarget;
+  status: CalendarRSVPStatus;
+  respondedAt?: string;
+  responseNote?: string;
+  icsUrl?: string;
+}
+
+export interface CalendarFollower {
+  id: string;
+  target: CalendarShareTarget;
+  subscribedAt: string;
+}
+
+export interface CalendarCommentMention {
+  id: string;
+  name: string;
+}
+
+export interface CalendarComment {
+  id: string;
+  eventId?: string;
+  authorId: string;
+  authorName: string;
+  createdAt: string;
+  body: string;
+  mentions?: CalendarCommentMention[];
+}
+
 export interface CalendarEvent {
   id: string;
   calendarId: string;
@@ -108,6 +196,15 @@ export interface CalendarEvent {
   resourceIds?: string[];
   hasAttachments?: boolean;
   hasReminders?: boolean;
+  syncSource?: CalendarIntegrationProvider;
+  externalId?: string;
+  derivedFrom?: { id: string; type: "task" | "sprint" | "release" | "vacation"; label?: string }[];
+  invitations?: CalendarInvitation[];
+  followers?: CalendarFollower[];
+  comments?: CalendarComment[];
+  privacyOverrides?: CalendarShareSetting[];
+  workingHoursImpact?: "within" | "outside" | "holiday";
+  automationRuleIds?: string[];
 }
 
 export type CalendarColorEncoding = "calendar" | "status" | "type" | "priority" | "custom";
@@ -201,4 +298,66 @@ export interface CalendarNotification {
   channel: CalendarEventReminder["method"];
   status: "pending" | "snoozed" | "sent";
   actionLabel?: string;
+}
+
+export type CalendarWorkingDayKey =
+  | "monday"
+  | "tuesday"
+  | "wednesday"
+  | "thursday"
+  | "friday"
+  | "saturday"
+  | "sunday";
+
+export interface CalendarWorkingDayConfig {
+  enabled: boolean;
+  startHour: number;
+  endHour: number;
+}
+
+export interface CalendarWorkingHours {
+  ownerId: string;
+  timezone: string;
+  days: Record<CalendarWorkingDayKey, CalendarWorkingDayConfig>;
+}
+
+export interface CalendarHoliday {
+  id: string;
+  name: string;
+  date: string;
+  region: string;
+}
+
+export interface CalendarOutOfOffice {
+  id: string;
+  ownerId: string;
+  start: string;
+  end: string;
+  message?: string;
+  status: "scheduled" | "active" | "completed";
+}
+
+export interface SchedulingAssistantSuggestion {
+  id: string;
+  start: string;
+  end: string;
+  attendeeIds: string[];
+  score: number;
+  reason?: string;
+  type: "primary" | "alternative";
+  conflicts?: string[];
+}
+
+export interface SchedulingAssistantResult {
+  generatedAt: string;
+  suggestions: SchedulingAssistantSuggestion[];
+}
+
+export interface CalendarDelegation {
+  id: string;
+  ownerId: string;
+  delegateId: string;
+  delegateName: string;
+  scope: "view" | "edit" | "manage";
+  expiresAt?: string;
 }
