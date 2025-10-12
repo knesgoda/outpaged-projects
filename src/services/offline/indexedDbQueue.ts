@@ -226,7 +226,7 @@ function compareVectorClocks(a?: VectorClock | null, b?: VectorClock | null): "a
 }
 
 function defaultConflictPolicy(): ConflictPolicy {
-  return { strategy: "lww", prefer: "local" };
+  return { strategy: "lww" };
 }
 
 function generateId(prefix: string) {
@@ -423,8 +423,16 @@ function applyConflictPolicy(
   | { kind: "merge"; record: Record<string, unknown> }
   | { kind: "manual" } {
   const policy = mutation.conflictPolicy ?? defaultConflictPolicy();
+  const localClock = mutation.vectorClock;
   const remoteClock = (remote?.vectorClock as VectorClock | undefined) ?? undefined;
-  const comparison = compareVectorClocks(mutation.vectorClock, remoteClock);
+  const localHasClock = localClock && Object.keys(localClock).length > 0;
+  const remoteHasClock = remoteClock && Object.keys(remoteClock).length > 0;
+
+  if (!localHasClock || !remoteHasClock) {
+    return { kind: "manual" };
+  }
+
+  const comparison = compareVectorClocks(localClock, remoteClock);
 
   if (policy.strategy === "lww") {
     if (comparison === "ahead") {
@@ -437,7 +445,10 @@ function applyConflictPolicy(
       if (policy.prefer === "remote") {
         return { kind: "use-remote", record: remote };
       }
-      return { kind: "keep-local" };
+      if (policy.prefer === "local") {
+        return { kind: "keep-local" };
+      }
+      return { kind: "manual" };
     }
     return { kind: "manual" };
   }
@@ -505,10 +516,10 @@ export async function enqueueBoardMutation(
   return record;
 }
 
-export async function listBoardMutations(boardId: string, view?: BoardViewMode) {
+export async function listBoardMutations(boardId?: string, view?: BoardViewMode) {
   const records = await readAllRecords<BoardSyncMutation>("boardQueue");
   return records
-    .filter((record) => record.boardId === boardId && (!view || record.view === view))
+    .filter((record) => (boardId ? record.boardId === boardId : true) && (!view || record.view === view))
     .sort((a, b) => a.timestamp - b.timestamp);
 }
 
@@ -729,9 +740,11 @@ export async function enqueueItemMutation(
   return putRecord("itemQueue", record);
 }
 
-export async function listDocOperations(docId: string) {
+export async function listDocOperations(docId?: string) {
   const all = await readAllRecords<DocCrdtOperation>("docOps");
-  return all.filter((op) => op.docId === docId).sort((a, b) => a.timestamp - b.timestamp);
+  return all
+    .filter((op) => (docId ? op.docId === docId : true))
+    .sort((a, b) => a.timestamp - b.timestamp);
 }
 
 export async function enqueueDocOperation(
@@ -798,6 +811,137 @@ export async function listCommentMutations(commentId?: string) {
   return all
     .filter((mutation) => (commentId ? mutation.commentId === commentId : true))
     .sort((a, b) => a.timestamp - b.timestamp);
+}
+
+export async function listItemMutations(itemId?: string) {
+  const all = await readAllRecords<ItemMutation>("itemQueue");
+  return all
+    .filter((mutation) => (itemId ? mutation.itemId === itemId : true))
+    .sort((a, b) => a.timestamp - b.timestamp);
+}
+
+export type OfflineOperationSource = "board" | "item" | "doc" | "comment" | "file";
+
+export interface OfflineOperationSummary {
+  id: string;
+  source: OfflineOperationSource;
+  status: MutationStatus;
+  timestamp: number;
+  description: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface OfflineQueueSummary {
+  total: number;
+  byStatus: Record<MutationStatus, number>;
+  latestActivity?: number | null;
+  operations: OfflineOperationSummary[];
+}
+
+const EMPTY_STATUS_SUMMARY: Record<MutationStatus, number> = {
+  pending: 0,
+  syncing: 0,
+  conflict: 0,
+  synced: 0,
+  failed: 0,
+};
+
+function mergeStatusCounts(
+  accumulator: Record<MutationStatus, number>,
+  records: Array<{ status: MutationStatus }>
+) {
+  for (const record of records) {
+    accumulator[record.status] = (accumulator[record.status] ?? 0) + 1;
+  }
+  return accumulator;
+}
+
+export async function listOfflineOperations(): Promise<OfflineOperationSummary[]> {
+  const [board, items, docs, comments, files] = await Promise.all([
+    listBoardMutations(),
+    listItemMutations(),
+    listDocOperations(),
+    listCommentMutations(),
+    listFileUploads(),
+  ]);
+
+  const summaries: OfflineOperationSummary[] = [];
+
+  for (const record of board) {
+    summaries.push({
+      id: record.id,
+      source: "board",
+      status: record.status,
+      timestamp: record.lastAttemptAt ?? record.timestamp,
+      description: `${record.view} • ${record.payload.type}`,
+      metadata: {
+        boardId: record.boardId,
+        itemId: record.itemId,
+        vectorClock: record.vectorClock,
+      },
+    });
+  }
+
+  for (const record of items) {
+    summaries.push({
+      id: record.id,
+      source: "item",
+      status: record.status,
+      timestamp: record.lastAttemptAt ?? record.timestamp,
+      description: `Item ${record.itemId}`,
+      metadata: {
+        vectorClock: record.vectorClock,
+        dependencies: record.dependencies,
+      },
+    });
+  }
+
+  for (const record of docs) {
+    summaries.push({
+      id: record.id,
+      source: "doc",
+      status: record.status,
+      timestamp: record.lastAttemptAt ?? record.timestamp,
+      description: `Doc ${record.docId}`,
+    });
+  }
+
+  for (const record of comments) {
+    summaries.push({
+      id: record.id,
+      source: "comment",
+      status: record.status,
+      timestamp: record.lastAttemptAt ?? record.timestamp,
+      description: `Comment ${record.commentId}`,
+    });
+  }
+
+  for (const record of files) {
+    summaries.push({
+      id: record.id,
+      source: "file",
+      status: record.status,
+      timestamp: record.lastAttemptAt ?? record.timestamp,
+      description: `File ${record.fileId}`,
+    });
+  }
+
+  return summaries.sort((a, b) => a.timestamp - b.timestamp);
+}
+
+export async function summarizeOfflineQueue(): Promise<OfflineQueueSummary> {
+  const operations = await listOfflineOperations();
+  const byStatus = mergeStatusCounts({ ...EMPTY_STATUS_SUMMARY }, operations);
+  const latestActivity = operations.length
+    ? operations.reduce((latest, operation) => Math.max(latest, operation.timestamp), 0)
+    : null;
+
+  return {
+    total: operations.length,
+    byStatus,
+    latestActivity,
+    operations,
+  } satisfies OfflineQueueSummary;
 }
 
 export async function updateCommentMutation(id: string, patch: Partial<CommentMutation>) {
