@@ -179,6 +179,92 @@ export type Database = {
         }
         Relationships: []
       }
+      saved_searches: {
+        Row: {
+          alert_channels: Database["public"]["Enums"]["saved_search_alert_channel"][]
+          alert_frequency: Database["public"]["Enums"]["saved_search_alert_frequency"]
+          alert_metadata: Json
+          alert_thresholds: Json
+          audit_metadata: Json
+          created_at: string
+          description: string | null
+          filters: Json
+          id: string
+          last_accessed_at: string | null
+          last_alert_sent_at: string | null
+          masked_fields: string[]
+          name: string
+          owner_id: string | null
+          owner_type: Database["public"]["Enums"]["saved_search_owner_type"]
+          parameter_tokens: Json
+          query: string
+          shared_slug: string | null
+          shared_url: string | null
+          updated_at: string
+          updated_by: string | null
+          user_id: string
+          visibility: Database["public"]["Enums"]["saved_search_visibility"]
+        }
+        Insert: {
+          alert_channels?: Database["public"]["Enums"]["saved_search_alert_channel"][]
+          alert_frequency?: Database["public"]["Enums"]["saved_search_alert_frequency"]
+          alert_metadata?: Json
+          alert_thresholds?: Json
+          audit_metadata?: Json
+          created_at?: string
+          description?: string | null
+          filters?: Json
+          id?: string
+          last_accessed_at?: string | null
+          last_alert_sent_at?: string | null
+          masked_fields?: string[]
+          name: string
+          owner_id?: string | null
+          owner_type?: Database["public"]["Enums"]["saved_search_owner_type"]
+          parameter_tokens?: Json
+          query: string
+          shared_slug?: string | null
+          shared_url?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          user_id: string
+          visibility?: Database["public"]["Enums"]["saved_search_visibility"]
+        }
+        Update: {
+          alert_channels?: Database["public"]["Enums"]["saved_search_alert_channel"][]
+          alert_frequency?: Database["public"]["Enums"]["saved_search_alert_frequency"]
+          alert_metadata?: Json
+          alert_thresholds?: Json
+          audit_metadata?: Json
+          created_at?: string
+          description?: string | null
+          filters?: Json
+          id?: string
+          last_accessed_at?: string | null
+          last_alert_sent_at?: string | null
+          masked_fields?: string[]
+          name?: string
+          owner_id?: string | null
+          owner_type?: Database["public"]["Enums"]["saved_search_owner_type"]
+          parameter_tokens?: Json
+          query?: string
+          shared_slug?: string | null
+          shared_url?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          user_id?: string
+          visibility?: Database["public"]["Enums"]["saved_search_visibility"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "saved_searches_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       audit_log: {
         Row: {
           action: string
@@ -3238,6 +3324,15 @@ export type Database = {
         | "url"
       leaderboard_type: "global" | "project" | "team" | "challenge"
       notification_type: "info" | "success" | "warning" | "error"
+      saved_search_alert_channel: "email" | "slack" | "webhook"
+      saved_search_alert_frequency:
+        | "off"
+        | "immediate"
+        | "hourly"
+        | "daily"
+        | "weekly"
+      saved_search_owner_type: "user" | "team" | "project" | "org"
+      saved_search_visibility: "private" | "team" | "project" | "org"
       project_status:
         | "planning"
         | "active"
@@ -3486,6 +3581,16 @@ export const Constants = {
       ],
       leaderboard_type: ["global", "project", "team", "challenge"],
       notification_type: ["info", "success", "warning", "error"],
+      saved_search_alert_channel: ["email", "slack", "webhook"],
+      saved_search_alert_frequency: [
+        "off",
+        "immediate",
+        "hourly",
+        "daily",
+        "weekly",
+      ],
+      saved_search_owner_type: ["user", "team", "project", "org"],
+      saved_search_visibility: ["private", "team", "project", "org"],
       project_status: [
         "planning",
         "active",

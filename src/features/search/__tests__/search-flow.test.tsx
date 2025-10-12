@@ -3,11 +3,12 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Routes, Route, useLocation } from "react-router-dom";
 import { CommandPalette } from "@/components/command/CommandPalette";
 import { CommandKProvider } from "@/components/command/CommandKProvider";
-import GlobalSearchPage from "@/pages/search/GlobalSearchPage";
+import { GlobalSearchPage } from "@/pages/search/GlobalSearchPage";
 import { act } from "react";
 import type {
   CreateSavedSearchInput,
   SavedSearch,
+  SavedSearchAlertConfig,
 } from "@/services/savedSearches";
 
 jest.mock("@/services/search", () => ({
@@ -15,21 +16,48 @@ jest.mock("@/services/search", () => ({
   searchSuggest: jest.fn(() => Promise.resolve([])),
 }));
 
+const defaultAlertConfig: SavedSearchAlertConfig = {
+  frequency: "off",
+  thresholds: [],
+  channels: [],
+  metadata: {},
+  lastSentAt: null,
+};
+
+const createSavedSearchStub = (
+  overrides: Partial<SavedSearch>
+): SavedSearch => ({
+  id: "stub-id",
+  name: "Stub",
+  query: "",
+  filters: {},
+  visibility: "private",
+  description: null,
+  parameterTokens: [],
+  owner: { type: "user", id: null },
+  sharedSlug: null,
+  sharedUrl: null,
+  alertConfig: { ...defaultAlertConfig },
+  maskedFields: [],
+  audit: {},
+  created_at: "2024-02-01T00:00:00.000Z",
+  updated_at: "2024-02-01T00:00:00.000Z",
+  ...overrides,
+});
+
 const seededSavedSearches: SavedSearch[] = [
-  {
+  createSavedSearchStub({
     id: "seed-1",
     name: "My open tasks",
     query: "status:open assignee:me",
     filters: { type: "task" },
-    created_at: "2024-02-01T09:00:00.000Z",
-  },
-  {
+  }),
+  createSavedSearchStub({
     id: "seed-2",
     name: "Product docs",
     query: "product spec",
     filters: { type: "doc" },
-    created_at: "2024-02-02T09:00:00.000Z",
-  },
+  }),
 ];
 
 const saved: SavedSearch[] = [];
@@ -38,13 +66,15 @@ jest.mock("@/services/savedSearches", () => ({
   listSavedSearches: jest.fn(async () => [...saved]),
   createSavedSearch: jest.fn(
     ({ name, query, filters }: CreateSavedSearchInput) => {
-      const entry: SavedSearch = {
+      const now = new Date().toISOString();
+      const entry: SavedSearch = createSavedSearchStub({
         id: `${Date.now()}`,
         name,
         query,
         filters: filters ?? {},
-        created_at: new Date().toISOString(),
-      };
+        created_at: now,
+        updated_at: now,
+      });
       saved.unshift(entry);
       return Promise.resolve(entry);
     }
