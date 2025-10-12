@@ -3,6 +3,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HelmetProvider } from "react-helmet-async";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 import { ProjectsListPage } from "../projects/ProjectsListPage";
 import { ProjectDetailPage } from "../projects/ProjectDetailPage";
@@ -49,7 +50,12 @@ jest.mock("@/hooks/use-toast", () => ({
   }),
 }));
 
+jest.mock("@/components/projects/ProjectDialog", () => ({
+  ProjectDialog: () => null,
+}));
+
 let lastLocation: { pathname: string; search: string } | null = null;
+let queryClient: QueryClient;
 
 const LocationTracker: React.FC = () => {
   const location = useLocation();
@@ -61,10 +67,12 @@ const LocationTracker: React.FC = () => {
 
 const listWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <HelmetProvider>
-    <MemoryRouter initialEntries={["/projects"]}>
-      <LocationTracker />
-      {children}
-    </MemoryRouter>
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={["/projects"]}>
+        <LocationTracker />
+        {children}
+      </MemoryRouter>
+    </QueryClientProvider>
   </HelmetProvider>
 );
 
@@ -97,6 +105,7 @@ describe("Projects pages", () => {
     toastMock.mockReset();
     window.innerWidth = 1024;
     window.dispatchEvent(new Event("resize"));
+    queryClient = new QueryClient();
   });
 
   it("renders projects after loading", async () => {
@@ -175,11 +184,13 @@ describe("Projects pages", () => {
 
     render(
       <HelmetProvider>
-        <MemoryRouter initialEntries={[`/projects/${projectId}`]}>
-          <Routes>
-            <Route path="/projects/:projectId" element={<ProjectDetailPage tab="overview" />} />
-          </Routes>
-        </MemoryRouter>
+        <QueryClientProvider client={queryClient}>
+          <MemoryRouter initialEntries={[`/projects/${projectId}`]}>
+            <Routes>
+              <Route path="/projects/:projectId" element={<ProjectDetailPage tab="overview" />} />
+            </Routes>
+          </MemoryRouter>
+        </QueryClientProvider>
       </HelmetProvider>,
     );
 
@@ -253,10 +264,12 @@ describe("Projects pages", () => {
     render(<Projects />, { wrapper: listWrapper });
     const wrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
       <HelmetProvider>
-        <MemoryRouter initialEntries={["/projects?status=cancelled"]}>
-          <LocationTracker />
-          {children}
-        </MemoryRouter>
+        <QueryClientProvider client={queryClient}>
+          <MemoryRouter initialEntries={["/projects?status=cancelled"]}>
+            <LocationTracker />
+            {children}
+          </MemoryRouter>
+        </QueryClientProvider>
       </HelmetProvider>
     );
 
@@ -265,5 +278,41 @@ describe("Projects pages", () => {
     expect(mockUseProjects).toHaveBeenCalledWith(
       expect.objectContaining({ status: "cancelled" }),
     );
+  });
+
+  it("displays query error messages when provided", () => {
+    const supabaseErrorMessage = "Supabase reported: rate limit exceeded";
+
+    mockUseProjects.mockReturnValue({
+      data: null,
+      isLoading: false,
+      isError: true,
+      error: { message: supabaseErrorMessage },
+      refetch: jest.fn(),
+    });
+
+    render(<Projects />, { wrapper: listWrapper });
+
+    expect(screen.getByText("Failed to load projects")).toBeInTheDocument();
+    expect(screen.getByText(supabaseErrorMessage)).toBeInTheDocument();
+    expect(screen.queryByText("An unexpected error occurred")).not.toBeInTheDocument();
+  });
+
+  it("falls back to the default message for technical errors", () => {
+    mockUseProjects.mockReturnValue({
+      data: null,
+      isLoading: false,
+      isError: true,
+      error: { message: "column projects.template_key does not exist" },
+      refetch: jest.fn(),
+    });
+
+    render(<Projects />, { wrapper: listWrapper });
+
+    expect(screen.getByText("Failed to load projects")).toBeInTheDocument();
+    expect(screen.getByText("An unexpected error occurred")).toBeInTheDocument();
+    expect(
+      screen.queryByText("column projects.template_key does not exist"),
+    ).not.toBeInTheDocument();
   });
 });

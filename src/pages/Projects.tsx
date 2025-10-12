@@ -14,6 +14,51 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import { formatProjectStatus, getProjectStatusBadgeVariant } from "@/utils/project-status";
 
+const DEFAULT_ERROR_MESSAGE = "An unexpected error occurred";
+
+const TECHNICAL_ERROR_PATTERNS = [
+  /\bcolumn\b.+\bdoes not exist\b/i,
+  /\brelation\b.+\bdoes not exist\b/i,
+  /\bduplicate key\b/i,
+  /\bviolates\b.+\bconstraint\b/i,
+  /\bsyntax error\b/i,
+  /\bpermission denied\b/i,
+  /\bJWT\b/i,
+];
+
+const sanitizeErrorMessage = (message: string, fallbackMessage: string) => {
+  const normalized = message.trim();
+
+  if (!normalized) {
+    return fallbackMessage;
+  }
+
+  if (TECHNICAL_ERROR_PATTERNS.some((pattern) => pattern.test(normalized))) {
+    return fallbackMessage;
+  }
+
+  return normalized;
+};
+
+const getReadableErrorMessage = (error: unknown, fallbackMessage: string) => {
+  if (!error) {
+    return fallbackMessage;
+  }
+
+  if (error instanceof Error) {
+    return sanitizeErrorMessage(error.message, fallbackMessage);
+  }
+
+  if (typeof error === "object") {
+    const message = (error as { message?: unknown }).message;
+    if (typeof message === "string") {
+      return sanitizeErrorMessage(message, fallbackMessage);
+    }
+  }
+
+  return fallbackMessage;
+};
+
 type Project = {
   id: string;
   name: string;
@@ -315,6 +360,8 @@ export default function Projects() {
   }
 
   if (error) {
+    const errorMessage = getReadableErrorMessage(error, DEFAULT_ERROR_MESSAGE);
+
     return (
       <div className="space-y-6 px-4 pb-16 sm:px-6 lg:px-8">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -335,7 +382,7 @@ export default function Projects() {
             <div className="text-center space-y-2">
               <p className="text-destructive font-medium">Failed to load projects</p>
               <p className="text-sm text-muted-foreground">
-                {error instanceof Error ? error.message : "An unexpected error occurred"}
+                {errorMessage}
               </p>
               <Button
                 variant="outline"
