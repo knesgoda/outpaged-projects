@@ -124,10 +124,12 @@ type OfflineStoreName =
   | "fileQueue"
   | "snapshots"
   | "dependencies"
-  | "batches";
+  | "batches"
+  | "profilePreferenceQueue"
+  | "profilePreferenceSnapshots";
 
 const DB_NAME = "outpaged-board-offline";
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 const STORE_CONFIG: Record<OfflineStoreName, { keyPath: string }> = {
   boardQueue: { keyPath: "id" },
   itemQueue: { keyPath: "id" },
@@ -137,6 +139,8 @@ const STORE_CONFIG: Record<OfflineStoreName, { keyPath: string }> = {
   snapshots: { keyPath: "id" },
   dependencies: { keyPath: "id" },
   batches: { keyPath: "id" },
+  profilePreferenceQueue: { keyPath: "id" },
+  profilePreferenceSnapshots: { keyPath: "id" },
 };
 
 const memoryStores: Record<OfflineStoreName, Map<string, unknown>> = {
@@ -148,6 +152,8 @@ const memoryStores: Record<OfflineStoreName, Map<string, unknown>> = {
   snapshots: new Map(),
   dependencies: new Map(),
   batches: new Map(),
+  profilePreferenceQueue: new Map(),
+  profilePreferenceSnapshots: new Map(),
 };
 
 let dbPromise: Promise<IDBDatabase> | null = null;
@@ -1033,6 +1039,156 @@ export function createTimelineDependencyAdapter(
       await markDependencyResolved(operation.id);
     }
   };
+}
+
+export interface ProfilePreferenceRecord {
+  favorites: string[];
+  viewSettings: Record<string, unknown>;
+  layoutSelections: Record<string, unknown>;
+  updatedAt: string;
+}
+
+export interface ProfilePreferenceSnapshot {
+  id: string;
+  userId: string;
+  preferences: ProfilePreferenceRecord;
+  updatedAt: number;
+}
+
+export interface ProfilePreferenceMutation extends OfflineOperationMetadata {
+  id: string;
+  userId: string;
+  payload: ProfilePreferenceRecord;
+  timestamp: number;
+  status: MutationStatus;
+  conflict?: { remote: ProfilePreferenceRecord; reason?: string } | null;
+}
+
+export type ProfilePreferenceSyncer = (
+  mutation: ProfilePreferenceMutation,
+  options?: { force?: boolean }
+) => Promise<SyncOutcome>;
+
+export interface ProcessPreferenceQueueResult {
+  processed: ProfilePreferenceMutation[];
+  conflicts: { mutation: ProfilePreferenceMutation; remote: ProfilePreferenceRecord; reason?: string }[];
+  failed: ProfilePreferenceMutation[];
+}
+
+function clonePreferenceRecord(record: ProfilePreferenceRecord): ProfilePreferenceRecord {
+  if (typeof globalThis.structuredClone === "function") {
+    return globalThis.structuredClone(record);
+  }
+  return JSON.parse(JSON.stringify(record)) as ProfilePreferenceRecord;
+}
+
+export async function enqueueProfilePreferenceMutation(
+  mutation: Omit<
+    ProfilePreferenceMutation,
+    "id" | "timestamp" | "status" | "conflict" | keyof OfflineOperationMetadata
+  > &
+    Partial<OfflineOperationMetadata>
+): Promise<ProfilePreferenceMutation> {
+  const metadata = deriveMetadata(mutation);
+  const record: ProfilePreferenceMutation = {
+    ...mutation,
+    ...metadata,
+    id: mutation.id ?? generateId("pref-mutation"),
+    timestamp: now(),
+    status: "pending",
+    conflict: null,
+  } as ProfilePreferenceMutation;
+
+  await registerDependencies(record);
+  await putRecord("profilePreferenceQueue", record);
+  return record;
+}
+
+export async function listProfilePreferenceMutations(userId?: string) {
+  const records = await readAllRecords<ProfilePreferenceMutation>("profilePreferenceQueue");
+  return records
+    .filter((record) => (userId ? record.userId === userId : true))
+    .sort((a, b) => a.timestamp - b.timestamp);
+}
+
+export async function updateProfilePreferenceMutation(
+  id: string,
+  patch: Partial<ProfilePreferenceMutation>
+): Promise<void> {
+  const existing = await readRecord<ProfilePreferenceMutation>("profilePreferenceQueue", id);
+  if (!existing) return;
+  const next = { ...existing, ...patch } as ProfilePreferenceMutation;
+  await putRecord("profilePreferenceQueue", next);
+  if (next.status === "synced" || next.status === "failed") {
+    await markDependencyResolved(id);
+  }
+}
+
+export async function deleteProfilePreferenceMutation(id: string): Promise<void> {
+  await deleteRecord("profilePreferenceQueue", id);
+  await markDependencyResolved(id);
+}
+
+export async function saveProfilePreferenceSnapshot(snapshot: ProfilePreferenceSnapshot) {
+  return putRecord("profilePreferenceSnapshots", snapshot);
+}
+
+export async function getProfilePreferenceSnapshot(userId: string) {
+  const records = await readAllRecords<ProfilePreferenceSnapshot>("profilePreferenceSnapshots");
+  return records.find((record) => record.userId === userId) ?? null;
+}
+
+export async function processProfilePreferenceQueue(
+  userId: string,
+  syncer: ProfilePreferenceSyncer
+): Promise<ProcessPreferenceQueueResult> {
+  const pending = await listProfilePreferenceMutations(userId);
+  const processed: ProfilePreferenceMutation[] = [];
+  const conflicts: ProcessPreferenceQueueResult["conflicts"] = [];
+  const failed: ProfilePreferenceMutation[] = [];
+
+  for (const mutation of pending) {
+    await updateProfilePreferenceMutation(mutation.id, {
+      status: "syncing",
+      attempt: mutation.attempt + 1,
+      lastAttemptAt: now(),
+      conflict: null,
+    });
+
+    let outcome: SyncOutcome;
+    try {
+      outcome = await syncer({ ...mutation, status: "syncing" });
+    } catch (error) {
+      await updateProfilePreferenceMutation(mutation.id, { status: "pending" });
+      throw error;
+    }
+
+    if (outcome.kind === "success") {
+      await updateProfilePreferenceMutation(mutation.id, { status: "synced" });
+      await deleteProfilePreferenceMutation(mutation.id);
+      processed.push(mutation);
+      continue;
+    }
+
+    if (outcome.kind === "conflict") {
+      const conflictRecord = clonePreferenceRecord(outcome.remote as ProfilePreferenceRecord);
+      await updateProfilePreferenceMutation(mutation.id, {
+        status: "conflict",
+        conflict: { remote: conflictRecord, reason: outcome.reason },
+      });
+      conflicts.push({
+        mutation: { ...mutation, status: "conflict", conflict: { remote: conflictRecord, reason: outcome.reason } },
+        remote: conflictRecord,
+        reason: outcome.reason,
+      });
+      break;
+    }
+
+    await updateProfilePreferenceMutation(mutation.id, { status: "pending" });
+    failed.push(mutation);
+  }
+
+  return { processed, conflicts, failed };
 }
 
 export type { BoardSyncMutationPayload as SyncPayload };

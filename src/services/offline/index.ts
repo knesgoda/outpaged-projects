@@ -30,6 +30,13 @@ export {
   groupOperationsByBatch,
   listOfflineOperations,
   summarizeOfflineQueue,
+  enqueueProfilePreferenceMutation,
+  listProfilePreferenceMutations,
+  updateProfilePreferenceMutation,
+  deleteProfilePreferenceMutation,
+  saveProfilePreferenceSnapshot,
+  getProfilePreferenceSnapshot,
+  processProfilePreferenceQueue,
 } from "./indexedDbQueue";
 
 export {
@@ -60,4 +67,9 @@ export type {
   OfflineOperationSummary,
   OfflineQueueSummary,
   OfflineOperationSource,
+  ProfilePreferenceMutation,
+  ProfilePreferenceRecord,
+  ProfilePreferenceSnapshot,
+  ProfilePreferenceSyncer,
+  ProcessPreferenceQueueResult,
 } from "./indexedDbQueue";

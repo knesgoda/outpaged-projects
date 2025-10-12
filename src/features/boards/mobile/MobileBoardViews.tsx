@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo } from "react";
 import {
   BadgeCheck,
   CalendarDays,
@@ -24,6 +24,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
+import { useProfilePreferencesScope } from "@/state/profile";
 
 const DEFAULT_DATE_FIELDS = ["due_date", "start_date", "end_date", "date"];
 const STICKY_FIELDS = ["title", "name", "status", "assignee", "owner"];
@@ -126,22 +127,37 @@ function ColumnToggle({ columns, visible, onToggle }: ColumnToggleProps) {
   );
 }
 
-export function MobileTableView() {
+interface PreferenceScopedProps {
+  scope?: string;
+}
+
+export function MobileTableView({ scope = "global" }: PreferenceScopedProps) {
   const { items } = useBoardViewContext();
   const columns = useMemo(() => deriveColumns(items), [items]);
-  const [visibleColumns, setVisibleColumns] = useState<string[]>(() => {
+  const defaultColumns = useMemo(() => {
     const sticky = columns.filter((column) => STICKY_FIELDS.includes(column));
     const extras = columns.filter((column) => !STICKY_FIELDS.includes(column)).slice(0, 4);
     return sticky.length ? Array.from(new Set([...sticky, ...extras])) : columns.slice(0, 5);
-  });
+  }, [columns]);
+  const { viewSettings, updateViewSettings } = useProfilePreferencesScope(scope);
+  const visibleColumns = useMemo(() => {
+    const stored = viewSettings.table?.visibleColumns?.filter((column) => columns.includes(column));
+    if (stored && stored.length > 0) {
+      return stored;
+    }
+    return defaultColumns;
+  }, [viewSettings.table?.visibleColumns, defaultColumns, columns]);
 
   const toggleColumn = useCallback(
     (column: string) => {
-      setVisibleColumns((current) =>
-        current.includes(column) ? current.filter((entry) => entry !== column) : [...current, column]
-      );
+      const hasColumn = visibleColumns.includes(column);
+      const candidate = hasColumn
+        ? visibleColumns.filter((entry) => entry !== column)
+        : [...visibleColumns, column];
+      const next = candidate.filter((entry) => columns.includes(entry));
+      void updateViewSettings({ table: { visibleColumns: next } });
     },
-    []
+    [visibleColumns, updateViewSettings, columns]
   );
 
   return (
@@ -227,10 +243,19 @@ function buildEventBuckets(items: Record<string, unknown>[], dateField: string) 
   return { days, bucket };
 }
 
-export function MobileCalendarBoardView() {
+export function MobileCalendarBoardView({ scope = "global" }: PreferenceScopedProps) {
   const { items } = useBoardViewContext();
   const dateField = useMemo(() => deriveDateField(items), [items]);
-  const [mode, setMode] = useState<"agenda" | "week" | "day">("week");
+  const { viewSettings, updateViewSettings } = useProfilePreferencesScope(scope);
+  const mode =
+    (viewSettings.calendar?.mode as "agenda" | "week" | "day" | undefined) ?? "week";
+  const handleModeChange = useCallback(
+    (nextMode: "agenda" | "week" | "day") => {
+      if (nextMode === mode) return;
+      void updateViewSettings({ calendar: { mode: nextMode } });
+    },
+    [mode, updateViewSettings]
+  );
   const { days, bucket } = useMemo(() => buildEventBuckets(items, dateField), [items, dateField]);
   const today = new Date();
 
@@ -240,7 +265,10 @@ export function MobileCalendarBoardView() {
         <CardTitle className="flex items-center gap-2 text-base">
           <CalendarDays className="h-5 w-5 text-primary" /> Calendar ({mode})
         </CardTitle>
-        <Tabs value={mode} onValueChange={(value) => setMode(value as typeof mode)}>
+        <Tabs
+          value={mode}
+          onValueChange={(value) => handleModeChange(value as "agenda" | "week" | "day")}
+        >
           <TabsList className="grid grid-cols-3">
             <TabsTrigger value="day">Day</TabsTrigger>
             <TabsTrigger value="week">Week</TabsTrigger>
@@ -561,51 +589,55 @@ export function MobileWorkloadView() {
   );
 }
 
-interface WhiteboardNode {
+const NOTE_COLORS = ["#fef08a", "#bfdbfe", "#fbcfe8", "#bbf7d0", "#fde68a"];
+
+type WhiteboardNode = {
   id: string;
   text: string;
   color: string;
-}
+};
 
-const NOTE_COLORS = ["#fef08a", "#bfdbfe", "#fbcfe8", "#bbf7d0", "#fde68a"];
+export function MobileWhiteboardView({ scope = "global" }: PreferenceScopedProps) {
+  const { viewSettings, updateViewSettings } = useProfilePreferencesScope(scope);
+  const notes = useMemo<WhiteboardNode[]>(() => {
+    const stored = viewSettings.whiteboard?.notes;
+    if (!Array.isArray(stored)) return [];
+    return stored
+      .filter((note): note is WhiteboardNode =>
+        Boolean(note && typeof note.id === "string" && typeof note.color === "string")
+      )
+      .map((note) => ({ id: note.id, text: note.text ?? "", color: note.color ?? NOTE_COLORS[0] }));
+  }, [viewSettings.whiteboard?.notes]);
 
-export function MobileWhiteboardView() {
-  const [notes, setNotes] = useState<WhiteboardNode[]>(() => {
-    if (typeof window === "undefined") return [];
-    try {
-      const stored = window.localStorage.getItem("mobile-whiteboard-notes");
-      return stored ? (JSON.parse(stored) as WhiteboardNode[]) : [];
-    } catch (error) {
-      console.warn("Failed to load whiteboard notes", error);
-      return [];
-    }
-  });
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      window.localStorage.setItem("mobile-whiteboard-notes", JSON.stringify(notes));
-    } catch (error) {
-      console.warn("Failed to persist whiteboard notes", error);
-    }
-  }, [notes]);
+  const commitNotes = useCallback(
+    (next: WhiteboardNode[]) => {
+      void updateViewSettings({ whiteboard: { notes: next.map((note) => ({ ...note })) } });
+    },
+    [updateViewSettings]
+  );
 
   const addNote = useCallback(() => {
     const color = NOTE_COLORS[Math.floor(Math.random() * NOTE_COLORS.length)];
-    const id = randomId();
-    setNotes((current) => [
-      ...current,
-      { id, text: "Tap to edit", color },
-    ]);
-  }, []);
+    const id =
+      typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+        ? crypto.randomUUID()
+        : randomId();
+    commitNotes([...notes, { id, text: "Tap to edit", color }]);
+  }, [notes, commitNotes]);
 
-  const updateNote = useCallback((id: string, text: string) => {
-    setNotes((current) => current.map((note) => (note.id === id ? { ...note, text } : note)));
-  }, []);
+  const updateNote = useCallback(
+    (id: string, text: string) => {
+      commitNotes(notes.map((note) => (note.id === id ? { ...note, text } : note)));
+    },
+    [notes, commitNotes]
+  );
 
-  const removeNote = useCallback((id: string) => {
-    setNotes((current) => current.filter((note) => note.id !== id));
-  }, []);
+  const removeNote = useCallback(
+    (id: string) => {
+      commitNotes(notes.filter((note) => note.id !== id));
+    },
+    [notes, commitNotes]
+  );
 
   return (
     <Card>
