@@ -15,6 +15,7 @@ import { ResiliencePerformancePanel } from "@/components/operations/ResiliencePe
 import { MobileOfflinePanel } from "@/components/operations/MobileOfflinePanel";
 import { AdminGovernancePanel } from "@/components/operations/AdminGovernancePanel";
 import { SloDashboardPanel } from "@/components/operations/SloDashboardPanel";
+import { SearchDiagnosticsPanel } from "@/components/operations/SearchDiagnosticsPanel";
 import { IncidentManager } from "@/components/incidents/IncidentManager";
 import { OnCallSchedule } from "@/components/oncall/OnCallSchedule";
 import { ServiceRegistry } from "@/components/services/ServiceRegistry";
@@ -98,6 +99,7 @@ export default function OperationsCenter() {
           <ResiliencePerformancePanel />
           <MobileOfflinePanel />
           <AdminGovernancePanel />
+          <SearchDiagnosticsPanel />
           <SloDashboardPanel />
         </TabsContent>
       </Tabs>

@@ -9,6 +9,7 @@ import {
   type ProjectPermissionScheme,
   type ProjectRoleKey,
 } from "@/domain/projects/governance";
+import { getSearchAuditLog, getSearchDiagnostics, listSavedSearches, listSearchAlerts } from "@/services/search";
 
 function deepClone<T>(value: T): T {
   if (typeof globalThis.structuredClone === "function") {
@@ -80,7 +81,26 @@ export interface ProjectGovernanceSnapshot {
   itemPrivacyRules: ProjectItemPrivacyRule[];
   guestAccess: ProjectGuestAccess;
   auditLog: ProjectAuditLogEntry[];
+  searchGovernance: ProjectSearchGovernance;
   updatedAt: string;
+}
+
+export interface ProjectSearchGovernance {
+  queryAuditLog: ReturnType<typeof getSearchAuditLog>;
+  exportCaps: {
+    daily: number;
+    remaining: number;
+    enforced: boolean;
+  };
+  securityPolicies: {
+    requireAuditRole: boolean;
+    maskedFields: string[];
+  };
+  alerts: {
+    enabled: boolean;
+    frequency: "immediate" | "daily" | "weekly";
+    lastTriggeredAt?: string;
+  };
 }
 
 export interface UpsertProjectMemberInput {
@@ -257,6 +277,13 @@ function createDefaultAuditLog(projectId: string): ProjectAuditLogEntry[] {
 }
 
 function createDefaultSnapshot(projectId: string): ProjectGovernanceSnapshot {
+  const savedSearches = listSavedSearches();
+  const searchDiagnostics = getSearchDiagnostics();
+  const searchAuditLog = getSearchAuditLog();
+  const searchAlerts = listSearchAlerts();
+  const maskedFields = Array.from(new Set(savedSearches.flatMap((record) => record.maskedFields)));
+  const exportDailyCap = 500;
+  const exportUsage = savedSearches.reduce((count, record) => count + record.audit.exports.length, 0) * 10;
   return {
     projectId,
     permissionSchemeId: PROJECT_PERMISSION_SCHEMES[0]?.id ?? "standard_delivery",
@@ -272,6 +299,23 @@ function createDefaultSnapshot(projectId: string): ProjectGovernanceSnapshot {
       token: generateId("guest"),
     },
     auditLog: createDefaultAuditLog(projectId),
+    searchGovernance: {
+      queryAuditLog: searchAuditLog.slice(-15),
+      exportCaps: {
+        daily: exportDailyCap,
+        remaining: Math.max(0, exportDailyCap - exportUsage),
+        enforced: true,
+      },
+      securityPolicies: {
+        requireAuditRole: true,
+        maskedFields,
+      },
+      alerts: {
+        enabled: searchAlerts.some((alert) => !alert.muted),
+        frequency: searchAlerts[0]?.frequency ?? "daily",
+        lastTriggeredAt: searchAlerts[0]?.lastTriggeredAt ?? searchDiagnostics.abuseSignals.lastThrottleAt,
+      },
+    },
     updatedAt: new Date().toISOString(),
   };
 }

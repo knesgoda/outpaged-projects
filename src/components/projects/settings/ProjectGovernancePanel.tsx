@@ -45,6 +45,7 @@ export function ProjectGovernancePanel() {
     itemPrivacyRules,
     guestAccess,
     auditLog,
+    searchGovernance,
     permissions,
     currentMember,
     refresh,
@@ -672,6 +673,61 @@ export function ProjectGovernancePanel() {
                 ? "Guests must verify their email before access is granted."
                 : "Guests can access without verification."}
             </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <Lock className="h-5 w-5" /> Search governance
+          </CardTitle>
+          <CardDescription>Audit search access, export caps, and masked field policies.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="grid gap-4 md:grid-cols-3">
+            <div className="rounded-lg border bg-muted/40 p-4">
+              <p className="text-xs uppercase text-muted-foreground">Daily export cap</p>
+              <p className="mt-1 text-2xl font-semibold">{searchGovernance.exportCaps.daily.toLocaleString()}</p>
+              <p className="text-xs text-muted-foreground">
+                {searchGovernance.exportCaps.remaining.toLocaleString()} remaining · {searchGovernance.exportCaps.enforced ? "enforced" : "advisory"}
+              </p>
+            </div>
+            <div className="rounded-lg border bg-muted/40 p-4">
+              <p className="text-xs uppercase text-muted-foreground">Security policies</p>
+              <p className="mt-1 text-sm">
+                AUDIT role required: {searchGovernance.securityPolicies.requireAuditRole ? "Yes" : "No"}
+              </p>
+              <p className="text-xs text-muted-foreground">Masked fields: {searchGovernance.securityPolicies.maskedFields.length ? searchGovernance.securityPolicies.maskedFields.join(", ") : "None"}</p>
+            </div>
+            <div className="rounded-lg border bg-muted/40 p-4">
+              <p className="text-xs uppercase text-muted-foreground">Alerts</p>
+              <p className="mt-1 text-sm">
+                {searchGovernance.alerts.enabled ? `Enabled (${searchGovernance.alerts.frequency})` : "Disabled"}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Last triggered: {searchGovernance.alerts.lastTriggeredAt ? formatDistanceToNow(new Date(searchGovernance.alerts.lastTriggeredAt), { addSuffix: true }) : "Never"}
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <Label className="text-xs uppercase text-muted-foreground">Recent search audit events</Label>
+            {searchGovernance.queryAuditLog.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No AUDIT scoped queries recorded.</p>
+            ) : (
+              searchGovernance.queryAuditLog.slice(-6).reverse().map((entry) => (
+                <div key={entry.id} className="rounded-lg border p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-sm font-medium">{entry.principalId}</span>
+                    <Badge variant="secondary">hash {entry.hashedQuery}</Badge>
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {entry.types.length ? entry.types.join(", ") : "all types"} · {formatDistanceToNow(new Date(entry.at), { addSuffix: true })}
+                  </p>
+                </div>
+              ))
+            )}
           </div>
         </CardContent>
       </Card>

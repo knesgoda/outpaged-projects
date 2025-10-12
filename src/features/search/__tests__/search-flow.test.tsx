@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Routes, Route, useLocation } from "react-router-dom";
 import { CommandPalette } from "@/components/command/CommandPalette";
@@ -11,9 +11,16 @@ import type {
   SavedSearchAlertConfig,
 } from "@/services/savedSearches";
 
+const makeSearchResponse = (items: any[]) => ({
+  items,
+  nextCursor: undefined,
+  partial: false,
+  metrics: { totalMs: 0, timeout: false },
+});
+
 jest.mock("@/services/search", () => ({
-  searchAll: jest.fn(),
-  searchSuggest: jest.fn(() => Promise.resolve([])),
+  searchAll: jest.fn(() => Promise.resolve(makeSearchResponse([]))),
+  searchSuggest: jest.fn(() => Promise.resolve(makeSearchResponse([]))),
 }));
 
 const defaultAlertConfig: SavedSearchAlertConfig = {
@@ -124,6 +131,14 @@ const searchModule = jest.requireMock("@/services/search") as {
   searchSuggest: jest.Mock;
 };
 
+const setSearchAllResults = (items: any[]) => {
+  searchModule.searchAll.mockResolvedValue(makeSearchResponse(items));
+};
+
+const setSearchSuggestResults = (items: any[]) => {
+  searchModule.searchSuggest.mockResolvedValue(makeSearchResponse(items));
+};
+
 const savedSearchModule = jest.requireMock("@/services/savedSearches") as {
   __seed: (items: SavedSearch[]) => void;
 };
@@ -163,12 +178,12 @@ const renderWithProviders = (initialEntries: string[]) => {
 beforeEach(() => {
   jest.clearAllMocks();
   savedSearchModule.__seed(seededSavedSearches);
-  searchModule.searchSuggest.mockResolvedValue([]);
+  setSearchSuggestResults([]);
 });
 
 describe("Command palette", () => {
   it("renders seeded saved searches when opened", async () => {
-    searchModule.searchAll.mockResolvedValue([]);
+    setSearchAllResults([]);
     renderWithProviders(["/search?q=alpha"]);
 
     act(() => {
@@ -183,7 +198,7 @@ describe("Command palette", () => {
   });
 
   it("opens with cmd+k and navigates to full search on enter", async () => {
-    searchModule.searchAll.mockResolvedValue([]);
+    setSearchAllResults([]);
     renderWithProviders(["/search?q=alpha"]);
 
     act(() => {
@@ -202,8 +217,8 @@ describe("Command palette", () => {
   });
 
   it("groups suggestions by result type", async () => {
-    searchModule.searchAll.mockResolvedValue([]);
-    searchModule.searchSuggest.mockResolvedValue([
+    setSearchAllResults([]);
+    setSearchSuggestResults([
       { id: "t-1", type: "task", title: "Fix login flow", url: "/tasks/t-1" },
       { id: "p-1", type: "project", title: "Login improvements", url: "/projects/p-1" },
     ]);
@@ -234,49 +249,44 @@ describe("Command palette", () => {
 });
 
 describe("Global search page", () => {
-  it("requests type-specific results when filter changes", async () => {
-    searchModule.searchAll.mockImplementation(({ types }) => {
-      if (types?.includes("doc")) {
-        return Promise.resolve([
-          {
-            id: "d1",
-            type: "doc",
-            title: "Design Doc",
-            url: "/docs/d1",
-            snippet: null,
-          },
-        ]);
-      }
-      return Promise.resolve([
-        {
-          id: "p1",
-          type: "project",
-          title: "Alpha Project",
-          url: "/projects/p1",
-          snippet: null,
-        },
-      ]);
-    });
+  it("filters results locally when type facet toggled", async () => {
+    const docItem = {
+      id: "d1",
+      type: "doc",
+      title: "Design Doc",
+      url: "/docs/d1",
+      snippet: null,
+    };
+    const projectItem = {
+      id: "p1",
+      type: "project",
+      title: "Alpha Project",
+      url: "/projects/p1",
+      snippet: null,
+    };
+    setSearchAllResults([projectItem, docItem]);
 
     renderWithProviders(["/search?q=alpha"]);
 
-    await screen.findByText("Alpha Project");
+    const listbox = await screen.findByRole("listbox");
+    expect(within(listbox).getByText("Alpha Project")).toBeInTheDocument();
+    expect(within(listbox).getByText("Design Doc")).toBeInTheDocument();
 
-    const docsTab = screen.getByRole("tab", { name: /docs/i });
-    fireEvent.click(docsTab);
+    const docToggle = await screen.findByRole("button", { name: /doc/i });
+    fireEvent.click(docToggle);
 
     await waitFor(() => {
-      expect(searchModule.searchAll).toHaveBeenLastCalledWith(
-        expect.objectContaining({ types: ["doc"] })
-      );
+      expect(within(listbox).queryByText("Alpha Project")).not.toBeInTheDocument();
     });
+
+    expect(within(listbox).getByText("Design Doc")).toBeInTheDocument();
   });
 });
 
 describe("Saved searches", () => {
   it("appear as palette actions after saving", async () => {
     savedSearchModule.__seed([]);
-    searchModule.searchAll.mockResolvedValue([
+    setSearchAllResults([
       {
         id: "p1",
         type: "project",
@@ -291,9 +301,10 @@ describe("Saved searches", () => {
     const saveButton = await screen.findByRole("button", { name: /save search/i });
     fireEvent.click(saveButton);
 
-    const nameInput = await screen.findByPlaceholderText("Search name");
+    const nameInput = await screen.findByPlaceholderText("My triage view");
     fireEvent.change(nameInput, { target: { value: "Alpha" } });
-    const confirmButton = screen.getByRole("button", { name: /^save$/i });
+    const dialog = await screen.findByRole("dialog");
+    const confirmButton = within(dialog).getByRole("button", { name: /save search/i });
     fireEvent.click(confirmButton);
 
     await waitFor(() => {
