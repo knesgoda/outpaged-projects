@@ -14,6 +14,27 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import { formatProjectStatus, getProjectStatusBadgeVariant } from "@/utils/project-status";
 
+const DEFAULT_ERROR_MESSAGE = "An unexpected error occurred";
+
+const getReadableErrorMessage = (error: unknown, fallbackMessage: string) => {
+  if (!error) {
+    return fallbackMessage;
+  }
+
+  if (error instanceof Error) {
+    return error.message || fallbackMessage;
+  }
+
+  if (typeof error === "object") {
+    const message = (error as { message?: unknown }).message;
+    if (typeof message === "string" && message.trim().length > 0) {
+      return message;
+    }
+  }
+
+  return fallbackMessage;
+};
+
 type Project = {
   id: string;
   name: string;
@@ -315,6 +336,8 @@ export default function Projects() {
   }
 
   if (error) {
+    const errorMessage = getReadableErrorMessage(error, DEFAULT_ERROR_MESSAGE);
+
     return (
       <div className="space-y-6 px-4 pb-16 sm:px-6 lg:px-8">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -335,7 +358,7 @@ export default function Projects() {
             <div className="text-center space-y-2">
               <p className="text-destructive font-medium">Failed to load projects</p>
               <p className="text-sm text-muted-foreground">
-                {error instanceof Error ? error.message : "An unexpected error occurred"}
+                {errorMessage}
               </p>
               <Button
                 variant="outline"
