@@ -32,6 +32,16 @@ export {
   summarizeOfflineQueue,
 } from "./indexedDbQueue";
 
+export {
+  executeOfflineQuery,
+  recordOpqlResponse,
+  planOfflineQuery,
+  isOfflineIndexAvailable,
+  normalizeQueryKey,
+} from "./opqlIndex";
+
+export type { OfflineQueryPlan, OfflineQueryResult, OfflineQueryKey } from "./opqlIndex";
+
 export type {
   BoardSyncMutation,
   BoardSyncMutationPayload,

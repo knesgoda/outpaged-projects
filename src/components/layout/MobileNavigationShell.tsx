@@ -55,6 +55,7 @@ export function MobileNavigationShell({ children, onToggleSidebar, onOpenShortcu
         operations={operations}
         onRetryAll={operations.length ? retryAll : undefined}
         onRefresh={status.refresh}
+        isOffline={status.state === "offline"}
       />
     </div>
   );

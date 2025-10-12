@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Menu, Search, Plus, Bell, Command } from "lucide-react";
 
@@ -17,6 +17,9 @@ import { NAV } from "@/lib/navConfig";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { useCommandK } from "@/components/command/useCommandK";
+import { useConnectivityStatus } from "@/hooks/useConnectivityStatus";
+import { executeOfflineQuery } from "@/services/offline/opqlIndex";
+import type { SearchResult } from "@/types";
 
 interface MobileTopbarProps {
   onToggleSidebar?: () => void;
@@ -42,12 +45,72 @@ export function MobileTopbar({ onToggleSidebar, onOpenShortcuts, onNavigate }: M
   const location = useLocation();
   const { user } = useAuth();
   const { openPalette } = useCommandK();
+  const connectivity = useConnectivityStatus(5_000);
   const navItems = useMemo(() => extractPrimaryNav(), []);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [quickQuery, setQuickQuery] = useState("");
+  const [pendingReplay, setPendingReplay] = useState<string | null>(null);
+  const [offlineResults, setOfflineResults] = useState<SearchResult[]>([]);
+  const [offlineReason, setOfflineReason] = useState<string | null>(null);
 
   const currentLabel = useMemo(() => {
     const match = NAV.find((item) => item.path === location.pathname);
     return match?.label ?? "OutPaged";
   }, [location.pathname]);
+
+  useEffect(() => {
+    if (connectivity.state === "offline" && quickQuery.trim()) {
+      setPendingReplay(quickQuery.trim());
+    }
+  }, [connectivity.state, quickQuery]);
+
+  useEffect(() => {
+    if (connectivity.state !== "offline" && pendingReplay) {
+      navigate(`/search?q=${encodeURIComponent(pendingReplay)}`);
+      setPendingReplay(null);
+    }
+  }, [connectivity.state, navigate, pendingReplay]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!searchOpen || connectivity.state !== "offline" || !quickQuery.trim()) {
+      if (!quickQuery.trim()) {
+        setOfflineResults([]);
+      }
+      if (connectivity.state !== "offline") {
+        setOfflineReason(null);
+      }
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    void executeOfflineQuery({ query: quickQuery, limit: 6 })
+      .then((result) => {
+        if (!cancelled) {
+          setOfflineResults(result.items);
+          setOfflineReason(result.reason ?? null);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setOfflineResults([]);
+          setOfflineReason("unavailable");
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [connectivity.state, quickQuery, searchOpen]);
+
+  useEffect(() => {
+    if (!searchOpen) {
+      setQuickQuery("");
+      setOfflineResults([]);
+      setOfflineReason(null);
+    }
+  }, [searchOpen]);
 
   return (
     <div className="sticky top-0 z-40 flex flex-col gap-2 border-b border-border/70 bg-background/95 px-3 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/80">
@@ -87,7 +150,7 @@ export function MobileTopbar({ onToggleSidebar, onOpenShortcuts, onNavigate }: M
         </div>
       </div>
       <div className="flex items-center gap-2">
-        <Sheet>
+        <Sheet open={searchOpen} onOpenChange={setSearchOpen}>
           <SheetTrigger asChild>
             <Button variant="outline" className="h-10 flex-1 justify-start gap-2 rounded-xl text-sm text-muted-foreground">
               <Search className="h-4 w-4" /> Search boards, docs, people…
@@ -105,8 +168,51 @@ export function MobileTopbar({ onToggleSidebar, onOpenShortcuts, onNavigate }: M
                 placeholder="Search across projects, boards, docs…"
                 className="h-11 rounded-xl"
                 autoFocus
-                onChange={(event) => navigate(`/search?q=${encodeURIComponent(event.target.value)}`)}
+                value={quickQuery}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  setQuickQuery(value);
+                  if (value.trim()) {
+                    navigate(`/search?q=${encodeURIComponent(value)}`);
+                  }
+                }}
               />
+              {connectivity.state === "offline" ? (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+                  Viewing cached matches. We'll refresh automatically when you're back online.
+                </div>
+              ) : null}
+              {connectivity.state === "offline" && quickQuery.trim() && offlineResults.length ? (
+                <div className="space-y-2">
+                  <div className="text-xs font-semibold uppercase text-muted-foreground">Offline results</div>
+                  <div className="flex flex-col gap-2">
+                    {offlineResults.map((result) => (
+                      <Button
+                        key={result.id}
+                        variant="ghost"
+                        className="h-auto justify-start gap-1 rounded-lg px-3 py-2 text-left"
+                        onClick={() => {
+                          navigate(result.url);
+                          setSearchOpen(false);
+                          onNavigate?.();
+                        }}
+                      >
+                        <span className="text-sm font-medium text-foreground">{result.title}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {result.type.charAt(0).toUpperCase() + result.type.slice(1)}
+                        </span>
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+              {connectivity.state === "offline" && quickQuery.trim() && !offlineResults.length ? (
+                <div className="rounded-lg border border-dashed border-amber-200 px-3 py-2 text-xs text-amber-700">
+                  {offlineReason
+                    ? `Cached index could not answer this query (${offlineReason}).`
+                    : "No cached matches yet. We'll run this search when you reconnect."}
+                </div>
+              ) : null}
               <div className="text-xs text-muted-foreground">
                 Tip: long-press the search icon or use Cmd/Ctrl+K for the full command palette.
               </div>

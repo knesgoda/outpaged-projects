@@ -31,6 +31,8 @@ import {
 } from "@/lib/opqlHistory";
 import { formatSuggestionValue } from "@/lib/opqlSuggestions";
 import { useSuggestionDictionaries } from "@/hooks/useSuggestionDictionaries";
+import { useConnectivityStatus } from "@/hooks/useConnectivityStatus";
+import { executeOfflineQuery, type OfflineQueryResult } from "@/services/offline/opqlIndex";
 import {
   CircleHelp,
   FileText,
@@ -100,6 +102,8 @@ export const CommandPalette = () => {
   const [cursor, setCursor] = useState(0);
   const debouncedQuery = useDebouncedValue(query, 250);
   const [history, setHistory] = useState<SuggestionHistoryEntry[]>(loadOpqlHistory);
+  const connectivity = useConnectivityStatus(5_000);
+  const [offlineResult, setOfflineResult] = useState<OfflineQueryResult | null>(null);
   const savedSearchesQuery = useQuery({
     queryKey: ["saved-searches"],
     queryFn: listSavedSearches,
@@ -116,6 +120,46 @@ export const CommandPalette = () => {
   useEffect(() => {
     persistOpqlHistory(history);
   }, [history]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!open || tab !== "search" || !query.trim()) {
+      setOfflineResult(null);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    if (connectivity.state !== "offline") {
+      setOfflineResult(null);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    void executeOfflineQuery({
+      query,
+      limit: 8,
+      context: {
+        projectId: scope.projectId ?? null,
+        types: scope.types,
+      },
+    })
+      .then((result) => {
+        if (!cancelled) {
+          setOfflineResult(result);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setOfflineResult(null);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [connectivity.state, open, query, scope.projectId, scope.types, tab]);
 
   const updateHistory = useCallback(
     (kind: SuggestionKind, id: string) => {
@@ -469,6 +513,14 @@ export const CommandPalette = () => {
           </div>
         ) : null}
       </div>
+      {tab === "search" && connectivity.state === "offline" ? (
+        <div className="flex items-center gap-2 border-b border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+          <span className="font-medium">Offline subset</span>
+          <span className="text-amber-600/80">
+            Showing cached results. Online search will resume automatically when you reconnect.
+          </span>
+        </div>
+      ) : null}
       {tab === "search" && (opqlSuggestions.data?.corrections.length ?? 0) > 0 ? (
         <div className="flex flex-wrap items-center gap-2 border-b px-3 py-2 text-xs text-muted-foreground">
           <span className="font-medium">Did you mean</span>
@@ -499,11 +551,28 @@ export const CommandPalette = () => {
                   {suggestions.isFetching
                     ? "Searching..."
                     : query.trim()
-                    ? "No matches"
+                    ? connectivity.state === "offline"
+                      ? offlineResult?.items?.length
+                        ? "No additional cached matches"
+                        : "No cached results yet"
+                      : "No matches"
                     : "Type to search"}
                 </span>
               </div>
             </CommandEmpty>
+            {offlineResult?.items?.length ? (
+              <CommandGroup heading="Offline results">
+                {offlineResult.items.map((item) => renderSuggestion(item))}
+                <div className="px-3 pb-2 text-xs text-muted-foreground">
+                  Results from your recent searches.
+                </div>
+              </CommandGroup>
+            ) : null}
+            {offlineResult && offlineResult.reason && !offlineResult.items.length ? (
+              <div className="px-4 py-3 text-xs text-muted-foreground">
+                We saved some data offline, but this query uses features not yet supported ({offlineResult.reason}).
+              </div>
+            ) : null}
             {opqlSuggestions.data?.items?.length ? (
               <CommandGroup heading="Query suggestions">
                 {opqlSuggestions.data.items.map((item) => (
