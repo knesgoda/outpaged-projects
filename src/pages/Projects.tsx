@@ -16,17 +16,44 @@ import { formatProjectStatus, getProjectStatusBadgeVariant } from "@/utils/proje
 
 const DEFAULT_ERROR_MESSAGE = "An unexpected error occurred";
 
+const TECHNICAL_ERROR_PATTERNS = [
+  /\bcolumn\b.+\bdoes not exist\b/i,
+  /\brelation\b.+\bdoes not exist\b/i,
+  /\bduplicate key\b/i,
+  /\bviolates\b.+\bconstraint\b/i,
+  /\bsyntax error\b/i,
+  /\bpermission denied\b/i,
+  /\bJWT\b/i,
+];
+
+const sanitizeErrorMessage = (message: string, fallbackMessage: string) => {
+  const normalized = message.trim();
+
+  if (!normalized) {
+    return fallbackMessage;
+  }
+
+  if (TECHNICAL_ERROR_PATTERNS.some((pattern) => pattern.test(normalized))) {
+    return fallbackMessage;
+  }
+
+  return normalized;
+};
+
 const getReadableErrorMessage = (error: unknown, fallbackMessage: string) => {
   if (!error) {
     return fallbackMessage;
   }
 
   if (error instanceof Error) {
+    return sanitizeErrorMessage(error.message, fallbackMessage);
     return error.message || fallbackMessage;
   }
 
   if (typeof error === "object") {
     const message = (error as { message?: unknown }).message;
+    if (typeof message === "string") {
+      return sanitizeErrorMessage(message, fallbackMessage);
     if (typeof message === "string" && message.trim().length > 0) {
       return message;
     }

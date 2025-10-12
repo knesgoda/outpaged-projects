@@ -297,4 +297,22 @@ describe("Projects pages", () => {
     expect(screen.getByText(supabaseErrorMessage)).toBeInTheDocument();
     expect(screen.queryByText("An unexpected error occurred")).not.toBeInTheDocument();
   });
+
+  it("falls back to the default message for technical errors", () => {
+    mockUseProjects.mockReturnValue({
+      data: null,
+      isLoading: false,
+      isError: true,
+      error: { message: "column projects.template_key does not exist" },
+      refetch: jest.fn(),
+    });
+
+    render(<Projects />, { wrapper: listWrapper });
+
+    expect(screen.getByText("Failed to load projects")).toBeInTheDocument();
+    expect(screen.getByText("An unexpected error occurred")).toBeInTheDocument();
+    expect(
+      screen.queryByText("column projects.template_key does not exist"),
+    ).not.toBeInTheDocument();
+  });
 });
