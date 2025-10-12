@@ -71,6 +71,17 @@ import {
 import { formatSuggestionValue } from "@/lib/opqlSuggestions";
 import { useSuggestionDictionaries } from "@/hooks/useSuggestionDictionaries";
 import { CUSTOM_FIELD_DEFINITIONS } from "@/data/opqlDictionaries";
+import {
+  QueryBuilder,
+  type AggregationPivot,
+} from "@/features/search/QueryBuilder";
+import {
+  BuilderChangeMeta,
+  BuilderGroup,
+  groupToOpql,
+  opqlToGroup,
+} from "@/lib/opql/builder";
+import { NaturalLanguageSession } from "@/lib/opql/naturalLanguage";
 
 const DEFAULT_LIMIT = 50;
 const CONTEXTUAL_ACTIONS = [
@@ -335,6 +346,12 @@ export const GlobalSearchPage = () => {
       : "all";
 
   const [inputValue, setInputValue] = useState(queryParam);
+  const naturalLanguageSessionRef = useRef<NaturalLanguageSession | null>(null);
+  if (!naturalLanguageSessionRef.current) {
+    naturalLanguageSessionRef.current = new NaturalLanguageSession();
+  }
+  const naturalLanguageSession = naturalLanguageSessionRef.current;
+  const [builderState, setBuilderState] = useState<BuilderGroup>(() => opqlToGroup(queryParam));
   const [mode, setMode] = useState<SearchMode>("quick");
   const [facetSelections, setFacetSelections] = useState<FacetSelections>(() =>
     cloneFacetSelections(INITIAL_FACETS)
@@ -394,6 +411,33 @@ export const GlobalSearchPage = () => {
     setInputValue(queryParam);
     setInputCursor(queryParam.length);
   }, [queryParam]);
+
+  useEffect(() => {
+    const parsed = opqlToGroup(queryParam);
+    const serialized = groupToOpql(parsed);
+    setBuilderState((prev) => {
+      const prevSerialized = groupToOpql(prev);
+      if (prevSerialized === serialized) {
+        return prev;
+      }
+      return parsed;
+    });
+    naturalLanguageSession.synchronizeFromBuilder(parsed);
+  }, [naturalLanguageSession, queryParam]);
+
+  useEffect(() => {
+    if (mode !== "builder") return;
+    const parsed = opqlToGroup(inputValue);
+    const serialized = groupToOpql(parsed);
+    setBuilderState((prev) => {
+      const prevSerialized = groupToOpql(prev);
+      if (prevSerialized === serialized) {
+        return prev;
+      }
+      return parsed;
+    });
+    naturalLanguageSession.synchronizeFromBuilder(parsed);
+  }, [inputValue, mode, naturalLanguageSession]);
 
   useEffect(() => {
     setLimit(DEFAULT_LIMIT);
@@ -513,6 +557,35 @@ export const GlobalSearchPage = () => {
     () => computeAggregations(resultsQuery.data, projectsQuery.data ?? []),
     [resultsQuery.data, projectsQuery.data]
   );
+
+  const builderPivots = useMemo<AggregationPivot[]>(() => {
+    const makePivot = (key: FacetKey, label: string, field: string): AggregationPivot => ({
+      key,
+      label,
+      field,
+      entries: Array.from(aggregations.counts[key]?.entries() ?? []).map(
+        ([value, count]) => ({ value, count })
+      ),
+    });
+    return [
+      makePivot("type", "Result type", "type"),
+      makePivot("project", "Project", "project"),
+      makePivot("updated", "Recency", "updated_at"),
+    ].filter((pivot) => pivot.entries.length > 0);
+  }, [aggregations]);
+
+  const savedParameterMap = useMemo(() => {
+    const record: Record<string, string | string[]> = {};
+    searchParams.forEach((value, key) => {
+      const existing = record[key];
+      if (existing) {
+        record[key] = Array.isArray(existing) ? [...existing, value] : [existing, value];
+      } else {
+        record[key] = value;
+      }
+    });
+    return record;
+  }, [searchParams]);
 
   const filteredResults = useMemo(() => {
     if (!resultsQuery.data) return [] as SearchResult[];
@@ -637,6 +710,35 @@ export const GlobalSearchPage = () => {
       return next;
     });
   };
+
+  const handleBuilderChange = useCallback(
+    (group: BuilderGroup, meta: BuilderChangeMeta) => {
+      setBuilderState((prev) => (groupToOpql(prev) === meta.opql ? prev : group));
+      if (meta.opql !== inputValue) {
+        setInputValue(meta.opql);
+        setInputCursor(meta.opql.length);
+      }
+      naturalLanguageSession.synchronizeFromBuilder(group);
+      setSearchParams((current) => {
+        const next = new URLSearchParams(current);
+        if (meta.opql.trim()) {
+          next.set("q", meta.opql.trim());
+        } else {
+          next.delete("q");
+        }
+        return next.toString() === current.toString() ? current : next;
+      });
+    },
+    [inputValue, naturalLanguageSession, setInputCursor, setSearchParams]
+  );
+
+  const handleBuilderOpqlChange = useCallback(
+    (opql: string) => {
+      setInputValue(opql);
+      setInputCursor(opql.length);
+    },
+    []
+  );
 
   const applyInputReplacement = useCallback(
     (replacement: string, range?: { start: number; end: number }) => {
@@ -924,6 +1026,20 @@ export const GlobalSearchPage = () => {
           </TabsList>
         </Tabs>
       </header>
+
+      {mode === "builder" ? (
+        <QueryBuilder
+          value={builderState}
+          opqlText={inputValue}
+          onChange={handleBuilderChange}
+          onOpqlChange={handleBuilderOpqlChange}
+          naturalLanguage={naturalLanguageSession}
+          pivots={builderPivots}
+          savedParameters={savedParameterMap}
+          resultCount={filteredResults.length}
+          isActive={mode === "builder"}
+        />
+      ) : null}
 
       <div className="flex-1 overflow-hidden">
         <ResizablePanelGroup direction="horizontal" className="rounded-2xl border border-border bg-card">
