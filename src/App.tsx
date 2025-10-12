@@ -40,7 +40,9 @@ const queryClient = new QueryClient({
   }
 });
 
-const App = () => (
+const App = () => {
+  console.log('[App] Rendering OutPaged App');
+  return (
   <OutpagedThemeProvider>
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
@@ -85,5 +87,6 @@ const App = () => (
     </QueryClientProvider>
   </OutpagedThemeProvider>
 );
+};
 
 export default App;

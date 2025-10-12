@@ -2,13 +2,17 @@ import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
 
+console.log('[main.tsx] Starting OutPaged application');
+
 if (!(globalThis as { __import_meta_env__?: Record<string, unknown> }).__import_meta_env__) {
   (globalThis as { __import_meta_env__?: Record<string, unknown> }).__import_meta_env__ = {
     ...import.meta.env,
   };
 }
 
+console.log('[main.tsx] Creating root and rendering App');
 createRoot(document.getElementById('root')!).render(<App />);
+console.log('[main.tsx] App rendered successfully');
 
 const SERVICE_WORKER_URL = '/sw.js';
 

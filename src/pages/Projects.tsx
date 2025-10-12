@@ -92,15 +92,12 @@ const getReadableErrorMessage = (error: unknown, fallbackMessage: string) => {
 
   if (error instanceof Error) {
     return sanitizeErrorMessage(error.message, fallbackMessage);
-    return error.message || fallbackMessage;
   }
 
   if (typeof error === "object") {
     const message = (error as { message?: unknown }).message;
     if (typeof message === "string") {
       return sanitizeErrorMessage(message, fallbackMessage);
-    if (typeof message === "string" && message.trim().length > 0) {
-      return message;
     }
   }
 
@@ -408,7 +405,6 @@ export default function Projects() {
   }
 
   if (error) {
-    const errorMessage = getReadableErrorMessage(error);
     const errorMessage = getReadableErrorMessage(error, DEFAULT_ERROR_MESSAGE);
 
     return (
