@@ -193,7 +193,7 @@ export async function listProjects(
   let query = resolveClient(options)
     .from("projects")
     .select(
-      "id, name, description, status, updated_at, created_at, template_key, modules, published_at",
+      "id, name, description, status, updated_at, created_at",
       { count: "exact" },
     )
     .order(sort, { ascending: dir === "asc" });
