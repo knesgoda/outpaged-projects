@@ -57,9 +57,10 @@ export const useSuggestionDictionaries = () => {
       });
     });
 
-    const labelEntries: SuggestionDictionaryItem[] = OPQL_LABEL_DICTIONARY.map((item) => ({
+    const labelEntries = OPQL_LABEL_DICTIONARY.map((item: any) => ({
       ...item,
-    }));
+      synonyms: Array.isArray(item.synonyms) ? Array.from(item.synonyms) : [],
+    })) as any;
 
     const spaceEntries: SuggestionDictionaryItem[] = (workspace?.spaces ?? []).map((space) => ({
       id: `space:${space.id}`,

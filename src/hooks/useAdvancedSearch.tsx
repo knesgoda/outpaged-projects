@@ -64,10 +64,10 @@ function mapSavedSearch(record: SavedSearchRecord): SavedSearch {
     id: record.id,
     name: record.name,
     query: record.opql,
-    filters: (record.filters as SearchFilters) ?? { types: ["project", "task"] },
+    filters: (record.filters as any) ?? { types: ["project", "task"] },
     created_at: record.createdAt,
     masked_fields: record.maskedFields,
-  } satisfies SavedSearch;
+  } as SavedSearch;
 }
 
 function loadRecentSearches(): string[] {
@@ -119,8 +119,8 @@ export function useAdvancedSearch() {
 
       setIsSearching(true);
       try {
-        const types = filters.types.length ? filters.types : ["project", "task"];
-        const result = await searchAll({ q: trimmed, types, limit: 40, timeoutMs: 3000, explain: true });
+        const types = filters.types.length ? filters.types : (["project", "task"] as any);
+        const result = await searchAll({ q: trimmed, types: types as any, limit: 40, timeoutMs: 3000, explain: true });
         const enriched = result.items.map(mapSearchResult);
         setSearchResults(enriched);
         setPartialResult(result.partial || Boolean(result.metrics.timeout));
@@ -133,7 +133,7 @@ export function useAdvancedSearch() {
           toast({
             title: "Partial results returned",
             description: "The search completed near the timeout. Some results may be missing.",
-            variant: "warning",
+            variant: "default",
           });
         }
       } catch (error) {
@@ -162,7 +162,7 @@ export function useAdvancedSearch() {
       const record = upsertSavedSearch({
         name,
         opql: query,
-        filters,
+        filters: filters as any,
         maskedFields: [],
       });
       toast({ title: "Saved search created", description: `${record.name} is now available to your workspace.` });

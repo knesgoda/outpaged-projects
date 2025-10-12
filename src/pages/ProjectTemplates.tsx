@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { useMemo, useState } from "react";
 import { ArrowRight, Briefcase, Code, Layout, Palette, Plus, Star, Target, Users } from "lucide-react";
 

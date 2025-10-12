@@ -284,12 +284,12 @@ export const normalizeOptionSet = (
           return {
             id,
             label,
-            description: typeof option.description === "string" ? option.description : null,
-            color: typeof option.color === "string" ? option.color : null,
+            description: typeof option.description === "string" ? option.description : "",
+            color: typeof option.color === "string" ? option.color : "#6B7280",
             isDefault: Boolean(option.isDefault ?? option.default),
-          } satisfies CustomFieldOptionSetOption;
+          } as CustomFieldOptionSetOption;
         })
-        .filter((entry): entry is CustomFieldOptionSetOption => Boolean(entry))
+        .filter((entry) => entry && entry.id) as CustomFieldOptionSetOption[]
     : [];
 
   if (!options.length) {

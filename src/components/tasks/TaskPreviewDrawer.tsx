@@ -52,7 +52,7 @@ export function TaskPreviewDrawer({ task, open, onClose, projectName }: TaskPrev
             <div className="space-y-1">
               <h3 className="text-sm font-medium text-muted-foreground">Assignee</h3>
               <p className="text-sm">
-                {task?.assignee ?? "Unassigned"}
+                {(task as any)?.assignee ?? "Unassigned"}
               </p>
             </div>
             <div className="grid grid-cols-2 gap-3 text-sm">

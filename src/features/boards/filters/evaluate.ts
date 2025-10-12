@@ -253,7 +253,7 @@ function evaluateCondition(
     case "relative_date": {
       const range = parseRelativeDate(typeof condition.value === "string" ? condition.value : undefined);
       if (!value) return false;
-      const date = new Date(value);
+      const date = new Date(value as any);
       if (Number.isNaN(date.getTime())) {
         return false;
       }

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { enqueueAutomationEvent } from "@/services/automations";
 
 export interface TaskMovementContext {

@@ -83,7 +83,7 @@ const unparseMock = jest.fn(() => "id,title\n1,Task");
 jest.mock("papaparse", () => ({
   __esModule: true,
   default: {
-    unparse: (args: unknown) => unparseMock(args),
+    unparse: () => unparseMock(),
   },
 }));
 

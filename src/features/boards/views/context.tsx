@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useMemo } from "react";
 import type { PropsWithChildren } from "react";
 import type { BoardViewConfiguration } from "@/types/boards";
 
+export type { BoardViewConfiguration };
 export type BoardViewRecord = Record<string, unknown>;
 
 export interface BoardViewContextValue {

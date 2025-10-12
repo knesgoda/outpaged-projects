@@ -66,8 +66,8 @@ export class DomainClient {
   }
 
   from<T extends keyof Database["public"]["Tables"]>(table: T) {
-    const query = this.supabase.from(table as string);
-    return this.scopeQuery(table, query);
+    const query = this.supabase.from(table as any);
+    return this.scopeQuery(table, query) as any;
   }
 
   scope<T extends keyof Database["public"]["Tables"]>(

@@ -209,7 +209,7 @@ export function MasterBoardView() {
                   </Badge>
                 ))}
                 {group.versionIds.map((id) => (
-                  <Badge key={`${group.key}-version-${id}`} variant="ghost" className="text-[10px]">
+                  <Badge key={`${group.key}-version-${id}`} variant="outline" className="text-[10px]">
                     {id}
                   </Badge>
                 ))}

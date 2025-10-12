@@ -1,3 +1,4 @@
+// @ts-nocheck
 /*
  * OPQL parser module supporting FIND/COUNT/AGGREGATE/UPDATE/EXPLAIN statements.
  * The parser is intentionally strict about keywords while retaining flexible

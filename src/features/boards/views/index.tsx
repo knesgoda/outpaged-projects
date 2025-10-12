@@ -18,6 +18,7 @@ export const boardViewRegistry: Record<BoardViewMode, BoardViewComponent> = {
   kanban: KanbanBoardView,
   timeline: TimelineBoardView,
   master: MasterBoardView,
+  calendar: (() => <div>Calendar view coming soon</div>) as any,
 };
 
 export interface BoardViewCanvasProps {
