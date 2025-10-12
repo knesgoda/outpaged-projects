@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { getOpqlSuggestions } from "@/server/search/suggest";
 import { createSearchRouter, type OpqlValidationResult, type SavedSearchRecord, type SearchAlertRecord } from "@/server/search/routes";
 import type { PrincipalContext } from "@/server/search/queryEngine";

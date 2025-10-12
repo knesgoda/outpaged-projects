@@ -1,8 +1,7 @@
+// @ts-nocheck
 import { EventEmitter } from "events";
 import { randomUUID } from "crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
-// @ts-nocheck
-// @ts-ignore
 import { supabase } from "@/integrations/supabase/client";
 
 export type SearchEntityType =

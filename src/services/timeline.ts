@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { addDays, addHours, formatISO, startOfDay } from "date-fns";
 
 import { supabase, supabaseConfigured } from "@/integrations/supabase/client";

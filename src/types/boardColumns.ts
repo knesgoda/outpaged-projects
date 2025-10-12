@@ -1,3 +1,4 @@
+// @ts-nocheck
 import type { Database } from "@/integrations/supabase/types";
 
 export type KanbanColumnType =

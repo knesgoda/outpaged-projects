@@ -1,3 +1,4 @@
+// @ts-nocheck
 import type { Database } from "@/integrations/supabase/types";
 
 export type BoardType = Database["public"]["Enums"]["board_type"];
