@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import type React from "react";
 import { CalendarRange, ZoomIn, ZoomOut } from "lucide-react";
 
@@ -10,6 +10,7 @@ import { useBoardViewContext } from "../views/context";
 
 import { useGestureHandlers } from "./useGestureHandlers";
 import { useDeviceDetection } from "./useDeviceDetection";
+import { useProfilePreferencesScope } from "@/state/profile";
 
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
 
@@ -29,10 +30,11 @@ interface TimelineItem {
   width: number;
 }
 
-export function MobileTimelineView() {
+export function MobileTimelineView({ scope = "global" }: { scope?: string }) {
   const { items, configuration } = useBoardViewContext();
   const { supportsTouch } = useDeviceDetection();
-  const [zoom, setZoom] = useState(1);
+  const { viewSettings, updateViewSettings } = useProfilePreferencesScope(scope);
+  const zoom = typeof viewSettings.timeline?.zoom === "number" ? viewSettings.timeline.zoom : 1;
   const pinchBase = useRef(1);
   const isPinching = useRef(false);
 
@@ -68,9 +70,14 @@ export function MobileTimelineView() {
     });
   }, [items, timelineSettings.endField, timelineSettings.startField]);
 
-  const handleZoomChange = useCallback((next: number) => {
-    setZoom(clamp(next, 0.5, 3));
-  }, []);
+  const handleZoomChange = useCallback(
+    (next: number) => {
+      const clamped = clamp(next, 0.5, 3);
+      if (Math.abs(clamped - zoom) < 0.01) return;
+      void updateViewSettings({ timeline: { zoom: Number(clamped.toFixed(2)) } });
+    },
+    [zoom, updateViewSettings]
+  );
 
   const { pinchHandlers } = useGestureHandlers({
     pinch: {
@@ -87,6 +94,10 @@ export function MobileTimelineView() {
       },
     },
   });
+
+  useEffect(() => {
+    pinchBase.current = zoom;
+  }, [zoom]);
 
   const handleWheel = useCallback(
     (event: React.WheelEvent<HTMLDivElement>) => {

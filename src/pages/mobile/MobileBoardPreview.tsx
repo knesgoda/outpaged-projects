@@ -74,6 +74,7 @@ const baseConfiguration: BoardViewConfiguration = {
 export default function MobileBoardPreview() {
   const [items, setItems] = useState<BoardViewRecord[]>(() => [...initialItems]);
   const [configuration, setConfiguration] = useState<BoardViewConfiguration>(baseConfiguration);
+  const preferenceScope = "preview-board";
 
   const value = useMemo(
     () => ({
@@ -101,17 +102,17 @@ export default function MobileBoardPreview() {
           <MobileKanbanView boardId="preview-board" />
         </section>
         <section aria-label="Mobile timeline">
-          <MobileTimelineView />
+          <MobileTimelineView scope={preferenceScope} />
         </section>
         <section aria-label="Mobile table" className="space-y-4">
-          <MobileTableView />
-          <MobileCalendarBoardView />
+          <MobileTableView scope={preferenceScope} />
+          <MobileCalendarBoardView scope={preferenceScope} />
           <MobileBacklogView />
           <MobileSprintView />
           <MobileFilesView />
           <MobileGalleryView />
           <MobileWorkloadView />
-          <MobileWhiteboardView />
+          <MobileWhiteboardView scope={preferenceScope} />
           <MobilePivotView />
           <MobileGanttView />
         </section>
