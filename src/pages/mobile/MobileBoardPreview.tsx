@@ -4,7 +4,20 @@ import { Card, CardContent } from "@/components/ui/card";
 
 import { BoardViewProvider, type BoardViewRecord } from "@/features/boards/views/context";
 import type { BoardViewConfiguration } from "@/types/boards";
-import { MobileKanbanView, MobileTimelineView } from "@/features/boards/mobile";
+import {
+  MobileKanbanView,
+  MobileTimelineView,
+  MobileTableView,
+  MobileCalendarBoardView,
+  MobileBacklogView,
+  MobileSprintView,
+  MobileFilesView,
+  MobileGalleryView,
+  MobileWorkloadView,
+  MobileWhiteboardView,
+  MobilePivotView,
+  MobileGanttView,
+} from "@/features/boards/mobile";
 
 const initialItems: BoardViewRecord[] = [
   {
@@ -89,6 +102,18 @@ export default function MobileBoardPreview() {
         </section>
         <section aria-label="Mobile timeline">
           <MobileTimelineView />
+        </section>
+        <section aria-label="Mobile table" className="space-y-4">
+          <MobileTableView />
+          <MobileCalendarBoardView />
+          <MobileBacklogView />
+          <MobileSprintView />
+          <MobileFilesView />
+          <MobileGalleryView />
+          <MobileWorkloadView />
+          <MobileWhiteboardView />
+          <MobilePivotView />
+          <MobileGanttView />
         </section>
       </BoardViewProvider>
     </div>

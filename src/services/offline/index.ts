@@ -18,6 +18,7 @@ export {
   listCommentMutations,
   updateCommentMutation,
   deleteCommentMutation,
+  listItemMutations,
   enqueueFileUpload,
   listFileUploads,
   updateFileUpload,
@@ -27,6 +28,8 @@ export {
   createResumableUploadAdapter,
   createTimelineDependencyAdapter,
   groupOperationsByBatch,
+  listOfflineOperations,
+  summarizeOfflineQueue,
 } from "./indexedDbQueue";
 
 export type {
@@ -44,4 +47,7 @@ export type {
   ItemMutation,
   FileUploadRecord,
   OperationBatch,
+  OfflineOperationSummary,
+  OfflineQueueSummary,
+  OfflineOperationSource,
 } from "./indexedDbQueue";
