@@ -316,13 +316,11 @@ describe("Projects pages", () => {
     expect(screen.queryByText("An unexpected error occurred")).not.toBeInTheDocument();
   });
 
-  it("falls back to the default message when no readable message is available", () => {
   it("falls back to the default message for technical errors", () => {
     mockUseProjects.mockReturnValue({
       data: null,
       isLoading: false,
       isError: true,
-      error: { message: "   " },
       error: { message: "column projects.template_key does not exist" },
       refetch: jest.fn(),
     });
