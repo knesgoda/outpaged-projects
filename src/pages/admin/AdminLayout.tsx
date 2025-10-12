@@ -8,6 +8,7 @@ const adminNav = [
   { to: "/admin/members", label: "Members" },
   { to: "/admin/permissions", label: "Permissions" },
   { to: "/admin/security", label: "Security" },
+  { to: "/admin/offline", label: "Offline" },
   { to: "/admin/boards", label: "Boards" },
   { to: "/admin/audit", label: "Audit" },
   { to: "/admin/data", label: "Data" },

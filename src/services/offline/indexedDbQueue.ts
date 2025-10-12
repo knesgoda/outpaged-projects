@@ -1,4 +1,6 @@
 import type { BoardViewMode } from "@/types/boards";
+import { decryptObject, encryptObject } from "./crypto";
+import type { EncryptedPayload } from "./crypto";
 
 type MutationStatus = "pending" | "syncing" | "conflict" | "synced" | "failed";
 
@@ -160,6 +162,16 @@ let dbPromise: Promise<IDBDatabase> | null = null;
 
 const hasIndexedDb = typeof indexedDB !== "undefined";
 
+type EncryptedRecord<T extends { id: string }> = {
+  id: string;
+  __encrypted__: true;
+  payload: EncryptedPayload;
+};
+
+type StoredRecord<T extends { id: string }> = T | EncryptedRecord<T>;
+
+let offlinePersistenceEnabled = true;
+
 function getLocalNodeId() {
   if (typeof window === "undefined") {
     return "server";
@@ -178,6 +190,14 @@ function getLocalNodeId() {
 }
 
 const localNodeId = getLocalNodeId();
+
+export function getOfflineNodeId() {
+  return localNodeId;
+}
+
+export function setOfflinePersistenceEnabled(enabled: boolean) {
+  offlinePersistenceEnabled = enabled;
+}
 
 function now() {
   return Date.now();
@@ -279,7 +299,44 @@ function toRecord<T>(value: unknown): T | null {
   return null;
 }
 
+function isEncryptedStoredRecord(value: unknown): value is EncryptedRecord<any> {
+  return Boolean(
+    value &&
+      typeof value === "object" &&
+      (value as { __encrypted__?: unknown }).__encrypted__ === true &&
+      (value as { payload?: unknown }).payload
+  );
+}
+
+async function unwrapStoredRecord<T>(value: unknown): Promise<T | null> {
+  if (!value) return null;
+  if (isEncryptedStoredRecord(value)) {
+    const decrypted = await decryptObject<T>((value as EncryptedRecord<T>).payload);
+    return decrypted;
+  }
+  return toRecord<T>(value);
+}
+
+async function prepareRecordForStorage<T extends { id: string }>(record: T): Promise<StoredRecord<T>> {
+  if (!hasIndexedDb) {
+    return record;
+  }
+  try {
+    const payload = await encryptObject(record);
+    if (payload) {
+      return { id: record.id, __encrypted__: true, payload } satisfies EncryptedRecord<T>;
+    }
+  } catch (error) {
+    console.warn("Failed to encrypt offline record", error);
+  }
+  return record;
+}
+
 async function putRecord<T extends { id: string }>(storeName: OfflineStoreName, record: T): Promise<T> {
+  if (!offlinePersistenceEnabled) {
+    return record;
+  }
+
   if (!hasIndexedDb) {
     memoryStores[storeName].set(record.id, JSON.parse(JSON.stringify(record)));
     return record;
@@ -289,9 +346,16 @@ async function putRecord<T extends { id: string }>(storeName: OfflineStoreName, 
   await new Promise<void>((resolve, reject) => {
     const transaction = db.transaction(storeName, "readwrite");
     const store = transaction.objectStore(storeName);
-    const request = store.put(record);
-    request.onsuccess = () => resolve();
-    request.onerror = () => reject(request.error ?? new Error(`Failed to write ${storeName}`));
+    void (async () => {
+      try {
+        const prepared = await prepareRecordForStorage(record);
+        const request = store.put(prepared);
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(request.error ?? new Error(`Failed to write ${storeName}`));
+      } catch (error) {
+        reject(error instanceof Error ? error : new Error(`Failed to write ${storeName}`));
+      }
+    })();
   });
   return record;
 }
@@ -306,7 +370,16 @@ async function readRecord<T>(storeName: OfflineStoreName, id: string): Promise<T
     const transaction = db.transaction(storeName, "readonly");
     const store = transaction.objectStore(storeName);
     const request = store.get(id);
-    request.onsuccess = () => resolve(toRecord<T>(request.result));
+    request.onsuccess = () => {
+      void (async () => {
+        try {
+          const result = await unwrapStoredRecord<T>(request.result);
+          resolve(result);
+        } catch (error) {
+          reject(error instanceof Error ? error : new Error(`Failed to read from ${storeName}`));
+        }
+      })();
+    };
     request.onerror = () => reject(request.error ?? new Error(`Failed to read from ${storeName}`));
   });
 }
@@ -321,7 +394,17 @@ async function readAllRecords<T>(storeName: OfflineStoreName): Promise<T[]> {
     const transaction = db.transaction(storeName, "readonly");
     const store = transaction.objectStore(storeName);
     const request = store.getAll();
-    request.onsuccess = () => resolve((request.result as T[]) ?? []);
+    request.onsuccess = () => {
+      void (async () => {
+        try {
+          const raw = (request.result as StoredRecord<T>[]) ?? [];
+          const values = await Promise.all(raw.map((value) => unwrapStoredRecord<T>(value)));
+          resolve(values.filter((value): value is T => Boolean(value)));
+        } catch (error) {
+          reject(error instanceof Error ? error : new Error(`Failed to list ${storeName}`));
+        }
+      })();
+    };
     request.onerror = () => reject(request.error ?? new Error(`Failed to list ${storeName}`));
   });
 }
@@ -977,6 +1060,143 @@ export async function updateFileUpload(id: string, patch: Partial<FileUploadReco
 export async function deleteFileUpload(id: string) {
   await deleteRecord("fileQueue", id);
   await markDependencyResolved(id);
+}
+
+const QUEUE_STORES: OfflineStoreName[] = [
+  "boardQueue",
+  "itemQueue",
+  "docOps",
+  "commentQueue",
+  "fileQueue",
+  "profilePreferenceQueue",
+];
+
+const OPERATION_SOURCE_TO_STORE: Record<OfflineOperationSource, OfflineStoreName> = {
+  board: "boardQueue",
+  item: "itemQueue",
+  doc: "docOps",
+  comment: "commentQueue",
+  file: "fileQueue",
+};
+
+function resolveTimestamp(record: { timestamp?: number; lastAttemptAt?: number; updatedAt?: number }): number | null {
+  if (typeof record.lastAttemptAt === "number") return record.lastAttemptAt;
+  if (typeof record.timestamp === "number") return record.timestamp;
+  if (typeof record.updatedAt === "number") return record.updatedAt;
+  return null;
+}
+
+export async function clearOfflineStorage(): Promise<void> {
+  for (const store of Object.values(memoryStores)) {
+    store.clear();
+  }
+
+  if (!hasIndexedDb) {
+    return;
+  }
+
+  try {
+    if (dbPromise) {
+      const db = await dbPromise.catch(() => null);
+      db?.close();
+    }
+  } catch (error) {
+    console.warn("Failed to close offline database before clearing", error);
+  }
+
+  await new Promise<void>((resolve, reject) => {
+    const request = indexedDB.deleteDatabase(DB_NAME);
+    request.onsuccess = () => resolve();
+    request.onblocked = () => resolve();
+    request.onerror = () => reject(request.error ?? new Error("Failed to clear offline database"));
+  }).catch((error) => {
+    console.warn("Failed to delete offline database", error);
+  });
+
+  dbPromise = null;
+}
+
+export async function pruneOfflineRetention(retentionMs: number): Promise<void> {
+  if (retentionMs <= 0) return;
+  const cutoff = Date.now() - retentionMs;
+
+  for (const storeName of QUEUE_STORES) {
+    const records = await readAllRecords<{ id: string; timestamp?: number; lastAttemptAt?: number; updatedAt?: number }>(
+      storeName
+    );
+    for (const record of records) {
+      const timestamp = resolveTimestamp(record);
+      if (timestamp !== null && timestamp < cutoff) {
+        await deleteRecord(storeName, record.id);
+      }
+    }
+  }
+}
+
+function estimateRecordSize(record: unknown): number {
+  try {
+    return JSON.stringify(record).length;
+  } catch {
+    return 0;
+  }
+}
+
+export async function enforceOfflineCacheBudget(limitBytes: number): Promise<void> {
+  if (limitBytes <= 0) return;
+
+  const inventory: Array<{
+    store: OfflineStoreName;
+    id: string;
+    timestamp: number;
+    size: number;
+  }> = [];
+
+  for (const storeName of QUEUE_STORES) {
+    const records = await readAllRecords<
+      { id: string; timestamp?: number; lastAttemptAt?: number; updatedAt?: number }
+    >(storeName);
+    for (const record of records) {
+      const timestamp = resolveTimestamp(record) ?? Date.now();
+      inventory.push({
+        store: storeName,
+        id: record.id,
+        timestamp,
+        size: estimateRecordSize(record),
+      });
+    }
+  }
+
+  let total = inventory.reduce((sum, entry) => sum + entry.size, 0);
+  if (total <= limitBytes) return;
+
+  inventory.sort((a, b) => a.timestamp - b.timestamp);
+  for (const entry of inventory) {
+    if (total <= limitBytes) break;
+    await deleteRecord(entry.store, entry.id);
+    total -= entry.size;
+  }
+}
+
+async function resetQueueRecord<T extends { id: string; status: MutationStatus; attempt: number; lastAttemptAt?: number | null } & {
+  conflict?: unknown | null;
+}>(storeName: OfflineStoreName, id: string) {
+  const existing = await readRecord<T>(storeName, id);
+  if (!existing) return;
+  const next: T = {
+    ...existing,
+    status: "pending",
+    attempt: 0,
+    lastAttemptAt: undefined,
+  };
+  if ("conflict" in next) {
+    (next as { conflict?: unknown | null }).conflict = null;
+  }
+  await putRecord(storeName, next);
+}
+
+export async function resetOfflineOperation(id: string, source: OfflineOperationSource): Promise<void> {
+  const storeName = OPERATION_SOURCE_TO_STORE[source];
+  await resetQueueRecord(storeName, id);
 }
 
 export async function registerTimelineDependency(

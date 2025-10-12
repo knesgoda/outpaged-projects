@@ -22,6 +22,7 @@ import { TenantProvider } from "./domain/tenant";
 import { TelemetryProvider } from "./components/telemetry/TelemetryProvider";
 import { FeatureFlagProvider } from "./components/feature-flags/FeatureFlagProvider";
 import { AppErrorBoundary } from "./components/foundations/AppErrorBoundary";
+import { OfflinePolicyProvider } from "./components/offline/OfflinePolicyProvider";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -60,9 +61,11 @@ const App = () => (
                                 <BrowserRouter>
                                   <CommandKProvider>
                                     <AppErrorBoundary>
-                                      <CommandPalette />
-                                      <KeyboardShortcuts />
-                                      <AppRoutes />
+                                      <OfflinePolicyProvider>
+                                        <CommandPalette />
+                                        <KeyboardShortcuts />
+                                        <AppRoutes />
+                                      </OfflinePolicyProvider>
                                     </AppErrorBoundary>
                                   </CommandKProvider>
                                 </BrowserRouter>
