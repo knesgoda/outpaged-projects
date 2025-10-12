@@ -76,7 +76,11 @@ export function BoardSettings({ projectId, onUpdate }: BoardSettingsProps) {
       if (columnsError) throw columnsError;
 
       setSwimlanes(swimlanesData || []);
-      setColumns(columnsData || []);
+      setColumns((columnsData || []).map((col: any) => ({
+        ...col,
+        column_type: (col.column_type || 'status') as KanbanColumnType,
+        metadata: col.metadata || null,
+      })));
     } catch (error) {
       console.error('Error fetching board configuration:', error);
       toast({

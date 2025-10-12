@@ -10,7 +10,7 @@ import type {
 
 interface LinkedRecord {
   id: string;
-  title?: string;
+  title: string;
   status?: string;
 }
 
@@ -29,13 +29,14 @@ const normalizeConnections = (value: unknown): LinkedRecord[] => {
       }
 
       const record = item as Partial<LinkedRecord> & { name?: string };
+      const title = record.title ?? record.name ?? String(record.id ?? Math.random());
       return {
-        id: String(record.id ?? record.title ?? record.name ?? Math.random()),
-        title: record.title ?? record.name ?? undefined,
-        status: record.status ?? undefined,
+        id: String(record.id ?? Math.random()),
+        title,
+        status: record.status,
       };
     })
-    .filter((value): value is LinkedRecord => Boolean(value));
+    .filter((value) => value !== null && value.id && value.title) as LinkedRecord[];
 };
 
 export function ConnectColumnRenderer({

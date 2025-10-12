@@ -402,13 +402,13 @@ export function BoardGovernanceAdmin() {
             <TableBody>
               {auditQuery.data && auditQuery.data.length > 0 ? (
                 auditQuery.data.map((entry) => (
-                  <TableRow key={entry.id}>
+                <TableRow key={entry.id}>
                     <TableCell>{entry.action}</TableCell>
-                    <TableCell>{entry.user_id}</TableCell>
+                    <TableCell>{entry.actor ?? "—"}</TableCell>
                     <TableCell>
                       <div className="space-y-1">
-                        <p className="font-medium">{entry.entity_type ?? "—"}</p>
-                        <p className="text-xs text-muted-foreground">{entry.entity_id ?? ""}</p>
+                        <p className="font-medium">{entry.target_type ?? "—"}</p>
+                        <p className="text-xs text-muted-foreground">{entry.target_id ?? ""}</p>
                       </div>
                     </TableCell>
                     <TableCell>

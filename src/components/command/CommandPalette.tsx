@@ -403,7 +403,6 @@ export const CommandPalette = () => {
     queryFn: () =>
       searchSuggest({
         query: debouncedQuery,
-        projectId: scope.projectId,
         types: scope.types,
       }),
     enabled: open && Boolean(debouncedQuery.trim()),

@@ -73,8 +73,8 @@ export function TaskCard({ task, onEdit, onDelete, onView, compact }: TaskCardPr
       }
       case "status": {
         const next = typeof value === "string" ? value : String(value ?? "");
-        await updateTaskFields(localTask.id, { status: next });
-        setLocalTask((prev) => ({ ...prev, status: next }));
+        await updateTaskFields(localTask.id, { status: next as any });
+        setLocalTask((prev) => ({ ...prev, status: next }) as typeof prev);
         break;
       }
       case "due_date": {

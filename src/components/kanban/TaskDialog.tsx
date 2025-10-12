@@ -444,7 +444,7 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId,
       setSubitems(prev => {
         const updated = prev.map(item =>
           item.id === subitemId
-            ? { ...item, completed: !completed, status: nextStatus }
+            ? { ...item, completed: !completed, status: nextStatus as TaskStatus }
             : item
         );
         setSubitemRollup(calculateRollup(updated) ?? undefined);

@@ -7,6 +7,12 @@ const ROLE_LABELS: Record<WorkspaceMember["role"], string> = {
   manager: "Manager",
   member: "Member",
   billing: "Billing",
+  org_admin: "Org Admin",
+  space_admin: "Space Admin",
+  project_lead: "Project Lead",
+  contributor: "Contributor",
+  requester: "Requester",
+  guest: "Guest",
 };
 
 const ROLE_VARIANTS: Record<WorkspaceMember["role"], "default" | "secondary" | "outline" | "destructive"> = {
@@ -15,6 +21,12 @@ const ROLE_VARIANTS: Record<WorkspaceMember["role"], "default" | "secondary" | "
   manager: "secondary",
   member: "outline",
   billing: "secondary",
+  org_admin: "default",
+  space_admin: "default",
+  project_lead: "secondary",
+  contributor: "outline",
+  requester: "outline",
+  guest: "outline",
 };
 
 export function RoleBadge({ role }: { role: WorkspaceMember["role"] }) {

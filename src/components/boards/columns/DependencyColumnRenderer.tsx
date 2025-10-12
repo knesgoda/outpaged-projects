@@ -11,7 +11,7 @@ import type {
 
 interface DependencyRecord {
   id: string;
-  title?: string;
+  title: string;
   status?: string;
   blocked?: boolean;
 }
@@ -31,8 +31,8 @@ const toDependencyList = (value: unknown): DependencyRecord[] => {
         return {
           id: String(maybeRecord.id ?? maybeRecord.title ?? maybeRecord.name ?? Math.random()),
           title:
-            maybeRecord.title ?? maybeRecord.name ?? maybeRecord.label ?? undefined,
-          status: maybeRecord.status ?? undefined,
+            maybeRecord.title ?? maybeRecord.name ?? maybeRecord.label ?? String(maybeRecord.id ?? ""),
+          status: maybeRecord.status,
           blocked:
             typeof maybeRecord.blocked === "boolean"
               ? maybeRecord.blocked
@@ -46,7 +46,7 @@ const toDependencyList = (value: unknown): DependencyRecord[] => {
 
       return null;
     })
-    .filter((item): item is DependencyRecord => Boolean(item));
+    .filter((item) => item !== null && item.title) as DependencyRecord[];
 };
 
 export function DependencyColumnRenderer({
