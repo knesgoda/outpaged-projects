@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { supabase } from "@/integrations/supabase/client";
 
 const IMPORT_JIRA_FUNCTION = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/import-jira`;

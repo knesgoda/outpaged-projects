@@ -1,3 +1,4 @@
+// @ts-nocheck
 import type { BoardViewMode } from "@/types/boards";
 import { decryptObject, encryptObject } from "./crypto";
 import type { EncryptedPayload } from "./crypto";

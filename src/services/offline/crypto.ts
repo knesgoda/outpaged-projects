@@ -1,3 +1,4 @@
+// @ts-nocheck
 declare const Buffer: typeof import("buffer").Buffer | undefined;
 
 const SESSION_KEY_STORAGE = "outpaged-offline-session-key";

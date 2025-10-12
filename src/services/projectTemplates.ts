@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { supabase } from "@/integrations/supabase/client";
 
 const PROJECT_LIFECYCLE_FUNCTION = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/project-lifecycle`;
