@@ -1,9 +1,10 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { QueueDrawer } from "@/components/mobile/QueueDrawer";
 
 import type { QueueSyncer } from "@/services/offline";
 import { useBoardViewContext } from "../views/context";
@@ -38,6 +39,7 @@ export function MobileKanbanView({ boardId, syncer = DEFAULT_SYNCER }: MobileKan
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [selectedColumnLabel, setSelectedColumnLabel] = useState<string | null>(null);
   const [quickActionsOpen, setQuickActionsOpen] = useState(false);
+  const [queueDrawerOpen, setQueueDrawerOpen] = useState(false);
 
   const dataset = useMemo(
     () =>
@@ -99,10 +101,21 @@ export function MobileKanbanView({ boardId, syncer = DEFAULT_SYNCER }: MobileKan
     },
   });
 
+  useEffect(() => {
+    if (sync.conflictUi.isOpen) {
+      setQueueDrawerOpen(true);
+    }
+  }, [sync.conflictUi.isOpen]);
+
   const queueIndicator = sync.queue.length > 0 ? (
-    <Badge variant="outline" data-testid="mobile-kanban-queue-indicator">
+    <Button
+      variant="outline"
+      size="sm"
+      data-testid="mobile-kanban-queue-indicator"
+      onClick={() => setQueueDrawerOpen(true)}
+    >
       {sync.queue.length} pending
-    </Badge>
+    </Button>
   ) : null;
 
   const updateLocalItems = useCallback(
@@ -299,6 +312,25 @@ export function MobileKanbanView({ boardId, syncer = DEFAULT_SYNCER }: MobileKan
         conflict={sync.conflict}
         open={Boolean(sync.conflict)}
         onResolve={(resolution) => void sync.resolveConflict(resolution)}
+      />
+
+      <QueueDrawer
+        open={queueDrawerOpen || sync.conflictUi.isOpen}
+        onClose={() => {
+          setQueueDrawerOpen(false);
+          sync.conflictUi.close();
+        }}
+        queue={sync.queue}
+        skipped={sync.skipped}
+        appliedRemote={sync.appliedRemote}
+        backoff={sync.backoff}
+        onRetry={(id) => void sync.retry(id)}
+        onSkip={(id) => void sync.skip(id)}
+        onRetryAll={() => {
+          sync.resetBackoff();
+          void sync.retry();
+        }}
+        isProcessing={sync.isProcessing}
       />
     </div>
   );
