@@ -128,13 +128,13 @@ export function QueueDrawer({
                     <div className="flex items-center gap-2">
                       <Button
                         variant="outline"
-                        size="xs"
+                        size="sm"
                         onClick={() => onRetry(mutation.id)}
                         disabled={isProcessing}
                       >
                         Retry
                       </Button>
-                      <Button variant="ghost" size="xs" onClick={() => onSkip(mutation.id)}>
+                      <Button variant="ghost" size="sm" onClick={() => onSkip(mutation.id)}>
                         Skip
                       </Button>
                     </div>

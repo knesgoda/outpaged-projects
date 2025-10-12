@@ -689,7 +689,7 @@ function TimelineGrid({
       event.stopPropagation();
       focusOverlay();
       const anchor = toDateFromClientX(event.clientX);
-      interactions.beginCreate(row, anchor);
+      interactions.beginCreate(row.id, anchor);
       overlayRef.current?.setPointerCapture(event.pointerId);
       setPointerState({ pointerId: event.pointerId, originX: event.clientX });
       return;
@@ -812,7 +812,7 @@ function TimelineGrid({
     const row = rows[rowIndex];
     if (!row) return;
     const anchor = toDateFromClientX(info.clientX);
-    interactions.beginCreate(row, anchor);
+    interactions.beginCreate(row.id, anchor);
     interactions.updateCreate(addDays(anchor, 1));
     interactions.completeGesture();
     setContextInfo(null);

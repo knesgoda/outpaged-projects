@@ -73,7 +73,6 @@ export function AdvancedSearch({ onResultSelect, embedded = false }: AdvancedSea
     recentSearches,
     saveSearch,
     deleteSavedSearch,
-    clearResults,
   } = useAdvancedSearch();
 
   const [query, setQuery] = useState('');
@@ -94,8 +93,6 @@ export function AdvancedSearch({ onResultSelect, embedded = false }: AdvancedSea
     const queryToSearch = searchQuery || query;
     if (queryToSearch.trim()) {
       search(queryToSearch, filters);
-    } else {
-      clearResults();
     }
   };
 
@@ -459,7 +456,7 @@ export function AdvancedSearch({ onResultSelect, embedded = false }: AdvancedSea
                         </Badge>
                         {result.metadata?.status && (
                           <Badge variant="secondary" className="text-xs">
-                            {result.metadata.status}
+                            {String(result.metadata.status)}
                           </Badge>
                         )}
                         {result.metadata?.priority && (
@@ -467,7 +464,7 @@ export function AdvancedSearch({ onResultSelect, embedded = false }: AdvancedSea
                             variant={result.metadata.priority === 'urgent' ? 'destructive' : 'outline'} 
                             className="text-xs"
                           >
-                            {result.metadata.priority}
+                            {String(result.metadata.priority)}
                           </Badge>
                         )}
                       </div>
@@ -481,7 +478,7 @@ export function AdvancedSearch({ onResultSelect, embedded = false }: AdvancedSea
                         {result.metadata?.project_name && (
                           <>
                             <span>•</span>
-                            <span>Project: {result.metadata.project_name}</span>
+                            <span>Project: {String(result.metadata.project_name)}</span>
                           </>
                         )}
                         <span>•</span>

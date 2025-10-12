@@ -79,17 +79,6 @@ function buildPermissions(overrides: Partial<BoardPermissionsHookResult> = {}): 
       revokeShareLink: jest.fn().mockResolvedValue(undefined),
     },
     ...overrides,
-    permissions: {
-      canView: true,
-      canComment: false,
-      canEditItems: false,
-      canConfigureStructure: false,
-      canManageMembers: false,
-      canManagePrivacy: false,
-      canManageShareLinks: false,
-      canViewAudit: false,
-      ...(overrides.permissions ?? {}),
-    },
   };
 }
 

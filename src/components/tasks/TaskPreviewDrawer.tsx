@@ -9,7 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { CalendarTask } from "@/hooks/useCalendar";
+import type { CalendarTask } from "@/types/calendar";
 import { format, parseISO } from "date-fns";
 import { cn } from "@/lib/utils";
 

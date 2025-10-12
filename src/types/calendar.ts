@@ -412,3 +412,14 @@ export interface CalendarExportOptions {
   expandRecurrence: boolean;
   format: "ics" | "csv" | "pdf";
 }
+
+export interface CalendarTask {
+  id: string;
+  title: string;
+  status: string;
+  priority?: string;
+  due_date?: string;
+  start_date?: string;
+  end_date?: string;
+  project_id?: string;
+}

@@ -135,7 +135,7 @@ export function MobileTopbar({ onToggleSidebar, onOpenShortcuts, onNavigate }: M
             variant="ghost"
             size="icon"
             className="h-10 w-10 rounded-xl"
-            onClick={() => openPalette("global")}
+            onClick={() => openPalette()}
             aria-label="Open command palette"
           >
             <Command className="h-5 w-5" />
@@ -144,7 +144,7 @@ export function MobileTopbar({ onToggleSidebar, onOpenShortcuts, onNavigate }: M
             <Bell className="h-5 w-5" />
           </Button>
           <Avatar className="h-10 w-10">
-            <AvatarImage src={user?.avatar_url ?? undefined} alt={user?.full_name ?? ""} />
+            <AvatarImage src={(user as any)?.avatar_url ?? undefined} alt={(user as any)?.full_name ?? ""} />
             <AvatarFallback>{user?.email?.slice(0, 2)?.toUpperCase() ?? "OP"}</AvatarFallback>
           </Avatar>
         </div>

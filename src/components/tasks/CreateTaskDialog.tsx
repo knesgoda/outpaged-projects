@@ -90,10 +90,11 @@ export function CreateTaskDialog({ open, onOpenChange, projectId, onTaskCreated 
       .filter(definition => !definition.isPrivate)
       .map(definition => ({
         customFieldId: definition.id,
-        value:
+        value: (
           customFieldValues[definition.id] === "" || customFieldValues[definition.id] === undefined
             ? null
-            : customFieldValues[definition.id],
+            : customFieldValues[definition.id]
+        ) as any,
       }))
       .filter(
         entry =>

@@ -83,7 +83,7 @@ const unparseMock = jest.fn(() => "id,title\n1,Task");
 jest.mock("papaparse", () => ({
   __esModule: true,
   default: {
-    unparse: (...args: unknown[]) => unparseMock(...args),
+    unparse: (args: unknown) => unparseMock(args),
   },
 }));
 
@@ -168,7 +168,7 @@ describe("BulkOperations component", () => {
     availableWatchers: [
       { id: "watcher-1", name: "Jordan Watcher", avatar: "" },
     ],
-  } as const;
+  } as any;
 
   beforeEach(() => {
     jest.clearAllMocks();
