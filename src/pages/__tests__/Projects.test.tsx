@@ -298,6 +298,24 @@ describe("Projects pages", () => {
     expect(screen.queryByText("An unexpected error occurred")).not.toBeInTheDocument();
   });
 
+  it("displays alternative Supabase error properties when message is missing", () => {
+    const supabaseDetail = "Update failed due to policy violation";
+
+    mockUseProjects.mockReturnValue({
+      data: null,
+      isLoading: false,
+      isError: true,
+      error: { message: "", error_description: "", error: "   ", details: supabaseDetail },
+      refetch: jest.fn(),
+    });
+
+    render(<Projects />, { wrapper: listWrapper });
+
+    expect(screen.getByText("Failed to load projects")).toBeInTheDocument();
+    expect(screen.getByText(supabaseDetail)).toBeInTheDocument();
+    expect(screen.queryByText("An unexpected error occurred")).not.toBeInTheDocument();
+  });
+
   it("falls back to the default message when no readable message is available", () => {
     mockUseProjects.mockReturnValue({
       data: null,

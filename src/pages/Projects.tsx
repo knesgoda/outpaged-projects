@@ -17,30 +17,47 @@ import { formatProjectStatus, getProjectStatusBadgeVariant } from "@/utils/proje
 const DEFAULT_ERROR_MESSAGE = "An unexpected error occurred";
 
 const getReadableErrorMessage = (error: unknown): string => {
+  const coerceString = (value: unknown) => {
+    if (typeof value !== "string") {
+      return "";
+    }
+
+    return value.trim();
+  };
+
   if (!error) {
     return DEFAULT_ERROR_MESSAGE;
   }
 
   if (error instanceof Error) {
-    const message = error.message?.trim();
+    const message = coerceString(error.message);
     if (message) {
       return message;
     }
   }
 
   if (typeof error === "string") {
-    const message = error.trim();
+    const message = coerceString(error);
     if (message) {
       return message;
     }
   }
 
   if (typeof error === "object") {
-    const message = (error as { message?: unknown }).message;
-    if (typeof message === "string") {
-      const trimmed = message.trim();
-      if (trimmed) {
-        return trimmed;
+    const { message, error: supabaseError, error_description: description, details } =
+      error as {
+        message?: unknown;
+        error?: unknown;
+        error_description?: unknown;
+        details?: unknown;
+      };
+
+    const possibleMessages = [message, supabaseError, description, details];
+
+    for (const possible of possibleMessages) {
+      const readable = coerceString(possible);
+      if (readable) {
+        return readable;
       }
     }
   }
