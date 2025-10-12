@@ -2,6 +2,7 @@ import { getOpqlSuggestions } from "@/server/search/suggest";
 import { createSearchRouter, type OpqlValidationResult, type SavedSearchRecord, type SearchAlertRecord } from "@/server/search/routes";
 import type { PrincipalContext } from "@/server/search/queryEngine";
 import type { OpqlSuggestionRequest, OpqlSuggestionResponse, SearchResult } from "@/types";
+import { recordOpqlResponse } from "@/services/offline";
 
 const router = createSearchRouter();
 
@@ -177,6 +178,17 @@ export async function searchAll({
   if (q.trim()) {
     const hashed = hashTerm(q.trim().toLowerCase());
     console.debug?.("search:query", { hash: hashed, partial: result.partial, timeout: result.metrics.timeout });
+  }
+
+  if (typeof window !== "undefined") {
+    void recordOpqlResponse({
+      query: q,
+      projectId: projectId ?? null,
+      types: Array.from(requested),
+      items: result.items,
+      partial: result.partial,
+      nextCursor: result.nextCursor ?? null,
+    }).catch((error) => console.debug?.("offline-index:record-opql", error));
   }
 
   return result;

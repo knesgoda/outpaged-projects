@@ -21,6 +21,7 @@ interface MobileQueueDrawerProps {
   onRetryAll?: () => void;
   onRefresh?: () => void;
   onClearSynced?: () => Promise<void> | void;
+  isOffline?: boolean;
 }
 
 function statusBadge(status: OfflineOperationSummary["status"]) {
@@ -45,6 +46,7 @@ export function MobileQueueDrawer({
   onRetryAll,
   onRefresh,
   onClearSynced,
+  isOffline = false,
 }: MobileQueueDrawerProps) {
   const hasOperations = operations.length > 0;
 
@@ -65,17 +67,27 @@ export function MobileQueueDrawer({
               </span>
               <div className="text-sm text-muted-foreground">
                 <p className="font-medium text-foreground">{operations.length} operation(s) queued</p>
-                <p className="text-xs">Tap an entry to view metadata and sequence ordering.</p>
+                <p className="text-xs">
+                  {isOffline
+                    ? "Offline mode: queued changes will replay automatically when you reconnect."
+                    : "Tap an entry to view metadata and sequence ordering."}
+                </p>
               </div>
             </div>
             <div className="flex items-center gap-2">
               {onRefresh ? (
-                <Button size="sm" variant="outline" onClick={onRefresh} className="gap-1">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={onRefresh}
+                  className="gap-1"
+                  disabled={isOffline}
+                >
                   <RefreshCw className="h-4 w-4" /> Refresh
                 </Button>
               ) : null}
               {onRetryAll ? (
-                <Button size="sm" onClick={onRetryAll} className="gap-1">
+                <Button size="sm" onClick={onRetryAll} className="gap-1" disabled={isOffline}>
                   <Network className="h-4 w-4" /> Retry all
                 </Button>
               ) : null}
