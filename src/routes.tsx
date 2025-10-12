@@ -44,6 +44,7 @@ import WorkspaceSettings from "@/pages/admin/WorkspaceSettings";
 import MembersPage from "@/pages/admin/MembersPage";
 import PermissionsPage from "@/pages/admin/PermissionsPage";
 import SecurityPage from "@/pages/admin/SecurityPage";
+import OfflinePoliciesPage from "@/pages/admin/OfflinePoliciesPage";
 import AuditLogsPage from "@/pages/admin/AuditLogsPage";
 import DataPage from "@/pages/admin/DataPage";
 import WebhooksPage from "@/pages/admin/WebhooksPage";
@@ -136,6 +137,7 @@ export function AppRoutes() {
             { path: "members", element: <MembersPage /> },
             { path: "permissions", element: <PermissionsPage /> },
             { path: "security", element: <SecurityPage /> },
+            { path: "offline", element: <OfflinePoliciesPage /> },
             { path: "boards", element: <BoardGovernancePage /> },
             { path: "audit", element: <AuditLogsPage /> },
             { path: "data", element: <DataPage /> },

@@ -1,6 +1,7 @@
 import { formatDistanceToNow } from "date-fns";
 
 import type { ProcessQueueResult, BoardSyncMutation } from "@/services/offline";
+import { SyncDiagnosticsPanel } from "./SyncDiagnosticsPanel";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -144,6 +145,7 @@ export function QueueDrawer({
               )}
             </div>
           </ScrollArea>
+          <SyncDiagnosticsPanel />
         </div>
         <DrawerFooter>
           <Button variant="secondary" onClick={onClose}>

@@ -30,6 +30,11 @@ export {
   groupOperationsByBatch,
   listOfflineOperations,
   summarizeOfflineQueue,
+  clearOfflineStorage,
+  pruneOfflineRetention,
+  enforceOfflineCacheBudget,
+  resetOfflineOperation,
+  getOfflineNodeId,
   enqueueProfilePreferenceMutation,
   listProfilePreferenceMutations,
   updateProfilePreferenceMutation,
@@ -45,6 +50,7 @@ export {
   planOfflineQuery,
   isOfflineIndexAvailable,
   normalizeQueryKey,
+  clearOfflineIndex,
 } from "./opqlIndex";
 
 export type { OfflineQueryPlan, OfflineQueryResult, OfflineQueryKey } from "./opqlIndex";
@@ -73,3 +79,12 @@ export type {
   ProfilePreferenceSyncer,
   ProcessPreferenceQueueResult,
 } from "./indexedDbQueue";
+
+export type { OfflinePolicy, RemoteWipePolicy } from "./types";
+export {
+  fetchOfflinePolicy,
+  saveOfflinePolicy,
+  triggerRemoteWipe,
+  getCachedOfflinePolicy,
+} from "./policies";
+export { initializeRemoteWipeListeners, onRemoteWipe, performRemoteWipe } from "./remoteWipe";

@@ -211,6 +211,30 @@ export async function recordOpqlResponse({
   });
 }
 
+export async function clearOfflineIndex(): Promise<void> {
+  if (!isBrowser()) return;
+
+  try {
+    if (dbPromise) {
+      const db = await dbPromise.catch(() => null);
+      db?.close();
+    }
+  } catch (error) {
+    console.warn("Failed to close offline index", error);
+  }
+
+  await new Promise<void>((resolve, reject) => {
+    const request = indexedDB.deleteDatabase(DB_NAME);
+    request.onsuccess = () => resolve();
+    request.onblocked = () => resolve();
+    request.onerror = () => reject(request.error ?? new Error("Failed to clear offline index"));
+  }).catch((error) => {
+    console.warn("Failed to delete offline index", error);
+  });
+
+  dbPromise = null;
+}
+
 function flattenAndExpressions(expression: Expression | undefined): Expression[] {
   if (!expression) return [];
   if (expression.kind === "binary" && expression.operator === "AND") {
