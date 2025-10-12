@@ -298,11 +298,31 @@ describe("Projects pages", () => {
     expect(screen.queryByText("An unexpected error occurred")).not.toBeInTheDocument();
   });
 
+  it("displays alternative Supabase error properties when message is missing", () => {
+    const supabaseDetail = "Update failed due to policy violation";
+
+    mockUseProjects.mockReturnValue({
+      data: null,
+      isLoading: false,
+      isError: true,
+      error: { message: "", error_description: "", error: "   ", details: supabaseDetail },
+      refetch: jest.fn(),
+    });
+
+    render(<Projects />, { wrapper: listWrapper });
+
+    expect(screen.getByText("Failed to load projects")).toBeInTheDocument();
+    expect(screen.getByText(supabaseDetail)).toBeInTheDocument();
+    expect(screen.queryByText("An unexpected error occurred")).not.toBeInTheDocument();
+  });
+
+  it("falls back to the default message when no readable message is available", () => {
   it("falls back to the default message for technical errors", () => {
     mockUseProjects.mockReturnValue({
       data: null,
       isLoading: false,
       isError: true,
+      error: { message: "   " },
       error: { message: "column projects.template_key does not exist" },
       refetch: jest.fn(),
     });
