@@ -5,7 +5,7 @@ import { Topbar } from "./Topbar";
 import { MobileNavigationShell } from "./MobileNavigationShell";
 import { BadgesProvider } from "@/state/badges";
 import { cn } from "@/lib/utils";
-import { FeedbackWidget } from "@/components/help/FeedbackWidget";
+
 import { ShortcutsModal } from "@/components/help/ShortcutsModal";
 import { useIsMobile } from "@/hooks/useDevice";
 
@@ -103,7 +103,6 @@ export function AppLayout() {
   return (
     <BadgesProvider>
       {isMobile ? mobileLayout : desktopLayout}
-      <FeedbackWidget />
       <ShortcutsModal open={isShortcutsOpen} onOpenChange={setIsShortcutsOpen} />
     </BadgesProvider>
   );
