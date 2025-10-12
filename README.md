@@ -188,6 +188,26 @@ npm run test:coverage
 npm run test:watch
 ```
 
+### Progressive Web App testing checklist
+1. **Build the production bundle**
+   ```bash
+   npm run build
+   ```
+2. **Preview the built assets with a local HTTPS-like server** (Vite preview works without extra configuration):
+   ```bash
+   npm run preview
+   ```
+3. **Verify the manifest**
+   - Browse to `http://localhost:4173/manifest.json` and confirm the SVG icons, screenshots, `display: "standalone"`, and theme values are present.
+   - In Chrome DevTools > Application > Manifest ensure the vector icons (including the maskable variant) and screenshots render without errors.
+4. **Validate service worker caching**
+   - In Chrome DevTools > Application > Service Workers, confirm `sw.js` is installed with the `outpaged-app-shell-v1` and runtime caches populated.
+   - Switch to the **Offline** checkbox in the Network tab and reload; the offline fallback page should appear for navigations while previously loaded routes use cached data.
+5. **Background sync queue retry**
+   - With DevTools network throttled to "Offline", perform a POST request (e.g., via the app UI or `fetch('/api/...', { method: 'POST' })`).
+   - Confirm the request is queued (visible under Application > Background Sync).
+   - Re-enable the network and ensure the queued request is replayed automatically; `navigator.serviceWorker.controller` logs will confirm the replay.
+
 ### Code Quality
 ```bash
 # Lint code
