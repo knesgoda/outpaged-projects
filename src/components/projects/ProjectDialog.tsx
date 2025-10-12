@@ -194,6 +194,26 @@ export function ProjectDialog({ open, onOpenChange, onSuccess, initialTemplateId
     archivalWorkflow: PROJECT_ARCHIVAL_WORKFLOWS[0]?.id ?? "",
   }));
 
+  const handleTemplateChange = useCallback(
+    (templateId: string) => {
+      const template = templateMap.get(templateId);
+      if (!template) return;
+      const manifest = template.templateData ?? {};
+      const modules = manifest.modules ?? template.recommendedModules ?? [];
+      const schemes = manifest.schemes ?? {};
+
+      setFormData(prev => ({
+        ...prev,
+        templateKey: templateId,
+        modules: Array.from(new Set(modules)),
+        permissionScheme: schemes.permission ?? prev.permissionScheme,
+        notificationScheme: schemes.notification ?? prev.notificationScheme,
+        slaScheme: schemes.sla ?? prev.slaScheme,
+      }));
+    },
+    [templateMap],
+  );
+
   useEffect(() => {
     if (!templates.length) {
       return;
@@ -262,26 +282,6 @@ export function ProjectDialog({ open, onOpenChange, onSuccess, initialTemplateId
     const prevStep = steps[Math.max(currentStepIndex - 1, 0)];
     setActiveStep(prevStep.id);
   };
-
-  const handleTemplateChange = useCallback(
-    (templateId: string) => {
-      const template = templateMap.get(templateId);
-      if (!template) return;
-      const manifest = template.templateData ?? {};
-      const modules = manifest.modules ?? template.recommendedModules ?? [];
-      const schemes = manifest.schemes ?? {};
-
-      setFormData(prev => ({
-        ...prev,
-        templateKey: templateId,
-        modules: Array.from(new Set(modules)),
-        permissionScheme: schemes.permission ?? prev.permissionScheme,
-        notificationScheme: schemes.notification ?? prev.notificationScheme,
-        slaScheme: schemes.sla ?? prev.slaScheme,
-      }));
-    },
-    [templateMap],
-  );
 
   const toggleModule = (moduleId: string) => {
     setFormData(prev => {
