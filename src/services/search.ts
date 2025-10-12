@@ -1,16 +1,12 @@
-import { supabase } from "@/integrations/supabase/client";
-import type {
-  OpqlSuggestionRequest,
-  OpqlSuggestionResponse,
-  SearchResult,
-} from "@/types";
 import { getOpqlSuggestions } from "@/server/search/suggest";
-import { escapeLikePattern, normalizeSearchTerm } from "./utils";
+import { createSearchRouter, type OpqlValidationResult, type SavedSearchRecord, type SearchAlertRecord } from "@/server/search/routes";
+import type { PrincipalContext } from "@/server/search/queryEngine";
+import type { OpqlSuggestionRequest, OpqlSuggestionResponse, SearchResult } from "@/types";
+
+const router = createSearchRouter();
 
 const DEFAULT_LIMIT = 20;
-const SUGGEST_LIMIT = 6;
-const SEARCH_COLUMN = "search";
-
+const DEFAULT_TIMEOUT_MS = 2_000;
 const ALL_TYPES: ReadonlyArray<SearchResult["type"]> = [
   "task",
   "project",
@@ -21,430 +17,245 @@ const ALL_TYPES: ReadonlyArray<SearchResult["type"]> = [
   "team_member",
 ];
 
-type QueryBuilder<T = any> = {
-  select: (...args: any[]) => QueryBuilder<T>;
-  order: (...args: any[]) => QueryBuilder<T>;
-  eq: (...args: any[]) => QueryBuilder<T>;
-  ilike: (...args: any[]) => QueryBuilder<T>;
-  or: (...args: any[]) => QueryBuilder<T>;
-  textSearch: (...args: any[]) => QueryBuilder<T>;
-  limit: (count: number) => Promise<{ data: T[] | null; error: { message?: string } | null }>;
+const CLIENT_PRINCIPAL: PrincipalContext = {
+  principalId: "user-demo",
+  workspaceId: "workspace-demo",
+  roles: ["member"],
+  permissions: ["search.execute", "search.saved.read", "search.saved.manage", "search.alerts.manage"],
 };
 
-const formatSnippet = (value?: string | null, maxLength = 160) => {
-  if (!value) return null;
-  const normalized = value.replace(/\s+/g, " ").trim();
-  if (!normalized) return null;
-  if (normalized.length <= maxLength) {
-    return normalized;
+export class SearchAbuseError extends Error {
+  readonly retryAfter: number;
+
+  constructor(message: string, retryAfter: number) {
+    super(message);
+    this.name = "SearchAbuseError";
+    this.retryAfter = retryAfter;
   }
-  return `${normalized.slice(0, maxLength).trimEnd()}…`;
+}
+
+export interface SearchExecutionOptions {
+  query: string;
+  types?: SearchResult["type"][];
+  limit?: number;
+  cursor?: string;
+  timeoutMs?: number;
+  explain?: boolean;
+}
+
+export interface SearchExecutionResult {
+  items: SearchResult[];
+  nextCursor?: string;
+  partial: boolean;
+  metrics: {
+    totalMs: number;
+    timeout?: boolean;
+  };
+  explain?: SearchExplain;
+}
+
+export interface SearchExplain {
+  plan: string[];
+  appliedFilters: string[];
+  pagination: { limit: number; nextCursor?: string };
+  tokenizedQuery: string[];
+}
+
+const hashTerm = (term: string) => {
+  let hash = 0;
+  for (let index = 0; index < term.length; index += 1) {
+    hash = (hash * 33 + term.charCodeAt(index)) >>> 0;
+  }
+  return hash.toString(16).padStart(8, "0");
 };
 
-const applyTextFilters = <T>(
-  query: QueryBuilder<T>,
-  term: string,
-  fields: string[],
-  options: { enableTextSearch?: boolean } = {}
-) => {
-  if (!term) {
-    return query;
+function maskResults(results: SearchResult[]): SearchResult[] {
+  return results.map((result) => router.getMaskedResult(result, CLIENT_PRINCIPAL.workspaceId));
+}
+
+async function executeStream(options: SearchExecutionOptions): Promise<SearchExecutionResult> {
+  const query = options.query.trim();
+  if (!query) {
+    return {
+      items: [],
+      nextCursor: undefined,
+      partial: false,
+      metrics: { totalMs: 0 },
+    };
   }
 
-  const sanitized = escapeLikePattern(term);
-  const likePattern = `%${sanitized}%`;
-  if (fields.length === 1) {
-    query = query.ilike(fields[0], likePattern);
-  } else if (fields.length > 1) {
-    query = query.or(fields.map((field) => `${field}.ilike.${likePattern}`).join(","));
-  }
+  const types = options.types?.length ? options.types : ALL_TYPES;
+  const limit = options.limit ?? DEFAULT_LIMIT;
+  const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
 
-  if (options.enableTextSearch !== false) {
-    try {
-      query = query.textSearch(SEARCH_COLUMN, term, { type: "websearch" });
-    } catch (_error) {
-      // Ignore when running with the Supabase stub
+  const execution = router.streamSearch({
+    workspaceId: CLIENT_PRINCIPAL.workspaceId,
+    principal: CLIENT_PRINCIPAL,
+    query,
+    types,
+    limit,
+    cursor: options.cursor,
+    timeoutMs,
+    explain: options.explain,
+  });
+
+  const collected: SearchResult[] = [];
+  let nextCursor: string | undefined;
+  let partial = false;
+  let metrics: SearchExecutionResult["metrics"] = { totalMs: 0 };
+  let explain: SearchExplain | undefined;
+
+  try {
+    for await (const chunk of execution) {
+      collected.push(...maskResults(chunk.items));
+      nextCursor = chunk.nextCursor;
+      partial = chunk.partial;
+      metrics = { totalMs: chunk.metrics.totalMs, timeout: chunk.metrics.timeout };
+      if (chunk.explain) {
+        explain = chunk.explain;
+      }
     }
+  } catch (error) {
+    if (error instanceof Error && "retryAfter" in error) {
+      throw new SearchAbuseError(error.message, (error as { retryAfter: number }).retryAfter);
+    }
+    throw error;
   }
 
-  return query;
-};
+  return {
+    items: collected,
+    nextCursor,
+    partial,
+    metrics,
+    explain,
+  };
+}
 
-const mapTaskRow = (row: any): SearchResult => ({
-  id: String(row.id),
-  type: "task",
-  title: row.title ?? "Untitled task",
-  snippet: formatSnippet(row.description),
-  url: `/tasks/${row.id}`,
-  project_id: row.project_id ?? null,
-  updated_at: row.updated_at ?? null,
-  score: typeof row.rank === "number" ? row.rank : undefined,
-});
-
-const mapProjectRow = (row: any): SearchResult => ({
-  id: String(row.id),
-  type: "project",
-  title: row.name ?? row.code ?? "Untitled project",
-  snippet: formatSnippet(row.description),
-  url: `/projects/${row.id}`,
-  project_id: row.id ?? null,
-  updated_at: row.updated_at ?? null,
-  score: typeof row.rank === "number" ? row.rank : undefined,
-});
-
-const mapDocRow = (row: any): SearchResult => ({
-  id: String(row.id),
-  type: "doc",
-  title: row.title ?? "Untitled doc",
-  snippet: formatSnippet(row.body_markdown),
-  url: `/docs/${row.id}`,
-  project_id: row.project_id ?? null,
-  updated_at: row.updated_at ?? null,
-  score: typeof row.rank === "number" ? row.rank : undefined,
-});
-
-const mapFileRow = (row: any): SearchResult => ({
-  id: String(row.id),
-  type: "file",
-  title: (row.title ?? "").trim() || row.path?.split("/").pop() || "Untitled file",
-  snippet: formatSnippet(row.path),
-  url: row.project_id ? `/projects/${row.project_id}/files` : "/files",
-  project_id: row.project_id ?? null,
-  updated_at: row.created_at ?? null,
-  score: typeof row.rank === "number" ? row.rank : undefined,
-});
-
-const mapCommentRow = (row: any): SearchResult => ({
-  id: String(row.id),
-  type: "comment",
-  title: formatSnippet(row.content, 80) ?? "Comment",
-  snippet: formatSnippet(row.content),
-  url: `/tasks/${row.task_id}#comment-${row.id}`,
-  project_id: row.tasks?.project_id ?? null,
-  updated_at: row.updated_at ?? null,
-  score: typeof row.rank === "number" ? row.rank : undefined,
-});
-
-const mapPersonRow = (row: any): SearchResult => ({
-  id: String(row.user_id ?? row.id),
-  type: "person",
-  title: row.full_name ?? row.username ?? "Team member",
-  snippet: row.username ? `@${row.username}` : null,
-  url: `/team/${row.user_id ?? row.id}`,
-  project_id: null,
-  updated_at: row.updated_at ?? null,
-  score: typeof row.rank === "number" ? row.rank : undefined,
-});
-
-const mapTeamMemberRow = (row: any): SearchResult => ({
-  id: String(row.user_id ?? row.id),
-  type: "team_member",
-  title: row.full_name ?? "Project member",
-  snippet: row.project_id ? `Member of project ${row.project_id}` : null,
-  url: row.project_id ? `/projects/${row.project_id}` : `/team/${row.user_id ?? row.id}`,
-  project_id: row.project_id ?? null,
-  updated_at: null,
-  score: typeof row.rank === "number" ? row.rank : undefined,
-});
-
-const execute = async <T>(builder: Promise<{ data: T[] | null; error: { message?: string } | null }>, fallback: string) => {
-  const { data, error } = await builder;
-  if (error) {
-    throw new Error(error.message ?? fallback);
-  }
-  return (data ?? []) as T[];
-};
-
-type SearchTasksParams = {
-  query: string;
-  projectId?: string;
-  limit?: number;
-};
-
-export const searchTasks = async ({
-  query,
-  projectId,
-  limit = DEFAULT_LIMIT,
-}: SearchTasksParams): Promise<SearchResult[]> => {
-  const term = normalizeSearchTerm(query ?? "");
-  if (!term) {
-    return [];
-  }
-
-  let builder = supabase
-    .from("tasks" as any)
-    .select("id,title,description,project_id,updated_at")
-    .order("updated_at", { ascending: false }) as QueryBuilder;
-
-  if (projectId) {
-    builder = builder.eq("project_id", projectId) as QueryBuilder;
-  }
-
-  builder = applyTextFilters(builder, term, ["title", "description"]);
-
-  const rows = await execute<any>(builder.limit(limit), "Unable to search tasks.");
-  return rows.map(mapTaskRow);
-};
-
-type SearchProjectsParams = {
-  query: string;
-  limit?: number;
-};
-
-export const searchProjects = async ({
-  query,
-  limit = DEFAULT_LIMIT,
-}: SearchProjectsParams): Promise<SearchResult[]> => {
-  const term = normalizeSearchTerm(query ?? "");
-  if (!term) {
-    return [];
-  }
-
-  let builder = supabase
-    .from("projects" as any)
-    .select("id,name,code,description,updated_at")
-    .order("updated_at", { ascending: false }) as QueryBuilder;
-
-  builder = applyTextFilters(builder, term, ["name", "description", "code"]);
-
-  const rows = await execute<any>(builder.limit(limit), "Unable to search projects.");
-  return rows.map(mapProjectRow);
-};
-
-type SearchDocsParams = {
-  query: string;
-  projectId?: string;
-  limit: number;
-};
-
-const searchDocs = async ({ query, projectId, limit }: SearchDocsParams): Promise<SearchResult[]> => {
-  const term = normalizeSearchTerm(query ?? "");
-  if (!term) {
-    return [];
-  }
-
-  let builder = supabase
-    .from("doc_pages" as any)
-    .select("id,title,project_id,body_markdown,updated_at")
-    .order("updated_at", { ascending: false }) as QueryBuilder;
-
-  if (projectId) {
-    builder = builder.eq("project_id", projectId) as QueryBuilder;
-  }
-
-  builder = applyTextFilters(builder, term, ["title", "body_markdown"]);
-
-  const rows = await execute<any>(builder.limit(limit), "Unable to search docs.");
-  return rows.map(mapDocRow);
-};
-
-type SearchFilesParams = {
-  query: string;
-  projectId?: string;
-  limit: number;
-};
-
-const searchFiles = async ({ query, projectId, limit }: SearchFilesParams): Promise<SearchResult[]> => {
-  const term = normalizeSearchTerm(query ?? "");
-  if (!term) {
-    return [];
-  }
-
-  let builder = supabase
-    .from("project_files" as any)
-    .select("id,title,path,project_id,created_at")
-    .order("created_at", { ascending: false }) as QueryBuilder;
-
-  if (projectId) {
-    builder = builder.eq("project_id", projectId) as QueryBuilder;
-  }
-
-  builder = applyTextFilters(builder, term, ["title", "path"], { enableTextSearch: false });
-
-  const rows = await execute<any>(builder.limit(limit), "Unable to search files.");
-  return rows.map(mapFileRow);
-};
-
-type SearchCommentsParams = {
-  query: string;
-  projectId?: string;
-  limit: number;
-};
-
-const searchComments = async ({
-  query,
-  projectId,
-  limit,
-}: SearchCommentsParams): Promise<SearchResult[]> => {
-  const term = normalizeSearchTerm(query ?? "");
-  if (!term) {
-    return [];
-  }
-
-  let builder = supabase
-    .from("comments" as any)
-    .select("id,content,task_id,updated_at,tasks:tasks!inner(id,project_id)")
-    .order("updated_at", { ascending: false }) as QueryBuilder;
-
-  if (projectId) {
-    builder = builder.eq("tasks.project_id", projectId) as QueryBuilder;
-  }
-
-  builder = applyTextFilters(builder, term, ["content"]);
-
-  const rows = await execute<any>(builder.limit(limit), "Unable to search comments.");
-  return rows.map(mapCommentRow);
-};
-
-type SearchPeopleParams = {
-  query: string;
-  limit: number;
-};
-
-const searchPeople = async ({ query, limit }: SearchPeopleParams): Promise<SearchResult[]> => {
-  const term = normalizeSearchTerm(query ?? "");
-  if (!term) {
-    return [];
-  }
-
-  let builder = supabase
-    .from("profiles" as any)
-    .select("id,user_id,full_name,username,updated_at")
-    .order("updated_at", { ascending: false }) as QueryBuilder;
-
-  builder = applyTextFilters(builder, term, ["full_name", "username"]);
-
-  const rows = await execute<any>(builder.limit(limit), "Unable to search people.");
-  return rows.map(mapPersonRow);
-};
-
-type SearchTeamMembersParams = {
-  query: string;
-  projectId: string;
-  limit: number;
-};
-
-const searchTeamMembers = async ({
-  query,
-  projectId,
-  limit,
-}: SearchTeamMembersParams): Promise<SearchResult[]> => {
-  const term = normalizeSearchTerm(query ?? "");
-  if (!term || !projectId) {
-    return [];
-  }
-
-  let builder = supabase
-    .from("project_members_with_profiles" as any)
-    .select("user_id,project_id,full_name")
-    .eq("project_id", projectId) as QueryBuilder;
-
-  const sanitized = escapeLikePattern(term);
-  builder = builder.ilike("full_name", `%${sanitized}%`);
-
-  const rows = await execute<any>(builder.limit(limit), "Unable to search team members.");
-  return rows.map(mapTeamMemberRow);
-};
-
-type SearchAllParams = {
-  q: string;
-  projectId?: string;
-  limit?: number;
-  types?: Array<SearchResult["type"]>;
-  includeComments?: boolean;
-};
-
-export const searchAll = async ({
+export async function searchAll({
   q,
   projectId,
   limit = DEFAULT_LIMIT,
   types,
   includeComments = true,
-}: SearchAllParams): Promise<SearchResult[]> => {
-  const term = normalizeSearchTerm(q ?? "");
-  if (!term) {
-    return [];
-  }
-
-  const requestedTypes = new Set(types && types.length ? types : ALL_TYPES);
-  if (!includeComments) {
-    requestedTypes.delete("comment");
-  }
-
-  if (requestedTypes.size === 0) {
-    return [];
-  }
-
-  const activeTypes = Array.from(requestedTypes);
-  const perTypeLimit = Math.max(1, Math.ceil(limit / activeTypes.length));
-
-  const promises = activeTypes.map((type) => {
-    switch (type) {
-      case "task":
-        return searchTasks({ query: term, projectId, limit: perTypeLimit });
-      case "project":
-        return searchProjects({ query: term, limit: perTypeLimit });
-      case "doc":
-        return searchDocs({ query: term, projectId, limit: perTypeLimit });
-      case "file":
-        return searchFiles({ query: term, projectId, limit: perTypeLimit });
-      case "comment":
-        return includeComments
-          ? searchComments({ query: term, projectId, limit: perTypeLimit })
-          : Promise.resolve<SearchResult[]>([]);
-      case "person":
-        return searchPeople({ query: term, limit: perTypeLimit });
-      case "team_member":
-        return projectId
-          ? searchTeamMembers({ query: term, projectId, limit: perTypeLimit })
-          : Promise.resolve<SearchResult[]>([]);
-      default:
-        return Promise.resolve<SearchResult[]>([]);
-    }
-  });
-
-  const results = (await Promise.all(promises)).flat();
-
-  const sorted = results.sort((a, b) => {
-    if (typeof a.score === "number" && typeof b.score === "number") {
-      return b.score - a.score;
-    }
-    if (typeof a.score === "number") return -1;
-    if (typeof b.score === "number") return 1;
-
-    const aTime = a.updated_at ? Date.parse(a.updated_at) : 0;
-    const bTime = b.updated_at ? Date.parse(b.updated_at) : 0;
-    return bTime - aTime;
-  });
-
-  return sorted.slice(0, limit);
-};
-
-type SearchSuggestParams = {
-  query: string;
+  cursor,
+  timeoutMs,
+  explain,
+}: {
+  q: string;
   projectId?: string;
-  types?: Array<SearchResult["type"]>;
   limit?: number;
-};
+  types?: SearchResult["type"][];
+  includeComments?: boolean;
+  cursor?: string;
+  timeoutMs?: number;
+  explain?: boolean;
+}): Promise<SearchExecutionResult> {
+  const requested = new Set(types?.length ? types : ALL_TYPES);
+  if (!includeComments) {
+    requested.delete("comment");
+  }
+  if (projectId) {
+    requested.add("project");
+  }
+  const result = await executeStream({
+    query: q,
+    types: Array.from(requested),
+    limit,
+    cursor,
+    timeoutMs,
+    explain,
+  });
 
-export const searchSuggest = async ({
-  query,
-  projectId,
-  types,
-  limit = SUGGEST_LIMIT,
-}: SearchSuggestParams): Promise<SearchResult[]> => {
-  return searchAll({ q: query, projectId, types, limit });
-};
+  if (projectId) {
+    result.items = result.items.map((item) =>
+      item.project_id && item.project_id !== projectId
+        ? { ...item, snippet: `${item.snippet ?? ""} (cross-project)` }
+        : item,
+    );
+  }
 
-export const opqlSuggest = async (
-  request: OpqlSuggestionRequest
-): Promise<OpqlSuggestionResponse> => {
+  if (q.trim()) {
+    const hashed = hashTerm(q.trim().toLowerCase());
+    console.debug?.("search:query", { hash: hashed, partial: result.partial, timeout: result.metrics.timeout });
+  }
+
+  return result;
+}
+
+export async function searchTasks({ query, limit, cursor, timeoutMs }: { query: string; limit?: number; cursor?: string; timeoutMs?: number }) {
+  const { items, nextCursor, partial, metrics } = await executeStream({
+    query,
+    types: ["task"],
+    limit,
+    cursor,
+    timeoutMs,
+  });
+  return { items, nextCursor, partial, metrics };
+}
+
+export async function searchProjects({ query, limit, cursor, timeoutMs }: { query: string; limit?: number; cursor?: string; timeoutMs?: number }) {
+  const { items, nextCursor, partial, metrics } = await executeStream({
+    query,
+    types: ["project"],
+    limit,
+    cursor,
+    timeoutMs,
+  });
+  return { items, nextCursor, partial, metrics };
+}
+
+export async function searchSuggest({ query, limit = 6, types }: { query: string; limit?: number; types?: SearchResult["type"][] }) {
+  return executeStream({ query, limit, types }).then((result) => ({ ...result, items: result.items.slice(0, limit) }));
+}
+
+export const opqlSuggest = async (request: OpqlSuggestionRequest): Promise<OpqlSuggestionResponse> => {
   return getOpqlSuggestions(request);
 };
 
-export const globalSearch = async (
-  query: string,
-  options: Omit<SearchAllParams, "q"> = {}
-): Promise<SearchResult[]> => {
+export function validateOpql(opql: string): OpqlValidationResult {
+  return router.validateOpql({
+    workspaceId: CLIENT_PRINCIPAL.workspaceId,
+    principal: CLIENT_PRINCIPAL,
+    opql,
+  });
+}
+
+export function listSavedSearches(): SavedSearchRecord[] {
+  return router.listSavedSearches({ workspaceId: CLIENT_PRINCIPAL.workspaceId, principal: CLIENT_PRINCIPAL });
+}
+
+export function upsertSavedSearch(payload: Partial<SavedSearchRecord> & { id?: string }): SavedSearchRecord {
+  return router.upsertSavedSearch({
+    workspaceId: CLIENT_PRINCIPAL.workspaceId,
+    principal: CLIENT_PRINCIPAL,
+    payload,
+  });
+}
+
+export function deleteSavedSearch(id: string): void {
+  router.deleteSavedSearch({ workspaceId: CLIENT_PRINCIPAL.workspaceId, principal: CLIENT_PRINCIPAL, id });
+}
+
+export function listSearchAlerts(): SearchAlertRecord[] {
+  return router.listAlerts({ workspaceId: CLIENT_PRINCIPAL.workspaceId, principal: CLIENT_PRINCIPAL });
+}
+
+export function upsertSearchAlert(payload: Partial<SearchAlertRecord> & { id?: string }): SearchAlertRecord {
+  return router.upsertAlert({ workspaceId: CLIENT_PRINCIPAL.workspaceId, principal: CLIENT_PRINCIPAL, payload });
+}
+
+export function deleteSearchAlert(id: string): void {
+  router.deleteAlert({ workspaceId: CLIENT_PRINCIPAL.workspaceId, principal: CLIENT_PRINCIPAL, id });
+}
+
+export function getSearchDiagnostics() {
+  return router.getDiagnostics(CLIENT_PRINCIPAL.workspaceId);
+}
+
+export function getSearchAuditLog() {
+  return router.getAuditLog(CLIENT_PRINCIPAL.workspaceId);
+}
+
+export async function globalSearch(query: string, options: Omit<Parameters<typeof searchAll>[0], "q"> = {}) {
   return searchAll({ q: query, ...options });
-};
+}

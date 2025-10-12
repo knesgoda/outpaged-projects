@@ -101,6 +101,7 @@ export interface ProjectGovernanceState {
   itemPrivacyRules: ProjectItemPrivacyRule[];
   guestAccess: ProjectGuestAccess;
   auditLog: ProjectGovernanceSnapshot["auditLog"];
+  searchGovernance: ProjectGovernanceSnapshot["searchGovernance"];
   permissions: ProjectGovernancePermissions;
   refresh: () => Promise<void>;
   actions: ProjectGovernanceActions;
@@ -363,6 +364,14 @@ export function useProjectGovernance(projectId?: string): ProjectGovernanceState
       requireEmailVerification: true,
     },
     auditLog: snapshot?.auditLog ?? [],
+    searchGovernance:
+      snapshot?.searchGovernance ??
+      ({
+        queryAuditLog: [],
+        exportCaps: { daily: 0, remaining: 0, enforced: false },
+        securityPolicies: { requireAuditRole: false, maskedFields: [] },
+        alerts: { enabled: false, frequency: "daily" },
+      } as ProjectGovernanceSnapshot["searchGovernance"]),
     permissions,
     refresh: async () => {
       await queryClient.invalidateQueries({ queryKey: GOVERNANCE_KEY(projectId) });

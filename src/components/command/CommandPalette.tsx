@@ -88,9 +88,7 @@ const useDebouncedValue = (value: string, delay: number) => {
   return debounced;
 };
 
-type Suggestion = Awaited<ReturnType<typeof searchSuggest>> extends Array<infer Item>
-  ? Item
-  : never;
+type Suggestion = SearchResult;
 
 export const CommandPalette = () => {
   const { open, query, setQuery, closePalette, scope } = useCommandK();
@@ -370,13 +368,13 @@ export const CommandPalette = () => {
 
   const groupedSuggestions = useMemo(() => {
     const groups = new Map<SearchResult["type"], Suggestion[]>();
-    (suggestions.data ?? []).forEach((item) => {
+    (suggestions.data?.items ?? []).forEach((item) => {
       const existing = groups.get(item.type) ?? [];
       existing.push(item);
       groups.set(item.type, existing);
     });
     return groups;
-  }, [suggestions.data]);
+  }, [suggestions.data?.items]);
 
   const ghostSuffix = opqlSuggestions.data?.completion?.ghostSuffix ?? "";
   const showGhostText =
@@ -594,7 +592,7 @@ export const CommandPalette = () => {
           </>
         )}
       </CommandList>
-      {tab === "search" && (suggestions.data?.length ?? 0) > 0 ? (
+      {tab === "search" && (suggestions.data?.items?.length ?? 0) > 0 ? (
         <CommandSeparator />
       ) : null}
       {tab === "search" && query.trim() ? (

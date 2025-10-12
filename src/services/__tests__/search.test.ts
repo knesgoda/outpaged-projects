@@ -1,160 +1,75 @@
-import { searchAll, searchProjects, searchTasks } from "../search";
+import {
+  SearchAbuseError,
+  deleteSavedSearch,
+  getSearchDiagnostics,
+  listSavedSearches,
+  searchAll,
+  upsertSavedSearch,
+  validateOpql,
+} from "../search";
 
-jest.mock("@/integrations/supabase/client", () => ({
-  supabase: {
-    from: jest.fn(),
-  },
-}));
-
-const { supabase } = jest.requireMock("@/integrations/supabase/client") as {
-  supabase: { from: jest.Mock };
-};
-
-type Builder = ReturnType<typeof createQueryBuilder>;
-
-const createQueryBuilder = (data: any[], error: { message?: string } | null = null) => {
-  const builder: any = {
-    select: jest.fn(() => builder),
-    order: jest.fn(() => builder),
-    eq: jest.fn(() => builder),
-    ilike: jest.fn(() => builder),
-    or: jest.fn(() => builder),
-    textSearch: jest.fn(() => builder),
-    limit: jest.fn(() => Promise.resolve({ data, error })),
-  };
-  return builder as Builder;
-};
-
-beforeEach(() => {
-  jest.clearAllMocks();
-});
-
-describe("searchTasks", () => {
-  it("filters by project and maps rows", async () => {
-    const builder = createQueryBuilder([
-      {
-        id: "task-1",
-        title: "Fix issue",
-        description: "Resolve production bug",
-        project_id: "proj-1",
-        updated_at: "2024-01-01T00:00:00.000Z",
-      },
-    ]);
-
-    supabase.from.mockReturnValue(builder);
-
-    const results = await searchTasks({ query: "issue", projectId: "proj-1", limit: 5 });
-
-    expect(supabase.from).toHaveBeenCalledWith("tasks");
-    expect(builder.eq).toHaveBeenCalledWith("project_id", "proj-1");
-    expect(builder.textSearch).toHaveBeenCalledWith("search", "issue", { type: "websearch" });
-    expect(builder.limit).toHaveBeenCalledWith(5);
-    expect(results).toEqual([
-      expect.objectContaining({
-        id: "task-1",
-        type: "task",
-        url: "/tasks/task-1",
-        project_id: "proj-1",
-      }),
-    ]);
+describe("search service", () => {
+  afterEach(() => {
+    jest.clearAllMocks();
   });
 
-  it("propagates Supabase errors", async () => {
-    const builder = createQueryBuilder([], { message: "boom" });
-    supabase.from.mockReturnValue(builder);
-
-    await expect(searchTasks({ query: "boom" })).rejects.toThrow("boom");
+  it("executes a query across multiple entity types", async () => {
+    const result = await searchAll({ q: "search", types: ["task", "project", "doc"] });
+    expect(result.items.length).toBeGreaterThan(0);
+    const types = new Set(result.items.map((item) => item.type));
+    expect(types).toEqual(new Set(["project", "task", "doc"]));
+    expect(result.partial).toBe(false);
   });
-});
 
-describe("searchProjects", () => {
-  it("maps project rows", async () => {
-    const builder = createQueryBuilder([
-      {
-        id: "proj-7",
-        name: "Alpha",
-        description: "Launch plan",
-        updated_at: "2024-02-03T10:00:00.000Z",
-      },
-    ]);
-
-    supabase.from.mockReturnValue(builder);
-
-    const results = await searchProjects({ query: "Alpha", limit: 3 });
-
-    expect(supabase.from).toHaveBeenCalledWith("projects");
-    expect(builder.textSearch).toHaveBeenCalledWith("search", "Alpha", { type: "websearch" });
-    expect(results[0]).toMatchObject({
-      id: "proj-7",
-      type: "project",
-      title: "Alpha",
-      url: "/projects/proj-7",
-    });
+  it("honours includeComments flag", async () => {
+    const withComments = await searchAll({ q: "audit", includeComments: true });
+    const withoutComments = await searchAll({ q: "audit", includeComments: false });
+    expect(withComments.items.some((item) => item.type === "comment")).toBe(true);
+    expect(withoutComments.items.some((item) => item.type === "comment")).toBe(false);
   });
-});
 
-describe("searchAll", () => {
-  it("aggregates results across entities and respects includeComments", async () => {
-    const tasksBuilder = createQueryBuilder([
-      {
-        id: "task-9",
-        title: "Draft brief",
-        description: "",
-        project_id: "proj-9",
-        updated_at: "2024-01-05T00:00:00.000Z",
-      },
-    ]);
-    const projectsBuilder = createQueryBuilder([
-      {
-        id: "proj-9",
-        name: "Launch",
-        description: "",
-        updated_at: "2024-01-04T00:00:00.000Z",
-      },
-    ]);
-    const docsBuilder = createQueryBuilder([
-      {
-        id: "doc-3",
-        title: "Launch plan",
-        body_markdown: "",
-        project_id: "proj-9",
-        updated_at: "2024-01-03T00:00:00.000Z",
-      },
-    ]);
-    const filesBuilder = createQueryBuilder([]);
-    const peopleBuilder = createQueryBuilder([
-      {
-        id: "profile-1",
-        user_id: "user-1",
-        full_name: "Ava Analyst",
-        username: "ava",
-        updated_at: "2024-01-02T00:00:00.000Z",
-      },
-    ]);
+  it("marks partial results when a next cursor is provided", async () => {
+    const result = await searchAll({ q: "search", limit: 1 });
+    expect(result.partial).toBe(true);
+  });
 
-    supabase.from.mockImplementation((table: string) => {
-      switch (table) {
-        case "tasks":
-          return tasksBuilder;
-        case "projects":
-          return projectsBuilder;
-        case "doc_pages":
-          return docsBuilder;
-        case "project_files":
-          return filesBuilder;
-        case "profiles":
-          return peopleBuilder;
-        case "comments":
-          throw new Error("comments should be skipped");
-        default:
-          throw new Error(`Unexpected table ${table}`);
-      }
-    });
+  it("validates OPQL and returns caret for errors", () => {
+    const valid = validateOpql("search type:task");
+    expect(valid.valid).toBe(true);
 
-    const results = await searchAll({ q: "launch", includeComments: false, limit: 6 });
+    const invalid = validateOpql("search (type:task");
+    expect(invalid.valid).toBe(false);
+    if (!invalid.valid) {
+      expect(invalid.caret.includes("^")).toBe(true);
+      expect(invalid.error).toMatch(/Unmatched/);
+    }
+  });
 
-    const types = results.map((item) => item.type);
-    expect(types).toEqual(expect.arrayContaining(["task", "project", "doc", "person"]));
-    expect(types).not.toContain("comment");
+  it("manages saved searches through the API", () => {
+    const before = listSavedSearches();
+    const created = upsertSavedSearch({ name: "Throttled queries", opql: "search rate", filters: { types: ["task"] } });
+    const afterCreate = listSavedSearches();
+    expect(afterCreate.length).toBe(before.length + 1);
+    expect(afterCreate.some((entry) => entry.id === created.id)).toBe(true);
+
+    deleteSavedSearch(created.id);
+    const afterDelete = listSavedSearches();
+    expect(afterDelete.length).toBe(before.length);
+  });
+
+  it("exposes diagnostics snapshot", () => {
+    const diagnostics = getSearchDiagnostics();
+    expect(diagnostics.indexFreshnessMinutes).toBeGreaterThanOrEqual(0);
+    expect(Array.isArray(diagnostics.hottestQueries)).toBe(true);
+  });
+
+  it("throws abuse error when rate limit exceeded", async () => {
+    const promises = Array.from({ length: 12 }, () => searchAll({ q: "rate", timeoutMs: 1000 }));
+    const results = await Promise.allSettled(promises);
+    const rejection = results.find((entry) => entry.status === "rejected");
+    expect(rejection).toBeDefined();
+    if (rejection && rejection.status === "rejected") {
+      expect(rejection.reason).toBeInstanceOf(SearchAbuseError);
+    }
   });
 });

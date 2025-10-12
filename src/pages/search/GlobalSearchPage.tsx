@@ -554,7 +554,7 @@ export const GlobalSearchPage = () => {
   });
 
   const aggregations = useMemo(
-    () => computeAggregations(resultsQuery.data, projectsQuery.data ?? []),
+    () => computeAggregations(resultsQuery.data?.items ?? [], projectsQuery.data ?? []),
     [resultsQuery.data, projectsQuery.data]
   );
 
@@ -588,9 +588,9 @@ export const GlobalSearchPage = () => {
   }, [searchParams]);
 
   const filteredResults = useMemo(() => {
-    if (!resultsQuery.data) return [] as SearchResult[];
+    if (!resultsQuery.data?.items) return [] as SearchResult[];
 
-    return resultsQuery.data.filter((result) => {
+    return resultsQuery.data.items.filter((result) => {
       const bucket = aggregations.buckets.get(result.id);
       if (!bucket) return true;
 
@@ -942,7 +942,7 @@ export const GlobalSearchPage = () => {
           </Button>
           <Button type="button" variant="outline" onClick={() => setIsSaveDialogOpen(true)}>
             <Save className="mr-2 h-4 w-4" />
-            Save
+            Save search
           </Button>
         </form>
 
