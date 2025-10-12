@@ -43,14 +43,12 @@ const getReadableErrorMessage = (error: unknown): string => {
     }
   }
 
-  if (typeof error === "object") {
-    const { message, error: supabaseError, error_description: description, details } =
-      error as {
-        message?: unknown;
-        error?: unknown;
-        error_description?: unknown;
-        details?: unknown;
-      };
+  if (typeof error === "object" && error !== null) {
+    const supabaseLike = error as Record<string, unknown>;
+    const message = supabaseLike["message"];
+    const supabaseError = supabaseLike["error"];
+    const description = supabaseLike["error_description"];
+    const details = supabaseLike["details"];
 
     const possibleMessages = [message, supabaseError, description, details];
 
