@@ -63,6 +63,8 @@ const SUPABASE_ANON_KEY =
     "PUBLIC_SUPABASE_ANON_KEY"
   ) ?? FALLBACK_SUPABASE_ANON_KEY;
 
+export const resolvedSupabaseUrl = SUPABASE_URL;
+
 const storage = typeof localStorage === "undefined" ? undefined : localStorage;
 
 // Import the supabase client like this:

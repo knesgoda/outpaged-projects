@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, resolvedSupabaseUrl } from "@/integrations/supabase/client";
 import type { DomainClient } from "@/domain/client";
 import { domainEventBus } from "@/domain/events/domainEventBus";
 import type { TenantContext } from "@/domain/tenant";
@@ -174,35 +174,6 @@ const normalizeLifecycle = (lifecycle?: ProjectLifecycleMetadata | null): Projec
     stakeholders: normalizeArray(lifecycle.stakeholders ?? null),
     communication_channels: normalizeArray(lifecycle.communication_channels ?? null),
   };
-};
-
-const resolveSupabaseFunctionBaseUrl = () => {
-  let importMetaEnv: Record<string, string | undefined> | undefined;
-  try {
-    importMetaEnv = new Function(
-      "return typeof import !== 'undefined' && import.meta ? import.meta.env : undefined;",
-    )() as Record<string, string | undefined> | undefined;
-  } catch (_error) {
-    importMetaEnv = undefined;
-  }
-
-  const globalEnv = (globalThis as {
-    __import_meta_env__?: Record<string, string | undefined>;
-  }).__import_meta_env__;
-  const processEnv =
-    typeof process !== "undefined"
-      ? (process.env as Record<string, string | undefined>)
-      : undefined;
-
-  return (
-    importMetaEnv?.VITE_SUPABASE_URL ??
-    globalEnv?.VITE_SUPABASE_URL ??
-    processEnv?.VITE_SUPABASE_URL ??
-    processEnv?.SUPABASE_URL ??
-    processEnv?.NEXT_PUBLIC_SUPABASE_URL ??
-    processEnv?.PUBLIC_SUPABASE_URL ??
-    ""
-  );
 };
 
 export async function listProjects(
@@ -498,7 +469,7 @@ export async function updateProject(
   return project;
 }
 
-const PROJECT_LIFECYCLE_FUNCTION = `${resolveSupabaseFunctionBaseUrl()}/functions/v1/project-lifecycle`;
+const PROJECT_LIFECYCLE_FUNCTION = `${resolvedSupabaseUrl}/functions/v1/project-lifecycle`;
 
 async function getLifecycleToken() {
   const { data, error } = await supabase.auth.getSession();
