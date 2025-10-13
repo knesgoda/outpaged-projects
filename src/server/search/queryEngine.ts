@@ -16,6 +16,7 @@ import {
   rewriteSynonyms,
   literalFromValue,
 } from "@/lib/opql/parser";
+import { compileJql, isLikelyJql } from "@/lib/opql/jqlCompiler";
 
 import type { SearchIndexRecord } from "./indexer";
 
@@ -307,7 +308,8 @@ export class QueryEngine {
 
   async execute(request: QueryRequest): Promise<QueryResponse> {
     const start = performance.now();
-    const timeoutMs = request.timeoutMs ?? this.defaultTimeoutMs;
+    let effectiveRequest: QueryRequest = { ...request };
+    const timeoutMs = effectiveRequest.timeoutMs ?? this.defaultTimeoutMs;
     const deadline = start + timeoutMs;
 
     const metrics: QueryMetrics = {
@@ -320,21 +322,31 @@ export class QueryEngine {
     };
 
     let statement: Statement;
-    let explainRequested = request.explain ?? false;
-    if (request.opql) {
-      statement = parseOPQL(request.opql);
+    let explainRequested = effectiveRequest.explain ?? false;
+    let originalStatement = effectiveRequest.opql ?? (effectiveRequest.intent ? JSON.stringify(effectiveRequest.intent) : "");
+
+    if (effectiveRequest.opql) {
+      const opqlText = effectiveRequest.opql;
+      if (isLikelyJql(opqlText)) {
+        const compiled = compileJql(opqlText);
+        statement = compiled.statement;
+        effectiveRequest = { ...effectiveRequest, opql: compiled.opql };
+        originalStatement = compiled.original;
+      } else {
+        statement = parseOPQL(opqlText);
+      }
       explainRequested ||= statement.type === "EXPLAIN";
-    } else if (request.intent) {
-      statement = compileIntentToStatement(request.intent);
+    } else if (effectiveRequest.intent) {
+      statement = compileIntentToStatement(effectiveRequest.intent);
     } else {
       throw new Error("Either opql or intent must be provided");
     }
 
     const context: QueryContext = {
-      request,
+      request: effectiveRequest,
       statement,
       rewrittenStatement: statement,
-      datePolicy: request.datePolicy ?? {},
+      datePolicy: effectiveRequest.datePolicy ?? {},
       synonymLog: [],
       datePolicyLog: [],
       permissionFilters: [],
@@ -362,8 +374,8 @@ export class QueryEngine {
 
     ensureWithinDeadline(context);
 
-    const limit = request.limit ?? (rewrittenStatement as BaseStatement).limit ?? DEFAULT_LIMIT;
-    const cursor = request.cursor ?? (rewrittenStatement as BaseStatement).cursor;
+    const limit = effectiveRequest.limit ?? (rewrittenStatement as BaseStatement).limit ?? DEFAULT_LIMIT;
+    const cursor = effectiveRequest.cursor ?? (rewrittenStatement as BaseStatement).cursor;
 
     const items = ranked.candidates.map((candidate, index) => {
       const stableScore = ensureStableOrdering(candidate, index);
@@ -391,7 +403,7 @@ export class QueryEngine {
 
     const explain: QueryExplain | undefined = explainRequested
       ? {
-          originalStatement: request.opql ?? (request.intent ? JSON.stringify(request.intent) : ""),
+          originalStatement,
           parsedStatement: statement,
           rewrittenStatement,
           rewrites: {
