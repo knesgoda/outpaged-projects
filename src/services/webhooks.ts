@@ -28,6 +28,7 @@ export async function createWebhook(input: {
   target_url: string;
   secret?: string;
   active?: boolean;
+  project_id?: string | null;
 }): Promise<Webhook> {
   ensureValidUrl(input.target_url);
   const owner = await requireUserId();
@@ -36,6 +37,7 @@ export async function createWebhook(input: {
     .from("webhooks")
     .insert({
       owner,
+      project_id: input.project_id ?? null,
       target_url: input.target_url.trim(),
       secret: input.secret?.trim() || null,
       active: input.active ?? true,
