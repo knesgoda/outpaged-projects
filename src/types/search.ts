@@ -33,6 +33,8 @@ export type SuggestionKind =
   | "user"
   | "project"
   | "synonym"
+  | "macro"
+  | "template"
   | "correction";
 
 export type SuggestionTrigger =
@@ -42,6 +44,15 @@ export type SuggestionTrigger =
   | "space"
   | "filetype"
   | "none";
+
+export interface SuggestionParameter {
+  name: string;
+  label: string;
+  description?: string;
+  placeholder?: string;
+  defaultValue?: string;
+  required?: boolean;
+}
 
 export interface OpqlSuggestionItem {
   id: string;
@@ -55,6 +66,14 @@ export interface OpqlSuggestionItem {
   teamId?: string;
   permissions?: string[];
   tags?: string[];
+  icon?: string;
+  documentation?: string;
+  template?: string;
+  parameters?: SuggestionParameter[];
+  valueType?: string;
+  field?: string;
+  operator?: string;
+  example?: string;
 }
 
 export interface SuggestionHistoryEntry {
@@ -68,6 +87,12 @@ export interface DidYouMeanSuggestion {
   id: string;
   text: string;
   reason: string;
+  replacement: string;
+  preview: {
+    before: string;
+    replacement: string;
+    after: string;
+  };
 }
 
 export interface SuggestionCompletion {
@@ -78,6 +103,8 @@ export interface SuggestionCompletion {
   range: { start: number; end: number };
   nextCursor: number;
   ghostSuffix: string;
+  cursorOffset?: number;
+  parameters?: SuggestionParameter[];
 }
 
 export interface SuggestionDictionaryItem extends OpqlSuggestionItem {
@@ -90,6 +117,19 @@ export interface SuggestionDictionaries {
   labels?: SuggestionDictionaryItem[];
   teams?: SuggestionDictionaryItem[];
   synonyms?: Record<string, string[]>;
+}
+
+export interface OpqlCursorContext {
+  token: string;
+  prefix: string;
+  state: OpqlGrammarState;
+  previousToken?: string;
+  precedingKeyword?: string;
+  field?: string;
+  operator?: string;
+  expecting?: "entity" | "field" | "operator" | "value" | "logical";
+  inList?: boolean;
+  depth?: number;
 }
 
 export interface OpqlSuggestionResponse {
@@ -119,6 +159,7 @@ export interface OpqlSuggestionRequest {
   text: string;
   cursor?: number;
   grammarState?: OpqlGrammarState;
+  cursorContext?: OpqlCursorContext;
   context?: OpqlSuggestionContext;
   limit?: number;
   history?: SuggestionHistoryEntry[];

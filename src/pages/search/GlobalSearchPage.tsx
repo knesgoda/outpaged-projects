@@ -2,23 +2,57 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  Loader2,
-  Search as SearchIcon,
-  Sparkles,
-  Filter,
-  XCircle,
-  Flame,
+  ArrowLeftRight,
+  BadgeCheck,
+  Brain,
+  CalendarClock,
+  CalendarMinus,
+  CalendarPlus,
+  CalendarRange,
+  CheckSquare,
   ChevronDown,
-  Save,
-  Keyboard,
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+  Compass,
+  Equal,
   Eye,
-  Layers,
   FileOutput,
+  FileText,
+  Filter,
+  Flame,
+  Figma,
+  FlagTriangleRight,
+  FolderKanban,
+  GitBranch,
+  History,
+  Keyboard,
+  Layers,
+  List,
+  ListChecks,
+  ListTodo,
+  ListX,
+  Loader2,
+  MessageSquare,
+  NotEqual,
+  Pen,
+  Save,
+  ScanText,
+  Search as SearchIcon,
+  Server,
   Share2,
+  Sparkles,
+  User,
+  UserCheck,
+  UserCircle,
+  Users,
+  XCircle,
+  type LucideIcon,
 } from "lucide-react";
 
 import { opqlSuggest, searchAll } from "@/services/search";
 import type {
+  DidYouMeanSuggestion,
   OpqlSuggestionItem,
   SearchResult,
   SuggestionHistoryEntry,
@@ -68,7 +102,8 @@ import {
   persistOpqlHistory,
   recordOpqlSelection,
 } from "@/lib/opqlHistory";
-import { formatSuggestionValue } from "@/lib/opqlSuggestions";
+import { analyzeOpqlCursorContext } from "@/lib/opql/cursorContext";
+import { formatSuggestionValue, getSuggestionInsertion } from "@/lib/opqlSuggestions";
 import { useSuggestionDictionaries } from "@/hooks/useSuggestionDictionaries";
 import { CUSTOM_FIELD_DEFINITIONS } from "@/data/opqlDictionaries";
 import {
@@ -89,6 +124,66 @@ const CONTEXTUAL_ACTIONS = [
   { id: "saved", label: "Saved searches", icon: Save },
   { id: "keyboard", label: "Keyboard reference", icon: Keyboard },
 ];
+
+const SUGGESTION_ICON_MAP: Record<string, LucideIcon> = {
+  sparkle: Sparkles,
+  sparkles: Sparkles,
+  sparklesalt: Sparkles,
+  "sparkles-alt": Sparkles,
+  "check-square": CheckSquare,
+  "folder-kanban": FolderKanban,
+  "file-text": FileText,
+  "message-square": MessageSquare,
+  "user-circle": UserCircle,
+  "user-check": UserCheck,
+  user: User,
+  users: Users,
+  "arrow-left-right": ArrowLeftRight,
+  "share-2": Share2,
+  "scan-text": ScanText,
+  equals: Equal,
+  "not-equal": NotEqual,
+  "chevron-right": ChevronRight,
+  "chevron-left": ChevronLeft,
+  "list": List,
+  "list-checks": ListChecks,
+  "list-x": ListX,
+  "list-todo": ListTodo,
+  "calendar-plus": CalendarPlus,
+  "calendar-minus": CalendarMinus,
+  "calendar-range": CalendarRange,
+  "calendar-clock": CalendarClock,
+  "calendar-sync": CalendarClock,
+  clock: Clock,
+  "clock-3": Clock,
+  brain: Brain,
+  compass: Compass,
+  workflow: GitBranch,
+  "flag-triangle-right": FlagTriangleRight,
+  flame: Flame,
+  pen: Pen,
+  server: Server,
+  history: History,
+  figma: Figma,
+  folder: FolderKanban,
+  badge: BadgeCheck,
+  badgecheck: BadgeCheck,
+  "badge-check": BadgeCheck,
+};
+
+const getSuggestionIcon = (icon?: string): LucideIcon => {
+  if (!icon) return Sparkles;
+  const normalized = icon.toLowerCase();
+  return SUGGESTION_ICON_MAP[icon] ?? SUGGESTION_ICON_MAP[normalized] ?? Sparkles;
+};
+
+const buildPreviewSegments = (preview: DidYouMeanSuggestion["preview"]) => {
+  const before = preview.before.trimEnd();
+  const after = preview.after.trimStart();
+  const beforeText = before.length > 20 ? `…${before.slice(-20)}` : before;
+  const afterText = after.length > 20 ? `${after.slice(0, 20)}…` : after;
+  return { before: beforeText, after: afterText };
+};
 
 const SEARCH_MODES: Array<{
   value: SearchMode;
@@ -374,6 +469,10 @@ export const GlobalSearchPage = () => {
   const inputRef = useRef<HTMLInputElement>(null);
   const [inputCursor, setInputCursor] = useState(queryParam.length);
   const [opqlHistory, setOpqlHistory] = useState<SuggestionHistoryEntry[]>(loadOpqlHistory);
+  const cursorContext = useMemo(
+    () => analyzeOpqlCursorContext(inputValue, inputCursor),
+    [inputValue, inputCursor]
+  );
 
   useEffect(() => {
     persistOpqlHistory(opqlHistory);
@@ -497,12 +596,15 @@ export const GlobalSearchPage = () => {
       opqlHistorySignature,
       currentTeamId ?? null,
       dictionarySignature,
+      cursorContext.state,
+      cursorContext.field ?? null,
     ],
     queryFn: () =>
       opqlSuggest({
         text: inputValue,
         cursor: inputCursor,
-        grammarState: "root",
+        grammarState: cursorContext.state,
+        cursorContext,
         context: {
           projectId: projectFilter !== "all" ? projectFilter : undefined,
           teamId: currentTeamId,
@@ -741,8 +843,15 @@ export const GlobalSearchPage = () => {
   );
 
   const applyInputReplacement = useCallback(
-    (replacement: string, range?: { start: number; end: number }) => {
-      const tokenRange = range ?? opqlSuggestionQuery.data?.token ?? {
+    (
+      replacement: string,
+      options?: {
+        range?: { start: number; end: number };
+        cursorOffset?: number;
+        absoluteCursor?: number;
+      }
+    ) => {
+      const tokenRange = options?.range ?? opqlSuggestionQuery.data?.token ?? {
         start: inputValue.length,
         end: inputValue.length,
       };
@@ -753,7 +862,8 @@ export const GlobalSearchPage = () => {
       const before = inputValue.slice(0, safeRange.start);
       const after = inputValue.slice(safeRange.end).replace(/^\s+/u, "");
       const nextValue = `${before}${replacement}${after}`;
-      const nextCursor = safeRange.start + replacement.length;
+      const relativeCursor = options?.cursorOffset ?? replacement.length;
+      const nextCursor = options?.absoluteCursor ?? safeRange.start + relativeCursor;
       setInputValue(nextValue);
       setInputCursor(nextCursor);
       requestAnimationFrame(() => {
@@ -776,22 +886,28 @@ export const GlobalSearchPage = () => {
       }
       return;
     }
-    applyInputReplacement(completion.insertText, completion.range);
+    applyInputReplacement(completion.insertText, {
+      range: completion.range,
+      cursorOffset: completion.cursorOffset ?? completion.insertText.length,
+    });
     updateOpqlHistory(completion.kind, completion.id);
   }, [applyInputReplacement, opqlSuggestionQuery.data, updateOpqlHistory]);
 
   const handleSuggestionChip = useCallback(
     (item: OpqlSuggestionItem) => {
-      applyInputReplacement(`${formatSuggestionValue(item)} `);
+      const insertion = getSuggestionInsertion(item);
+      applyInputReplacement(insertion.text, {
+        cursorOffset: insertion.cursorOffset,
+      });
       updateOpqlHistory(item.kind, item.id);
     },
     [applyInputReplacement, updateOpqlHistory]
   );
 
   const handleCorrectionChip = useCallback(
-    (text: string) => {
-      applyInputReplacement(`${text} `);
-      updateOpqlHistory("correction", text);
+    (suggestion: DidYouMeanSuggestion) => {
+      applyInputReplacement(`${suggestion.replacement} `);
+      updateOpqlHistory("correction", suggestion.id);
     },
     [applyInputReplacement, updateOpqlHistory]
   );
@@ -949,19 +1065,31 @@ export const GlobalSearchPage = () => {
         {mode !== "builder" && (opqlSuggestionQuery.data?.corrections.length ?? 0) > 0 ? (
           <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
             <span className="font-medium">Did you mean</span>
-            {opqlSuggestionQuery.data?.corrections.map((correction) => (
-              <button
-                key={correction.id}
-                type="button"
-                onClick={() => handleCorrectionChip(correction.text)}
-                className="inline-flex items-center gap-1 rounded-full border border-dashed border-muted-foreground/40 px-2.5 py-1 text-xs font-medium text-muted-foreground transition hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring"
-              >
-                {correction.text}
-                <span className="text-[10px] font-normal text-muted-foreground/80">
-                  {correction.reason}
-                </span>
-              </button>
-            ))}
+            {opqlSuggestionQuery.data?.corrections.map((correction) => {
+              const preview = buildPreviewSegments(correction.preview);
+              return (
+                <button
+                  key={correction.id}
+                  type="button"
+                  onClick={() => handleCorrectionChip(correction)}
+                  className="inline-flex items-start gap-2 rounded-full border border-dashed border-muted-foreground/40 px-3 py-1.5 text-left text-xs font-medium text-muted-foreground transition hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring"
+                >
+                  <div className="flex flex-col text-left">
+                    <span>{correction.text}</span>
+                    <span className="text-[10px] font-normal text-muted-foreground/80">
+                      {correction.reason}
+                    </span>
+                    <span className="text-[10px] font-normal text-muted-foreground/70">
+                      {preview.before}
+                      <span className="font-semibold text-foreground">
+                        {correction.preview.replacement}
+                      </span>
+                      {preview.after}
+                    </span>
+                  </div>
+                </button>
+              );
+            })}
           </div>
         ) : null}
 
@@ -970,21 +1098,32 @@ export const GlobalSearchPage = () => {
             <span className="inline-flex items-center gap-1 font-medium">
               <Sparkles className="h-3.5 w-3.5 text-amber-500" /> Query suggestions
             </span>
-            {opqlSuggestionQuery.data?.items.slice(0, 6).map((item) => (
-              <button
-                key={`opql-chip-${item.id}`}
-                type="button"
-                onClick={() => handleSuggestionChip(item)}
-                className="inline-flex items-center gap-1 rounded-full border border-muted-foreground/30 px-2.5 py-1 text-xs font-medium text-muted-foreground transition hover:border-muted-foreground/50 hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring"
-              >
-                {formatSuggestionValue(item)}
-                {item.description ? (
-                  <span className="text-[10px] font-normal text-muted-foreground/70">
-                    {item.description}
-                  </span>
-                ) : null}
-              </button>
-            ))}
+            {opqlSuggestionQuery.data?.items.slice(0, 6).map((item) => {
+              const Icon = getSuggestionIcon(item.icon);
+              return (
+                <button
+                  key={`opql-chip-${item.id}`}
+                  type="button"
+                  onClick={() => handleSuggestionChip(item)}
+                  className="inline-flex items-center gap-2 rounded-full border border-muted-foreground/30 px-3 py-1.5 text-xs font-medium text-muted-foreground transition hover:border-muted-foreground/50 hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring"
+                >
+                  <Icon className="h-3.5 w-3.5 text-amber-500" />
+                  <div className="flex flex-col items-start text-left">
+                    <span className="font-medium text-foreground">
+                      {formatSuggestionValue(item)}
+                    </span>
+                    <span className="text-[10px] font-normal text-muted-foreground/70">
+                      {item.description ?? item.label}
+                    </span>
+                    {item.documentation ? (
+                      <span className="text-[10px] font-normal text-muted-foreground/60">
+                        {item.documentation}
+                      </span>
+                    ) : null}
+                  </div>
+                </button>
+              );
+            })}
           </div>
         ) : null}
 
