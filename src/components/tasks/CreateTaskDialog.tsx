@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +15,21 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useCustomFieldDefinitions, useVisibleCustomFields } from "@/hooks/useCustomFields";
 import { isComputedField } from "@/domain/customFields";
 import { upsertTaskCustomFieldValues, type TaskCustomFieldValueInput } from "@/services/customFields";
+import { uploadTaskAttachment } from "@/services/storage";
+import { domainEventBus } from "@/domain/events/domainEventBus";
+
+const SPECIAL_FIELD_CONFIG = {
+  fixVersion: { apiName: "fix_version", label: "Fix Version" },
+  release: { apiName: "release", label: "Release" },
+  environment: { apiName: "environment", label: "Environment" },
+  customer: { apiName: "customer", label: "Customer" },
+  stepsToReproduce: { apiName: "steps_to_reproduce", label: "Steps to Reproduce" },
+} as const;
+
+type SpecialFieldKey = keyof typeof SPECIAL_FIELD_CONFIG;
+const SPECIAL_FIELD_ENTRIES = Object.entries(SPECIAL_FIELD_CONFIG) as Array<
+  [SpecialFieldKey, { apiName: string; label: string }]
+>;
 
 interface CreateTaskDialogProps {
   open: boolean;
@@ -38,6 +53,20 @@ export function CreateTaskDialog({ open, onOpenChange, projectId, onTaskCreated 
     target_task_id: string;
     notes?: string;
   } | null>(null);
+  const [watcherIds, setWatcherIds] = useState<string[]>([]);
+  const [attachments, setAttachments] = useState<File[]>([]);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [startDate, setStartDate] = useState<string>("");
+  const [dueDate, setDueDate] = useState<string>("");
+  const [sprintId, setSprintId] = useState<string>("");
+  const [availableSprints, setAvailableSprints] = useState<Array<{ id: string; name: string; status?: string | null }>>([]);
+  const [specialFieldValues, setSpecialFieldValues] = useState<Record<SpecialFieldKey, string>>({
+    fixVersion: "",
+    release: "",
+    environment: "",
+    customer: "",
+    stepsToReproduce: "",
+  });
 
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
@@ -49,6 +78,37 @@ export function CreateTaskDialog({ open, onOpenChange, projectId, onTaskCreated 
     isLoading: customFieldsLoading,
   } = useCustomFieldDefinitions({ projectId, contexts: ["forms", "tasks"] });
   const [customFieldValues, setCustomFieldValues] = useState<Record<string, unknown>>({});
+  const specialFieldDefinitions = useMemo(() => {
+    const mapping = new Map<SpecialFieldKey, (typeof customFieldDefinitions)[number]>();
+    for (const definition of customFieldDefinitions) {
+      const entry = SPECIAL_FIELD_ENTRIES.find(([, config]) => config.apiName === definition.apiName);
+      if (entry) {
+        mapping.set(entry[0], definition);
+      }
+    }
+    return mapping;
+  }, [customFieldDefinitions]);
+  const specialFieldIds = useMemo(() => {
+    return new Set(Array.from(specialFieldDefinitions.values()).map((definition) => definition.id));
+  }, [specialFieldDefinitions]);
+  const specialFieldDefaultValues = useMemo(() => {
+    const base: Record<SpecialFieldKey, string> = {
+      fixVersion: "",
+      release: "",
+      environment: "",
+      customer: "",
+      stepsToReproduce: "",
+    };
+    for (const [key, definition] of specialFieldDefinitions) {
+      const defaultValue = customFieldDefaults?.[definition.id];
+      if (typeof defaultValue === "string") {
+        base[key] = defaultValue;
+      } else if (defaultValue != null) {
+        base[key] = String(defaultValue);
+      }
+    }
+    return base;
+  }, [customFieldDefaults, specialFieldDefinitions]);
 
   useEffect(() => {
     if (!customFieldDefinitions.length) {
@@ -63,10 +123,52 @@ export function CreateTaskDialog({ open, onOpenChange, projectId, onTaskCreated 
       return next;
     });
   }, [customFieldDefaults, customFieldDefinitions]);
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    setSpecialFieldValues(specialFieldDefaultValues);
+  }, [open, specialFieldDefaultValues]);
+
+  useEffect(() => {
+    if (!open || !projectId) {
+      return;
+    }
+    let isMounted = true;
+    const fetchSprints = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("sprints")
+          .select("id, name, status")
+          .eq("project_id", projectId)
+          .order("start_date", { ascending: false })
+          .limit(50);
+
+        if (error) {
+          throw error;
+        }
+
+        if (isMounted) {
+          setAvailableSprints(data ?? []);
+        }
+      } catch (error) {
+        console.error("Failed to fetch sprints", error);
+        if (isMounted) {
+          setAvailableSprints([]);
+        }
+      }
+    };
+
+    fetchSprints();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [open, projectId]);
 
   const editableCustomFields = useMemo(
-    () => customFieldDefinitions.filter(definition => !isComputedField(definition)),
-    [customFieldDefinitions],
+    () => customFieldDefinitions.filter(definition => !isComputedField(definition) && !specialFieldIds.has(definition.id)),
+    [customFieldDefinitions, specialFieldIds],
   );
 
   const orderedCustomFields = useMemo(
@@ -83,6 +185,32 @@ export function CreateTaskDialog({ open, onOpenChange, projectId, onTaskCreated 
 
   const handleCustomFieldChange = (fieldId: string, value: unknown) => {
     setCustomFieldValues(prev => ({ ...prev, [fieldId]: value }));
+  };
+
+  const handleSpecialFieldChange = (key: SpecialFieldKey, value: string) => {
+    setSpecialFieldValues(prev => ({ ...prev, [key]: value }));
+    const definition = specialFieldDefinitions.get(key);
+    if (definition) {
+      const sanitized = value.trim().length === 0 ? null : value;
+      handleCustomFieldChange(definition.id, sanitized);
+    }
+  };
+
+  const handleAttachmentSelection = (event: ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files ?? []);
+    if (files.length === 0) {
+      return;
+    }
+
+    setAttachments(prev => {
+      const existing = new Set(prev.map(file => `${file.name}:${file.size}:${file.lastModified}`));
+      const deduped = files.filter(file => !existing.has(`${file.name}:${file.size}:${file.lastModified}`));
+      return deduped.length > 0 ? [...prev, ...deduped] : prev;
+    });
+  };
+
+  const handleRemoveAttachment = (index: number) => {
+    setAttachments(prev => prev.filter((_, idx) => idx !== index));
   };
 
   const buildCustomFieldPayload = (): TaskCustomFieldValueInput[] => {
@@ -243,7 +371,10 @@ export function CreateTaskDialog({ open, onOpenChange, projectId, onTaskCreated 
       projectId,
       status: formData.status,
       priority: formData.priority,
-      story_points: storyPoints ? Number(storyPoints) : undefined
+      story_points: storyPoints ? Number(storyPoints) : undefined,
+      start_date: startDate || undefined,
+      due_date: dueDate || undefined,
+      sprint_id: sprintId || undefined,
     });
 
     return await supabase
@@ -258,6 +389,9 @@ export function CreateTaskDialog({ open, onOpenChange, projectId, onTaskCreated 
         project_id: projectId,
         reporter_id: user!.id,
         story_points: storyPoints ? Number(storyPoints) : null,
+        start_date: startDate ? startDate : null,
+        due_date: dueDate ? dueDate : null,
+        sprint_id: sprintId ? sprintId : null,
       })
       .select()
       .single();
@@ -290,8 +424,26 @@ export function CreateTaskDialog({ open, onOpenChange, projectId, onTaskCreated 
       formData,
       storyPoints,
       assigneeIds,
-      relationship
+      watcherIds,
+      relationship,
+      startDate,
+      dueDate,
+      sprintId,
+      attachmentCount: attachments.length,
+      specialFieldValues,
     });
+
+    if (formData.smartTaskType === "bug") {
+      const stepsValue = specialFieldValues.stepsToReproduce.trim();
+      if (!stepsValue) {
+        toast({
+          title: "Missing required field",
+          description: "Steps to Reproduce are required for bug reports.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
 
     const missingRequiredField = visibleCustomFields.find((definition) => {
       if (!definition.isRequired) {
@@ -328,6 +480,7 @@ export function CreateTaskDialog({ open, onOpenChange, projectId, onTaskCreated 
     const customFieldPayload = buildCustomFieldPayload();
 
     setLoading(true);
+    let createdTaskId: string | undefined;
     try {
       // Single attempt: rely entirely on DB trigger for ticket_number
       const { data: newTask, error } = await insertTask();
@@ -339,11 +492,13 @@ export function CreateTaskDialog({ open, onOpenChange, projectId, onTaskCreated 
         if (retry.error) throw retry.error;
         // Use the retried data
         const created = retry.data;
+        createdTaskId = created?.id;
         // Post-create operations (assignees & relationship)
         await postCreateOperations(created?.id, customFieldPayload);
       } else if (error) {
         throw error;
       } else {
+        createdTaskId = newTask?.id;
         await postCreateOperations(newTask?.id, customFieldPayload);
       }
 
@@ -351,6 +506,19 @@ export function CreateTaskDialog({ open, onOpenChange, projectId, onTaskCreated 
         title: "Success",
         description: "Task created successfully",
       });
+
+      if (createdTaskId) {
+        domainEventBus.publish({
+          type: "item.created",
+          payload: {
+            id: createdTaskId,
+            projectId,
+            status: formData.status,
+            priority: formData.priority,
+            smartTaskType: formData.smartTaskType,
+          },
+        });
+      }
 
       // Reset state
       setFormData({
@@ -363,8 +531,15 @@ export function CreateTaskDialog({ open, onOpenChange, projectId, onTaskCreated 
       setAssigneeIds([]);
       setStoryPoints("");
       setRelationship(null);
+      setWatcherIds([]);
+      setAttachments([]);
+      fileInputRef.current && (fileInputRef.current.value = "");
+      setStartDate("");
+      setDueDate("");
+      setSprintId("");
       setCustomFieldValues({ ...customFieldDefaults });
-      
+      setSpecialFieldValues(specialFieldDefaultValues);
+
       onTaskCreated();
       onOpenChange(false);
     } catch (error: any) {
@@ -407,6 +582,51 @@ export function CreateTaskDialog({ open, onOpenChange, projectId, onTaskCreated 
         toast({
           title: "Warning",
           description: "Task created but failed to add assignees.",
+          variant: "destructive",
+        });
+      }
+    }
+
+    if (watcherIds.length > 0) {
+      const watcherInserts = watcherIds.map((id) => ({
+        task_id: taskId,
+        user_id: id,
+        added_by: user!.id,
+      }));
+      const { error: watcherError } = await supabase.from("task_watchers").insert(watcherInserts);
+      if (watcherError) {
+        console.error("Failed to add watchers:", watcherError);
+        toast({
+          title: "Warning",
+          description: "Task created but failed to add watchers.",
+          variant: "destructive",
+        });
+      }
+    }
+
+    if (attachments.length > 0) {
+      try {
+        await Promise.all(
+          attachments.map(async (file) => {
+            const { publicUrl } = await uploadTaskAttachment(file, taskId, user!.id);
+            const { error: fileError } = await supabase.from("task_files").insert({
+              task_id: taskId,
+              file_url: publicUrl,
+              file_name: file.name,
+              file_size: file.size,
+              mime_type: file.type || null,
+              uploaded_by: user!.id,
+            });
+            if (fileError) {
+              throw fileError;
+            }
+          }),
+        );
+      } catch (error) {
+        console.error("Failed to upload attachments", error);
+        toast({
+          title: "Warning",
+          description: "Task saved but attachments could not be uploaded.",
           variant: "destructive",
         });
       }
@@ -547,6 +767,144 @@ export function CreateTaskDialog({ open, onOpenChange, projectId, onTaskCreated 
                 onChange={(e) => setStoryPoints(e.target.value)}
               />
             </div>
+          </div>
+
+          <AssigneeCompanySelect
+            suggestProjectId={projectId}
+            value={watcherIds}
+            onChange={setWatcherIds}
+            label="Watchers"
+          />
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="start_date">Start date</Label>
+              <Input
+                id="start_date"
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="due_date">Due date</Label>
+              <Input
+                id="due_date"
+                type="date"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="sprint">Sprint</Label>
+            <Select value={sprintId} onValueChange={setSprintId}>
+              <SelectTrigger id="sprint">
+                <SelectValue placeholder="Select sprint" />
+              </SelectTrigger>
+              <SelectContent className="z-[60]">
+                <SelectItem value="">No sprint</SelectItem>
+                {availableSprints.length === 0 ? (
+                  <SelectItem value="__no_sprints" disabled>
+                    No sprints available
+                  </SelectItem>
+                ) : (
+                  availableSprints.map((sprint) => (
+                    <SelectItem key={sprint.id} value={sprint.id}>
+                      {sprint.name}
+                      {sprint.status ? ` · ${sprint.status}` : ""}
+                    </SelectItem>
+                  ))
+                )}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="fix_version">{SPECIAL_FIELD_CONFIG.fixVersion.label}</Label>
+              <Input
+                id="fix_version"
+                value={specialFieldValues.fixVersion}
+                onChange={(e) => handleSpecialFieldChange("fixVersion", e.target.value)}
+                placeholder="e.g. 2024.3.1"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="release">{SPECIAL_FIELD_CONFIG.release.label}</Label>
+              <Input
+                id="release"
+                value={specialFieldValues.release}
+                onChange={(e) => handleSpecialFieldChange("release", e.target.value)}
+                placeholder="e.g. Q3 Launch"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="environment">{SPECIAL_FIELD_CONFIG.environment.label}</Label>
+              <Input
+                id="environment"
+                value={specialFieldValues.environment}
+                onChange={(e) => handleSpecialFieldChange("environment", e.target.value)}
+                placeholder="e.g. Production"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="customer">{SPECIAL_FIELD_CONFIG.customer.label}</Label>
+              <Input
+                id="customer"
+                value={specialFieldValues.customer}
+                onChange={(e) => handleSpecialFieldChange("customer", e.target.value)}
+                placeholder="Customer or account"
+              />
+            </div>
+          </div>
+
+          {formData.smartTaskType === "bug" ? (
+            <div className="space-y-2">
+              <Label htmlFor="steps_to_reproduce">{SPECIAL_FIELD_CONFIG.stepsToReproduce.label} *</Label>
+              <Textarea
+                id="steps_to_reproduce"
+                value={specialFieldValues.stepsToReproduce}
+                onChange={(e) => handleSpecialFieldChange("stepsToReproduce", e.target.value)}
+                placeholder="List each step required to reproduce the issue"
+                rows={4}
+              />
+            </div>
+          ) : null}
+
+          <div className="space-y-2">
+            <Label htmlFor="task_attachments">Attachments</Label>
+            <Input
+              id="task_attachments"
+              type="file"
+              multiple
+              ref={fileInputRef}
+              onChange={handleAttachmentSelection}
+            />
+            {attachments.length > 0 ? (
+              <ul className="space-y-1 text-sm">
+                {attachments.map((file, index) => (
+                  <li
+                    key={`${file.name}-${index}`}
+                    className="flex items-center justify-between rounded-md border bg-muted/40 px-3 py-2"
+                  >
+                    <span className="truncate pr-2" title={file.name}>
+                      {file.name}
+                    </span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 text-xs"
+                      onClick={() => handleRemoveAttachment(index)}
+                    >
+                      Remove
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
           </div>
 
           {customFieldsLoading ? (
