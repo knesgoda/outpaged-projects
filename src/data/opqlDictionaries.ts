@@ -1,61 +1,32 @@
-export const CUSTOM_FIELD_DEFINITIONS: Record<string, string[]> = {
-  Status: ["Ready", "In Progress", "Blocked", "Done"],
-  Priority: ["Low", "Medium", "High", "Urgent"],
-  "Team Heat": ["Cool", "Warm", "Hot"],
-};
+import { DEFAULT_WORKSPACE_ID, getWorkspaceMetadata } from "./workspaceMeta";
 
-export const OPQL_LABEL_DICTIONARY = [
-  {
-    id: "label:ux",
-    kind: "label" as const,
-    value: "ux",
-    label: "#ux",
-    description: "User experience",
-    synonyms: ["design"],
-    weight: 0.7,
-  },
-  {
-    id: "label:backend",
-    kind: "label" as const,
-    value: "backend",
-    label: "#backend",
-    description: "Platform engineering",
-    weight: 0.65,
-  },
-  {
-    id: "label:regression",
-    kind: "label" as const,
-    value: "regression",
-    label: "#regression",
-    description: "Returned bug",
-    weight: 0.6,
-  },
-] as const;
+const metadata = getWorkspaceMetadata(DEFAULT_WORKSPACE_ID);
 
-export const OPQL_TEAM_DIRECTORY = [
-  {
-    id: "team:sparks",
-    kind: "user" as const,
-    value: "sparks",
-    label: "Team Sparks",
-    description: "Growth experiments",
-    teamId: "sparks",
-    weight: 0.68,
-  },
-  {
-    id: "team:insight",
-    kind: "user" as const,
-    value: "insight",
-    label: "Team Insight",
-    description: "Data & AI",
-    teamId: "insight",
-    weight: 0.64,
-  },
-] as const;
+export const CUSTOM_FIELD_DEFINITIONS: Record<string, string[]> = metadata.fields
+  .filter((field) => field.type === "enum" && field.values?.length)
+  .reduce<Record<string, string[]>>((accumulator, field) => {
+    accumulator[field.label] = field.values?.map((value) => value.value) ?? [];
+    return accumulator;
+  }, {});
 
-export const OPQL_SYNONYM_CORPUS: Record<string, string[]> = {
-  asap: ["urgent", "high"],
-  slow: ["low", "backlog"],
-  owner: ["assignee", "responsible"],
-  doc: ["document", "spec"],
-};
+export const OPQL_LABEL_DICTIONARY = metadata.labels.map((label) => ({
+  id: `label:${label.value}`,
+  kind: "label" as const,
+  value: label.value,
+  label: `#${label.value}`,
+  description: label.description,
+  synonyms: label.synonyms,
+  weight: 0.65,
+}));
+
+export const OPQL_TEAM_DIRECTORY = metadata.teams.map((team) => ({
+  id: `team:${team.id}`,
+  kind: "user" as const,
+  value: team.slug,
+  label: `Team ${team.name}`,
+  description: team.description,
+  teamId: team.id,
+  weight: 0.62,
+}));
+
+export const OPQL_SYNONYM_CORPUS: Record<string, string[]> = { ...metadata.synonyms };

@@ -18,6 +18,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { opqlSuggest, searchSuggest } from "@/services/search";
 import type {
+  DidYouMeanSuggestion,
   OpqlSuggestionItem,
   SearchResult,
   SuggestionHistoryEntry,
@@ -29,24 +30,54 @@ import {
   persistOpqlHistory,
   recordOpqlSelection,
 } from "@/lib/opqlHistory";
-import { formatSuggestionValue } from "@/lib/opqlSuggestions";
+import { analyzeOpqlCursorContext } from "@/lib/opql/cursorContext";
+import { formatSuggestionValue, getSuggestionInsertion } from "@/lib/opqlSuggestions";
 import { useSuggestionDictionaries } from "@/hooks/useSuggestionDictionaries";
 import { useConnectivityStatus } from "@/hooks/useConnectivityStatus";
 import { executeOfflineQuery, type OfflineQueryResult } from "@/services/offline/opqlIndex";
 import {
+  ArrowLeftRight,
+  BadgeCheck,
+  Bookmark,
+  Brain,
+  CalendarClock,
+  CalendarMinus,
+  CalendarPlus,
+  CalendarRange,
+  CheckSquare,
+  ChevronLeft,
+  ChevronRight,
   CircleHelp,
-  FileText,
+  Clock,
+  Compass,
+  Equal,
+  Figma,
   File,
+  FileText,
+  FlagTriangleRight,
+  Flame,
   FolderKanban,
+  GitBranch,
+  History,
   Inbox,
+  List,
+  ListChecks,
   ListTodo,
+  ListX,
   Loader2,
   MessageSquare,
-  Bookmark,
+  NotEqual,
+  Pen,
   PlusCircle,
+  ScanText,
+  Server,
+  Sparkle,
+  Sparkles,
   Sun,
   User,
-  Sparkles,
+  UserCheck,
+  UserCircle,
+  Users,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -69,6 +100,59 @@ const TYPE_ICONS: Record<SearchResult["type"], LucideIcon> = {
   comment: MessageSquare,
   person: User,
   team_member: User,
+};
+
+const SUGGESTION_ICON_MAP: Record<string, LucideIcon> = {
+  "check-square": CheckSquare,
+  "folder-kanban": FolderKanban,
+  "file-text": FileText,
+  "message-square": MessageSquare,
+  "user-circle": UserCircle,
+  equals: Equal,
+  "not-equal": NotEqual,
+  "chevron-right": ChevronRight,
+  "chevron-left": ChevronLeft,
+  "list-checks": ListChecks,
+  "list-x": ListX,
+  "scan-text": ScanText,
+  "arrow-left-right": ArrowLeftRight,
+  "calendar-minus": CalendarMinus,
+  "calendar-plus": CalendarPlus,
+  "calendar-range": CalendarRange,
+  "calendar-clock": CalendarClock,
+  "calendar-sync": CalendarClock,
+  "badge-check": BadgeCheck,
+  clock: Clock,
+  "clock-3": Clock,
+  workflow: GitBranch,
+  "flag-triangle-right": FlagTriangleRight,
+  flame: Flame,
+  brain: Brain,
+  compass: Compass,
+  pen: Pen,
+  server: Server,
+  history: History,
+  figma: Figma,
+  sparkle: Sparkle,
+  sparkles: Sparkles,
+  users: Users,
+  user: User,
+  list: List,
+  "list-todo": ListTodo,
+};
+
+const getSuggestionIcon = (icon?: string): LucideIcon => {
+  if (!icon) return Sparkles;
+  const normalized = icon.toLowerCase();
+  return SUGGESTION_ICON_MAP[icon] ?? SUGGESTION_ICON_MAP[normalized] ?? Sparkles;
+};
+
+const buildPreviewSegments = (preview: DidYouMeanSuggestion["preview"]) => {
+  const before = preview.before.trimEnd();
+  const after = preview.after.trimStart();
+  const beforeText = before.length > 20 ? `…${before.slice(-20)}` : before;
+  const afterText = after.length > 20 ? `${after.slice(0, 20)}…` : after;
+  return { before: beforeText, after: afterText };
 };
 
 type QuickAction = {
@@ -101,6 +185,14 @@ export const CommandPalette = () => {
   const inputRef = useRef<HTMLInputElement>(null);
   const [cursor, setCursor] = useState(0);
   const debouncedQuery = useDebouncedValue(query, 250);
+  const cursorContext = useMemo(() => {
+    const context = analyzeOpqlCursorContext(query, cursor);
+    return {
+      ...context,
+      token: context.token.trim(),
+      prefix: context.prefix.trim(),
+    };
+  }, [query, cursor]);
   const [history, setHistory] = useState<SuggestionHistoryEntry[]>(loadOpqlHistory);
   const connectivity = useConnectivityStatus(5_000);
   const [offlineResult, setOfflineResult] = useState<OfflineQueryResult | null>(null);
@@ -209,12 +301,17 @@ export const CommandPalette = () => {
       historySignature,
       currentTeamId ?? null,
       dictionarySignature,
+      cursorContext.state,
+      cursorContext.field ?? null,
+      cursorContext.operator ?? null,
+      cursorContext.expecting ?? null,
     ],
     queryFn: () =>
       opqlSuggest({
         text: query,
         cursor,
-        grammarState: "root",
+        grammarState: cursorContext.state,
+        cursorContext,
         context: {
           projectId: scope.projectId,
           types: scope.types,
@@ -251,7 +348,11 @@ export const CommandPalette = () => {
   }, [closePalette, navigate, query, scope.projectId, scope.types]);
 
   const applyReplacement = useCallback(
-    (replacement: string, range?: { start: number; end: number }) => {
+    (
+      replacement: string,
+      range?: { start: number; end: number },
+      cursorOffset?: number
+    ) => {
       const tokenRange = range ?? opqlSuggestions.data?.token ?? {
         start: query.length,
         end: query.length,
@@ -263,7 +364,7 @@ export const CommandPalette = () => {
       const before = query.slice(0, safeRange.start);
       const after = query.slice(safeRange.end).replace(/^\s+/u, "");
       const nextValue = `${before}${replacement}${after}`;
-      const nextCursor = safeRange.start + replacement.length;
+      const nextCursor = safeRange.start + (cursorOffset ?? replacement.length);
       setQuery(nextValue);
       setCursor(nextCursor);
       requestAnimationFrame(() => {
@@ -281,30 +382,30 @@ export const CommandPalette = () => {
     if (!completion) {
       const first = opqlSuggestions.data?.items?.[0];
       if (first) {
-        const insertion = `${formatSuggestionValue(first)} `;
-        applyReplacement(insertion);
+        const { text, cursorOffset } = getSuggestionInsertion(first);
+        applyReplacement(text, undefined, cursorOffset);
         updateHistory(first.kind, first.id);
       }
       return;
     }
-    applyReplacement(completion.insertText, completion.range);
+    applyReplacement(completion.insertText, completion.range, completion.cursorOffset);
     updateHistory(completion.kind, completion.id);
   }, [applyReplacement, opqlSuggestions.data, updateHistory]);
 
   const handleSuggestionItem = useCallback(
     (item: OpqlSuggestionItem) => {
-      const insertion = `${formatSuggestionValue(item)} `;
-      applyReplacement(insertion);
+      const { text, cursorOffset } = getSuggestionInsertion(item);
+      applyReplacement(text, undefined, cursorOffset);
       updateHistory(item.kind, item.id);
     },
     [applyReplacement, updateHistory]
   );
 
   const handleCorrection = useCallback(
-    (text: string) => {
-      const insertion = `${text} `;
+    (suggestion: DidYouMeanSuggestion) => {
+      const insertion = `${suggestion.replacement} `;
       applyReplacement(insertion);
-      updateHistory("correction", text);
+      updateHistory("correction", suggestion.id);
     },
     [applyReplacement, updateHistory]
   );
@@ -523,19 +624,31 @@ export const CommandPalette = () => {
       {tab === "search" && (opqlSuggestions.data?.corrections.length ?? 0) > 0 ? (
         <div className="flex flex-wrap items-center gap-2 border-b px-3 py-2 text-xs text-muted-foreground">
           <span className="font-medium">Did you mean</span>
-          {opqlSuggestions.data?.corrections.map((correction) => (
-            <button
-              key={correction.id}
-              type="button"
-              onClick={() => handleCorrection(correction.text)}
-              className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground transition hover:bg-muted/80 focus:outline-none focus:ring-2 focus:ring-ring"
-            >
-              {correction.text}
-              <span className="text-[10px] font-normal text-muted-foreground/80">
-                {correction.reason}
-              </span>
-            </button>
-          ))}
+          {opqlSuggestions.data?.corrections.map((correction) => {
+            const segments = buildPreviewSegments(correction.preview);
+            return (
+              <button
+                key={correction.id}
+                type="button"
+                onClick={() => handleCorrection(correction)}
+                className="inline-flex items-start gap-2 rounded-full bg-muted px-3 py-1.5 text-xs font-medium text-muted-foreground transition hover:bg-muted/80 focus:outline-none focus:ring-2 focus:ring-ring"
+              >
+                <div className="flex flex-col items-start text-left">
+                  <span>{correction.text}</span>
+                  <span className="text-[10px] font-normal text-muted-foreground/80">
+                    {correction.reason}
+                  </span>
+                  <span className="text-[10px] font-normal text-muted-foreground/70">
+                    {segments.before}
+                    <span className="font-semibold text-foreground">
+                      {correction.preview.replacement}
+                    </span>
+                    {segments.after}
+                  </span>
+                </div>
+              </button>
+            );
+          })}
         </div>
       ) : null}
       <CommandList>
@@ -580,7 +693,10 @@ export const CommandPalette = () => {
                     value={`${item.label} ${item.description ?? ""}`}
                     onSelect={() => handleSuggestionItem(item)}
                   >
-                    <Sparkles className="mr-2 h-4 w-4 text-amber-500" aria-hidden="true" />
+                    {(() => {
+                      const Icon = getSuggestionIcon(item.icon);
+                      return <Icon className="mr-2 h-4 w-4 text-amber-500" aria-hidden="true" />;
+                    })()}
                     <div className="flex flex-col">
                       <span className="text-sm font-medium">
                         {formatSuggestionValue(item)}
@@ -588,6 +704,11 @@ export const CommandPalette = () => {
                       <span className="text-xs text-muted-foreground">
                         {item.description ?? item.label}
                       </span>
+                      {item.documentation ? (
+                        <span className="text-[10px] text-muted-foreground/70">
+                          {item.documentation}
+                        </span>
+                      ) : null}
                     </div>
                   </CommandItem>
                 ))}
