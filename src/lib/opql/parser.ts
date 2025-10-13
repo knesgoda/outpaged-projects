@@ -221,6 +221,7 @@ export interface AggregateStatement extends BaseStatement {
   type: "AGGREGATE";
   aggregates: AggregateExpression[];
   groupBy?: Expression[];
+  having?: Expression;
 }
 
 export interface UpdateAssignment {
@@ -606,10 +607,16 @@ class Parser {
       groupBy = this.parseExpressionList();
     }
 
+    let having: Expression | undefined;
+    if (this.consumeKeyword("HAVING")) {
+      having = this.parseExpression();
+    }
+
     return {
       type: "AGGREGATE",
       aggregates,
       groupBy,
+      having,
       ...base,
     };
   }
@@ -1561,6 +1568,7 @@ function normalizeStatement(statement: Statement): Statement {
         ...base,
         aggregates: statement.aggregates.map((aggregate) => normalizeAggregateExpression(aggregate)),
         groupBy: statement.groupBy?.map((expr) => normalizeExpression(expr)),
+        having: statement.having ? normalizeExpression(statement.having) : undefined,
       };
     }
     case "UPDATE": {
@@ -1853,11 +1861,17 @@ export function formatStatement(statement: Statement): string {
     }
     case "COUNT":
       return `COUNT FROM ${statement.source}`;
-    case "AGGREGATE":
-      return `AGGREGATE ${statement.aggregates
+    case "AGGREGATE": {
+      const base = `AGGREGATE ${statement.aggregates
         .map((agg) => `${agg.function}(${formatExpression(agg.expression)})${agg.alias ? ` AS ${agg.alias}` : ""}`)
         .join(", "
       )} FROM ${statement.source}`;
+      const group = statement.groupBy?.length
+        ? ` GROUP BY ${statement.groupBy.map((expr) => formatExpression(expr)).join(", ")}`
+        : "";
+      const having = statement.having ? ` HAVING ${formatExpression(statement.having)}` : "";
+      return `${base}${group}${having}`;
+    }
     case "UPDATE":
       return `UPDATE ${statement.source}`;
     case "EXPLAIN":

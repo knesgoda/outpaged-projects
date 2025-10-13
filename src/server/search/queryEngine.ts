@@ -1,6 +1,7 @@
 import { performance } from "node:perf_hooks";
 
 import {
+  type AggregateStatement,
   type BaseStatement,
   type BinaryExpression,
   type Expression,
@@ -18,13 +19,15 @@ import {
 
 import {
   type EntityDefinition,
-  type FieldMaskRule,
   type FieldType,
-  type MaterializedRow,
-  type RepositoryRow,
   type SearchRepository,
   MockSearchRepository,
 } from "./repository";
+
+import { buildAggregatePlan, buildFindPlan } from "./plan/planner";
+import { evaluateValue, normalizeAlias, timeStage } from "./plan/runtime";
+import type { PlanExecutionContext, PlanResult, PlannerOptions, RuntimeRow } from "./plan/types";
+import type { MaterializedRow } from "./repository";
 
 export interface PrincipalContext {
   principalId: string;
@@ -37,6 +40,7 @@ export interface PrincipalContext {
 export interface QueryEngineOptions {
   repository?: SearchRepository;
   defaultLimit?: number;
+  graphDepthCap?: number;
 }
 
 export interface QueryRequest {
@@ -76,28 +80,29 @@ export interface QueryExecution {
   metrics: ExecutionMetrics;
 }
 
-interface ExecutionContext {
-  workspaceId: string;
-  principal: PrincipalContext;
-  repository: SearchRepository;
-  targetTypes: string[];
-  order: OrderByField[];
-  limit: number;
-  cursor?: string;
-  metrics: ExecutionMetrics;
-  appliedFilters: string[];
-  projections: string[];
-  plan: string[];
-}
-
-interface CursorPayload {
-  id: string;
-  order: unknown[];
-}
-
 const DEFAULT_LIMIT = 25;
 
 const BUILTIN_FIELDS = new Set(["*", "id", "entity_id", "entityId", "type", "entity_type", "workspace_id", "score", "searchable"]);
+
+const SOURCE_SYNONYMS: Record<string, string[]> = {
+  documents: ["doc"],
+  document: ["doc"],
+  docs: ["doc"],
+  doc: ["doc"],
+  files: ["doc"],
+  file: ["doc"],
+  pages: ["doc"],
+  tasks: ["task"],
+  task: ["task"],
+  projects: ["project"],
+  project: ["project"],
+  comments: ["comment"],
+  comment: ["comment"],
+  people: ["person"],
+  persons: ["person"],
+  users: ["person"],
+  teammates: ["person"],
+};
 
 export function toSearchResult(row: EngineRow) {
   return {
@@ -114,6 +119,10 @@ export function toSearchResult(row: EngineRow) {
 
 function isFindStatement(statement: Statement): statement is FindStatement {
   return statement.type === "FIND";
+}
+
+function isAggregateStatement(statement: Statement): statement is AggregateStatement {
+  return statement.type === "AGGREGATE";
 }
 
 function clone<T>(value: T): T {
@@ -224,42 +233,6 @@ function intersect(left: string[] | undefined, right: string[]): string[] | unde
   return right.filter((value) => set.has(value));
 }
 
-function decodeCursor(cursor: string | undefined): CursorPayload | undefined {
-  if (!cursor) return undefined;
-  try {
-    const json = Buffer.from(cursor, "base64").toString("utf8");
-    const parsed = JSON.parse(json) as CursorPayload;
-    if (parsed && typeof parsed.id === "string" && Array.isArray(parsed.order)) {
-      return parsed;
-    }
-    return undefined;
-  } catch (_error) {
-    return undefined;
-  }
-}
-
-function encodeCursor(payload: CursorPayload): string {
-  return Buffer.from(JSON.stringify(payload), "utf8").toString("base64");
-}
-
-function timeStage<T>(context: ExecutionContext, name: string, fn: () => T): T {
-  const start = performance.now();
-  try {
-    return fn();
-  } finally {
-    const duration = performance.now() - start;
-    context.metrics.stages.push({ name, duration });
-  }
-}
-
-function timeStageAsync<T>(context: ExecutionContext, name: string, fn: () => Promise<T>): Promise<T> {
-  const start = performance.now();
-  return fn().finally(() => {
-    const duration = performance.now() - start;
-    context.metrics.stages.push({ name, duration });
-  });
-}
-
 function getFieldDefinition(definition: EntityDefinition | undefined, name: string): { field?: string; type?: FieldType } {
   if (!definition) return {};
   if (definition.fields[name]) {
@@ -280,424 +253,24 @@ function inferFieldName(expression: Expression): string {
   return formatExpression(expression);
 }
 
-function ensureArray<T>(value: T | T[] | undefined): T[] {
-  if (value === undefined) return [];
-  return Array.isArray(value) ? value : [value];
-}
-
-function compareValues(left: unknown, right: unknown): number {
-  if (left === right) return 0;
-  if (left === undefined || left === null) return right === undefined || right === null ? 0 : -1;
-  if (right === undefined || right === null) return 1;
-
-  if (typeof left === "number" && typeof right === "number") {
-    return left === right ? 0 : left < right ? -1 : 1;
-  }
-
-  const leftTime = maybeTimestamp(left);
-  const rightTime = maybeTimestamp(right);
-  if (leftTime !== undefined && rightTime !== undefined) {
-    return leftTime === rightTime ? 0 : leftTime < rightTime ? -1 : 1;
-  }
-
-  const leftString = String(left).toLowerCase();
-  const rightString = String(right).toLowerCase();
-  if (leftString < rightString) return -1;
-  if (leftString > rightString) return 1;
-  return 0;
-}
-
-function maybeTimestamp(value: unknown): number | undefined {
-  if (value instanceof Date) {
-    return value.getTime();
-  }
-  if (typeof value === "string" && /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/u.test(value)) {
-    const parsed = Date.parse(value);
-    if (!Number.isNaN(parsed)) {
-      return parsed;
-    }
-  }
-  return undefined;
-}
-
-function evaluateValue(expression: Expression, row: MaterializedRow): unknown {
-  switch (expression.kind) {
-    case "literal":
-      return expression.value;
-    case "identifier": {
-      if (expression.name === "id" || expression.name === "entity_id") {
-        return row.entityId;
-      }
-      if (expression.name === "type" || expression.name === "entity_type") {
-        return row.entityType;
-      }
-      if (expression.name === "workspace_id") {
-        return row.workspaceId;
-      }
-      if (expression.name === "score") {
-        return row.score;
-      }
-      if (Object.prototype.hasOwnProperty.call(row.values, expression.name)) {
-        return row.values[expression.name];
-      }
-      return row.values[expression.name.toLowerCase()];
-    }
-    case "binary": {
-      const left = evaluateValue(expression.left, row);
-      const right = evaluateValue(expression.right, row);
-      return evaluateBinary(expression.operator, left, right);
-    }
-    case "unary": {
-      if (expression.operator === "NOT") {
-        return !evaluateBoolean(expression.operand, row);
-      }
-      if (expression.operator === "-") {
-        const value = evaluateValue(expression.operand, row);
-        return typeof value === "number" ? -value : value;
-      }
-      return undefined;
-    }
-    case "between": {
-      const value = evaluateValue(expression.value, row);
-      const lower = evaluateValue(expression.lower, row);
-      const upper = evaluateValue(expression.upper, row);
-      const comparison = compareValues(lower, value) <= 0 && compareValues(value, upper) <= 0;
-      return expression.negated ? !comparison : comparison;
-    }
-    case "in": {
-      const value = evaluateValue(expression.value, row);
-      const options = expression.options.map((option) => evaluateValue(option, row));
-      const match = options.some((option) => compareValues(option, value) === 0);
-      return expression.negated ? !match : match;
-    }
-    case "function":
-      return evaluateFunction(expression, row);
-    case "history":
-    case "temporal":
-    case "date_math":
-    case "duration":
-      return undefined;
-    default:
-      return undefined;
-  }
-}
-
-function evaluateBinary(operator: string, left: unknown, right: unknown): unknown {
-  switch (operator) {
-    case "AND":
-      return Boolean(left) && Boolean(right);
-    case "OR":
-      return Boolean(left) || Boolean(right);
-    case "=":
-    case "==":
-      return compareValues(left, right) === 0;
-    case "!=":
-    case "<>":
-      return compareValues(left, right) !== 0;
-    case ">":
-      return compareValues(left, right) > 0;
-    case ">=":
-      return compareValues(left, right) >= 0;
-    case "<":
-      return compareValues(left, right) < 0;
-    case "<=":
-      return compareValues(left, right) <= 0;
-    case "LIKE":
-    case "ILIKE": {
-      if (typeof left !== "string" || typeof right !== "string") return false;
-      const pattern = right.replace(/%/g, "").toLowerCase();
-      return left.toLowerCase().includes(pattern);
-    }
-    case "CONTAINS": {
-      if (typeof left === "string" && typeof right === "string") {
-        return left.toLowerCase().includes(right.toLowerCase());
-      }
-      if (Array.isArray(left)) {
-        return left.some((item) => String(item).toLowerCase() === String(right).toLowerCase());
-      }
-      return false;
-    }
-    default:
-      return undefined;
-  }
-}
-
-function evaluateFunction(expression: FunctionExpression, row: MaterializedRow): unknown {
-  const name = expression.name.toLowerCase();
-  if (name === "contains" && expression.args.length >= 2) {
-    const haystack = evaluateValue(expression.args[0]!, row);
-    const needles = expression.args.slice(1).map((arg) => evaluateValue(arg, row));
-    const normalizedHaystack = Array.isArray(haystack)
-      ? haystack.map((value) => String(value).toLowerCase())
-      : String(haystack ?? "").toLowerCase();
-    return needles.every((needle) => {
-      const value = String(needle ?? "").toLowerCase();
-      if (Array.isArray(normalizedHaystack)) {
-        return normalizedHaystack.includes(value);
-      }
-      return normalizedHaystack.includes(value);
-    });
-  }
-  if (name === "match" && expression.args.length === 2) {
-    const field = evaluateValue(expression.args[0]!, row);
-    const target = evaluateValue(expression.args[1]!, row);
-    return String(field ?? "").toLowerCase().includes(String(target ?? "").toLowerCase());
-  }
-  if (name === "array") {
-    return expression.args.map((arg) => evaluateValue(arg, row));
-  }
-  return undefined;
-}
-
-function evaluateBoolean(expression: Expression, row: MaterializedRow): boolean {
-  const value = evaluateValue(expression, row);
-  if (typeof value === "boolean") return value;
-  return Boolean(value);
-}
-
-function applyFieldMask(values: Record<string, unknown>, rules: Record<string, FieldMaskRule>, principal: PrincipalContext) {
-  const masked: string[] = [];
-  const result: Record<string, unknown> = { ...values };
-  for (const [field, rule] of Object.entries(rules)) {
-    if (!rule.required || principal.permissions.includes(rule.required)) {
-      continue;
-    }
-    masked.push(field);
-    result[field] = rule.mask ?? null;
-  }
-  return { values: result, masked };
-}
-
-class FindNode {
-  constructor(private repository: SearchRepository) {}
-
-  describe(): string[] {
-    return ["FIND"];
-  }
-
-  async execute(context: ExecutionContext): Promise<{ rows: RepositoryRow[]; total: number }> {
-    return timeStageAsync(context, "find", async () => {
-      const rows = await this.repository.list(context.workspaceId, context.targetTypes);
-      return { rows, total: rows.length };
-    });
-  }
-}
-
-class PermissionNode {
-  constructor(private input: FindNode) {}
-
-  describe(): string[] {
-    return [...this.input.describe(), "PERMISSIONS"];
-  }
-
-  async execute(context: ExecutionContext): Promise<{ rows: MaterializedRow[]; total: number }> {
-    const upstream = await this.input.execute(context);
-    return timeStage(context, "permissions", () => {
-      const allowed = upstream.rows.filter((row) => {
-        if (context.principal.allowAll) return true;
-        const required = ensureArray(row.permissions?.required);
-        if (!required.length) return true;
-        const perms = new Set(context.principal.permissions);
-        return required.every((perm) => perms.has(perm));
-      });
-      const materialized = allowed.map<MaterializedRow>((row) => {
-        const applied = row.permissions?.fieldMasks
-          ? applyFieldMask(row.values, row.permissions.fieldMasks, context.principal)
-          : { values: row.values, masked: [] };
-        return {
-          entityId: row.entityId,
-          entityType: row.entityType,
-          workspaceId: row.workspaceId,
-          score: row.score,
-          values: applied.values,
-          maskedFields: applied.masked,
-        } satisfies MaterializedRow;
-      });
-      return { rows: materialized, total: materialized.length };
-    });
-  }
-}
-
-class ApplyNode {
-  constructor(private input: PermissionNode, private expression: Expression) {}
-
-  describe(): string[] {
-    return [...this.input.describe(), "APPLY"];
-  }
-
-  async execute(context: ExecutionContext): Promise<{ rows: MaterializedRow[]; total: number }> {
-    const upstream = await this.input.execute(context);
-    return timeStage(context, "apply", () => {
-      context.appliedFilters.push(formatExpression(this.expression));
-      const rows = upstream.rows.filter((row) => evaluateBoolean(this.expression, row));
-      return { rows, total: rows.length };
-    });
-  }
-}
-
-class SortNode {
-  constructor(private input: LogicalPlan<MaterializedRow>, private order: OrderByField[]) {}
-
-  describe(): string[] {
-    return [...this.input.describe(), "SORT"];
-  }
-
-  async execute(context: ExecutionContext): Promise<{ rows: MaterializedRow[]; total: number }> {
-    const upstream = await this.input.execute(context);
-    return timeStage(context, "sort", () => {
-      if (!this.order.length) {
-        const sorted = [...upstream.rows].sort((a, b) => compareValues(b.score, a.score) || a.entityId.localeCompare(b.entityId));
-        return { rows: sorted, total: sorted.length };
-      }
-      const sorted = [...upstream.rows].sort((a, b) => compareByOrder(a, b, this.order));
-      return { rows: sorted, total: sorted.length };
-    });
-  }
-}
-
-class LimitNode {
-  constructor(private input: LogicalPlan<MaterializedRow>, private limit: number, private cursor?: string, private order: OrderByField[]) {}
-
-  describe(): string[] {
-    return [...this.input.describe(), "LIMIT"];
-  }
-
-  async execute(context: ExecutionContext): Promise<{ rows: MaterializedRow[]; total: number; nextCursor?: string }> {
-    const upstream = await this.input.execute(context);
-    return timeStage(context, "limit", () => {
-      const decoded = decodeCursor(this.cursor);
-      let start = 0;
-      if (decoded) {
-        start = findCursorIndex(upstream.rows, decoded, this.order);
-        if (start >= 0) {
-          start += 1;
-        } else {
-          start = 0;
-        }
-      }
-      const page = upstream.rows.slice(start, start + this.limit);
-      const hasMore = start + this.limit < upstream.rows.length;
-      const lastRow = hasMore && page.length ? page[page.length - 1]! : undefined;
-      const nextCursor = hasMore && lastRow
-        ? encodeCursor({ id: lastRow.entityId, order: buildOrderValues(lastRow, this.order) })
-        : undefined;
-      return { rows: page, total: upstream.total, nextCursor };
-    });
-  }
-}
-
-class ReturnNode {
-  constructor(private input: LogicalPlan<MaterializedRow>, private projections: ProjectionField[] | undefined) {}
-
-  describe(): string[] {
-    return [...this.input.describe(), "RETURN"];
-  }
-
-  async execute(context: ExecutionContext): Promise<QueryExecution> {
-    const upstream = await this.input.execute(context);
-    return timeStage(context, "return", () => {
-      if (this.projections?.length) {
-        const formatted = this.projections.map((projection) => formatExpression(projection.expression));
-        context.projections.push(...formatted);
-      }
-      const rows = upstream.rows.map<EngineRow>((row) => {
-        const values = this.projectRow(row);
-        return {
-          entityId: row.entityId,
-          entityType: row.entityType,
-          workspaceId: row.workspaceId,
-          score: typeof values.score === "number" ? (values.score as number) : row.score,
-          values,
-          maskedFields: [...row.maskedFields],
-        } satisfies EngineRow;
-      });
-      return {
-        rows,
-        total: upstream.total,
-        nextCursor: upstream.nextCursor,
-        plan: context.plan,
-        appliedFilters: context.appliedFilters,
-        orderBy: context.order.map((entry) => formatExpression(entry.expression)),
-        projections: context.projections,
-        metrics: context.metrics,
-      } satisfies QueryExecution;
-    });
-  }
-
-  private projectRow(row: MaterializedRow): Record<string, unknown> {
-    if (!this.projections?.length) {
-      return { ...row.values, score: row.score };
-    }
-    if (this.projections.some((projection) => isIdentifier(projection.expression) && projection.expression.name === "*")) {
-      return { ...row.values, score: row.score };
-    }
-    const projected: Record<string, unknown> = {};
-    for (const projection of this.projections) {
-      const value = evaluateValue(projection.expression, row);
-      const key = projection.alias ?? inferFieldName(projection.expression);
-      projected[key] = value;
-    }
-    if (!Object.prototype.hasOwnProperty.call(projected, "id")) {
-      projected.id = row.entityId;
-    }
-    if (!Object.prototype.hasOwnProperty.call(projected, "type")) {
-      projected.type = row.entityType;
-    }
-    if (!Object.prototype.hasOwnProperty.call(projected, "score")) {
-      projected.score = row.score;
-    }
-    return projected;
-  }
-}
-
-interface LogicalPlan<T> {
-  describe(): string[];
-  execute(context: ExecutionContext): Promise<{ rows: T[]; total: number; nextCursor?: string }>;
-}
-
-function compareByOrder(left: MaterializedRow, right: MaterializedRow, order: OrderByField[]): number {
-  for (const field of order) {
-    const direction = field.direction === "DESC" ? -1 : 1;
-    const leftValue = evaluateValue(field.expression, left);
-    const rightValue = evaluateValue(field.expression, right);
-    const comparison = compareValues(leftValue, rightValue);
-    if (comparison !== 0) {
-      return comparison * direction;
-    }
-  }
-  return left.entityId.localeCompare(right.entityId);
-}
-
-function buildOrderValues(row: MaterializedRow, order: OrderByField[]): unknown[] {
-  if (!order.length) {
-    return [row.score, row.entityId];
-  }
-  return order.map((entry) => evaluateValue(entry.expression, row));
-}
-
-function findCursorIndex(rows: MaterializedRow[], cursor: CursorPayload, order: OrderByField[]): number {
-  return rows.findIndex((row) => {
-    const values = buildOrderValues(row, order);
-    for (let index = 0; index < cursor.order.length; index += 1) {
-      const comparison = compareValues(values[index], cursor.order[index]);
-      if (comparison !== 0) {
-        return false;
-      }
-    }
-    return row.entityId === cursor.id;
-  });
-}
-
 function resolveSourceType(source: string | undefined, repository: SearchRepository): string[] | undefined {
   if (!source) return undefined;
   const normalized = source.toLowerCase();
-  if (normalized === "documents" || normalized === "search") {
+  if (normalized === "search") {
     return repository.listEntityTypes();
+  }
+  const alias = SOURCE_SYNONYMS[normalized];
+  if (alias?.length) {
+    return alias;
   }
   const known = repository.listEntityTypes();
   const direct = known.find((type) => type.toLowerCase() === normalized);
   if (direct) return [direct];
   const singular = normalized.endsWith("s") ? normalized.slice(0, -1) : normalized;
+  const synonym = SOURCE_SYNONYMS[singular];
+  if (synonym?.length) {
+    return synonym;
+  }
   const match = known.find((type) => type.toLowerCase() === singular);
   return match ? [match] : undefined;
 }
@@ -705,10 +278,12 @@ function resolveSourceType(source: string | undefined, repository: SearchReposit
 export class QueryEngine {
   private repository: SearchRepository;
   private defaultLimit: number;
+  private graphDepthCap: number;
 
   constructor(options: QueryEngineOptions = {}) {
     this.repository = options.repository ?? new MockSearchRepository();
     this.defaultLimit = options.defaultLimit ?? DEFAULT_LIMIT;
+    this.graphDepthCap = options.graphDepthCap ?? 3;
   }
 
   getRepository(): SearchRepository {
@@ -718,10 +293,6 @@ export class QueryEngine {
   async execute(request: QueryRequest): Promise<QueryExecution> {
     const start = performance.now();
     const statement = this.prepareStatement(request);
-    if (!isFindStatement(statement)) {
-      throw new Error(`Only FIND statements are supported, received '${statement.type}'`);
-    }
-
     const base: BaseStatement = statement;
     const targetTypes = this.resolveTargetTypes(statement, request.types);
     if (!targetTypes.length) {
@@ -731,10 +302,13 @@ export class QueryEngine {
     this.validateStatement(statement, targetTypes);
 
     const order = this.resolveOrder(statement, targetTypes);
+    const stableOrder = this.resolveStableOrder(statement);
     const limit = Math.max(1, request.limit ?? base.limit ?? this.defaultLimit);
+    const rootAlias = this.resolveRootAlias(base);
+    const aliasSources = this.buildAliasSources(statement, targetTypes);
 
     const metrics: ExecutionMetrics = { totalMs: 0, stages: [] };
-    const context: ExecutionContext = {
+    const context: PlanExecutionContext = {
       workspaceId: request.workspaceId,
       principal: request.principal,
       repository: this.repository,
@@ -746,24 +320,37 @@ export class QueryEngine {
       appliedFilters: [],
       projections: [],
       plan: [],
+      stableOrder,
+      rootAlias,
+      aliasSources,
+      graphDepthCap: this.graphDepthCap,
     };
 
-    const plan = this.buildPlan(statement, context);
+    const plannerOptions: PlannerOptions = {
+      rootAlias,
+      aliasSources,
+      graphDepthCap: this.graphDepthCap,
+      stableOrder,
+      cursor: request.cursor ?? base.cursor,
+    };
+
+    const plan = statement.type === "AGGREGATE"
+      ? buildAggregatePlan({ statement, context }, plannerOptions)
+      : buildFindPlan({ statement, context }, plannerOptions);
+
     context.plan = plan.describe();
-    const execution = await plan.execute(context);
+    const result = await plan.execute(context);
+    const execution = this.finalizeExecution(statement, result, context);
     execution.metrics.totalMs = performance.now() - start;
     execution.plan = context.plan;
-    execution.appliedFilters = [...new Set(context.appliedFilters)];
-    execution.orderBy = context.order.map((entry) => formatExpression(entry.expression));
-    execution.projections = [...new Set(context.projections)];
     return execution;
   }
 
   validate(opql: string): { valid: boolean; error?: string } {
     try {
       const statement = parseOPQL(opql.trim());
-      if (!isFindStatement(statement)) {
-        return { valid: false, error: "Only FIND statements are supported" };
+      if (!isFindStatement(statement) && !isAggregateStatement(statement)) {
+        return { valid: false, error: "Only FIND and AGGREGATE statements are supported" };
       }
       const targetTypes = this.resolveTargetTypes(statement);
       this.validateStatement(statement, targetTypes.length ? targetTypes : this.repository.listEntityTypes());
@@ -774,20 +361,20 @@ export class QueryEngine {
     }
   }
 
-  private prepareStatement(request: QueryRequest): FindStatement {
+  private prepareStatement(request: QueryRequest): FindStatement | AggregateStatement {
     if (request.statement) {
-      if (!isFindStatement(request.statement)) {
-        throw new Error("QueryEngine only supports FIND statements");
+      if (!isFindStatement(request.statement) && !isAggregateStatement(request.statement)) {
+        throw new Error("QueryEngine only supports FIND and AGGREGATE statements");
       }
       return clone(request.statement);
     }
 
     if (request.opql) {
       const parsed = parseOPQL(request.opql.trim());
-      if (!isFindStatement(parsed)) {
-        throw new Error("QueryEngine only supports FIND statements");
+      if (!isFindStatement(parsed) && !isAggregateStatement(parsed)) {
+        throw new Error("QueryEngine only supports FIND and AGGREGATE statements");
       }
-      return parsed;
+      return parsed as FindStatement | AggregateStatement;
     }
 
     if (request.query) {
@@ -842,7 +429,7 @@ export class QueryEngine {
     } satisfies FindStatement;
   }
 
-  private resolveTargetTypes(statement: FindStatement, explicit?: string[]): string[] {
+  private resolveTargetTypes(statement: FindStatement | AggregateStatement, explicit?: string[]): string[] {
     const sourceTypes = resolveSourceType(statement.source, this.repository);
     const whereTypes = collectTypeFilters(statement.where);
     let types = this.repository.listEntityTypes();
@@ -858,7 +445,7 @@ export class QueryEngine {
     return types;
   }
 
-  private resolveOrder(statement: FindStatement, targetTypes: string[]): OrderByField[] {
+  private resolveOrder(statement: FindStatement | AggregateStatement, targetTypes: string[]): OrderByField[] {
     if (statement.orderBy?.length) {
       return statement.orderBy;
     }
@@ -875,25 +462,176 @@ export class QueryEngine {
     ];
   }
 
-  private buildPlan(statement: FindStatement, context: ExecutionContext): ReturnNode {
-    const find = new FindNode(this.repository);
-    const permissions = new PermissionNode(find);
-    let current: LogicalPlan<MaterializedRow> = permissions;
-    if (statement.where) {
-      const apply = new ApplyNode(permissions, statement.where);
-      current = apply;
+  private resolveStableOrder(statement: BaseStatement): OrderByField[] {
+    if (!statement.stableBy?.length) {
+      return [];
     }
-    const sort = new SortNode(current, context.order);
-    const limit = new LimitNode(sort, context.limit, context.cursor, context.order);
-    const plan = new ReturnNode(limit, statement.projections);
-    return plan;
+    return statement.stableBy.map((expression) => ({ expression, direction: "ASC" as const }));
   }
 
-  private validateStatement(statement: FindStatement, targetTypes: string[]) {
+  private resolveRootAlias(statement: BaseStatement): string {
+    if (statement.alias) return statement.alias;
+    if (statement.source) return statement.source;
+    return "search";
+  }
+
+  private buildAliasSources(statement: FindStatement | AggregateStatement, targetTypes: string[]): Record<string, string[]> {
+    const sources: Record<string, string[]> = {};
+    const root = this.resolveRootAlias(statement);
+    sources[normalizeAlias(root)] = targetTypes;
+    statement.joins?.forEach((join) => {
+      const alias = normalizeAlias(join.alias ?? join.source);
+      const types = resolveSourceType(join.source, this.repository) ?? [];
+      if (types.length) {
+        sources[alias] = types;
+      }
+    });
+    statement.relations?.forEach((relation) => {
+      const alias = normalizeAlias(relation.relation);
+      const types = resolveSourceType(relation.relation, this.repository) ?? [];
+      if (types.length) {
+        sources[alias] = types;
+      }
+    });
+    return sources;
+  }
+
+  private finalizeExecution(
+    statement: FindStatement | AggregateStatement,
+    result: PlanResult<RuntimeRow>,
+    context: PlanExecutionContext
+  ): QueryExecution {
+    return timeStage(context, "finalize", () => {
+      if (statement.type === "AGGREGATE") {
+        statement.aggregates.forEach((aggregate) => {
+          context.projections.push(aggregate.alias ?? formatExpression(aggregate.expression));
+        });
+        statement.groupBy?.forEach((expr) => context.projections.push(formatExpression(expr)));
+        if (statement.having) {
+          context.appliedFilters.push(formatExpression(statement.having));
+        }
+      }
+
+      const projections = statement.type === "FIND" ? statement.projections : undefined;
+      const rows = result.rows.map((row) => this.runtimeRowToEngineRow(row, projections, context));
+      const orderExpressions = [...context.order, ...context.stableOrder].map((entry) => formatExpression(entry.expression));
+
+      return {
+        rows,
+        total: result.total,
+        nextCursor: result.nextCursor,
+        plan: context.plan,
+        appliedFilters: [...new Set(context.appliedFilters)],
+        orderBy: [...new Set(orderExpressions)],
+        projections: [...new Set(context.projections)],
+        metrics: context.metrics,
+      } satisfies QueryExecution;
+    });
+  }
+
+  private runtimeRowToEngineRow(
+    row: RuntimeRow,
+    projections: ProjectionField[] | undefined,
+    context: PlanExecutionContext
+  ): EngineRow {
+    const primary = this.selectPrimaryRow(row) ?? this.createSyntheticEntity(row, context);
+    const values = this.projectRow(row, projections, context, primary);
+    const score = typeof values.score === "number" ? (values.score as number) : primary.score;
+    return {
+      entityId: primary.entityId,
+      entityType: primary.entityType,
+      workspaceId: primary.workspaceId,
+      score,
+      values,
+      maskedFields: Array.from(row.maskedFields),
+    } satisfies EngineRow;
+  }
+
+  private projectRow(
+    row: RuntimeRow,
+    projections: ProjectionField[] | undefined,
+    context: PlanExecutionContext,
+    primary: MaterializedRow
+  ): Record<string, unknown> {
+    if (!projections?.length || projections.some((projection) => isIdentifier(projection.expression) && projection.expression.name === "*")) {
+      return this.buildFullProjection(row, primary);
+    }
+    const projected: Record<string, unknown> = {};
+    for (const projection of projections) {
+      const value = evaluateValue(projection.expression, row, context);
+      const key = projection.alias ?? inferFieldName(projection.expression);
+      projected[key] = value;
+    }
+    if (!Object.prototype.hasOwnProperty.call(projected, "id")) {
+      projected.id = primary.entityId;
+    }
+    if (!Object.prototype.hasOwnProperty.call(projected, "type")) {
+      projected.type = primary.entityType;
+    }
+    if (!Object.prototype.hasOwnProperty.call(projected, "score")) {
+      projected.score = primary.score;
+    }
+    return projected;
+  }
+
+  private buildFullProjection(row: RuntimeRow, primary: MaterializedRow): Record<string, unknown> {
+    const values: Record<string, unknown> = { ...primary.values, id: primary.entityId, type: primary.entityType, score: primary.score };
+    for (const [alias, materialized] of Object.entries(row.aliases)) {
+      if (!materialized) {
+        values[alias] = null;
+        continue;
+      }
+      if (primary && materialized.entityId === primary.entityId) {
+        continue;
+      }
+      if (!Object.prototype.hasOwnProperty.call(values, alias)) {
+        values[alias] = { ...materialized.values, id: materialized.entityId, type: materialized.entityType, score: materialized.score };
+      }
+    }
+    for (const [key, computed] of Object.entries(row.computed)) {
+      values[key] = computed;
+    }
+    return values;
+  }
+
+  private selectPrimaryRow(row: RuntimeRow): MaterializedRow | undefined {
+    if (row.base) {
+      return row.base;
+    }
+    for (const candidate of Object.values(row.aliases)) {
+      if (candidate) {
+        return candidate;
+      }
+    }
+    return undefined;
+  }
+
+  private createSyntheticEntity(row: RuntimeRow, context: PlanExecutionContext): MaterializedRow {
+    const encoded = Buffer.from(JSON.stringify(row.computed)).toString("base64").replace(/=+$/u, "").replace(/\+/gu, "-").replace(/\//gu, "_");
+    const identifier = `virtual-${encoded}`;
+    return {
+      entityId: identifier,
+      entityType: "virtual",
+      workspaceId: context.workspaceId,
+      score: 0,
+      values: {},
+      maskedFields: [],
+    } satisfies MaterializedRow;
+  }
+
+  private validateStatement(statement: FindStatement | AggregateStatement, targetTypes: string[]) {
     const identifiers = new Set<string>();
     gatherIdentifiers(statement.where, identifiers);
     statement.orderBy?.forEach((entry) => gatherIdentifiers(entry.expression, identifiers));
-    statement.projections?.forEach((projection) => gatherIdentifiers(projection.expression, identifiers));
+    if (statement.type === "FIND") {
+      statement.projections?.forEach((projection) => gatherIdentifiers(projection.expression, identifiers));
+    } else if (statement.type === "AGGREGATE") {
+      statement.aggregates.forEach((aggregate) => gatherIdentifiers(aggregate.expression, identifiers));
+      statement.groupBy?.forEach((expr) => gatherIdentifiers(expr, identifiers));
+      if (statement.having) {
+        gatherIdentifiers(statement.having, identifiers);
+      }
+    }
 
     const definitions = targetTypes.map((type) => this.repository.getDefinition(type));
 
@@ -910,6 +648,13 @@ export class QueryEngine {
     }
 
     this.validateTypeConsistency(statement.where, definitions);
+    if (statement.type === "AGGREGATE") {
+      statement.aggregates.forEach((aggregate) => this.validateTypeConsistency(aggregate.expression, definitions));
+      statement.groupBy?.forEach((expr) => this.validateTypeConsistency(expr, definitions));
+      if (statement.having) {
+        this.validateTypeConsistency(statement.having, definitions);
+      }
+    }
   }
 
   private validateTypeConsistency(expression: Expression | undefined, definitions: Array<EntityDefinition | undefined>) {
