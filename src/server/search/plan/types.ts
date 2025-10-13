@@ -3,6 +3,7 @@ import type {
   AggregateStatement,
   Expression,
   FindStatement,
+  HistoryVerb,
   JoinSpec,
   OrderByField,
   ProjectionField,
@@ -17,6 +18,27 @@ export interface RuntimeRow {
   aliases: Record<string, MaterializedRow | null>;
   computed: Record<string, unknown>;
   maskedFields: Set<string>;
+}
+
+export interface HistoryScanSegment {
+  start: string | null;
+  end: string | null;
+  value?: unknown;
+  from?: unknown;
+  to?: unknown;
+  actor?: string;
+  changedAt: string | null;
+}
+
+export interface HistoryScanTrace {
+  entityId: string;
+  entityType: string;
+  alias: string;
+  field: string;
+  verb: HistoryVerb;
+  qualifiers: string[];
+  matched: boolean;
+  segments: HistoryScanSegment[];
 }
 
 export interface PlanResult<T> {
@@ -64,6 +86,11 @@ export interface PlanExecutionContext {
   rootAlias: string;
   aliasSources: Record<string, string[]>;
   graphDepthCap: number;
+  collectHistoryTrace: boolean;
+  historyTraces: HistoryScanTrace[];
+  timezone?: string;
+  now: Date;
+  datePolicies: string[];
 }
 
 export interface PlannerInput {

@@ -70,6 +70,8 @@ export interface SearchExplain {
   appliedFilters: string[];
   pagination: { limit: number; nextCursor?: string };
   tokenizedQuery: string[];
+  historyScans: unknown[];
+  datePolicies: string[];
 }
 
 const hashTerm = (term: string) => {

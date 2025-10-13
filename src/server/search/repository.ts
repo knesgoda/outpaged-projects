@@ -24,6 +24,41 @@ export interface RowPermissions {
   fieldMasks?: Record<string, FieldMaskRule>;
 }
 
+export interface HistoryChange {
+  field: string;
+  from?: unknown;
+  to?: unknown;
+}
+
+export interface HistoryEvent {
+  at: string;
+  actor?: string;
+  changes: HistoryChange[];
+}
+
+export interface HistoryLog {
+  initial?: {
+    at?: string;
+    actor?: string;
+    values: Record<string, unknown>;
+  };
+  events: HistoryEvent[];
+}
+
+export interface HistorySegment {
+  field: string;
+  value: unknown;
+  start: string | null;
+  end: string | null;
+  actor?: string;
+  changedAt: string | null;
+}
+
+export interface MaterializedHistory {
+  events: HistoryEvent[];
+  segments: Record<string, HistorySegment[]>;
+}
+
 export interface RepositoryRow {
   entityId: string;
   entityType: string;
@@ -31,6 +66,7 @@ export interface RepositoryRow {
   score: number;
   values: Record<string, unknown>;
   permissions?: RowPermissions;
+  history?: HistoryLog;
 }
 
 export interface MaterializedRow {
@@ -40,6 +76,7 @@ export interface MaterializedRow {
   score: number;
   values: Record<string, unknown>;
   maskedFields: string[];
+  history?: MaterializedHistory;
 }
 
 export interface SearchRepository {
@@ -172,6 +209,8 @@ const ENTITY_DEFINITIONS: Record<string, EntityDefinition> = {
       updated_at: { type: "date", optional: true },
       searchable: { type: "string" },
       score: { type: "number" },
+      status: { type: "string", optional: true },
+      assignee: { type: "string", optional: true },
     },
     defaultOrder: { expression: { kind: "identifier", name: "updated_at" }, direction: "DESC" },
   },
@@ -236,7 +275,29 @@ export class MockSearchRepository implements SearchRepository {
     this.rows = (options.rows ?? baseRows).map((row) => ({
       ...row,
       values: { ...row.values },
-      permissions: row.permissions ? { ...row.permissions, fieldMasks: { ...(row.permissions.fieldMasks ?? {}) } } : undefined,
+      permissions: row.permissions
+        ? { ...row.permissions, fieldMasks: { ...(row.permissions.fieldMasks ?? {}) } }
+        : undefined,
+      history: row.history
+        ? {
+            initial: row.history.initial
+              ? {
+                  at: row.history.initial.at,
+                  actor: row.history.initial.actor,
+                  values: { ...row.history.initial.values },
+                }
+              : undefined,
+            events: row.history.events.map((event) => ({
+              at: event.at,
+              actor: event.actor,
+              changes: event.changes.map((change) => ({
+                field: change.field,
+                from: change.from,
+                to: change.to,
+              })),
+            })),
+          }
+        : undefined,
     }));
   }
 
@@ -251,6 +312,26 @@ export class MockSearchRepository implements SearchRepository {
           ? {
               required: row.permissions.required ? [...row.permissions.required] : undefined,
               fieldMasks: row.permissions.fieldMasks ? { ...row.permissions.fieldMasks } : undefined,
+            }
+          : undefined,
+        history: row.history
+          ? {
+              initial: row.history.initial
+                ? {
+                    at: row.history.initial.at,
+                    actor: row.history.initial.actor,
+                    values: { ...row.history.initial.values },
+                  }
+                : undefined,
+              events: row.history.events.map((event) => ({
+                at: event.at,
+                actor: event.actor,
+                changes: event.changes.map((change) => ({
+                  field: change.field,
+                  from: change.from,
+                  to: change.to,
+                })),
+              })),
             }
           : undefined,
       }));
@@ -274,6 +355,26 @@ export class MockSearchRepository implements SearchRepository {
           ? {
               required: row.permissions.required ? [...row.permissions.required] : undefined,
               fieldMasks: row.permissions.fieldMasks ? { ...row.permissions.fieldMasks } : undefined,
+            }
+          : undefined,
+        history: row.history
+          ? {
+              initial: row.history.initial
+                ? {
+                    at: row.history.initial.at,
+                    actor: row.history.initial.actor,
+                    values: { ...row.history.initial.values },
+                  }
+                : undefined,
+              events: row.history.events.map((event) => ({
+                at: event.at,
+                actor: event.actor,
+                changes: event.changes.map((change) => ({
+                  field: change.field,
+                  from: change.from,
+                  to: change.to,
+                })),
+              })),
             }
           : undefined,
       }));
