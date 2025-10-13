@@ -51,9 +51,24 @@ const getReadableErrorMessage = (error: unknown, fallbackMessage: string) => {
   }
 
   if (typeof error === "object") {
-    const message = (error as { message?: unknown }).message;
-    if (typeof message === "string") {
-      return sanitizeErrorMessage(message, fallbackMessage);
+    const candidateFields: (keyof Record<string, unknown>)[] = [
+      "message",
+      "error_description",
+      "details",
+      "error",
+    ];
+
+    for (const field of candidateFields) {
+      const value = (error as Record<string, unknown>)[field];
+      if (typeof value === "string") {
+        const sanitized = sanitizeErrorMessage(value, fallbackMessage);
+        if (sanitized !== fallbackMessage) {
+          return sanitized;
+        }
+        if (field === "message") {
+          continue;
+        }
+      }
     }
   }
 

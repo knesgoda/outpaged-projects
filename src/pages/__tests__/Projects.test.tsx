@@ -50,6 +50,14 @@ jest.mock("@/hooks/use-toast", () => ({
   }),
 }));
 
+jest.mock("@/hooks/useConnectivityStatus", () => ({
+  useConnectivityStatus: () => ({
+    isOffline: false,
+    lastOnline: null,
+    hasQueuedActions: false,
+  }),
+}));
+
 jest.mock("@/components/projects/ProjectDialog", () => ({
   ProjectDialog: () => null,
 }));
