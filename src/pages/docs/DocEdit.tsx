@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
   Link,
   unstable_usePrompt as usePrompt,
@@ -26,8 +26,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { MarkdownEditor } from "@/components/docs/MarkdownEditor";
-import { useCreateDocVersion, useDoc, useDocsList, useUpdateDoc } from "@/hooks/useDocs";
+import {
+  CollaborativeMarkdownEditor,
+  type CollaborativeMarkdownEditorHandle,
+  type CollaborationStatus,
+} from "@/components/docs/CollaborativeMarkdownEditor";
+import { useDoc, useDocsList, useUpdateDoc } from "@/hooks/useDocs";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 
 export default function DocEdit() {
@@ -37,7 +41,6 @@ export default function DocEdit() {
   const navigate = useNavigate();
   const docQuery = useDoc(docIdParam ?? undefined);
   const updateDoc = useUpdateDoc(docId);
-  const snapshot = useCreateDocVersion(docId);
   const docsQuery = useDocsList();
 
   const [title, setTitle] = useState("");
@@ -46,6 +49,8 @@ export default function DocEdit() {
   const [isPublished, setIsPublished] = useState(true);
   const [formError, setFormError] = useState<string | null>(null);
   const [hasSaved, setHasSaved] = useState(false);
+  const editorRef = useRef<CollaborativeMarkdownEditorHandle | null>(null);
+  const [collabStatus, setCollabStatus] = useState<CollaborationStatus | null>(null);
 
   useDocumentTitle(docQuery.data ? `Docs / ${docQuery.data.title} / Edit` : "Docs / Edit");
 
@@ -57,6 +62,12 @@ export default function DocEdit() {
     setBody(doc.body_markdown ?? "");
     setIsPublished(doc.is_published);
     setHasSaved(false);
+    editorRef.current?.reset({
+      markdown: doc.body_markdown ?? "",
+      snapshot: doc.collaboration?.snapshot ?? null,
+      operations:
+        doc.collaboration?.pendingOperations?.map((operation) => operation.update) ?? [],
+    });
   }, [docQuery.data]);
 
   const parentOptions = useMemo(() => {
@@ -67,13 +78,15 @@ export default function DocEdit() {
 
   const doc = docQuery.data;
   const docParent = doc?.parent_id ?? "none";
+  const hasPendingOperations = (collabStatus?.pendingUpdates ?? 0) > 0;
   const shouldBlock = Boolean(
     doc &&
       !hasSaved &&
       (title !== doc.title ||
         body !== (doc.body_markdown ?? "") ||
         isPublished !== doc.is_published ||
-        parentId !== docParent)
+        parentId !== docParent ||
+        hasPendingOperations)
   );
 
   usePrompt({
@@ -128,13 +141,16 @@ export default function DocEdit() {
       if (!docIdParam) {
         throw new Error("Doc id missing.");
       }
+      const editorState = editorRef.current?.getContentState();
       await updateDoc.mutateAsync({
         title: title.trim(),
-        body_markdown: body,
+        body_markdown: editorState?.markdown ?? body,
         parent_id: parentId === "none" ? null : parentId,
         is_published: isPublished,
+        collab_snapshot: editorState?.snapshot ?? null,
+        collab_state_vector: editorState?.stateVector ?? null,
+        collab_operations: editorState?.operations ?? [],
       });
-      await snapshot.mutateAsync();
       setHasSaved(true);
       navigate(`/docs/${docIdParam}`);
     } catch (error) {
@@ -211,7 +227,35 @@ export default function DocEdit() {
 
             <div className="space-y-2">
               <Label htmlFor="body">Content</Label>
-              <MarkdownEditor value={body} onChange={setBody} />
+              <div className="space-y-1">
+                <CollaborativeMarkdownEditor
+                  ref={editorRef}
+                  docId={docId}
+                  initialValue={doc.body_markdown ?? ""}
+                  initialSnapshot={doc.collaboration?.snapshot ?? null}
+                  initialOperations={doc.collaboration?.pendingOperations ?? []}
+                  onChange={setBody}
+                  onStatusChange={(status) => setCollabStatus(status)}
+                />
+                {collabStatus ? (
+                  <p className="text-xs text-muted-foreground">
+                    {collabStatus.channelState === "connected"
+                      ? "Realtime connected"
+                      : collabStatus.channelState === "connecting"
+                        ? "Connecting to collaboration channel"
+                        : collabStatus.channelState === "error"
+                          ? "Realtime channel unavailable"
+                          : "Realtime idle"}
+                    {` • ${collabStatus.connectedPeers} peer${
+                      collabStatus.connectedPeers === 1 ? "" : "s"
+                    } online`}
+                    {collabStatus.pendingUpdates
+                      ? ` • ${collabStatus.pendingUpdates} pending`
+                      : ""}
+                    {collabStatus.offline ? " • Offline mode" : ""}
+                  </p>
+                ) : null}
+              </div>
             </div>
 
             <div className="flex items-center gap-2">
@@ -221,14 +265,14 @@ export default function DocEdit() {
 
             {formError ? <p className="text-sm text-destructive">{formError}</p> : null}
 
-            <div className="flex items-center justify-end gap-2">
-              <Button type="button" variant="ghost" onClick={handleCancel}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={updateDoc.isPending || snapshot.isPending}>
-                {updateDoc.isPending || snapshot.isPending ? "Saving" : "Save changes"}
-              </Button>
-            </div>
+              <div className="flex items-center justify-end gap-2">
+                <Button type="button" variant="ghost" onClick={handleCancel}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={updateDoc.isPending}>
+                  {updateDoc.isPending ? "Saving" : "Save changes"}
+                </Button>
+              </div>
           </form>
         </CardContent>
       </Card>

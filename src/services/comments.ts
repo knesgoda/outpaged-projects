@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { notifyDocCommentEvent } from '@/services/docs';
 import type { Comment, CommentEntityType, ProfileLite } from '@/types';
 
 const MAX_MENTIONS_PER_COMMENT = 50;
@@ -153,6 +154,14 @@ export async function createComment(input: CreateCommentInput): Promise<CommentW
       authorId: newComment.author,
     });
     newComment.mentions = mentionIds;
+  }
+
+  if (input.entity_type === 'doc') {
+    await notifyDocCommentEvent(input.entity_id, {
+      commentId: newComment.id,
+      userId: newComment.author,
+      body: newComment.body_markdown,
+    });
   }
 
   return newComment;

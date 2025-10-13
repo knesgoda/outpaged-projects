@@ -10,6 +10,7 @@ import {
   listDocs,
   restoreDocVersion,
   updateDoc,
+  type UpdateDocInput,
 } from "@/services/docs";
 
 const DOCS_KEY = ["docs"] as const;
@@ -89,9 +90,7 @@ export function useUpdateDoc(docId: string) {
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: (patch: Partial<
-      Pick<DocPage, "title" | "body_markdown" | "is_published" | "parent_id">
-    >) => updateDoc(docId, patch),
+    mutationFn: (patch: UpdateDocInput) => updateDoc(docId, patch),
     onSuccess: (doc) => {
       queryClient.setQueryData(detailKey(docId), doc);
       queryClient.invalidateQueries({ queryKey: DOCS_KEY });
