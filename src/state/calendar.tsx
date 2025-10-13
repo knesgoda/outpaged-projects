@@ -37,6 +37,7 @@ import type {
 import {
   connectIntegration,
   disconnectIntegration,
+  subscribeToIntegrationUpdates,
   triggerIntegrationSync,
   updateConflictPreference,
 } from "@/services/calendarIntegrations";
@@ -241,6 +242,37 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     void refreshCalendars();
   }, [refreshCalendars]);
+
+  useEffect(() => {
+    const unsubscribe = subscribeToIntegrationUpdates((event) => {
+      setIntegrations((current) => {
+        if (event.type === "disconnected") {
+          return current.filter((integration) => integration.id !== event.integration.id);
+        }
+
+        const normalized = {
+          ...event.integration,
+          pendingConflicts:
+            typeof event.conflicts !== "undefined"
+              ? event.conflicts?.length ?? event.integration.pendingConflicts
+              : event.integration.pendingConflicts,
+        } satisfies CalendarIntegration;
+
+        const existingIndex = current.findIndex((integration) => integration.id === normalized.id);
+        if (existingIndex === -1) {
+          return [...current, normalized];
+        }
+
+        const next = [...current];
+        next[existingIndex] = { ...next[existingIndex], ...normalized };
+        return next;
+      });
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, []);
 
   const toggleCalendarVisibility = useCallback(
     (calendarId: string) => {

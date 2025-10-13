@@ -87,6 +87,7 @@ export interface CalendarIntegration {
   conflictPreference: CalendarConflictPreference;
   calendarsLinked?: number;
   scopes?: string[];
+  pendingConflicts?: number;
 }
 
 export type CalendarAutomationTrigger =

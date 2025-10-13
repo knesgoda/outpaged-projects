@@ -33,7 +33,7 @@ export function normalizeSearchTerm(term: string) {
   return term.trim().replace(/\s+/g, " ");
 }
 
-type SupabaseLikeError = { message?: string | null } | null;
+export type SupabaseLikeError = { message?: string | null } | null;
 
 export function mapSupabaseError(error: SupabaseLikeError, fallback: string) {
   if (!error) {
