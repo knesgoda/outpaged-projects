@@ -12,6 +12,8 @@ export type DomainEventType =
   | "entity.unlinked"
   | "tenant.changed"
   | "security.policy-refreshed"
+  | "integration.event_ingested"
+  | "calendar.drag_reschedule"
   | "telemetry.event"
   | (string & {});
 
