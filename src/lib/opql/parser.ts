@@ -26,7 +26,19 @@ export type ComparisonOperator =
   | "MATCH"
   | "LIKE"
   | "CONTAINS"
-  | "BETWEEN";
+  | "BETWEEN"
+  | "~"
+  | "!~"
+  | "IS"
+  | "IS NOT"
+  | "IS EMPTY"
+  | "IS NOT EMPTY"
+  | "IS NULL"
+  | "IS NOT NULL"
+  | "BEFORE"
+  | "AFTER"
+  | "ON"
+  | "DURING";
 
 export type ArithmeticOperator = "+" | "-" | "*" | "/" | "%";
 
@@ -74,6 +86,38 @@ export interface BinaryExpression {
   right: Expression;
 }
 
+export type HistoryVerb = "WAS" | "CHANGED";
+
+export type HistoryQualifier =
+  | { type: "BY" | "AFTER" | "BEFORE" | "ON"; value: Expression }
+  | {
+      type: "TO" | "FROM";
+      operator: ComparisonOperator;
+      value?: Expression;
+      values?: Expression[];
+    }
+  | { type: "DURING"; start: Expression; end: Expression };
+
+export interface HistoryPredicateExpression {
+  kind: "history";
+  field: Expression;
+  verb: HistoryVerb;
+  negated?: boolean;
+  comparison?: {
+    operator: ComparisonOperator;
+    value?: Expression;
+    values?: Expression[];
+  };
+  qualifiers: HistoryQualifier[];
+}
+
+export interface TemporalPredicateExpression {
+  kind: "temporal";
+  operator: "DURING";
+  value: Expression;
+  range: { start: Expression; end: Expression };
+}
+
 export interface BetweenExpression {
   kind: "between";
   value: Expression;
@@ -104,7 +148,9 @@ export type Expression =
   | BinaryExpression
   | BetweenExpression
   | InExpression
-  | FunctionExpression;
+  | FunctionExpression
+  | HistoryPredicateExpression
+  | TemporalPredicateExpression;
 
 export interface ProjectionField {
   expression: Expression;
@@ -276,6 +322,16 @@ const KEYWORDS = new Set(
     "WITH",
     "VERBOSE",
     "PROJECT",
+    "IS",
+    "EMPTY",
+    "NULL",
+    "WAS",
+    "CHANGED",
+    "BY",
+    "TO",
+    "FROM",
+    "BEFORE",
+    "DURING",
   ] as const
 );
 
@@ -287,6 +343,7 @@ const OPERATORS = new Set([
   "<=",
   ">",
   ">=",
+  "~",
   "+",
   "-",
   "*",
@@ -295,7 +352,16 @@ const OPERATORS = new Set([
   "::",
 ]);
 
-const MULTI_CHAR_OPERATORS = ["!=", "<>", "<=", ">=", "::"];
+const MULTI_CHAR_OPERATORS = ["!=", "<>", "<=", ">=", "::", "!~"];
+
+const FIELD_ALIASES: Record<string, string> = {
+  resolved: "completed",
+};
+
+const FUNCTION_ALIASES: Record<string, string> = {
+  currentuser: "ME",
+  "current_user": "ME",
+};
 
 class Lexer {
   private input: string;
@@ -807,6 +873,28 @@ class Parser {
           left = { kind: "binary", operator: upper as LogicalOperator, left, right };
           continue;
         }
+        if (upper === "IS") {
+          const opPrecedence = 5;
+          if (opPrecedence < precedence) break;
+          this.position += 1;
+          const not = this.consumeKeyword("NOT");
+          if (this.consumeKeyword("EMPTY")) {
+            const operator = (not ? "IS NOT EMPTY" : "IS EMPTY") as ComparisonOperator;
+            const right: LiteralExpression = { kind: "literal", value: null, valueType: "null" };
+            left = { kind: "binary", operator, left, right };
+            continue;
+          }
+          if (this.consumeKeyword("NULL")) {
+            const operator = (not ? "IS NOT NULL" : "IS NULL") as ComparisonOperator;
+            const right: LiteralExpression = { kind: "literal", value: null, valueType: "null" };
+            left = { kind: "binary", operator, left, right };
+            continue;
+          }
+          const operator = (not ? "IS NOT" : "IS") as ComparisonOperator;
+          const right = this.parseExpression(opPrecedence + 1);
+          left = { kind: "binary", operator, left, right };
+          continue;
+        }
         if (upper === "BETWEEN") {
           this.position += 1;
           const lower = this.parseExpression(4);
@@ -831,6 +919,37 @@ class Parser {
           left = { kind: "in", value: left, options, negated };
           continue;
         }
+        if (upper === "WAS") {
+          this.position += 1;
+          left = this.parseHistoryPredicate(left, "WAS");
+          continue;
+        }
+        if (upper === "CHANGED") {
+          this.position += 1;
+          left = this.parseHistoryPredicate(left, "CHANGED");
+          continue;
+        }
+        if (upper === "BEFORE" || upper === "AFTER" || upper === "ON") {
+          const opPrecedence = 5;
+          if (opPrecedence < precedence) break;
+          this.position += 1;
+          const right = this.parseExpression(opPrecedence + 1);
+          left = {
+            kind: "binary",
+            operator: upper as ComparisonOperator,
+            left,
+            right,
+          };
+          continue;
+        }
+        if (upper === "DURING") {
+          const opPrecedence = 5;
+          if (opPrecedence < precedence) break;
+          this.position += 1;
+          const range = this.parseTemporalRange();
+          left = { kind: "temporal", operator: "DURING", value: left, range };
+          continue;
+        }
       }
       if (token.type === "operator") {
         const operator = token.value;
@@ -838,12 +957,153 @@ class Parser {
         if (opPrecedence < precedence) break;
         this.position += 1;
         const right = this.parseExpression(opPrecedence + 1);
-        left = { kind: "binary", operator: operator as ComparisonOperator | ArithmeticOperator, left, right };
+        if ((operator === "+" || operator === "-") && right.kind === "duration") {
+          left = { kind: "date_math", base: left, operator: operator as "+" | "-", offset: right };
+          continue;
+        }
+        left = {
+          kind: "binary",
+          operator: operator as ComparisonOperator | ArithmeticOperator,
+          left,
+          right,
+        };
         continue;
       }
       break;
     }
     return left;
+  }
+
+  private parseHistoryPredicate(field: Expression, verb: HistoryVerb): HistoryPredicateExpression {
+    let negated = false;
+    let comparison: HistoryPredicateExpression["comparison"];
+    const qualifiers: HistoryQualifier[] = [];
+
+    if (verb === "WAS") {
+      negated = this.consumeKeyword("NOT") !== undefined;
+      if (this.consumeKeyword("IN")) {
+        const values = this.parseInList();
+        comparison = { operator: (negated ? "NOT IN" : "IN") as ComparisonOperator, values };
+      } else if (this.consumeKeyword("EMPTY")) {
+        const literal: LiteralExpression = { kind: "literal", value: null, valueType: "null" };
+        comparison = { operator: (negated ? "IS NOT EMPTY" : "IS EMPTY") as ComparisonOperator, value: literal };
+      } else if (this.consumeKeyword("NULL")) {
+        const literal: LiteralExpression = { kind: "literal", value: null, valueType: "null" };
+        comparison = { operator: (negated ? "IS NOT NULL" : "IS NULL") as ComparisonOperator, value: literal };
+      } else {
+        const value = this.parseExpression(5);
+        comparison = { operator: (negated ? "!=" : "=") as ComparisonOperator, value };
+      }
+    } else {
+      while (true) {
+        if (this.consumeKeyword("TO")) {
+          qualifiers.push(this.parseHistoryChangeQualifier("TO"));
+          continue;
+        }
+        if (this.consumeKeyword("FROM")) {
+          qualifiers.push(this.parseHistoryChangeQualifier("FROM"));
+          continue;
+        }
+        break;
+      }
+    }
+
+    qualifiers.push(...this.parseHistoryQualifiers());
+
+    const history: HistoryPredicateExpression = { kind: "history", field, verb, qualifiers };
+    if (negated) {
+      history.negated = true;
+    }
+    if (comparison) {
+      history.comparison = comparison;
+    }
+    return history;
+  }
+
+  private parseHistoryChangeQualifier(type: "TO" | "FROM"): HistoryQualifier {
+    const negated = this.consumeKeyword("NOT") !== undefined;
+    if (this.consumeKeyword("IN")) {
+      const values = this.parseInList();
+      return {
+        type,
+        operator: (negated ? "NOT IN" : "IN") as ComparisonOperator,
+        values,
+      };
+    }
+    if (this.consumeKeyword("EMPTY")) {
+      const literal: LiteralExpression = { kind: "literal", value: null, valueType: "null" };
+      return {
+        type,
+        operator: (negated ? "!=" : "=") as ComparisonOperator,
+        value: literal,
+      };
+    }
+    if (this.consumeKeyword("NULL")) {
+      const literal: LiteralExpression = { kind: "literal", value: null, valueType: "null" };
+      return {
+        type,
+        operator: (negated ? "!=" : "=") as ComparisonOperator,
+        value: literal,
+      };
+    }
+    const value = this.parseExpression(5);
+    return {
+      type,
+      operator: (negated ? "!=" : "=") as ComparisonOperator,
+      value,
+    };
+  }
+
+  private parseHistoryQualifiers(): HistoryQualifier[] {
+    const qualifiers: HistoryQualifier[] = [];
+    while (true) {
+      if (this.consumeKeyword("BY")) {
+        qualifiers.push({ type: "BY", value: this.parseExpression(6) });
+        continue;
+      }
+      if (this.consumeKeyword("AFTER")) {
+        qualifiers.push({ type: "AFTER", value: this.parseExpression(6) });
+        continue;
+      }
+      if (this.consumeKeyword("BEFORE")) {
+        qualifiers.push({ type: "BEFORE", value: this.parseExpression(6) });
+        continue;
+      }
+      if (this.consumeKeyword("ON")) {
+        qualifiers.push({ type: "ON", value: this.parseExpression(6) });
+        continue;
+      }
+      if (this.consumeKeyword("DURING")) {
+        const range = this.parseTemporalRange();
+        qualifiers.push({ type: "DURING", start: range.start, end: range.end });
+        continue;
+      }
+      break;
+    }
+    return qualifiers;
+  }
+
+  private parseTemporalRange(): { start: Expression; end: Expression } {
+    if (this.consumeToken("lparen")) {
+      const start = this.parseExpression(5);
+      let end: Expression;
+      if (this.consumeToken("comma")) {
+        end = this.parseExpression(5);
+      } else {
+        if (!this.consumeKeyword("AND") && !this.consumeKeyword("TO")) {
+          throw new Error("Expected ',' or AND in DURING range");
+        }
+        end = this.parseExpression(5);
+      }
+      this.expectToken("rparen");
+      return { start, end };
+    }
+    const start = this.parseExpression(5);
+    if (!this.consumeKeyword("AND") && !this.consumeKeyword("TO")) {
+      throw new Error("Expected AND in DURING range");
+    }
+    const end = this.parseExpression(5);
+    return { start, end };
   }
 
   private parsePrimary(): Expression {
@@ -1079,6 +1339,8 @@ class Parser {
       case "<=":
       case ">":
       case ">=":
+      case "~":
+      case "!~":
       case "MATCH":
       case "LIKE":
       case "CONTAINS":
@@ -1118,11 +1380,212 @@ export interface ParseOptions {
   defaultSource?: string;
 }
 
+function normalizeIdentifierName(name: string): string {
+  const alias = FIELD_ALIASES[name.toLowerCase()];
+  return alias ?? name;
+}
+
+function normalizeFunctionName(name: string): string {
+  const alias = FUNCTION_ALIASES[name.toLowerCase()];
+  return alias ?? name;
+}
+
+function normalizeHistoryQualifier(qualifier: HistoryQualifier): HistoryQualifier {
+  switch (qualifier.type) {
+    case "BY":
+    case "AFTER":
+    case "BEFORE":
+    case "ON":
+      return { ...qualifier, value: normalizeExpression(qualifier.value) };
+    case "TO":
+    case "FROM":
+      return {
+        ...qualifier,
+        value: qualifier.value ? normalizeExpression(qualifier.value) : undefined,
+        values: qualifier.values?.map((value) => normalizeExpression(value)),
+      };
+    case "DURING":
+      return {
+        ...qualifier,
+        start: normalizeExpression(qualifier.start),
+        end: normalizeExpression(qualifier.end),
+      };
+    default:
+      return qualifier;
+  }
+}
+
+function normalizeExpression(expression: Expression): Expression {
+  switch (expression.kind) {
+    case "identifier": {
+      const name = normalizeIdentifierName(expression.name);
+      const path = expression.path?.map((segment) => normalizeIdentifierName(segment));
+      return path && path.length > 0
+        ? { kind: "identifier", name, path }
+        : { kind: "identifier", name };
+    }
+    case "literal":
+      return expression;
+    case "duration":
+      return expression;
+    case "date_math":
+      return {
+        kind: "date_math",
+        base: normalizeExpression(expression.base),
+        operator: expression.operator,
+        offset: expression.offset,
+      };
+    case "unary":
+      return { ...expression, operand: normalizeExpression(expression.operand) };
+    case "binary":
+      return {
+        ...expression,
+        left: normalizeExpression(expression.left),
+        right: normalizeExpression(expression.right),
+      };
+    case "between":
+      return {
+        ...expression,
+        value: normalizeExpression(expression.value),
+        lower: normalizeExpression(expression.lower),
+        upper: normalizeExpression(expression.upper),
+      };
+    case "in":
+      return {
+        ...expression,
+        value: normalizeExpression(expression.value),
+        options: expression.options.map((option) => normalizeExpression(option)),
+      };
+    case "function":
+      return {
+        kind: "function",
+        name: normalizeFunctionName(expression.name),
+        args: expression.args.map((arg) => normalizeExpression(arg)),
+      };
+    case "history":
+      return {
+        kind: "history",
+        field: normalizeExpression(expression.field),
+        verb: expression.verb,
+        negated: expression.negated,
+        comparison: expression.comparison
+          ? {
+              operator: expression.comparison.operator,
+              value: expression.comparison.value
+                ? normalizeExpression(expression.comparison.value)
+                : undefined,
+              values: expression.comparison.values?.map((value) => normalizeExpression(value)),
+            }
+          : undefined,
+        qualifiers: expression.qualifiers.map((qualifier) => normalizeHistoryQualifier(qualifier)),
+      };
+    case "temporal":
+      return {
+        kind: "temporal",
+        operator: expression.operator,
+        value: normalizeExpression(expression.value),
+        range: {
+          start: normalizeExpression(expression.range.start),
+          end: normalizeExpression(expression.range.end),
+        },
+      };
+    default:
+      return expression;
+  }
+}
+
+function normalizeProjectionField(field: ProjectionField): ProjectionField {
+  return {
+    ...field,
+    expression: normalizeExpression(field.expression),
+  };
+}
+
+function normalizeOrderByField(field: OrderByField): OrderByField {
+  return {
+    ...field,
+    expression: normalizeExpression(field.expression),
+  };
+}
+
+function normalizeJoinSpec(join: JoinSpec): JoinSpec {
+  return {
+    ...join,
+    condition: normalizeExpression(join.condition),
+  };
+}
+
+function normalizeAggregateExpression(aggregate: AggregateExpression): AggregateExpression {
+  return {
+    ...aggregate,
+    expression: normalizeExpression(aggregate.expression),
+  };
+}
+
+function normalizeUpdateAssignment(assignment: UpdateAssignment): UpdateAssignment {
+  return {
+    field: normalizeExpression(assignment.field) as IdentifierExpression,
+    value: normalizeExpression(assignment.value),
+  };
+}
+
+function normalizeBaseStatement<T extends BaseStatement>(statement: T): T {
+  return {
+    ...statement,
+    where: statement.where ? normalizeExpression(statement.where) : undefined,
+    orderBy: statement.orderBy?.map((field) => normalizeOrderByField(field)),
+    joins: statement.joins?.map((join) => normalizeJoinSpec(join)),
+    stableBy: statement.stableBy?.map((expr) => normalizeExpression(expr)),
+  } as T;
+}
+
+function normalizeStatement(statement: Statement): Statement {
+  switch (statement.type) {
+    case "FIND": {
+      const base = normalizeBaseStatement(statement);
+      return {
+        ...base,
+        projections: statement.projections.map((field) => normalizeProjectionField(field)),
+      };
+    }
+    case "COUNT": {
+      const base = normalizeBaseStatement(statement);
+      return {
+        ...base,
+        projections: statement.projections?.map((field) => normalizeProjectionField(field)),
+      };
+    }
+    case "AGGREGATE": {
+      const base = normalizeBaseStatement(statement);
+      return {
+        ...base,
+        aggregates: statement.aggregates.map((aggregate) => normalizeAggregateExpression(aggregate)),
+        groupBy: statement.groupBy?.map((expr) => normalizeExpression(expr)),
+      };
+    }
+    case "UPDATE": {
+      const base = normalizeBaseStatement(statement);
+      return {
+        ...base,
+        assignments: statement.assignments.map((assignment) => normalizeUpdateAssignment(assignment)),
+        returning: statement.returning?.map((field) => normalizeProjectionField(field)),
+      };
+    }
+    case "EXPLAIN":
+      return {
+        ...statement,
+        target: normalizeStatement(statement.target),
+      };
+    default:
+      return statement;
+  }
+}
+
 export function parseOPQL(input: string, options: ParseOptions = {}): Statement {
   const lexer = new Lexer(input.trim());
   const tokens = lexer.getTokens();
   const parser = new Parser(tokens);
-  const statement = parser.parseStatement();
+  const statement = normalizeStatement(parser.parseStatement());
   if (options.defaultSource && !statement.source) {
     (statement as BaseStatement).source = options.defaultSource;
   }
