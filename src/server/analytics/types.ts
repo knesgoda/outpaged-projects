@@ -78,26 +78,7 @@ export interface ReportExecutionResult {
   meta: Record<string, unknown>;
 }
 
-export interface DashboardDefinition {
-  id: string;
-  title: string;
-  description?: string;
-  tiles: Array<{
-    id: string;
-    reportId: string;
-    layout: { x: number; y: number; w: number; h: number };
-    interactions?: {
-      crossFilter?: boolean;
-      drilldown?: boolean;
-    };
-  }>;
-  filters?: SegmentDefinition[];
-  presentation?: {
-    theme?: "light" | "dark" | "contrast";
-    autoCycle?: boolean;
-    refreshIntervalMinutes?: number;
-  };
-}
+export type { DashboardRecord as DashboardDefinition, DashboardTileDefinition } from "@/server/search/queryStore";
 
 export interface AutomationDefinition {
   id: string;
