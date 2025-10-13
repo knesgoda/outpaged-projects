@@ -1,3 +1,19 @@
+export type DocCollaborationOperation = {
+  id?: string;
+  update: string;
+  clientId?: string | null;
+  createdAt?: string | null;
+  offline?: boolean;
+};
+
+export type DocCollaborationMetadata = {
+  snapshot: string | null;
+  stateVector: string | null;
+  version: number;
+  lastSyncedAt?: string | null;
+  pendingOperations: DocCollaborationOperation[];
+};
+
 export type DocPage = {
   id: string;
   owner: string;
@@ -13,4 +29,5 @@ export type DocPage = {
   updated_by?: string | null;
   created_at: string;
   updated_at: string;
+  collaboration?: DocCollaborationMetadata;
 };
