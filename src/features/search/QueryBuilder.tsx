@@ -39,17 +39,29 @@ import {
   BuilderGroup,
   BuilderNode,
   BuilderLogicalOperator,
-  cloneNode,
+  BuilderOrderByField,
+  BuilderProjection,
+  BuilderAggregate,
+  BuilderRelation,
+  BuilderQuery,
+  cloneQuery,
+  collectQueryParameters,
   countClauses,
+  createAggregate,
   createClause,
   createGroup,
-  groupToOpql,
+  createOrderBy,
+  createProjection,
+  createQuery,
+  createRelation,
   mutateClauseById,
   mutateGroupById,
   normalizeGroup,
-  opqlToGroup,
+  normalizeQuery,
+  opqlToQuery,
+  queryToOpql,
   removeNodeById,
-  summarizeGroup,
+  summarizeQuery,
   visitNodes,
 } from "@/lib/opql/builder";
 import {
@@ -128,9 +140,9 @@ export interface AggregationPivot {
 }
 
 interface QueryBuilderProps {
-  value: BuilderGroup;
+  value: BuilderQuery;
   opqlText: string;
-  onChange: (group: BuilderGroup, meta: BuilderChangeMeta) => void;
+  onChange: (query: BuilderQuery, meta: BuilderChangeMeta) => void;
   onOpqlChange: (opql: string) => void;
   naturalLanguage: NaturalLanguageSession;
   pivots?: AggregationPivot[];
@@ -416,25 +428,25 @@ export const QueryBuilder = ({
   );
   const skipInterpretRef = useRef(false);
   const isApplyingRef = useRef(false);
-  const historyRef = useRef<BuilderGroup[]>([normalizeGroup(value)]);
+  const historyRef = useRef<BuilderQuery[]>([normalizeQuery(value)]);
   const [historyIndex, setHistoryIndex] = useState(0);
 
   useEffect(() => {
     if (isApplyingRef.current) {
-      historyRef.current[historyIndex] = normalizeGroup(value);
+      historyRef.current[historyIndex] = normalizeQuery(value);
       isApplyingRef.current = false;
       return;
     }
     const current = historyRef.current[historyIndex];
-    if (!current || groupToOpql(current) !== groupToOpql(value)) {
-      historyRef.current = [normalizeGroup(value)];
+    if (!current || queryToOpql(current) !== queryToOpql(value)) {
+      historyRef.current = [normalizeQuery(value)];
       setHistoryIndex(0);
     }
   }, [value, historyIndex]);
 
   const pushHistory = useCallback(
-    (snapshot: BuilderGroup) => {
-      const normalized = normalizeGroup(snapshot);
+    (snapshot: BuilderQuery) => {
+      const normalized = normalizeQuery(snapshot);
       const baseline = historyRef.current.slice(0, historyIndex + 1);
       baseline.push(normalized);
       historyRef.current = baseline.slice(-50);
@@ -445,16 +457,16 @@ export const QueryBuilder = ({
 
   const applyChange = useCallback(
     (
-      mutator: (draft: BuilderGroup) => void,
+      mutator: (draft: BuilderQuery) => void,
       origin: BuilderChangeMeta["origin"] = "builder"
     ) => {
-      const draft = normalizeGroup(cloneNode(value) as BuilderGroup);
+      const draft = cloneQuery(value);
       mutator(draft);
-      const normalized = normalizeGroup(draft);
-      const opql = groupToOpql(normalized);
+      const normalized = normalizeQuery(draft);
+      const opql = queryToOpql(normalized);
       isApplyingRef.current = true;
       pushHistory(normalized);
-      onChange(normalized, { origin, opql });
+      onChange(normalized, { origin, opql, statement: normalized.statement });
       if (origin !== "opql") {
         onOpqlChange(opql);
       }
@@ -464,13 +476,18 @@ export const QueryBuilder = ({
 
   const handleClauseChange = useCallback(
     (
+      target: "where" | "having",
       clauseId: string,
       updates: Partial<Pick<BuilderClause, "field" | "comparator" | "value">>
     ) => {
       applyChange((draft) => {
-        mutateClauseById(draft, clauseId, (clause) => {
+        const group = target === "where" ? draft.where : draft.having;
+        mutateClauseById(group, clauseId, (clause) => {
           Object.assign(clause, updates);
           clause.source = clause.source ?? "manual";
+          if (Object.prototype.hasOwnProperty.call(updates, "value")) {
+            clause.valueWasQuoted = false;
+          }
         });
       });
     },
@@ -478,12 +495,13 @@ export const QueryBuilder = ({
   );
 
   const handleAddClause = useCallback(
-    (groupId: string) => {
+    (target: "where" | "having", groupId: string) => {
       const clause = createClause("status", "=", "open");
       clause.source = "manual";
       applyChange((draft) => {
-        mutateGroupById(draft, groupId, (group) => {
-          group.children = [...group.children, clause];
+        const group = target === "where" ? draft.where : draft.having;
+        mutateGroupById(group, groupId, (node) => {
+          node.children = [...node.children, clause];
         });
       });
       setEditingClauseId(clause.id);
@@ -492,12 +510,13 @@ export const QueryBuilder = ({
   );
 
   const handleAddGroup = useCallback(
-    (groupId: string, operator: BuilderLogicalOperator) => {
+    (target: "where" | "having", groupId: string, operator: BuilderLogicalOperator) => {
       const newGroup = createGroup(operator);
       newGroup.children.push(createClause("text", "MATCH", ""));
       applyChange((draft) => {
-        mutateGroupById(draft, groupId, (group) => {
-          group.children = [...group.children, newGroup];
+        const group = target === "where" ? draft.where : draft.having;
+        mutateGroupById(group, groupId, (node) => {
+          node.children = [...node.children, newGroup];
         });
       });
       setEditingClauseId(newGroup.children[0]?.type === "clause" ? newGroup.children[0].id : null);
@@ -506,10 +525,11 @@ export const QueryBuilder = ({
   );
 
   const handleToggleGroupOperator = useCallback(
-    (groupId: string) => {
+    (target: "where" | "having", groupId: string) => {
       applyChange((draft) => {
-        mutateGroupById(draft, groupId, (group) => {
-          group.operator = group.operator === "AND" ? "OR" : "AND";
+        const group = target === "where" ? draft.where : draft.having;
+        mutateGroupById(group, groupId, (node) => {
+          node.operator = node.operator === "AND" ? "OR" : "AND";
         });
       });
     },
@@ -517,9 +537,10 @@ export const QueryBuilder = ({
   );
 
   const handleRemoveNode = useCallback(
-    (node: BuilderNode) => {
+    (target: "where" | "having", node: BuilderNode) => {
       applyChange((draft) => {
-        removeNodeById(draft, node.id);
+        const group = target === "where" ? draft.where : draft.having;
+        removeNodeById(group, node.id);
       });
       if (editingClauseId === node.id) {
         setEditingClauseId(null);
@@ -528,17 +549,231 @@ export const QueryBuilder = ({
     [applyChange, editingClauseId]
   );
 
+  const handleProjectionUpdate = useCallback(
+    (index: number, updates: Partial<BuilderProjection>) => {
+      applyChange((draft) => {
+        const next = [...draft.projections];
+        next[index] = { ...next[index], ...updates };
+        draft.projections = next;
+      });
+    },
+    [applyChange]
+  );
+
+  const handleAddProjection = useCallback(() => {
+    applyChange((draft) => {
+      draft.projections = [...draft.projections, createProjection()];
+    });
+  }, [applyChange]);
+
+  const handleRemoveProjection = useCallback(
+    (index: number) => {
+      applyChange((draft) => {
+        const next = [...draft.projections];
+        next.splice(index, 1);
+        draft.projections = next;
+      });
+    },
+    [applyChange]
+  );
+
+  const handleAggregateUpdate = useCallback(
+    (index: number, updates: Partial<BuilderAggregate>) => {
+      applyChange((draft) => {
+        const next = [...draft.aggregates];
+        next[index] = { ...next[index], ...updates };
+        draft.aggregates = next;
+      });
+    },
+    [applyChange]
+  );
+
+  const handleAddAggregate = useCallback(() => {
+    applyChange((draft) => {
+      draft.aggregates = [...draft.aggregates, createAggregate()];
+    });
+  }, [applyChange]);
+
+  const handleRemoveAggregate = useCallback(
+    (index: number) => {
+      applyChange((draft) => {
+        const next = [...draft.aggregates];
+        next.splice(index, 1);
+        draft.aggregates = next;
+      });
+    },
+    [applyChange]
+  );
+
+  const handleGroupByUpdate = useCallback(
+    (index: number, updates: Partial<BuilderProjection>) => {
+      applyChange((draft) => {
+        const next = [...draft.groupBy];
+        next[index] = { ...next[index], ...updates };
+        draft.groupBy = next;
+      });
+    },
+    [applyChange]
+  );
+
+  const handleAddGroupBy = useCallback(() => {
+    applyChange((draft) => {
+      draft.groupBy = [...draft.groupBy, createProjection("field")];
+    });
+  }, [applyChange]);
+
+  const handleRemoveGroupBy = useCallback(
+    (index: number) => {
+      applyChange((draft) => {
+        const next = [...draft.groupBy];
+        next.splice(index, 1);
+        draft.groupBy = next;
+      });
+    },
+    [applyChange]
+  );
+
+  const handleOrderByUpdate = useCallback(
+    (index: number, updates: Partial<BuilderOrderByField>) => {
+      applyChange((draft) => {
+        const next = [...draft.orderBy];
+        next[index] = { ...next[index], ...updates } as BuilderOrderByField;
+        draft.orderBy = next;
+      });
+    },
+    [applyChange]
+  );
+
+  const handleAddOrderBy = useCallback(() => {
+    applyChange((draft) => {
+      draft.orderBy = [...draft.orderBy, createOrderBy()];
+    });
+  }, [applyChange]);
+
+  const handleRemoveOrderBy = useCallback(
+    (index: number) => {
+      applyChange((draft) => {
+        const next = [...draft.orderBy];
+        next.splice(index, 1);
+        draft.orderBy = next;
+      });
+    },
+    [applyChange]
+  );
+
+  const handleRelationUpdate = useCallback(
+    (index: number, updates: Partial<BuilderRelation>) => {
+      applyChange((draft) => {
+        const next = [...draft.relations];
+        next[index] = { ...next[index], ...updates };
+        draft.relations = next;
+      });
+    },
+    [applyChange]
+  );
+
+  const handleRelationDepthChange = useCallback(
+    (index: number, value: string) => {
+      const trimmed = value.trim();
+      applyChange((draft) => {
+        const next = [...draft.relations];
+        const numeric = trimmed.length ? Number(trimmed) : undefined;
+        next[index] = {
+          ...next[index],
+          depth: numeric != null && !Number.isNaN(numeric) ? numeric : undefined,
+        };
+        draft.relations = next;
+      });
+    },
+    [applyChange]
+  );
+
+  const handleAddRelation = useCallback(() => {
+    applyChange((draft) => {
+      draft.relations = [...draft.relations, createRelation("relation")];
+    });
+  }, [applyChange]);
+
+  const handleRemoveRelation = useCallback(
+    (index: number) => {
+      applyChange((draft) => {
+        const next = [...draft.relations];
+        next.splice(index, 1);
+        draft.relations = next;
+      });
+    },
+    [applyChange]
+  );
+
+  const handleReturningUpdate = useCallback(
+    (index: number, updates: Partial<BuilderProjection>) => {
+      applyChange((draft) => {
+        const next = [...draft.returning];
+        next[index] = { ...next[index], ...updates };
+        draft.returning = next;
+      });
+    },
+    [applyChange]
+  );
+
+  const handleAddReturning = useCallback(() => {
+    applyChange((draft) => {
+      draft.returning = [...draft.returning, createProjection("*")];
+    });
+  }, [applyChange]);
+
+  const handleRemoveReturning = useCallback(
+    (index: number) => {
+      applyChange((draft) => {
+        const next = [...draft.returning];
+        next.splice(index, 1);
+        draft.returning = next;
+      });
+    },
+    [applyChange]
+  );
+
+  const handleLimitChange = useCallback(
+    (next: string) => {
+      applyChange((draft) => {
+        const trimmed = next.trim();
+        draft.limit = trimmed.length ? trimmed : undefined;
+      });
+    },
+    [applyChange]
+  );
+
+  const handleOffsetChange = useCallback(
+    (next: string) => {
+      applyChange((draft) => {
+        const trimmed = next.trim();
+        draft.offset = trimmed.length ? trimmed : undefined;
+      });
+    },
+    [applyChange]
+  );
+
+  const handleCursorChange = useCallback(
+    (next: string) => {
+      applyChange((draft) => {
+        const trimmed = next.trim();
+        draft.cursor = trimmed.length ? trimmed : undefined;
+      });
+    },
+    [applyChange]
+  );
+
   const handleOpqlInput = useCallback(
     (next: string) => {
       onOpqlChange(next);
-      const parsed = opqlToGroup(next);
-      const normalized = normalizeGroup(parsed);
-      const opql = groupToOpql(normalized);
+      const parsed = opqlToQuery(next);
+      const normalized = normalizeQuery(parsed);
+      const opql = queryToOpql(normalized);
       skipInterpretRef.current = true;
       isApplyingRef.current = true;
       pushHistory(normalized);
       naturalLanguage.synchronizeFromBuilder(normalized);
-      onChange(normalized, { origin: "opql", opql });
+      onChange(normalized, { origin: "opql", opql, statement: normalized.statement });
     },
     [naturalLanguage, onChange, onOpqlChange, pushHistory]
   );
@@ -550,11 +785,11 @@ export const QueryBuilder = ({
     if (!snapshot) return;
     setHistoryIndex(nextIndex);
     isApplyingRef.current = true;
-    const normalized = normalizeGroup(snapshot);
-    const opql = groupToOpql(normalized);
+    const normalized = normalizeQuery(snapshot);
+    const opql = queryToOpql(normalized);
     skipInterpretRef.current = true;
     naturalLanguage.synchronizeFromBuilder(normalized);
-    onChange(normalized, { origin: "undo", opql });
+    onChange(normalized, { origin: "undo", opql, statement: normalized.statement });
     onOpqlChange(opql);
   }, [historyIndex, naturalLanguage, onChange, onOpqlChange]);
 
@@ -565,11 +800,11 @@ export const QueryBuilder = ({
     if (!snapshot) return;
     setHistoryIndex(nextIndex);
     isApplyingRef.current = true;
-    const normalized = normalizeGroup(snapshot);
-    const opql = groupToOpql(normalized);
+    const normalized = normalizeQuery(snapshot);
+    const opql = queryToOpql(normalized);
     skipInterpretRef.current = true;
     naturalLanguage.synchronizeFromBuilder(normalized);
-    onChange(normalized, { origin: "redo", opql });
+    onChange(normalized, { origin: "redo", opql, statement: normalized.statement });
     onOpqlChange(opql);
   }, [historyIndex, naturalLanguage, onChange, onOpqlChange]);
 
@@ -582,7 +817,7 @@ export const QueryBuilder = ({
       return;
     }
     const state = naturalLanguage.interpretation;
-    const opql = groupToOpql(value);
+    const opql = queryToOpql(value);
     if (state?.opql === opql && state.provenance === "natural-language") {
       setNlDraft(state.original);
       setNlTokens(state.tokens);
@@ -602,10 +837,10 @@ export const QueryBuilder = ({
     }
     const handler = window.setTimeout(() => {
       if (!nlDraft.trim()) {
-        const empty = createGroup();
+        const empty = createQuery();
         skipInterpretRef.current = true;
         naturalLanguage.synchronizeFromBuilder(empty);
-        onChange(empty, { origin: "natural-language", opql: "" });
+        onChange(empty, { origin: "natural-language", opql: "", statement: empty.statement });
         onOpqlChange("");
         setNlTokens([]);
         return;
@@ -616,6 +851,7 @@ export const QueryBuilder = ({
       onChange(interpretation.builder, {
         origin: "natural-language",
         opql: interpretation.opql,
+        statement: interpretation.builder.statement,
       });
       onOpqlChange(interpretation.opql);
     }, 400);
@@ -624,7 +860,7 @@ export const QueryBuilder = ({
 
   const activeHelpers = useMemo(() => {
     const active = new Set<string>();
-    visitNodes(value, (node) => {
+    visitNodes(value.where, (node) => {
       if (node.type !== "clause") return;
       const match = TRAVERSAL_HELPERS.find(
         (helper) =>
@@ -648,7 +884,7 @@ export const QueryBuilder = ({
         applyChange((draft) => {
           const target = helper.clause;
           let removed = false;
-          visitNodes(draft, (node, parent) => {
+          visitNodes(draft.where, (node, parent) => {
             if (removed || node.type !== "clause" || !parent) return;
             if (
               node.field === target.field &&
@@ -668,13 +904,13 @@ export const QueryBuilder = ({
           typeof globalThis.crypto.randomUUID === "function"
             ? globalThis.crypto.randomUUID()
             : `helper_${helper.id}_${Math.random().toString(16).slice(2)}`;
-        draft.children = [...draft.children, { ...helper.clause, id }];
+        draft.where.children = [...draft.where.children, { ...helper.clause, id }];
       });
     },
     [activeHelpers, applyChange]
   );
 
-  const builderSummary = useMemo(() => summarizeGroup(value, "long"), [value]);
+  const builderSummary = useMemo(() => summarizeQuery(value), [value]);
 
   const savedParamsEntries = useMemo(() => {
     if (!savedParameters) return [] as Array<[string, string]>;
@@ -684,11 +920,18 @@ export const QueryBuilder = ({
     ]);
   }, [savedParameters]);
 
+  const parameterNames = useMemo(() => collectQueryParameters(value), [value]);
+
+  const totalClauses = useMemo(
+    () => countClauses(value.where) + countClauses(value.having),
+    [value]
+  );
+
   const handlePivot = useCallback(
     (pivot: AggregationPivot, entry: AggregationPivotEntry) => {
       applyChange((draft) => {
-        draft.children = [
-          ...draft.children,
+        draft.where.children = [
+          ...draft.where.children,
           {
             ...createClause(pivot.field, "=", entry.value),
             source: "helper",
@@ -760,20 +1003,361 @@ export const QueryBuilder = ({
           />
         </section>
 
+        {value.statement === "AGGREGATE" ? (
+          <section className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <ListTree className="h-4 w-4" /> Aggregations
+              </div>
+              <Button type="button" size="sm" variant="outline" onClick={handleAddAggregate}>
+                <Plus className="mr-1 h-3 w-3" /> Add aggregate
+              </Button>
+            </div>
+            <div className="space-y-2">
+              {value.aggregates.map((aggregate, index) => (
+                <div
+                  key={aggregate.id}
+                  className="grid items-center gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,180px)_auto]"
+                >
+                  <Input
+                    value={aggregate.expression}
+                    onChange={(event) =>
+                      handleAggregateUpdate(index, { expression: event.target.value })
+                    }
+                    placeholder="Function expression"
+                  />
+                  <Input
+                    value={aggregate.alias ?? ""}
+                    onChange={(event) =>
+                      handleAggregateUpdate(index, { alias: event.target.value || undefined })
+                    }
+                    placeholder="Alias (optional)"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleRemoveAggregate(index)}
+                    className="justify-self-end"
+                  >
+                    Remove
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </section>
+        ) : (
+          <section className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <ListTree className="h-4 w-4" /> Return fields
+              </div>
+              <Button type="button" size="sm" variant="outline" onClick={handleAddProjection}>
+                <Plus className="mr-1 h-3 w-3" /> Add field
+              </Button>
+            </div>
+            <div className="space-y-2">
+              {value.projections.map((projection, index) => (
+                <div
+                  key={projection.id}
+                  className="grid items-center gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,180px)_auto]"
+                >
+                  <Input
+                    value={projection.expression}
+                    onChange={(event) =>
+                      handleProjectionUpdate(index, { expression: event.target.value })
+                    }
+                    placeholder="Field or expression"
+                  />
+                  <Input
+                    value={projection.alias ?? ""}
+                    onChange={(event) =>
+                      handleProjectionUpdate(index, { alias: event.target.value || undefined })
+                    }
+                    placeholder="Alias (optional)"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleRemoveProjection(index)}
+                    className="justify-self-end"
+                  >
+                    Remove
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        <section className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-sm font-medium">
+              <ListTree className="h-4 w-4" /> Group by
+            </div>
+            <Button type="button" size="sm" variant="outline" onClick={handleAddGroupBy}>
+              <Plus className="mr-1 h-3 w-3" /> Add grouping
+            </Button>
+          </div>
+          <div className="space-y-2">
+            {value.groupBy.map((entry, index) => (
+              <div key={entry.id} className="grid items-center gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+                <Input
+                  value={entry.expression}
+                  onChange={(event) =>
+                    handleGroupByUpdate(index, { expression: event.target.value })
+                  }
+                  placeholder="Field or expression"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleRemoveGroupBy(index)}
+                  className="justify-self-end"
+                >
+                  Remove
+                </Button>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="space-y-3">
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <ListTree className="h-4 w-4" /> Having
+          </div>
+          <GroupEditor
+            group={value.having}
+            depth={0}
+            editingClauseId={editingClauseId}
+            onStartEdit={setEditingClauseId}
+            onAddClause={(groupId) => handleAddClause("having", groupId)}
+            onAddGroup={(groupId, operator) => handleAddGroup("having", groupId, operator)}
+            onToggleGroupOperator={(groupId) => handleToggleGroupOperator("having", groupId)}
+            onRemoveNode={(node) => handleRemoveNode("having", node)}
+            onClauseChange={(clauseId, updates) => handleClauseChange("having", clauseId, updates)}
+          />
+        </section>
+
+        <section className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-sm font-medium">
+              <ListTree className="h-4 w-4" /> Order & limit
+            </div>
+            <Button type="button" size="sm" variant="outline" onClick={handleAddOrderBy}>
+              <Plus className="mr-1 h-3 w-3" /> Add sort
+            </Button>
+          </div>
+          <div className="space-y-2">
+            {value.orderBy.map((order, index) => (
+              <div
+                key={order.id}
+                className="grid items-center gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,140px)_minmax(0,160px)_auto]"
+              >
+                <Input
+                  value={order.expression}
+                  onChange={(event) =>
+                    handleOrderByUpdate(index, { expression: event.target.value })
+                  }
+                  placeholder="Field or expression"
+                />
+                <Select
+                  value={order.direction}
+                  onValueChange={(direction) =>
+                    handleOrderByUpdate(index, { direction: direction as BuilderOrderByField["direction"] })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ASC">Ascending</SelectItem>
+                    <SelectItem value="DESC">Descending</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select
+                  value={order.nulls ?? "DEFAULT"}
+                  onValueChange={(value) =>
+                    handleOrderByUpdate(index, {
+                      nulls: value === "DEFAULT" ? undefined : (value as BuilderOrderByField["nulls"]),
+                    })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="DEFAULT">Nulls default</SelectItem>
+                    <SelectItem value="FIRST">Nulls first</SelectItem>
+                    <SelectItem value="LAST">Nulls last</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleRemoveOrderBy(index)}
+                  className="justify-self-end"
+                >
+                  Remove
+                </Button>
+              </div>
+            ))}
+          </div>
+          <div className="grid gap-2 sm:grid-cols-3">
+            <div className="space-y-1">
+              <Label htmlFor="builder-limit" className="text-xs text-muted-foreground">
+                Limit
+              </Label>
+              <Input
+                id="builder-limit"
+                value={value.limit ?? ""}
+                onChange={(event) => handleLimitChange(event.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="builder-offset" className="text-xs text-muted-foreground">
+                Offset
+              </Label>
+              <Input
+                id="builder-offset"
+                value={value.offset ?? ""}
+                onChange={(event) => handleOffsetChange(event.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="builder-cursor" className="text-xs text-muted-foreground">
+                Cursor
+              </Label>
+              <Input
+                id="builder-cursor"
+                value={value.cursor ?? ""}
+                onChange={(event) => handleCursorChange(event.target.value)}
+              />
+            </div>
+          </div>
+        </section>
+
+        <section className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-sm font-medium">
+              <ListTree className="h-4 w-4" /> Relations
+            </div>
+            <Button type="button" size="sm" variant="outline" onClick={handleAddRelation}>
+              <Plus className="mr-1 h-3 w-3" /> Add relation
+            </Button>
+          </div>
+          <div className="space-y-2">
+            {value.relations.map((relation, index) => (
+              <div
+                key={relation.id}
+                className="grid items-center gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,160px)_minmax(0,120px)_auto]"
+              >
+                <Input
+                  value={relation.relation}
+                  onChange={(event) =>
+                    handleRelationUpdate(index, { relation: event.target.value })
+                  }
+                  placeholder="Relation name"
+                />
+                <Select
+                  value={relation.direction ?? "DEFAULT"}
+                  onValueChange={(value) =>
+                    handleRelationUpdate(index, {
+                      direction: value === "DEFAULT" ? undefined : (value as BuilderRelation["direction"]),
+                    })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="DEFAULT">Default</SelectItem>
+                    <SelectItem value="INBOUND">Inbound</SelectItem>
+                    <SelectItem value="OUTBOUND">Outbound</SelectItem>
+                    <SelectItem value="BIDIRECTIONAL">Bidirectional</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Input
+                  value={relation.depth != null ? String(relation.depth) : ""}
+                  onChange={(event) => handleRelationDepthChange(index, event.target.value)}
+                  placeholder="Depth"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleRemoveRelation(index)}
+                  className="justify-self-end"
+                >
+                  Remove
+                </Button>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {value.returning.length || value.statement === "UPDATE" ? (
+          <section className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <ListTree className="h-4 w-4" /> Return clause
+              </div>
+              <Button type="button" size="sm" variant="outline" onClick={handleAddReturning}>
+                <Plus className="mr-1 h-3 w-3" /> Add return field
+              </Button>
+            </div>
+            <div className="space-y-2">
+              {value.returning.map((entry, index) => (
+                <div
+                  key={entry.id}
+                  className="grid items-center gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,180px)_auto]"
+                >
+                  <Input
+                    value={entry.expression}
+                    onChange={(event) =>
+                      handleReturningUpdate(index, { expression: event.target.value })
+                    }
+                    placeholder="Field or expression"
+                  />
+                  <Input
+                    value={entry.alias ?? ""}
+                    onChange={(event) =>
+                      handleReturningUpdate(index, { alias: event.target.value || undefined })
+                    }
+                    placeholder="Alias (optional)"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleRemoveReturning(index)}
+                    className="justify-self-end"
+                  >
+                    Remove
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </section>
+        ) : null}
+
         <section className="space-y-3">
           <div className="flex items-center gap-2 text-sm font-medium">
             <ListTree className="h-4 w-4" /> Builder
           </div>
           <GroupEditor
-            group={value}
+            group={value.where}
             depth={0}
             editingClauseId={editingClauseId}
             onStartEdit={setEditingClauseId}
-            onAddClause={handleAddClause}
-            onAddGroup={handleAddGroup}
-            onToggleGroupOperator={handleToggleGroupOperator}
-            onRemoveNode={handleRemoveNode}
-            onClauseChange={handleClauseChange}
+            onAddClause={(groupId) => handleAddClause("where", groupId)}
+            onAddGroup={(groupId, operator) => handleAddGroup("where", groupId, operator)}
+            onToggleGroupOperator={(groupId) => handleToggleGroupOperator("where", groupId)}
+            onRemoveNode={(node) => handleRemoveNode("where", node)}
+            onClauseChange={(clauseId, updates) => handleClauseChange("where", clauseId, updates)}
           />
         </section>
 
@@ -832,6 +1416,21 @@ export const QueryBuilder = ({
           </section>
         ) : null}
 
+        {parameterNames.length ? (
+          <section className="space-y-2 rounded-lg border border-border bg-muted/30 p-3 text-xs">
+            <div className="flex items-center gap-2 font-semibold uppercase text-muted-foreground">
+              <Sparkles className="h-3 w-3" /> Parameters in use
+            </div>
+            <div className="flex flex-wrap gap-2" data-testid="parameter-chip-container">
+              {parameterNames.map((name) => (
+                <Badge key={name} variant="outline" className="font-mono" aria-label={`parameter-${name}`}>
+                  {name}
+                </Badge>
+              ))}
+            </div>
+          </section>
+        ) : null}
+
         {savedParamsEntries.length ? (
           <section className="space-y-2 rounded-lg border border-border bg-muted/30 p-3 text-xs">
             <div className="flex items-center gap-2 font-semibold uppercase text-muted-foreground">
@@ -881,7 +1480,7 @@ export const QueryBuilder = ({
           </Button>
         </div>
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <span>{countClauses(value)} clauses</span>
+          <span>{totalClauses} clauses</span>
         </div>
       </CardFooter>
     </Card>

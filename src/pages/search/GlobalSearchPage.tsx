@@ -112,9 +112,9 @@ import {
 } from "@/features/search/QueryBuilder";
 import {
   BuilderChangeMeta,
-  BuilderGroup,
-  groupToOpql,
-  opqlToGroup,
+  BuilderQuery,
+  opqlToQuery,
+  queryToOpql,
 } from "@/lib/opql/builder";
 import { NaturalLanguageSession } from "@/lib/opql/naturalLanguage";
 
@@ -446,7 +446,7 @@ export const GlobalSearchPage = () => {
     naturalLanguageSessionRef.current = new NaturalLanguageSession();
   }
   const naturalLanguageSession = naturalLanguageSessionRef.current;
-  const [builderState, setBuilderState] = useState<BuilderGroup>(() => opqlToGroup(queryParam));
+  const [builderState, setBuilderState] = useState<BuilderQuery>(() => opqlToQuery(queryParam));
   const [mode, setMode] = useState<SearchMode>("quick");
   const [facetSelections, setFacetSelections] = useState<FacetSelections>(() =>
     cloneFacetSelections(INITIAL_FACETS)
@@ -512,10 +512,10 @@ export const GlobalSearchPage = () => {
   }, [queryParam]);
 
   useEffect(() => {
-    const parsed = opqlToGroup(queryParam);
-    const serialized = groupToOpql(parsed);
+    const parsed = opqlToQuery(queryParam);
+    const serialized = queryToOpql(parsed);
     setBuilderState((prev) => {
-      const prevSerialized = groupToOpql(prev);
+      const prevSerialized = queryToOpql(prev);
       if (prevSerialized === serialized) {
         return prev;
       }
@@ -526,10 +526,10 @@ export const GlobalSearchPage = () => {
 
   useEffect(() => {
     if (mode !== "builder") return;
-    const parsed = opqlToGroup(inputValue);
-    const serialized = groupToOpql(parsed);
+    const parsed = opqlToQuery(inputValue);
+    const serialized = queryToOpql(parsed);
     setBuilderState((prev) => {
-      const prevSerialized = groupToOpql(prev);
+      const prevSerialized = queryToOpql(prev);
       if (prevSerialized === serialized) {
         return prev;
       }
@@ -814,13 +814,13 @@ export const GlobalSearchPage = () => {
   };
 
   const handleBuilderChange = useCallback(
-    (group: BuilderGroup, meta: BuilderChangeMeta) => {
-      setBuilderState((prev) => (groupToOpql(prev) === meta.opql ? prev : group));
+    (query: BuilderQuery, meta: BuilderChangeMeta) => {
+      setBuilderState((prev) => (queryToOpql(prev) === meta.opql ? prev : query));
       if (meta.opql !== inputValue) {
         setInputValue(meta.opql);
         setInputCursor(meta.opql.length);
       }
-      naturalLanguageSession.synchronizeFromBuilder(group);
+      naturalLanguageSession.synchronizeFromBuilder(query);
       setSearchParams((current) => {
         const next = new URLSearchParams(current);
         if (meta.opql.trim()) {
