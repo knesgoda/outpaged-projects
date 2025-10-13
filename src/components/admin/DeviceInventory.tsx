@@ -1,10 +1,11 @@
-import { useState, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Monitor, Smartphone, AlertCircle, Trash2 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
+import { fetchDeviceSessions, triggerRemoteWipe } from "@/services/admin/deviceInventory";
 
 interface Device {
   id: string;
@@ -21,31 +22,53 @@ export function DeviceInventory() {
   const [devices, setDevices] = useState<Device[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    loadDevices();
-  }, []);
-
-  const loadDevices = async () => {
+  const loadDevices = useCallback(async () => {
+    setLoading(true);
     try {
-      // TODO: Implement API call to fetch device inventory
-      // For now, showing mock data structure
+      const sessions = await fetchDeviceSessions();
+      setDevices(
+        sessions.map((session) => ({
+          id: session.id,
+          userId: session.user_id,
+          userEmail: session.user_email ?? session.user_id,
+          deviceType: session.device_type === "mobile" ? "mobile" : "desktop",
+          browser: session.browser ?? "Unknown browser",
+          lastSeen: session.last_seen_at ? new Date(session.last_seen_at) : new Date(0),
+          swVersion: session.sw_version ?? "unknown",
+        }))
+      );
+    } catch (error) {
+      console.error("Failed to load device inventory", error);
+      toast({
+        title: "Unable to load devices",
+        description: error instanceof Error ? error.message : "Unknown error",
+        variant: "destructive",
+      });
       setDevices([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
+
+  useEffect(() => {
+    void loadDevices();
+  }, [loadDevices]);
 
   const handleRemoteWipe = async (deviceId: string) => {
     if (!confirm("Trigger remote wipe for this device? This will clear all offline data.")) return;
 
+    const previousDevices = [...devices];
+    setDevices((current) => current.filter((device) => device.id !== deviceId));
+
     try {
-      // TODO: Implement remote wipe API call
+      await triggerRemoteWipe(deviceId);
       toast({
         title: "Remote wipe triggered",
         description: "The device will clear offline data on next sync",
       });
       await loadDevices();
     } catch (error) {
+      setDevices(previousDevices);
       toast({
         title: "Failed to trigger wipe",
         description: error instanceof Error ? error.message : "Unknown error",
@@ -102,6 +125,7 @@ export function DeviceInventory() {
                     variant="ghost"
                     size="sm"
                     onClick={() => handleRemoteWipe(device.id)}
+                    aria-label="Trigger remote wipe"
                     className="text-destructive hover:text-destructive"
                   >
                     <Trash2 className="h-4 w-4" />
