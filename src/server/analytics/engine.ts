@@ -1,5 +1,8 @@
 // @ts-nocheck
 import { supabase } from "@/integrations/supabase/client";
+import { searchEngine, toSearchResult } from "@/server/search/engineRegistry";
+import type { PrincipalContext } from "@/server/search/engineRegistry";
+import type { SearchResult } from "@/types";
 import type {
   AutomationDefinition,
   DashboardDefinition,
@@ -20,6 +23,18 @@ const OPERATORS: Record<SegmentDefinition["filters"][number]["operator"], string
   in: "in",
   not_in: "not.in",
   contains: "ilike",
+};
+
+const DASHBOARD_PRINCIPAL: PrincipalContext = {
+  principalId: "analytics-service",
+  workspaceId: "workspace-demo",
+  roles: ["analyst"],
+  permissions: [
+    "search.execute",
+    "search.comments.read",
+    "search.mask.snippet",
+    "docs.view.sensitive",
+  ],
 };
 
 const applyFilters = (query: ReturnType<typeof supabase.from>, filters?: ReportQuery["filters"]) => {
@@ -192,3 +207,18 @@ export class AnalyticsEngine {
 }
 
 export const analyticsEngine = new AnalyticsEngine();
+
+export async function previewDashboardQuery(
+  opql: string,
+  options: { workspaceId?: string; principal?: PrincipalContext; limit?: number; cursor?: string; types?: SearchResult["type"][] } = {}
+): Promise<SearchResult[]> {
+  const execution = await searchEngine.execute({
+    workspaceId: options.workspaceId ?? DASHBOARD_PRINCIPAL.workspaceId,
+    principal: options.principal ?? DASHBOARD_PRINCIPAL,
+    opql,
+    limit: options.limit,
+    cursor: options.cursor,
+    types: options.types,
+  });
+  return execution.rows.map((row) => toSearchResult(row));
+}

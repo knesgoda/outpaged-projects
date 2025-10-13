@@ -1,5 +1,6 @@
 // @ts-nocheck
-import type { PrincipalContext } from "./queryEngine";
+import { searchEngine, toSearchResult } from "./engineRegistry";
+import type { PrincipalContext, QueryRequest } from "./engineRegistry";
 import type { SearchResult } from "@/types";
 
 const generateId = () => {
@@ -121,13 +122,6 @@ export interface SearchDiagnosticsSnapshot {
   };
 }
 
-interface SearchDocument extends SearchResult {
-  keywords: string[];
-  indexedAt: string;
-  workspaceId: string;
-  boost?: number;
-}
-
 interface SearchLogEntry {
   id: string;
   workspaceId: string;
@@ -143,7 +137,7 @@ interface SearchLogEntry {
 }
 
 export interface SearchRouterOptions {
-  documents?: SearchDocument[];
+  engine?: typeof searchEngine;
   rateLimit?: { windowMs: number; maxRequests: number };
   pageSize?: number;
 }
@@ -192,95 +186,6 @@ class RateLimiter {
   }
 }
 
-const SAMPLE_DOCUMENTS: SearchDocument[] = [
-  {
-    id: "task-1",
-    documentId: "task-1",
-    type: "task",
-    title: "Stabilize indexing pipeline",
-    snippet: "Investigate ingestion lag and rebuild the document queue",
-    url: "/tasks/task-1",
-    project_id: "proj-operations",
-    updated_at: new Date(Date.now() - 1000 * 60 * 45).toISOString(),
-    score: 0.86,
-    keywords: ["index", "pipeline", "lag", "ingestion"],
-    indexedAt: new Date(Date.now() - 1000 * 60 * 5).toISOString(),
-    workspaceId: "workspace-demo",
-    boost: 1.2,
-  },
-  {
-    id: "task-2",
-    documentId: "task-2",
-    type: "task",
-    title: "Implement abuse guard rails",
-    snippet: "Add rate limiting and anomaly detection for search endpoint",
-    url: "/tasks/task-2",
-    project_id: "proj-security",
-    updated_at: new Date(Date.now() - 1000 * 60 * 120).toISOString(),
-    score: 0.8,
-    keywords: ["rate", "limit", "abuse", "search"],
-    indexedAt: new Date(Date.now() - 1000 * 60 * 35).toISOString(),
-    workspaceId: "workspace-demo",
-  },
-  {
-    id: "doc-1",
-    documentId: "doc-1",
-    type: "doc",
-    title: "Operational query governance",
-    snippet: "Policy that defines AUDIT scoped access and masked fields",
-    url: "/docs/doc-1",
-    project_id: "proj-operations",
-    updated_at: new Date(Date.now() - 1000 * 60 * 240).toISOString(),
-    score: 0.74,
-    keywords: ["audit", "governance", "masked", "query", "search"],
-    indexedAt: new Date(Date.now() - 1000 * 60 * 60).toISOString(),
-    workspaceId: "workspace-demo",
-  },
-  {
-    id: "project-1",
-    documentId: "project-1",
-    type: "project",
-    title: "Search reliability initiative",
-    snippet: "Cross-functional effort improving query success rate",
-    url: "/projects/project-1",
-    project_id: "project-1",
-    updated_at: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
-    score: 0.92,
-    keywords: ["reliability", "search", "initiative"],
-    indexedAt: new Date(Date.now() - 1000 * 60 * 10).toISOString(),
-    workspaceId: "workspace-demo",
-    boost: 1.5,
-  },
-  {
-    id: "comment-1",
-    documentId: "comment-1",
-    type: "comment",
-    title: "Comment",
-    snippet: "We should backfill the audit index nightly",
-    url: "/tasks/task-1#comment-1",
-    project_id: "proj-operations",
-    updated_at: new Date(Date.now() - 1000 * 60 * 15).toISOString(),
-    score: 0.55,
-    keywords: ["audit", "index", "backfill"],
-    indexedAt: new Date(Date.now() - 1000 * 60 * 4).toISOString(),
-    workspaceId: "workspace-demo",
-  },
-  {
-    id: "person-1",
-    documentId: "person-1",
-    type: "person",
-    title: "Ava Patel",
-    snippet: "Staff engineer owning search relevancy",
-    url: "/team/person-1",
-    project_id: null,
-    updated_at: new Date(Date.now() - 1000 * 60 * 60 * 6).toISOString(),
-    score: 0.6,
-    keywords: ["ava", "search", "engineer", "relevancy"],
-    indexedAt: new Date(Date.now() - 1000 * 60 * 20).toISOString(),
-    workspaceId: "workspace-demo",
-  },
-];
-
 function hashQuery(input: string): string {
   let hash = 0;
   for (let i = 0; i < input.length; i += 1) {
@@ -293,34 +198,9 @@ function normaliseQuery(input: string | undefined): string {
   return (input ?? "").trim();
 }
 
-function decodeCursor(cursor: string | undefined): number {
-  if (!cursor) return 0;
-  try {
-    if (typeof atob === "function") {
-      return Number.parseInt(atob(cursor), 10) || 0;
-    }
-  } catch (_error) {
-    // Ignore fall through to Buffer
-  }
-  try {
-    if (typeof Buffer !== "undefined") {
-      return Number.parseInt(Buffer.from(cursor, "base64").toString("utf8"), 10) || 0;
-    }
-  } catch (_error) {
-    // fall through
-  }
-  return 0;
-}
-
-function encodeCursor(index: number): string {
-  const raw = String(index);
-  if (typeof btoa === "function") {
-    return btoa(raw);
-  }
-  if (typeof Buffer !== "undefined") {
-    return Buffer.from(raw, "utf8").toString("base64");
-  }
-  return raw;
+function looksLikeOpql(input: string | undefined): boolean {
+  if (!input) return false;
+  return /^(FIND|COUNT|AGGREGATE|UPDATE|EXPLAIN)\b/i.test(input.trim());
 }
 
 function caretForPosition(input: string, position: number): string {
@@ -351,7 +231,7 @@ function applySecurityMask(result: SearchResult, maskedFields: string[]): Search
 }
 
 export class SearchRouter {
-  private readonly documents: SearchDocument[];
+  private readonly engine: typeof searchEngine;
   private readonly rateLimiter: RateLimiter;
   private readonly maxPageSize: number;
   private readonly savedSearches = new Map<string, Map<string, SavedSearchRecord>>();
@@ -360,9 +240,8 @@ export class SearchRouter {
   private throttledCount = 0;
   private lastThrottleAt?: string;
   private readonly blockedPrincipals = new Set<string>();
-
   constructor(options: SearchRouterOptions = {}) {
-    this.documents = options.documents ?? SAMPLE_DOCUMENTS;
+    this.engine = options.engine ?? searchEngine;
     const windowMs = options.rateLimit?.windowMs ?? DEFAULT_WINDOW_MS;
     const maxRequests = options.rateLimit?.maxRequests ?? DEFAULT_MAX_REQUESTS;
     this.rateLimiter = new RateLimiter(maxRequests, windowMs);
@@ -443,83 +322,56 @@ export class SearchRouter {
     const timeoutMs = request.timeoutMs ?? 2000;
     const deadline = nowMs() + timeoutMs;
 
-    const start = nowMs();
-    const indexStart = decodeCursor(request.cursor);
+    const engineRequest: QueryRequest = {
+      workspaceId: request.workspaceId,
+      principal: request.principal,
+      limit,
+      cursor: request.cursor,
+      types: request.types,
+    };
 
-    const scopedDocuments = this.documents
-      .filter((doc) => doc.workspaceId === request.workspaceId)
-      .filter((doc) => {
-        if (!request.types?.length) return true;
-        return request.types.includes(doc.type);
-      });
+    const trimmedOpql = request.opql?.trim();
+    const trimmedQuery = request.query?.trim();
+    if (trimmedOpql) {
+      engineRequest.opql = trimmedOpql;
+    } else if (looksLikeOpql(trimmedQuery)) {
+      engineRequest.opql = trimmedQuery;
+    } else {
+      engineRequest.query = trimmedQuery ?? "";
+    }
 
-    const matched = scopedDocuments
-      .map((doc) => {
-        const searchable = `${doc.title} ${doc.snippet ?? ""} ${doc.keywords.join(" ")}`.toLowerCase();
-        const matches = tokens.length === 0 || tokens.every((token) => searchable.includes(token));
-        const scoreBoost = doc.boost ?? 1;
-        const score = (doc.score ?? 0.5) * scoreBoost;
-        return { doc, matches, score };
-      })
-      .filter((entry) => entry.matches)
-      .sort((a, b) => b.score - a.score || ((b.doc.updated_at ?? "").localeCompare(a.doc.updated_at ?? "")));
+    const execution = await this.engine.execute(engineRequest);
+    const normalizedItems = execution.rows.map((row) =>
+      this.getMaskedResult(toSearchResult(row), request.workspaceId)
+    );
 
-    let nextIndex = indexStart;
-    let yielded = 0;
-    let timeout = false;
-
-    const totalMs = nowMs() - start;
-    const metrics = {
-      totalMs,
+    const metrics: SearchStreamChunk["metrics"] = {
+      totalMs: execution.metrics.totalMs,
       deadline,
-      timeout: false as boolean | undefined,
-      stages: [
-        { name: "filter", duration: totalMs * 0.4 },
-        { name: "rank", duration: totalMs * 0.35 },
-        { name: "paginate", duration: totalMs * 0.25 },
-      ],
-    } satisfies SearchStreamChunk["metrics"];
+      timeout: undefined,
+      stages: execution.metrics.stages,
+    };
 
-    while (yielded < limit && nextIndex < matched.length) {
-      if (nowMs() > deadline) {
-        timeout = true;
-        metrics.timeout = true;
-        break;
-      }
-
-      const chunkEntries = matched.slice(nextIndex, nextIndex + chunkSize);
-      const items = chunkEntries.map(({ doc }) => ({
-        ...doc,
-        score: Number.parseFloat((doc.score ?? 0.5).toFixed(2)),
-      }));
-
-      const cursorIndex = nextIndex + chunkEntries.length;
-      const nextCursor = cursorIndex < matched.length ? encodeCursor(cursorIndex) : undefined;
-      yielded += chunkEntries.length;
-      nextIndex = cursorIndex;
-
+    for (let index = 0; index < normalizedItems.length; index += chunkSize) {
+      const slice = normalizedItems.slice(index, index + chunkSize);
+      const isFinal = index + chunkSize >= normalizedItems.length;
+      const nextCursor = isFinal ? execution.nextCursor : undefined;
       const explain = request.explain
         ? {
-            plan: ["tokenize", "filter", "rank", "paginate"],
-            appliedFilters: request.types?.map((type) => `type:${type}`) ?? [],
+            plan: execution.plan,
+            appliedFilters: execution.appliedFilters,
             pagination: { limit, nextCursor },
             tokenizedQuery: tokens,
           }
         : undefined;
-
-      const partial = Boolean(nextCursor) || timeout;
-
+      const partial = isFinal ? Boolean(execution.nextCursor) : true;
       yield {
-        items,
+        items: slice,
         nextCursor,
         partial,
         metrics,
         explain,
       } satisfies SearchStreamChunk;
-
-      if (!nextCursor) {
-        break;
-      }
     }
 
     const logEntry: SearchLogEntry = {
@@ -530,9 +382,9 @@ export class SearchRouter {
       hashedQuery: hashQuery(queryText.toLowerCase()),
       sampleQuery: tokens.length ? tokens.join(" ") : undefined,
       types: request.types ?? [],
-      durationMs: metrics.totalMs,
-      partial: yielded < matched.length,
-      timeout,
+      durationMs: execution.metrics.totalMs,
+      partial: Boolean(execution.nextCursor),
+      timeout: Boolean(metrics.timeout),
       explainRequested: Boolean(request.explain),
     };
     this.logs.push(logEntry);
@@ -546,8 +398,7 @@ export class SearchRouter {
       return { valid: false, error: "Query cannot be empty", position: 0, caret: "^" } satisfies OpqlValidationFailure;
     }
 
-    try {
-      // Rough validation by ensuring balanced parentheses and supported tokens.
+    if (!looksLikeOpql(query)) {
       const stack: string[] = [];
       for (let index = 0; index < query.length; index += 1) {
         const char = query[index]!;
@@ -560,7 +411,7 @@ export class SearchRouter {
               error: "Unmatched closing parenthesis",
               position: index,
               caret: caretForPosition(query, index),
-            };
+            } satisfies OpqlValidationFailure;
           }
           stack.pop();
         }
@@ -572,25 +423,22 @@ export class SearchRouter {
           error: "Unmatched opening parenthesis",
           position,
           caret: caretForPosition(query, position),
-        };
+        } satisfies OpqlValidationFailure;
       }
-
-      const unsupportedMatch = query.match(/\b(drop|delete|truncate)\b/iu);
-      if (unsupportedMatch) {
-        const position = unsupportedMatch.index ?? 0;
-        return {
-          valid: false,
-          error: `Operator '${unsupportedMatch[0]}' is not supported`,
-          position,
-          caret: caretForPosition(query, position),
-        };
-      }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown validation failure";
-      return { valid: false, error: message, position: 0, caret: caretForPosition(request.opql, 0) } satisfies OpqlValidationFailure;
+      return { valid: true } satisfies OpqlValidationSuccess;
     }
 
-    return { valid: true } satisfies OpqlValidationSuccess;
+    const validation = this.engine.validate(query);
+    if (validation.valid) {
+      return { valid: true } satisfies OpqlValidationSuccess;
+    }
+
+    return {
+      valid: false,
+      error: validation.error ?? "Invalid OPQL statement",
+      position: 0,
+      caret: caretForPosition(query, 0),
+    } satisfies OpqlValidationFailure;
   }
 
   listSavedSearches(request: { workspaceId: string; principal: PrincipalContext }): SavedSearchRecord[] {
@@ -705,12 +553,19 @@ export class SearchRouter {
   }
 
   getDiagnostics(workspaceId: string): SearchDiagnosticsSnapshot {
-    const docs = this.documents.filter((doc) => doc.workspaceId === workspaceId);
-    const newest = docs.reduce((acc, doc) => (acc > doc.indexedAt ? acc : doc.indexedAt), "1970-01-01T00:00:00.000Z");
-    const lagMs = docs.length
-      ? docs
-          .map((doc) => Math.max(0, Date.now() - new Date(doc.indexedAt).getTime()))
-          .reduce((acc, value) => acc + value, 0) / docs.length
+    const repository = this.engine.getRepository();
+    const rows = repository.snapshot ? repository.snapshot(workspaceId) : [];
+    const newest = rows.reduce((acc, row) => {
+      const updated = typeof row.values.updated_at === "string" ? row.values.updated_at : acc;
+      return acc > updated ? acc : updated;
+    }, "1970-01-01T00:00:00.000Z");
+    const lagMs = rows.length
+      ? rows
+          .map((row) => {
+            const timestamp = typeof row.values.updated_at === "string" ? Date.parse(row.values.updated_at) : Date.now();
+            return Math.max(0, Date.now() - timestamp);
+          })
+          .reduce((acc, value) => acc + value, 0) / rows.length
       : 0;
 
     const grouped = new Map<string, { count: number; lastRunAt: string; sample?: string }>();

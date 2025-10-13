@@ -24,7 +24,15 @@ const CLIENT_PRINCIPAL: PrincipalContext = {
   principalId: "user-demo",
   workspaceId: "workspace-demo",
   roles: ["member"],
-  permissions: ["search.execute", "search.saved.read", "search.saved.manage", "search.alerts.manage"],
+  permissions: [
+    "search.execute",
+    "search.saved.read",
+    "search.saved.manage",
+    "search.alerts.manage",
+    "search.comments.read",
+    "search.mask.snippet",
+    "docs.view.sensitive",
+  ],
 };
 
 export class SearchAbuseError extends Error {
