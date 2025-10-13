@@ -1,4 +1,5 @@
 // @ts-nocheck
+import { compileJql, isLikelyJql } from "@/lib/opql/jqlCompiler";
 import { getOpqlSuggestions } from "@/server/search/suggest";
 import { createSearchRouter, type OpqlValidationResult, type SavedSearchRecord, type SearchAlertRecord } from "@/server/search/routes";
 import type { PrincipalContext } from "@/server/search/queryEngine";
@@ -90,10 +91,17 @@ async function executeStream(options: SearchExecutionOptions): Promise<SearchExe
   const limit = options.limit ?? DEFAULT_LIMIT;
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
 
+  let opql: string | undefined;
+  if (isLikelyJql(query)) {
+    const compiled = compileJql(query);
+    opql = compiled.opql;
+  }
+
   const execution = router.streamSearch({
     workspaceId: CLIENT_PRINCIPAL.workspaceId,
     principal: CLIENT_PRINCIPAL,
-    query,
+    query: opql ? undefined : query,
+    opql,
     types,
     limit,
     cursor: options.cursor,
