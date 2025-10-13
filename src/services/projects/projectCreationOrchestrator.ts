@@ -3,6 +3,9 @@ interface ProvisionedBoard {
   projectId: string;
   modules: string[];
   templateKey?: string | null;
+  workspaceId?: string | null;
+  timezone?: string | null;
+  visibility?: string | null;
   createdAt: string;
 }
 
@@ -25,6 +28,9 @@ interface ScheduledImportJob {
 
 export interface ProjectArtifactPlan {
   projectId: string;
+  workspaceId?: string;
+  timezone?: string | null;
+  visibility?: string | null;
   modules: string[];
   templateKey?: string | null;
   workflowBlueprint?: { id: string; name: string; states: string[] } | null;
@@ -42,6 +48,15 @@ const boardStore = new Map<string, ProvisionedBoard>();
 const workflowStore = new Map<string, ProvisionedWorkflow>();
 const importStore = new Map<string, ScheduledImportJob>();
 
+export interface ProjectArtifactProvisioner {
+  createBoard: (plan: ProjectArtifactPlan) => Promise<ProvisionedBoard | null>;
+  removeBoard: (boardId: string) => Promise<void>;
+  createWorkflow: (plan: ProjectArtifactPlan) => Promise<ProvisionedWorkflow | null>;
+  removeWorkflow: (workflowId: string) => Promise<void>;
+  scheduleImport: (plan: ProjectArtifactPlan) => Promise<ScheduledImportJob | null>;
+  cancelImport: (jobId: string) => Promise<void>;
+}
+
 const createId = (prefix: string) => {
   const globalCrypto = typeof globalThis !== "undefined" ? (globalThis as any).crypto : undefined;
   const uuid = typeof globalCrypto?.randomUUID === "function"
@@ -57,6 +72,9 @@ export async function provisionProjectBoard(plan: ProjectArtifactPlan): Promise<
     projectId: plan.projectId,
     modules: Array.from(new Set(plan.modules ?? [])).sort(),
     templateKey: plan.templateKey ?? null,
+    workspaceId: plan.workspaceId ?? null,
+    timezone: plan.timezone ?? null,
+    visibility: plan.visibility ?? null,
     createdAt: new Date().toISOString(),
   };
   boardStore.set(boardId, board);
@@ -117,24 +135,64 @@ export async function cancelProjectImport(jobId: string | null | undefined) {
   }
 }
 
-export async function orchestrateProjectArtifacts(plan: ProjectArtifactPlan): Promise<ProjectArtifactResult> {
-  const result: ProjectArtifactResult = {};
-  try {
-    if (plan.modules.length > 0 || plan.templateKey) {
-      result.board = await provisionProjectBoard(plan);
+const defaultProvisioner: ProjectArtifactProvisioner = {
+  async createBoard(plan) {
+    if ((plan.modules?.length ?? 0) === 0 && !plan.templateKey) {
+      return null;
     }
-    result.workflow = await provisionProjectWorkflow(plan);
-    result.importJob = await scheduleProjectImport(plan);
+    return provisionProjectBoard(plan);
+  },
+  async removeBoard(boardId) {
+    await rollbackProjectBoard(boardId);
+  },
+  async createWorkflow(plan) {
+    return provisionProjectWorkflow(plan);
+  },
+  async removeWorkflow(workflowId) {
+    await rollbackProjectWorkflow(workflowId);
+  },
+  async scheduleImport(plan) {
+    return scheduleProjectImport(plan);
+  },
+  async cancelImport(jobId) {
+    await cancelProjectImport(jobId);
+  },
+};
+
+export async function orchestrateProjectArtifacts(
+  plan: ProjectArtifactPlan,
+  provisioner: ProjectArtifactProvisioner = defaultProvisioner,
+): Promise<ProjectArtifactResult> {
+  const result: ProjectArtifactResult = {};
+  const rollbacks: Array<() => Promise<void>> = [];
+
+  try {
+    const board = await provisioner.createBoard(plan);
+    if (board) {
+      result.board = board;
+      rollbacks.push(() => provisioner.removeBoard(board.id));
+    }
+
+    const workflow = await provisioner.createWorkflow(plan);
+    if (workflow) {
+      result.workflow = workflow;
+      rollbacks.push(() => provisioner.removeWorkflow(workflow.id));
+    }
+
+    const importJob = await provisioner.scheduleImport(plan);
+    if (importJob) {
+      result.importJob = importJob;
+      rollbacks.push(() => provisioner.cancelImport(importJob.id));
+    }
+
     return result;
   } catch (error) {
-    if (result.board) {
-      await rollbackProjectBoard(result.board.id);
-    }
-    if (result.workflow) {
-      await rollbackProjectWorkflow(result.workflow.id);
-    }
-    if (result.importJob) {
-      await cancelProjectImport(result.importJob.id);
+    for (const rollback of rollbacks.reverse()) {
+      try {
+        await rollback();
+      } catch (rollbackError) {
+        console.warn("Failed to rollback project artifact", rollbackError);
+      }
     }
     throw error;
   }

@@ -108,5 +108,82 @@ describe("createProject", () => {
     expect(publish).toHaveBeenCalledWith("project.created", { projectId: insertedProject.id });
     expect(project).toEqual(insertedProject);
   });
+
+  it("reuses the created project when an idempotency key is provided", async () => {
+    const now = new Date().toISOString();
+    const insertedProject: ProjectRecord = {
+      id: "project-456",
+      owner: "user-789",
+      name: "Idempotent Project",
+      description: null,
+      status: "planning",
+      created_at: now,
+      updated_at: now,
+      code: null,
+      template_key: null,
+      modules: null,
+      permission_scheme_id: null,
+      notification_scheme_id: null,
+      sla_scheme_id: null,
+      import_strategy: null,
+      import_sources: null,
+      calendar_id: null,
+      timezone: null,
+      lifecycle: null,
+      field_configuration: null,
+      workflow_ids: null,
+      screen_ids: null,
+      component_catalog: null,
+      version_streams: null,
+      automation_rules: null,
+      integration_configs: null,
+      default_views: null,
+      dashboard_ids: null,
+      archival_policy: null,
+      published_at: null,
+      archived_at: null,
+    };
+
+    const singleMock = jest.fn().mockResolvedValue({ data: insertedProject, error: null });
+    const selectMock = jest.fn().mockReturnValue({ single: singleMock });
+    const insertMock = jest.fn().mockReturnValue({ select: selectMock });
+    const fromMock = jest.fn().mockReturnValue({ insert: insertMock });
+    const customAuthGetUser = jest
+      .fn()
+      .mockResolvedValue({ data: { user: { id: "user-789" } }, error: null });
+
+    const customSupabase = {
+      auth: { getUser: customAuthGetUser },
+      from: fromMock,
+    };
+
+    const tenant: TenantContext = {
+      organizationId: "org-123",
+      workspaceId: "workspace-123",
+      spaceId: "space-456",
+      userId: "user-789",
+      environment: "development",
+    };
+
+    const publish = jest.fn();
+
+    const options: ProjectServiceOptions = {
+      client: {
+        raw: customSupabase,
+        tenant,
+        publish,
+      } as unknown as DomainClient,
+    };
+
+    const input = { name: "Idempotent Project", idempotency_key: "create-once" };
+
+    const first = await createProject(input, options);
+    const second = await createProject(input, options);
+
+    expect(first).toEqual(insertedProject);
+    expect(second).toBe(first);
+    expect(insertMock).toHaveBeenCalledTimes(1);
+    expect(publish).toHaveBeenCalledTimes(1);
+  });
 });
 

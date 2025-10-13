@@ -25,6 +25,13 @@ export interface ProjectLifecycleMetadata {
   success_metrics?: string[] | null;
   stakeholders?: string[] | null;
   communication_channels?: string[] | null;
+  default_language?: string | null;
+  working_days?: string[] | null;
+  visibility?: string | null;
+  icon?: string | null;
+  color?: string | null;
+  workspace_path?: string | null;
+  idempotency_key?: string | null;
 }
 
 export interface ProjectArchivalPolicy {
@@ -174,6 +181,13 @@ const normalizeLifecycle = (lifecycle?: ProjectLifecycleMetadata | null): Projec
     success_metrics: normalizeArray(lifecycle.success_metrics ?? null),
     stakeholders: normalizeArray(lifecycle.stakeholders ?? null),
     communication_channels: normalizeArray(lifecycle.communication_channels ?? null),
+    default_language: lifecycle.default_language ?? null,
+    working_days: normalizeArray(lifecycle.working_days ?? null),
+    visibility: lifecycle.visibility ?? null,
+    icon: lifecycle.icon ?? null,
+    color: lifecycle.color ?? null,
+    workspace_path: lifecycle.workspace_path ?? null,
+    idempotency_key: lifecycle.idempotency_key ?? null,
   };
 };
 
@@ -295,12 +309,29 @@ export interface CreateProjectInput {
   default_views?: string[];
   dashboard_ids?: string[];
   archival_policy?: ProjectArchivalPolicy;
+  idempotency_key?: string;
 }
+
+const pendingCreateRequests = new Map<string, Promise<ProjectRecord>>();
+const completedCreateRequests = new Map<string, ProjectRecord>();
 
 export async function createProject(
   input: CreateProjectInput,
   options?: ProjectServiceOptions,
 ): Promise<ProjectRecord> {
+  const idempotencyKey = input.idempotency_key?.trim();
+
+  if (idempotencyKey) {
+    const existing = completedCreateRequests.get(idempotencyKey);
+    if (existing) {
+      return existing;
+    }
+    const pending = pendingCreateRequests.get(idempotencyKey);
+    if (pending) {
+      return pending;
+    }
+  }
+
   const client = resolveClient(options);
   const { data: auth, error: authError } = await client.auth.getUser();
   if (authError) {
@@ -318,6 +349,13 @@ export async function createProject(
   }
 
   const tenant = resolveTenant(options);
+
+  const lifecycleInput: ProjectLifecycleMetadata | undefined = input.lifecycle
+    ? { ...input.lifecycle, idempotency_key: input.lifecycle.idempotency_key ?? idempotencyKey ?? null }
+    : idempotencyKey
+      ? { idempotency_key: idempotencyKey }
+      : undefined;
+
   const payload = {
     name: trimmedName,
     description: input.description?.trim() || null,
@@ -337,7 +375,7 @@ export async function createProject(
     import_sources: normalizeArray(input.import_sources ?? null),
     calendar_id: input.calendar_id ?? null,
     timezone: input.timezone ?? null,
-    lifecycle: normalizeLifecycle(input.lifecycle ?? null),
+    lifecycle: normalizeLifecycle(lifecycleInput ?? null),
     field_configuration: normalizeArray(input.field_configuration ?? null),
     workflow_ids: normalizeArray(input.workflow_ids ?? null),
     screen_ids: normalizeArray(input.screen_ids ?? null),
@@ -352,27 +390,45 @@ export async function createProject(
     archived_at: null,
   };
 
-  const { data, error } = await (client
-    .from("projects")
-    .insert(payload as any)
-    .select()
-    .single() as any);
+  const request = (async () => {
+    const { data, error } = await (client
+      .from("projects")
+      .insert(payload as any)
+      .select()
+      .single() as any);
 
-  if (error) {
-    throw error;
+    if (error) {
+      throw error;
+    }
+
+    const project = data as any as ProjectRecord;
+    if (options?.client) {
+      options.client.publish("project.created", { projectId: project.id });
+    } else {
+      domainEventBus.publish({
+        type: "project.created",
+        payload: { projectId: project.id },
+        tenant: tenant ?? undefined,
+      });
+    }
+    return project;
+  })();
+
+  if (idempotencyKey) {
+    pendingCreateRequests.set(idempotencyKey, request);
   }
 
-  const project = data as any as ProjectRecord;
-  if (options?.client) {
-    options.client.publish("project.created", { projectId: project.id });
-  } else {
-    domainEventBus.publish({
-      type: "project.created",
-      payload: { projectId: project.id },
-      tenant: tenant ?? undefined,
-    });
+  try {
+    const project = await request;
+    if (idempotencyKey) {
+      completedCreateRequests.set(idempotencyKey, project);
+    }
+    return project;
+  } finally {
+    if (idempotencyKey) {
+      pendingCreateRequests.delete(idempotencyKey);
+    }
   }
-  return project;
 }
 
 export type UpdateProjectInput = Partial<
