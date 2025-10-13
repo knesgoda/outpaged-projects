@@ -1,4 +1,15 @@
-import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type FocusEvent,
+  type FormEvent,
+  type KeyboardEvent,
+} from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
@@ -36,11 +47,17 @@ import { NAV } from "@/lib/navConfig";
 import { getWorkspaceRole, type Role } from "@/lib/auth";
 import { PROJECT_TABS } from "@/components/common/TabBar";
 import { useAuth } from "@/hooks/useAuth";
-import { useCommandK } from "@/components/command/useCommandK";
 import { useMyProfile } from "@/hooks/useProfile";
 import { useWorkspaceSettings } from "@/hooks/useWorkspace";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { useWorkspaceContext } from "@/state/workspace";
+import { NotificationBell } from "@/components/notifications/NotificationBell";
+import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
+import { formatSuggestionValue } from "@/lib/opqlSuggestions";
+import { opqlSuggest, searchAll, SearchAbuseError } from "@/services/search";
+import type { OpqlSuggestionItem, OpqlSuggestionResponse } from "@/types";
+import { useTelemetry } from "@/components/telemetry/TelemetryProvider";
 
 function findNavLabel(path: string) {
   const walk = (items = NAV): string | undefined => {
@@ -113,6 +130,15 @@ function findCustomLabel(path: string) {
   return match?.label;
 }
 
+const isTextInputLike = (element: Element | null) => {
+  if (!element) return false;
+  const tagName = element.tagName;
+  if (tagName === "INPUT" || tagName === "TEXTAREA") {
+    return true;
+  }
+  return (element as HTMLElement).isContentEditable;
+};
+
 type TopbarProps = {
   onToggleSidebar: () => void;
   onOpenShortcuts?: () => void;
@@ -142,7 +168,18 @@ export function Topbar({ onToggleSidebar, onOpenShortcuts }: TopbarProps) {
     loadingSpaces,
   } = useWorkspaceContext();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const { openPalette } = useCommandK();
+  const { track } = useTelemetry();
+  const [query, setQuery] = useState("");
+  const [cursor, setCursor] = useState(0);
+  const [suggestionState, setSuggestionState] = useState<OpqlSuggestionResponse | null>(null);
+  const [activeSuggestion, setActiveSuggestion] = useState(-1);
+  const [isSuggesting, setIsSuggesting] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [isInputFocused, setIsInputFocused] = useState(false);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const blurTimeoutRef = useRef<number | null>(null);
+  const suggestionRequestIdRef = useRef(0);
 
   useEffect(() => {
     let active = true;
@@ -176,7 +213,279 @@ export function Topbar({ onToggleSidebar, onOpenShortcuts }: TopbarProps) {
     return () => {
       active = false;
     };
-  }, [user?.id]);
+  }, [user]);
+
+  useEffect(() => {
+    track("ui.shell_loaded", { path: location.pathname });
+  }, [location.pathname, track]);
+
+  const updateCursorFromElement = useCallback((element: HTMLInputElement | null) => {
+    if (!element) return;
+    const next = element.selectionStart ?? element.value.length;
+    setCursor(next);
+  }, []);
+
+  const focusSearchInput = useCallback(
+    (selectAll = false) => {
+      const element = inputRef.current;
+      if (!element) return;
+      element.focus();
+      if (selectAll) {
+        requestAnimationFrame(() => {
+          element.select();
+          updateCursorFromElement(element);
+        });
+      } else {
+        updateCursorFromElement(element);
+      }
+      setIsInputFocused(true);
+    },
+    [updateCursorFromElement]
+  );
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+    const handler = (event: KeyboardEvent) => {
+      if (event.key.toLowerCase() === "k" && (event.metaKey || event.ctrlKey)) {
+        event.preventDefault();
+        focusSearchInput(true);
+        return;
+      }
+      if (event.key === "/" && !event.metaKey && !event.ctrlKey && !event.altKey) {
+        const active = document.activeElement;
+        if (!isTextInputLike(active)) {
+          event.preventDefault();
+          focusSearchInput(true);
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [focusSearchInput]);
+
+  useEffect(() => {
+    return () => {
+      if (blurTimeoutRef.current !== null) {
+        window.clearTimeout(blurTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    const trimmed = query.trim();
+    if (!trimmed) {
+      setSuggestionState(null);
+      setActiveSuggestion(-1);
+      setIsSuggesting(false);
+      return;
+    }
+
+    if (!isInputFocused) {
+      return;
+    }
+
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    setIsSuggesting(true);
+    const handle = window.setTimeout(() => {
+      const requestId = suggestionRequestIdRef.current + 1;
+      suggestionRequestIdRef.current = requestId;
+      opqlSuggest({ text: query, cursor: Math.max(0, Math.min(cursor, query.length)) })
+        .then((response) => {
+          if (suggestionRequestIdRef.current !== requestId) return;
+          setSuggestionState(response);
+          setActiveSuggestion(response.items.length > 0 ? 0 : -1);
+        })
+        .catch((error) => {
+          if (suggestionRequestIdRef.current !== requestId) return;
+          console.warn("Failed to load OPQL suggestions", error);
+          setSuggestionState(null);
+          setActiveSuggestion(-1);
+        })
+        .finally(() => {
+          if (suggestionRequestIdRef.current === requestId) {
+            setIsSuggesting(false);
+          }
+        });
+    }, 180);
+
+    return () => {
+      window.clearTimeout(handle);
+    };
+  }, [cursor, isInputFocused, query]);
+
+  const suggestionItems = useMemo(() => suggestionState?.items ?? [], [suggestionState]);
+  const isSuggestionPanelOpen =
+    isInputFocused && query.trim().length > 0 && (isSuggesting || suggestionItems.length > 0);
+  const suggestionListId = "topbar-search-suggestions";
+  const activeSuggestionId =
+    activeSuggestion >= 0 ? `${suggestionListId}-${activeSuggestion}` : undefined;
+  const errorId = searchError ? "topbar-search-error" : undefined;
+
+  const applyReplacement = useCallback(
+    (replacement: string, range?: { start: number; end: number }) => {
+      const tokenRange = range ?? suggestionState?.token ?? { start: query.length, end: query.length };
+      const safeStart = Math.max(0, Math.min(tokenRange.start, query.length));
+      const safeEnd = Math.max(0, Math.min(tokenRange.end, query.length));
+      const before = query.slice(0, safeStart);
+      const after = query.slice(safeEnd).replace(/^\s+/u, "");
+      const nextValue = `${before}${replacement}${after}`;
+      const nextCursorPosition = safeStart + replacement.length;
+      setQuery(nextValue);
+      setCursor(nextCursorPosition);
+      setSearchError(null);
+      requestAnimationFrame(() => {
+        const element = inputRef.current;
+        if (!element) return;
+        element.focus();
+        element.setSelectionRange(nextCursorPosition, nextCursorPosition);
+      });
+    },
+    [query, suggestionState?.token]
+  );
+
+  const applySuggestionItem = useCallback(
+    (item: OpqlSuggestionItem) => {
+      const insertion = `${formatSuggestionValue(item)} `;
+      applyReplacement(insertion);
+      setActiveSuggestion(-1);
+    },
+    [applyReplacement]
+  );
+
+  const applyCompletion = useCallback(() => {
+    const completion = suggestionState?.completion;
+    if (completion) {
+      applyReplacement(completion.insertText, completion.range);
+      setActiveSuggestion(-1);
+      return true;
+    }
+    const first = suggestionItems[0];
+    if (first) {
+      applySuggestionItem(first);
+      return true;
+    }
+    return false;
+  }, [applyReplacement, applySuggestionItem, suggestionItems, suggestionState?.completion]);
+
+  const handleInputChange = useCallback(
+    (event: ChangeEvent<HTMLInputElement>) => {
+      setQuery(event.target.value);
+      setSearchError(null);
+      updateCursorFromElement(event.currentTarget);
+    },
+    [updateCursorFromElement]
+  );
+
+  const handleInputFocus = useCallback(
+    (event: FocusEvent<HTMLInputElement>) => {
+      if (blurTimeoutRef.current !== null) {
+        window.clearTimeout(blurTimeoutRef.current);
+        blurTimeoutRef.current = null;
+      }
+      setIsInputFocused(true);
+      updateCursorFromElement(event.currentTarget);
+    },
+    [updateCursorFromElement]
+  );
+
+  const handleInputBlur = useCallback(() => {
+    if (typeof window === "undefined") return;
+    blurTimeoutRef.current = window.setTimeout(() => {
+      setIsInputFocused(false);
+      setActiveSuggestion(-1);
+    }, 100);
+  }, []);
+
+  const handleInputKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLInputElement>) => {
+      if (event.key === "ArrowDown" && suggestionItems.length > 0) {
+        event.preventDefault();
+        setActiveSuggestion((previous) => {
+          const next = previous + 1;
+          if (next >= suggestionItems.length) {
+            return 0;
+          }
+          return next;
+        });
+        return;
+      }
+
+      if (event.key === "ArrowUp" && suggestionItems.length > 0) {
+        event.preventDefault();
+        setActiveSuggestion((previous) => {
+          if (previous <= 0) {
+            return suggestionItems.length - 1;
+          }
+          return previous - 1;
+        });
+        return;
+      }
+
+      if (event.key === "Tab") {
+        if (applyCompletion()) {
+          event.preventDefault();
+        }
+        return;
+      }
+
+      if (event.key === "Enter") {
+        if (isSuggestionPanelOpen && activeSuggestion >= 0 && suggestionItems[activeSuggestion]) {
+          event.preventDefault();
+          applySuggestionItem(suggestionItems[activeSuggestion]);
+          return;
+        }
+        if (isSuggestionPanelOpen && suggestionState?.completion) {
+          if (applyCompletion()) {
+            event.preventDefault();
+            return;
+          }
+        }
+        return;
+      }
+
+      if (event.key === "Escape") {
+        if (isSuggestionPanelOpen) {
+          event.preventDefault();
+          setSuggestionState(null);
+          setActiveSuggestion(-1);
+        }
+        setIsInputFocused(false);
+        event.currentTarget.blur();
+      }
+    },
+    [activeSuggestion, applyCompletion, applySuggestionItem, isSuggestionPanelOpen, suggestionItems, suggestionState]
+  );
+
+  const handleFormSubmit = useCallback(
+    async (event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      const trimmed = query.trim();
+      if (!trimmed) {
+        return;
+      }
+      setIsSearching(true);
+      setSearchError(null);
+      try {
+        await searchAll({ q: trimmed, limit: 20 });
+        track("ui.nav_click", { target: "search", method: "submit" });
+        navigate(`/search?q=${encodeURIComponent(trimmed)}`);
+      } catch (error) {
+        if (error instanceof SearchAbuseError) {
+          setSearchError(`Too many searches. Try again in ${Math.ceil(error.retryAfter)}s.`);
+        } else {
+          setSearchError("Search failed. Try again.");
+        }
+        console.error("Search submission failed", error);
+      } finally {
+        setIsSearching(false);
+      }
+    },
+    [navigate, query, track]
+  );
 
   const actions = useMemo(
     () => [
@@ -503,24 +812,104 @@ export function Topbar({ onToggleSidebar, onOpenShortcuts }: TopbarProps) {
         </Breadcrumb>
       </div>
 
-      <div className="mx-auto hidden w-full max-w-xl md:flex">
-        <button
-          type="button"
-          onClick={() => openPalette()}
-          className="flex h-10 w-full items-center gap-2 rounded-md border border-input bg-background px-3 text-left text-sm text-muted-foreground shadow-sm transition hover:border-primary/50 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-          aria-label="Open search"
-        >
-          <Search className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-          <span className="flex-1 text-left">Search everything</span>
-          <span className="hidden items-center rounded border bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground sm:flex">
-            Ctrl&nbsp;K
-          </span>
-        </button>
+      <div className="mx-auto hidden w-full max-w-xl md:flex md:flex-col">
+        <form onSubmit={handleFormSubmit} className="relative w-full">
+          <div className="relative">
+            <Search
+              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+              aria-hidden="true"
+            />
+            <Input
+              ref={inputRef}
+              type="search"
+              value={query}
+              onChange={handleInputChange}
+              onFocus={handleInputFocus}
+              onBlur={handleInputBlur}
+              onKeyDown={handleInputKeyDown}
+              onKeyUp={(event) => updateCursorFromElement(event.currentTarget)}
+              onClick={(event) => updateCursorFromElement(event.currentTarget)}
+              onSelect={(event) => updateCursorFromElement(event.currentTarget)}
+              placeholder="Search across tasks, docs, people…"
+              autoComplete="off"
+              role="combobox"
+              aria-autocomplete="list"
+              aria-expanded={isSuggestionPanelOpen}
+              aria-controls={isSuggestionPanelOpen ? suggestionListId : undefined}
+              aria-activedescendant={activeSuggestionId}
+              aria-describedby={errorId}
+              className={cn(
+                "h-10 w-full pl-9 pr-24",
+                errorId ? "border-destructive focus-visible:ring-destructive" : undefined
+              )}
+            />
+            {isSearching ? (
+              <Loader2
+                className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground"
+                aria-hidden="true"
+              />
+            ) : (
+              <span className="pointer-events-none absolute right-3 top-1/2 hidden -translate-y-1/2 items-center rounded border bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground sm:flex">
+                Ctrl&nbsp;K
+              </span>
+            )}
+            {isSuggestionPanelOpen ? (
+              <div
+                className="absolute left-0 right-0 z-50 mt-1 overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-lg"
+                role="listbox"
+                id={suggestionListId}
+              >
+                {isSuggesting ? (
+                  <div className="flex items-center gap-2 px-3 py-2 text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                    <span>Loading suggestions…</span>
+                  </div>
+                ) : suggestionItems.length === 0 ? (
+                  <div className="px-3 py-2 text-sm text-muted-foreground">No suggestions yet.</div>
+                ) : (
+                  suggestionItems.map((item, index) => (
+                    <button
+                      key={`${item.id}-${index}`}
+                      type="button"
+                      onMouseDown={(event) => {
+                        event.preventDefault();
+                        applySuggestionItem(item);
+                      }}
+                      className={cn(
+                        "flex w-full flex-col items-start gap-1 px-3 py-2 text-left text-sm transition",
+                        index === activeSuggestion ? "bg-accent text-accent-foreground" : undefined
+                      )}
+                      role="option"
+                      aria-selected={index === activeSuggestion}
+                      id={`${suggestionListId}-${index}`}
+                    >
+                      <span className="font-medium text-foreground">{formatSuggestionValue(item)}</span>
+                      {item.description ? (
+                        <span className="text-xs text-muted-foreground">{item.description}</span>
+                      ) : null}
+                    </button>
+                  ))
+                )}
+              </div>
+            ) : null}
+          </div>
+        </form>
+        {searchError ? (
+          <p
+            id={errorId}
+            role="status"
+            aria-live="polite"
+            className="mt-1 text-xs text-destructive"
+          >
+            {searchError}
+          </p>
+        ) : null}
       </div>
 
       <div className="ml-auto flex items-center gap-2">
+        <NotificationBell />
         <ThemeToggle />
-        
+
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" aria-label="Help and shortcuts">
