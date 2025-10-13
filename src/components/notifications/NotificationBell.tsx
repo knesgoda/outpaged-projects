@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useNotifications, useMarkRead, useMarkAllRead } from "@/hooks/useNotifications";
 import { formatDistanceToNow } from "date-fns";
+import { useTelemetry } from "@/components/telemetry/TelemetryProvider";
 import {
   Bell,
   AtSign,
@@ -43,6 +44,7 @@ export function NotificationBell() {
   const { notifications, unreadCount, isLoading } = useNotifications("all");
   const markRead = useMarkRead();
   const markAllRead = useMarkAllRead();
+  const { track } = useTelemetry();
 
   const latestNotifications = useMemo(
     () => notifications.slice(0, 10),
@@ -65,7 +67,13 @@ export function NotificationBell() {
   };
 
   return (
-    <DropdownMenu>
+    <DropdownMenu
+      onOpenChange={(open) => {
+        if (open) {
+          track("ui.nav_click", { target: "notifications" });
+        }
+      }}
+    >
       <DropdownMenuTrigger asChild>
         <Button
           variant="ghost"
