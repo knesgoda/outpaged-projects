@@ -1,6 +1,29 @@
 // @ts-nocheck
 import "@testing-library/jest-dom";
 
+if (typeof globalThis.structuredClone !== "function") {
+  let polyfill: ((value: unknown) => unknown) | undefined;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires -- fallback for test environment
+    const { structuredClone: nodeStructuredClone } = require("node:util");
+    if (typeof nodeStructuredClone === "function") {
+      polyfill = nodeStructuredClone;
+    }
+  } catch (_error) {
+    polyfill = undefined;
+  }
+
+  if (typeof polyfill !== "function") {
+    polyfill = (input: unknown) => JSON.parse(JSON.stringify(input));
+  }
+
+  Object.defineProperty(globalThis, "structuredClone", {
+    value: polyfill,
+    configurable: true,
+    writable: true,
+  });
+}
+
 let accessibilityMatchers: Record<string, unknown> | null = null;
 try {
   // eslint-disable-next-line @typescript-eslint/no-var-requires -- conditional dependency
