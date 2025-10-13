@@ -176,6 +176,35 @@ const normalizeLifecycle = (lifecycle?: ProjectLifecycleMetadata | null): Projec
   };
 };
 
+const resolveSupabaseFunctionBaseUrl = () => {
+  let importMetaEnv: Record<string, string | undefined> | undefined;
+  try {
+    importMetaEnv = new Function(
+      "return typeof import !== 'undefined' && import.meta ? import.meta.env : undefined;",
+    )() as Record<string, string | undefined> | undefined;
+  } catch (_error) {
+    importMetaEnv = undefined;
+  }
+
+  const globalEnv = (globalThis as {
+    __import_meta_env__?: Record<string, string | undefined>;
+  }).__import_meta_env__;
+  const processEnv =
+    typeof process !== "undefined"
+      ? (process.env as Record<string, string | undefined>)
+      : undefined;
+
+  return (
+    importMetaEnv?.VITE_SUPABASE_URL ??
+    globalEnv?.VITE_SUPABASE_URL ??
+    processEnv?.VITE_SUPABASE_URL ??
+    processEnv?.SUPABASE_URL ??
+    processEnv?.NEXT_PUBLIC_SUPABASE_URL ??
+    processEnv?.PUBLIC_SUPABASE_URL ??
+    ""
+  );
+};
+
 export async function listProjects(
   params: ProjectListParams = {},
   options?: ProjectServiceOptions,
@@ -278,7 +307,8 @@ export async function createProject(
   input: CreateProjectInput,
   options?: ProjectServiceOptions,
 ): Promise<ProjectRecord> {
-  const { data: auth, error: authError } = await supabase.auth.getUser();
+  const client = resolveClient(options);
+  const { data: auth, error: authError } = await client.auth.getUser();
   if (authError) {
     throw authError;
   }
@@ -328,7 +358,7 @@ export async function createProject(
     archived_at: null,
   };
 
-  const { data, error } = await (resolveClient(options)
+  const { data, error } = await (client
     .from("projects")
     .insert(payload as any)
     .select()
@@ -468,7 +498,7 @@ export async function updateProject(
   return project;
 }
 
-const PROJECT_LIFECYCLE_FUNCTION = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/project-lifecycle`;
+const PROJECT_LIFECYCLE_FUNCTION = `${resolveSupabaseFunctionBaseUrl()}/functions/v1/project-lifecycle`;
 
 async function getLifecycleToken() {
   const { data, error } = await supabase.auth.getSession();
