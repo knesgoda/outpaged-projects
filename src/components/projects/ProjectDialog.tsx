@@ -22,6 +22,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useCreateProject } from "@/hooks/useProjects";
 import { useApplyProjectTemplate, useProjectTemplates } from "@/hooks/useProjectTemplates";
 import { useTelemetry } from "@/components/telemetry/TelemetryProvider";
+import { useTenant } from "@/domain/tenant";
 import type { ProjectStatus } from "@/services/projects";
 import { orchestrateProjectArtifacts } from "@/services/projects/projectCreationOrchestrator";
 import { PROJECT_STATUS_FILTER_OPTIONS } from "@/utils/project-status";
@@ -46,6 +47,69 @@ import {
 
 const AUTOSAVE_STORAGE_KEY = "project-dialog.creation-state";
 
+const generateIdempotencyKey = () => {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+};
+
+const toProjectKey = (name: string) => {
+  const sanitized = name
+    .replace(/[^A-Za-z0-9]/g, "")
+    .toUpperCase()
+    .slice(0, 10);
+  if (sanitized.length >= 2) {
+    return sanitized;
+  }
+  if (!sanitized && name) {
+    const ascii = name
+      .normalize("NFD")
+      .replace(/[^A-Za-z0-9]/g, "")
+      .toUpperCase();
+    if (ascii.length >= 2) {
+      return ascii.slice(0, 10);
+    }
+  }
+  return sanitized;
+};
+
+const PROJECT_VISIBILITY_OPTIONS = [
+  { id: "private", label: "Private" },
+  { id: "team", label: "Team" },
+  { id: "org", label: "Organization" },
+];
+
+const PROJECT_ICON_OPTIONS = ["🚀", "📈", "🛠️", "🎯", "🧭", "📦"];
+
+const PROJECT_COLOR_OPTIONS = [
+  "#2563eb",
+  "#0ea5e9",
+  "#22c55e",
+  "#f97316",
+  "#f59e0b",
+  "#a855f7",
+  "#ef4444",
+];
+
+const WORKING_DAY_OPTIONS = [
+  { id: "mon", label: "Mon" },
+  { id: "tue", label: "Tue" },
+  { id: "wed", label: "Wed" },
+  { id: "thu", label: "Thu" },
+  { id: "fri", label: "Fri" },
+  { id: "sat", label: "Sat" },
+  { id: "sun", label: "Sun" },
+];
+
+const LANGUAGE_OPTIONS = [
+  { id: "en-US", label: "English (US)" },
+  { id: "en-GB", label: "English (UK)" },
+  { id: "es-ES", label: "Spanish" },
+  { id: "de-DE", label: "German" },
+  { id: "fr-FR", label: "French" },
+];
+
 type StepComponent = (props: ProjectCreationStepContext) => JSX.Element;
 
 interface StepDefinition {
@@ -53,6 +117,20 @@ interface StepDefinition {
   title: string;
   description: string;
   Component: StepComponent;
+}
+
+interface StepValidationResult {
+  valid: boolean;
+  issues: string[];
+}
+
+interface StepValidationContext {
+  selectedTemplate: TemplateSummary | null;
+  selectedFieldPreset?: (typeof PROJECT_FIELD_PRESETS)[number];
+  selectedWorkflow?: (typeof PROJECT_WORKFLOW_BLUEPRINTS)[number];
+  selectedScreenPack?: (typeof PROJECT_SCREEN_PACKS)[number];
+  selectedComponentPack?: (typeof PROJECT_COMPONENT_PACKS)[number];
+  selectedVersionStrategy?: (typeof PROJECT_VERSION_STRATEGIES)[number];
 }
 
 const STEP_DEFINITIONS: StepDefinition[] = [
@@ -95,6 +173,13 @@ type CreationState = {
   description: string;
   code: string;
   status: Exclude<ProjectStatus, "archived">;
+  visibility: string;
+  icon: string;
+  color: string;
+  workingDays: string[];
+  language: string;
+  workspacePath: string;
+  codeManuallyEdited: boolean;
   startDate?: Date;
   endDate?: Date;
   templateKey: string;
@@ -185,11 +270,113 @@ const splitList = (value: string) =>
     .map(entry => entry.trim())
     .filter(Boolean);
 
+const computeStepValidation = (
+  state: CreationState,
+  context: StepValidationContext,
+): Record<StepId, StepValidationResult> => {
+  const basicsIssues: string[] = [];
+  const trimmedName = state.name.trim();
+  const trimmedCode = state.code.trim();
+  if (!trimmedName) {
+    basicsIssues.push("Project name is required.");
+  }
+  if (!trimmedCode) {
+    basicsIssues.push("Project key is required.");
+  } else {
+    if (trimmedCode.length < 2 || trimmedCode.length > 10) {
+      basicsIssues.push("Project key must be between 2 and 10 characters.");
+    }
+    if (!/^[A-Z0-9]+$/.test(trimmedCode)) {
+      basicsIssues.push("Project key must contain only letters and numbers.");
+    }
+  }
+  if (!state.visibility) {
+    basicsIssues.push("Select a visibility level.");
+  }
+  if (!state.icon) {
+    basicsIssues.push("Choose an icon for the project.");
+  }
+  if (!state.color) {
+    basicsIssues.push("Select a color for the project.");
+  }
+  if (!state.timezone) {
+    basicsIssues.push("Timezone is required.");
+  }
+  if (!state.workingDays.length) {
+    basicsIssues.push("Select at least one working day.");
+  }
+  if (!state.language) {
+    basicsIssues.push("Choose a default language.");
+  }
+
+  const templateIssues: string[] = [];
+  if (!state.templateKey && !context.selectedTemplate) {
+    templateIssues.push("Pick a starting template.");
+  }
+  if (!context.selectedFieldPreset) {
+    templateIssues.push("Select a field preset.");
+  }
+  if (!context.selectedWorkflow) {
+    templateIssues.push("Select a workflow blueprint.");
+  }
+  if (!context.selectedScreenPack) {
+    templateIssues.push("Select screen packs for item types.");
+  }
+  if (!context.selectedComponentPack) {
+    templateIssues.push("Select a component catalog.");
+  }
+  if (!context.selectedVersionStrategy) {
+    templateIssues.push("Choose a versioning strategy.");
+  }
+
+  const capabilitiesIssues: string[] = [];
+  if (!state.permissionScheme) {
+    capabilitiesIssues.push("Assign a permission scheme.");
+  }
+  if (!state.notificationScheme) {
+    capabilitiesIssues.push("Assign a notification scheme.");
+  }
+
+  const lifecycleIssues: string[] = [];
+  if (!state.reviewCadence) {
+    lifecycleIssues.push("Define a review cadence.");
+  }
+  if (!state.calendarId) {
+    lifecycleIssues.push("Select a project calendar.");
+  }
+  if (!state.archivalWorkflow) {
+    lifecycleIssues.push("Choose an archival workflow.");
+  }
+  if (!state.importStrategy) {
+    lifecycleIssues.push("Choose an import or seeding strategy.");
+  }
+
+  const reviewIssues: string[] = [];
+  if (basicsIssues.length || templateIssues.length || capabilitiesIssues.length || lifecycleIssues.length) {
+    reviewIssues.push("Resolve issues in previous steps before creating the project.");
+  }
+
+  return {
+    basics: { valid: basicsIssues.length === 0, issues: basicsIssues },
+    template: { valid: templateIssues.length === 0, issues: templateIssues },
+    capabilities: { valid: capabilitiesIssues.length === 0, issues: capabilitiesIssues },
+    lifecycle: { valid: lifecycleIssues.length === 0, issues: lifecycleIssues },
+    review: { valid: reviewIssues.length === 0, issues: reviewIssues },
+  } satisfies Record<StepId, StepValidationResult>;
+};
+
 const createInitialState = (initialTemplateId?: string): CreationState => ({
   name: "",
   description: "",
   code: "",
   status: "planning",
+  visibility: PROJECT_VISIBILITY_OPTIONS[0]?.id ?? "private",
+  icon: PROJECT_ICON_OPTIONS[0] ?? "🚀",
+  color: PROJECT_COLOR_OPTIONS[0] ?? "#2563eb",
+  workingDays: WORKING_DAY_OPTIONS.slice(0, 5).map(option => option.id),
+  language: LANGUAGE_OPTIONS[0]?.id ?? "en-US",
+  workspacePath: "",
+  codeManuallyEdited: false,
   startDate: undefined,
   endDate: undefined,
   templateKey: initialTemplateId ?? "",
@@ -249,6 +436,13 @@ const hydrateCreationState = (persisted: Partial<PersistedCreationState>, initia
     integrationOptions: Array.isArray(persisted.integrationOptions)
       ? persisted.integrationOptions
       : base.integrationOptions,
+    workingDays: Array.isArray((persisted as any).workingDays) && (persisted as any).workingDays.length
+      ? ((persisted as any).workingDays as string[])
+      : base.workingDays,
+    codeManuallyEdited:
+      typeof (persisted as any).codeManuallyEdited === "boolean"
+        ? (persisted as any).codeManuallyEdited
+        : base.codeManuallyEdited,
     startDate: parseDate(persisted.startDate),
     endDate: parseDate(persisted.endDate),
     kickoffDate: parseDate(persisted.kickoffDate),
@@ -267,6 +461,7 @@ interface ProjectDialogProps {
 export function ProjectDialog({ open, onOpenChange, onSuccess, initialTemplateId }: ProjectDialogProps) {
   const { toast } = useToast();
   const telemetry = useTelemetry();
+  const tenant = useTenant();
   const createProject = useCreateProject();
   const applyTemplate = useApplyProjectTemplate();
   const { data: templates = [], isLoading: loadingTemplates } = useProjectTemplates();
@@ -279,11 +474,23 @@ export function ProjectDialog({ open, onOpenChange, onSuccess, initialTemplateId
 
   const [activeStep, setActiveStep] = useState<StepId>(STEP_DEFINITIONS[0].id);
   const [formData, setFormData] = useState<CreationState>(() => createInitialState(initialTemplateId));
+  const [idempotencyKey, setIdempotencyKey] = useState<string>(() => generateIdempotencyKey());
+  const [attemptedSteps, setAttemptedSteps] = useState<StepId[]>([]);
   const latestFormData = useRef(formData);
 
   useEffect(() => {
     latestFormData.current = formData;
   }, [formData]);
+
+  useEffect(() => {
+    if (formData.codeManuallyEdited) {
+      return;
+    }
+    const nextCode = toProjectKey(formData.name);
+    if (nextCode && nextCode !== formData.code) {
+      setFormData(prev => ({ ...prev, code: nextCode }));
+    }
+  }, [formData.name, formData.code, formData.codeManuallyEdited]);
 
   const clearPersistedState = useCallback(() => {
     if (typeof window === "undefined") {
@@ -378,6 +585,8 @@ export function ProjectDialog({ open, onOpenChange, onSuccess, initialTemplateId
   const resetForm = useCallback(() => {
     setActiveStep(STEP_DEFINITIONS[0].id);
     setFormData(createInitialState(initialTemplateId));
+    setIdempotencyKey(generateIdempotencyKey());
+    setAttemptedSteps([]);
     clearPersistedState();
   }, [clearPersistedState, initialTemplateId]);
 
@@ -399,6 +608,10 @@ export function ProjectDialog({ open, onOpenChange, onSuccess, initialTemplateId
     const prevStep = STEP_DEFINITIONS[Math.max(currentStepIndex - 1, 0)];
     setActiveStep(prevStep.id);
   };
+
+  const markStepAttempted = useCallback((stepId: StepId) => {
+    setAttemptedSteps(prev => (prev.includes(stepId) ? prev : [...prev, stepId]));
+  }, []);
 
   const toggleModule = (moduleId: string) => {
     setFormData(prev => {
@@ -509,6 +722,27 @@ export function ProjectDialog({ open, onOpenChange, onSuccess, initialTemplateId
     toggleIntegration,
   };
 
+  const stepValidation = useMemo<Record<StepId, StepValidationResult>>(
+    () =>
+      computeStepValidation(formData, {
+        selectedTemplate,
+        selectedFieldPreset,
+        selectedWorkflow,
+        selectedScreenPack,
+        selectedComponentPack,
+        selectedVersionStrategy,
+      }),
+    [
+      formData,
+      selectedTemplate,
+      selectedFieldPreset,
+      selectedWorkflow,
+      selectedScreenPack,
+      selectedComponentPack,
+      selectedVersionStrategy,
+    ],
+  );
+
   const ActiveStepComponent = STEP_DEFINITIONS[currentStepIndex]?.Component ?? PRJCreateStepABasics;
 
   const buildPayload = () => {
@@ -528,6 +762,15 @@ export function ProjectDialog({ open, onOpenChange, onSuccess, initialTemplateId
       success_metrics: successMetrics.length ? successMetrics : undefined,
       stakeholders: stakeholders.length ? stakeholders : undefined,
       communication_channels: channels.length ? channels : undefined,
+      visibility: formData.visibility,
+      default_language: formData.language,
+      working_days: formData.workingDays.length
+        ? Array.from(new Set(formData.workingDays))
+        : undefined,
+      icon: formData.icon,
+      color: formData.color,
+      workspace_path: formData.workspacePath || undefined,
+      idempotency_key: idempotencyKey,
       phases: selectedLifecyclePreset?.phases.map(phase => ({
         key: phase.key,
         label: phase.label,
@@ -581,16 +824,45 @@ export function ProjectDialog({ open, onOpenChange, onSuccess, initialTemplateId
             name: selectedArchival.name,
           }
         : undefined,
+      idempotency_key: idempotencyKey,
     };
   };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
+    const validation = stepValidation[activeStep];
+    if (!validation?.valid) {
+      markStepAttempted(activeStep);
+      const [firstIssue] = validation.issues;
+      toast({
+        title: "Complete the current step",
+        description: firstIssue ?? "Please resolve the highlighted fields before continuing.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (!isFinalStep) {
+      markStepAttempted(activeStep);
       goNext();
       return;
     }
+
+    const blockingStep = STEP_DEFINITIONS.find(step => !stepValidation[step.id]?.valid);
+    if (blockingStep && blockingStep.id !== activeStep) {
+      markStepAttempted(blockingStep.id);
+      setActiveStep(blockingStep.id);
+      const [firstIssue] = stepValidation[blockingStep.id]?.issues ?? [];
+      toast({
+        title: "Review configuration",
+        description: firstIssue ?? "Resolve issues in the highlighted step before creating the project.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    markStepAttempted(activeStep);
 
     try {
       const payload = buildPayload();
@@ -598,6 +870,9 @@ export function ProjectDialog({ open, onOpenChange, onSuccess, initialTemplateId
 
       const artifacts = await orchestrateProjectArtifacts({
         projectId: project.id,
+        workspaceId: tenant.workspaceId ?? undefined,
+        timezone: formData.timezone,
+        visibility: formData.visibility,
         modules: formData.modules,
         templateKey: formData.templateKey || null,
         workflowBlueprint: selectedWorkflow
@@ -698,6 +973,26 @@ export function ProjectDialog({ open, onOpenChange, onSuccess, initialTemplateId
             <div className="grid grid-cols-1 gap-2 text-sm text-muted-foreground sm:grid-cols-5">
               {STEP_DEFINITIONS.map((step, index) => {
                 const reached = index <= currentStepIndex;
+                const validation = stepValidation[step.id];
+                const attempted = attemptedSteps.includes(step.id) || reached;
+                const badge = (() => {
+                  if (!attempted || !validation) return null;
+                  if (validation.valid) {
+                    return (
+                      <Badge variant="outline" className="ml-auto hidden sm:flex">
+                        Complete
+                      </Badge>
+                    );
+                  }
+                  if (validation.issues.length) {
+                    return (
+                      <Badge variant="destructive" className="ml-auto hidden sm:flex">
+                        Needs review
+                      </Badge>
+                    );
+                  }
+                  return null;
+                })();
                 return (
                   <div
                     key={step.id}
@@ -719,6 +1014,7 @@ export function ProjectDialog({ open, onOpenChange, onSuccess, initialTemplateId
                       {reached ? <Check className="h-4 w-4" /> : index + 1}
                     </span>
                     <span className="hidden text-xs font-medium sm:block">{step.title}</span>
+                    {badge}
                   </div>
                 );
               })}
@@ -757,6 +1053,11 @@ export function ProjectDialog({ open, onOpenChange, onSuccess, initialTemplateId
   );
 }
 
+export const __testing__ = {
+  createInitialState,
+  computeStepValidation,
+};
+
 function PRJCreateStepABasics({ formData, setFormData }: ProjectCreationStepContext) {
   return (
     <div className="grid gap-6 md:grid-cols-2">
@@ -786,17 +1087,165 @@ function PRJCreateStepABasics({ formData, setFormData }: ProjectCreationStepCont
           <Input
             id="project-code"
             value={formData.code}
-            onChange={event => setFormData(prev => ({ ...prev, code: event.target.value.toUpperCase() }))}
+            onChange={event => {
+              const normalized = event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "");
+              setFormData(prev => ({
+                ...prev,
+                code: normalized.slice(0, 10),
+                codeManuallyEdited: true,
+              }));
+            }}
             placeholder="ATLAS"
             maxLength={10}
           />
           <p className="text-xs text-muted-foreground">
             Used for issue keys, URLs, and referencing the project externally.
           </p>
+          <Button
+            type="button"
+            variant="link"
+            size="sm"
+            className="px-0"
+            onClick={() =>
+              setFormData(prev => ({
+                ...prev,
+                codeManuallyEdited: false,
+              }))
+            }
+            disabled={!formData.name.trim()}
+          >
+            Use suggested key
+          </Button>
+        </div>
+        <div className="space-y-2">
+          <Label>Visibility</Label>
+          <Select
+            value={formData.visibility}
+            onValueChange={value => setFormData(prev => ({ ...prev, visibility: value }))}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Choose who can access the project" />
+            </SelectTrigger>
+            <SelectContent>
+              {PROJECT_VISIBILITY_OPTIONS.map(option => (
+                <SelectItem key={option.id} value={option.id}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="project-workspace">Workspace Folder</Label>
+          <Input
+            id="project-workspace"
+            value={formData.workspacePath}
+            onChange={event => setFormData(prev => ({ ...prev, workspacePath: event.target.value }))}
+            placeholder="/Delivery/Programs/Q4 Launch"
+          />
+          <p className="text-xs text-muted-foreground">
+            Optional: reference where this project should appear in workspace navigation.
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          <Label>Project Icon</Label>
+          <div className="flex flex-wrap gap-2">
+            {PROJECT_ICON_OPTIONS.map(icon => (
+              <Button
+                key={icon}
+                type="button"
+                variant={formData.icon === icon ? "default" : "outline"}
+                size="sm"
+                onClick={() => setFormData(prev => ({ ...prev, icon }))}
+              >
+                <span className="text-lg leading-none">{icon}</span>
+              </Button>
+            ))}
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label>Project Color</Label>
+          <div className="flex flex-wrap gap-2">
+            {PROJECT_COLOR_OPTIONS.map(color => (
+              <button
+                key={color}
+                type="button"
+                className={cn(
+                  "h-8 w-8 rounded-full border-2",
+                  formData.color === color ? "border-primary" : "border-transparent",
+                )}
+                style={{ backgroundColor: color }}
+                onClick={() => setFormData(prev => ({ ...prev, color }))}
+                aria-label={`Select ${color}`}
+              />
+            ))}
+          </div>
         </div>
       </div>
 
       <div className="space-y-4">
+        <div className="space-y-2">
+          <Label>Timezone</Label>
+          <Select value={formData.timezone} onValueChange={value => setFormData(prev => ({ ...prev, timezone: value }))}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="max-h-60">
+              {DEFAULT_TIMEZONES.map(timezone => (
+                <SelectItem key={timezone} value={timezone}>
+                  {timezone}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <Label>Working Days</Label>
+          <div className="flex flex-wrap gap-2">
+            {WORKING_DAY_OPTIONS.map(option => {
+              const active = formData.workingDays.includes(option.id);
+              return (
+                <Button
+                  key={option.id}
+                  type="button"
+                  variant={active ? "default" : "outline"}
+                  size="sm"
+                  onClick={() =>
+                    setFormData(prev => ({
+                      ...prev,
+                      workingDays: active
+                        ? prev.workingDays.filter(day => day !== option.id)
+                        : [...prev.workingDays, option.id],
+                    }))
+                  }
+                >
+                  {option.label}
+                </Button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label>Default Language</Label>
+          <Select value={formData.language} onValueChange={value => setFormData(prev => ({ ...prev, language: value }))}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {LANGUAGE_OPTIONS.map(option => (
+                <SelectItem key={option.id} value={option.id}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
         <div className="space-y-2">
           <Label>Project Status</Label>
           <Select
