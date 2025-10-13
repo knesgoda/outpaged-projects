@@ -1,8 +1,11 @@
 // @ts-nocheck
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
-import { mapSupabaseError } from "@/services/errors";
+import { mapSupabaseError } from "@/services/utils";
 import type { BoardFilterDefinition } from "@/features/boards/filters/types";
+import { searchEngine, toSearchResult } from "@/server/search/engineRegistry";
+import type { PrincipalContext } from "@/server/search/engineRegistry";
+import type { SearchResult } from "@/types";
 
 const TABLE = "board_filter_expressions" satisfies keyof Database["public"]["Tables"];
 
@@ -84,4 +87,31 @@ export async function loadBoardFilters(boardId: string, viewId: string): Promise
   }
 
   return parseDefinition(data.expression ?? null);
+}
+
+const DEFAULT_PRINCIPAL: PrincipalContext = {
+  principalId: "board-service",
+  workspaceId: "workspace-demo",
+  roles: ["member"],
+  permissions: [
+    "search.execute",
+    "search.comments.read",
+    "search.mask.snippet",
+    "docs.view.sensitive",
+  ],
+};
+
+export async function previewBoardQuery(
+  opql: string,
+  options: { workspaceId?: string; principal?: PrincipalContext; limit?: number; cursor?: string; types?: SearchResult["type"][] } = {}
+): Promise<SearchResult[]> {
+  const execution = await searchEngine.execute({
+    workspaceId: options.workspaceId ?? DEFAULT_PRINCIPAL.workspaceId,
+    principal: options.principal ?? DEFAULT_PRINCIPAL,
+    opql,
+    limit: options.limit,
+    cursor: options.cursor,
+    types: options.types,
+  });
+  return execution.rows.map((row) => toSearchResult(row));
 }

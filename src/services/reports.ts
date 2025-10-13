@@ -1,6 +1,9 @@
 // @ts-nocheck
 import { supabase } from "@/integrations/supabase/client";
 import type { Report, ReportColumn, ReportResult } from "@/types";
+import { searchEngine, toSearchResult } from "@/server/search/engineRegistry";
+import type { PrincipalContext } from "@/server/search/engineRegistry";
+import type { SearchResult } from "@/types";
 import { handleSupabaseError, requireUserId } from "./utils";
 
 const REPORT_SELECT =
@@ -13,6 +16,18 @@ type RpcResult =
       meta?: Record<string, unknown> | null;
     }
   | null;
+
+const QUERY_PRINCIPAL: PrincipalContext = {
+  principalId: "reports-service",
+  workspaceId: "workspace-demo",
+  roles: ["analyst"],
+  permissions: [
+    "search.execute",
+    "search.comments.read",
+    "search.mask.snippet",
+    "docs.view.sensitive",
+  ],
+};
 
 const normalizeColumns = (
   columns?: Array<Partial<ReportColumn>> | null
@@ -300,3 +315,18 @@ export const runReport = async (
 
   return executeReport(reportId, params);
 };
+
+export async function previewReportQuery(
+  opql: string,
+  options: { workspaceId?: string; principal?: PrincipalContext; limit?: number; cursor?: string; types?: SearchResult["type"][] } = {}
+): Promise<SearchResult[]> {
+  const execution = await searchEngine.execute({
+    workspaceId: options.workspaceId ?? QUERY_PRINCIPAL.workspaceId,
+    principal: options.principal ?? QUERY_PRINCIPAL,
+    opql,
+    limit: options.limit,
+    cursor: options.cursor,
+    types: options.types,
+  });
+  return execution.rows.map((row) => toSearchResult(row));
+}
