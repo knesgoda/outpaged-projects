@@ -23,6 +23,9 @@ export interface WorkflowTemplateDefinition {
       type: string;
       config: Record<string, any>;
     }>;
+    validators?: string[];
+    screen?: string;
+    approvals?: string[];
   }[];
 }
 
