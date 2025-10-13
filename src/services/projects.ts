@@ -98,6 +98,7 @@ export interface ProjectListParams {
   pageSize?: number;
   sort?: ProjectSort;
   dir?: SortDirection;
+  portfolioId?: string;
 }
 
 export interface ProjectListResponse {
@@ -187,6 +188,7 @@ export async function listProjects(
     pageSize = 20,
     sort = "updated_at",
     dir = "desc",
+    portfolioId,
   } = params;
 
   const { start, end } = normalizePagination(page, pageSize);
@@ -209,6 +211,27 @@ export async function listProjects(
     const sanitized = escapeIlikeValue(q);
     const like = `%${sanitized}%`;
     query = query.or(`name.ilike.${like},description.ilike.${like}`);
+  }
+
+  if (portfolioId) {
+    const { data: links, error: linksError } = await resolveClient(options)
+      .from("portfolio_projects" as any)
+      .select("project_id")
+      .eq("portfolio_id", portfolioId);
+
+    if (linksError) {
+      throw linksError;
+    }
+
+    const projectIds = (links ?? [])
+      .map(link => link.project_id)
+      .filter((id): id is string => typeof id === "string" && id.length > 0);
+
+    if (projectIds.length === 0) {
+      return { data: [], total: 0 };
+    }
+
+    query = query.in("id", projectIds);
   }
 
   const { data, error, count } = await query.range(start, end);

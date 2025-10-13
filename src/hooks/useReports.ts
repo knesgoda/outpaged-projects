@@ -12,23 +12,25 @@ import {
 } from "@/services/reports";
 
 const REPORTS_KEY = ["reports"] as const;
-const listKey = (projectId?: string | null) => [
+const listKey = (projectId?: string | null, portfolioId?: string | null) => [
   ...REPORTS_KEY,
   "list",
   projectId ?? "all",
+  portfolioId ?? "all",
 ];
 const detailKey = (id: string) => [...REPORTS_KEY, "detail", id];
 
 type ListOptions = {
   projectId?: string;
+  portfolioId?: string;
   enabled?: boolean;
 };
 
 export function useReportsList(options: ListOptions = {}) {
-  const { projectId, enabled = true } = options;
+  const { projectId, portfolioId, enabled = true } = options;
   return useQuery({
-    queryKey: listKey(projectId ?? null),
-    queryFn: () => listReports(projectId),
+    queryKey: listKey(projectId ?? null, portfolioId ?? null),
+    queryFn: () => listReports(projectId, { portfolioId }),
     enabled,
     staleTime: 1000 * 60,
     placeholderData: (previous) => previous as any,
