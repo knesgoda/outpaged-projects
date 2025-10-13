@@ -87,6 +87,7 @@ const toServiceParams = (params: ProjectsQueryInput): ProjectListParams => ({
   pageSize: params.pageSize,
   sort: params.sort,
   dir: params.dir,
+  portfolioId: params.portfolioId?.trim() || undefined,
 });
 
 export function useProjects(params: ProjectsQueryInput) {

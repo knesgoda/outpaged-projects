@@ -1366,6 +1366,153 @@ export type Database = {
           },
         ]
       }
+      portfolio_items: {
+        Row: {
+          added_at: string
+          added_by: string | null
+          contribution_weight: number | null
+          id: string
+          item_id: string
+          metadata: Json
+          portfolio_id: string
+          project_id: string | null
+        }
+        Insert: {
+          added_at?: string
+          added_by?: string | null
+          contribution_weight?: number | null
+          id?: string
+          item_id: string
+          metadata?: Json
+          portfolio_id: string
+          project_id?: string | null
+        }
+        Update: {
+          added_at?: string
+          added_by?: string | null
+          contribution_weight?: number | null
+          id?: string
+          item_id?: string
+          metadata?: Json
+          portfolio_id?: string
+          project_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portfolio_items_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portfolio_items_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "portfolios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portfolio_items_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      portfolio_projects: {
+        Row: {
+          added_at: string
+          added_by: string | null
+          id: string
+          metadata: Json
+          portfolio_id: string
+          project_id: string
+          strategic_importance: number | null
+        }
+        Insert: {
+          added_at?: string
+          added_by?: string | null
+          id?: string
+          metadata?: Json
+          portfolio_id: string
+          project_id: string
+          strategic_importance?: number | null
+        }
+        Update: {
+          added_at?: string
+          added_by?: string | null
+          id?: string
+          metadata?: Json
+          portfolio_id?: string
+          project_id?: string
+          strategic_importance?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portfolio_projects_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "portfolios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portfolio_projects_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      portfolios: {
+        Row: {
+          created_at: string
+          description: string | null
+          health: string | null
+          id: string
+          metadata: Json
+          name: string
+          owner_id: string | null
+          status: Database["public"]["Enums"]["portfolio_status"]
+          updated_at: string
+          workspace_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          health?: string | null
+          id?: string
+          metadata?: Json
+          name: string
+          owner_id?: string | null
+          status?: Database["public"]["Enums"]["portfolio_status"]
+          updated_at?: string
+          workspace_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          health?: string | null
+          id?: string
+          metadata?: Json
+          name?: string
+          owner_id?: string | null
+          status?: Database["public"]["Enums"]["portfolio_status"]
+          updated_at?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portfolios_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       rate_limits: {
         Row: {
           action_type: string
@@ -3115,6 +3262,24 @@ export type Database = {
       }
     }
     Views: {
+      portfolio_overview: {
+        Row: {
+          completed_item_count: number | null
+          created_at: string | null
+          description: string | null
+          health: string | null
+          id: string | null
+          item_count: number | null
+          metadata: Json | null
+          name: string | null
+          owner_id: string | null
+          project_count: number | null
+          status: Database["public"]["Enums"]["portfolio_status"] | null
+          updated_at: string | null
+          workspace_id: string | null
+        }
+        Relationships: []
+      }
       project_members_with_profiles: {
         Row: {
           avatar_url: string | null
@@ -3339,6 +3504,7 @@ export type Database = {
         | "on_hold"
         | "completed"
         | "cancelled"
+      portfolio_status: "draft" | "active" | "paused" | "archived"
       sprint_status: "planning" | "active" | "completed"
       story_theme_category:
         | "fantasy"

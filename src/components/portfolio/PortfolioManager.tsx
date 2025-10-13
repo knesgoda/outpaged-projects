@@ -1,95 +1,103 @@
-import React, { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Plus, FolderOpen, BarChart3, TrendingUp } from "lucide-react";
+
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle, 
-  DialogTrigger 
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Plus, FolderOpen, BarChart3, TrendingUp } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useDomainClient } from "@/domain/client";
+import {
+  createPortfolio as createPortfolioService,
+  listPortfolios,
+  type CreatePortfolioInput,
+  type PortfolioOverview,
+} from "@/services/projects/portfolios";
 
-interface Portfolio {
-  id: string;
-  name: string;
-  description: string;
-  created_at: string;
-  project_count?: number;
-  total_tasks?: number;
-  completed_tasks?: number;
-}
+const PORTFOLIOS_QUERY_KEY = ["portfolios"] as const;
 
-interface Project {
-  id: string;
-  name: string;
-  description: string;
-  status: string;
-}
+const getPortfolioProgress = (portfolio: PortfolioOverview) => {
+  if (!portfolio.item_count) return 0;
+  const value = Math.round(
+    (portfolio.completed_item_count / portfolio.item_count) * 100,
+  );
+  return Number.isFinite(value) ? value : 0;
+};
 
 export const PortfolioManager = () => {
-  const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
-  const [loading, setLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
   const [newPortfolio, setNewPortfolio] = useState({ name: "", description: "" });
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const domainClient = useDomainClient();
+
+  const {
+    data: portfoliosData,
+    isLoading,
+    isError,
+    error,
+  } = useQuery({
+    queryKey: PORTFOLIOS_QUERY_KEY,
+    queryFn: () => listPortfolios({}, { client: domainClient }),
+  });
 
   useEffect(() => {
-    fetchPortfolios();
-  }, []);
-
-  const fetchPortfolios = async () => {
-    try {
-      setLoading(true);
-      // For now, just return empty until the migration is applied
-      setPortfolios([]);
-    } catch (error: any) {
-      console.error("Error fetching portfolios:", error);
-      toast({
-        title: "Error",
-        description: "Failed to fetch portfolios",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
+    if (isError) {
+      const message =
+        error instanceof Error ? error.message : "Failed to fetch portfolios";
+      toast({ title: "Error", description: message, variant: "destructive" });
     }
-  };
+  }, [isError, error, toast]);
 
-  const createPortfolio = async () => {
-    if (!newPortfolio.name.trim()) return;
+  const portfolios = useMemo<PortfolioOverview[]>(
+    () => portfoliosData ?? [],
+    [portfoliosData],
+  );
 
-    try {
-      // For now, just show success message until the migration is applied
+  const createMutation = useMutation({
+    mutationFn: (input: CreatePortfolioInput) =>
+      createPortfolioService(input, { client: domainClient }),
+    onSuccess: () => {
       toast({
-        title: "Info",
-        description: "Portfolio feature will be available after database migration",
+        title: "Portfolio created",
+        description: "Your portfolio has been created successfully.",
       });
-
       setNewPortfolio({ name: "", description: "" });
       setIsCreating(false);
-    } catch (error: any) {
-      console.error("Error creating portfolio:", error);
-      toast({
-        title: "Error",
-        description: "Failed to create portfolio",
-        variant: "destructive",
-      });
+      queryClient.invalidateQueries({ queryKey: PORTFOLIOS_QUERY_KEY });
+    },
+    onError: (mutationError: unknown) => {
+      const message =
+        mutationError instanceof Error
+          ? mutationError.message
+          : "Failed to create portfolio";
+      toast({ title: "Error", description: message, variant: "destructive" });
+    },
+  });
+
+  const handleCreatePortfolio = () => {
+    if (!newPortfolio.name.trim()) {
+      return;
     }
+
+    createMutation.mutate({
+      name: newPortfolio.name,
+      description: newPortfolio.description || undefined,
+    });
   };
 
-  const getPortfolioProgress = (portfolio: Portfolio) => {
-    if (!portfolio.total_tasks) return 0;
-    return Math.round((portfolio.completed_tasks || 0) / portfolio.total_tasks * 100);
-  };
-
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="space-y-4">
         {[...Array(3)].map((_, i) => (
@@ -154,8 +162,11 @@ export const PortfolioManager = () => {
                 />
               </div>
               <div className="flex gap-2">
-                <Button onClick={createPortfolio} disabled={!newPortfolio.name.trim()}>
-                  Create Portfolio
+                <Button
+                  onClick={handleCreatePortfolio}
+                  disabled={!newPortfolio.name.trim() || createMutation.isPending}
+                >
+                  {createMutation.isPending ? "Creating..." : "Create Portfolio"}
                 </Button>
                 <Button variant="outline" onClick={() => setIsCreating(false)}>
                   Cancel
@@ -166,17 +177,86 @@ export const PortfolioManager = () => {
         </Dialog>
       </div>
 
-      <Card className="p-8 text-center">
-        <FolderOpen className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-        <h3 className="text-lg font-medium mb-2">Portfolio Feature Coming Soon</h3>
-        <p className="text-muted-foreground mb-4">
-          Portfolio management will be available after the database migration is applied.
-        </p>
-        <Button onClick={() => setIsCreating(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Preview Create Portfolio
-        </Button>
-      </Card>
+      {portfolios.length === 0 ? (
+        <Card className="p-8 text-center">
+          <FolderOpen className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+          <h3 className="text-lg font-medium mb-2">No portfolios yet</h3>
+          <p className="text-muted-foreground mb-4">
+            Create a portfolio to start grouping projects and tracking strategic progress.
+          </p>
+          <Button onClick={() => setIsCreating(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Create your first portfolio
+          </Button>
+        </Card>
+      ) : (
+        <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+          {portfolios.map(portfolio => {
+            const progress = getPortfolioProgress(portfolio);
+
+            return (
+              <Card key={portfolio.id} className="p-6 space-y-5">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="space-y-1">
+                    <h3 className="text-xl font-semibold leading-tight">
+                      {portfolio.name}
+                    </h3>
+                    {portfolio.description && (
+                      <p className="text-sm text-muted-foreground line-clamp-3">
+                        {portfolio.description}
+                      </p>
+                    )}
+                  </div>
+                  <Badge variant={portfolio.status === "active" ? "default" : "secondary"}>
+                    {portfolio.status.replace(/_/g, " ")}
+                  </Badge>
+                </div>
+
+                <div className="grid grid-cols-3 gap-4 text-sm">
+                  <div className="rounded-md border p-3">
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <BarChart3 className="h-4 w-4" />
+                      <span>Projects</span>
+                    </div>
+                    <p className="mt-1 text-lg font-semibold">
+                      {portfolio.project_count}
+                    </p>
+                  </div>
+                  <div className="rounded-md border p-3">
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <FolderOpen className="h-4 w-4" />
+                      <span>Items</span>
+                    </div>
+                    <p className="mt-1 text-lg font-semibold">
+                      {portfolio.item_count}
+                    </p>
+                  </div>
+                  <div className="rounded-md border p-3">
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <TrendingUp className="h-4 w-4" />
+                      <span>Completed</span>
+                    </div>
+                    <p className="mt-1 text-lg font-semibold">
+                      {portfolio.completed_item_count}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="font-medium">Progress</span>
+                    <span className="text-muted-foreground">{progress}%</span>
+                  </div>
+                  <Progress value={progress} />
+                  <p className="text-xs text-muted-foreground">
+                    {portfolio.completed_item_count} of {portfolio.item_count} tracked work items complete
+                  </p>
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 };

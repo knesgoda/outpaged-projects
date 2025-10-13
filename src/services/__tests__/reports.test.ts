@@ -35,7 +35,13 @@ describe("reports service", () => {
     const afterSelect: any = {};
     afterSelect.order = order;
     afterSelect.eq = jest.fn().mockReturnValue(afterSelect);
-    return { builder: { select: jest.fn().mockReturnValue(afterSelect) }, order, eq: afterSelect.eq };
+    afterSelect.in = jest.fn().mockReturnValue(afterSelect);
+    return {
+      builder: { select: jest.fn().mockReturnValue(afterSelect) },
+      order,
+      eq: afterSelect.eq,
+      in: afterSelect.in,
+    };
   };
 
   it("lists reports with optional project filter", async () => {
@@ -66,6 +72,35 @@ describe("reports service", () => {
 
     await listReports("project-42");
     expect(second.eq).toHaveBeenCalledWith("project_id", "project-42");
+  });
+
+  it("filters reports by portfolio", async () => {
+    const rows = [
+      {
+        id: "r-2",
+        owner: "user-123",
+        name: "Status",
+        description: "Weekly",
+        config: { source: "tasks" },
+        created_at: "2024-01-01T00:00:00.000Z",
+        updated_at: "2024-01-02T00:00:00.000Z",
+        project_id: "project-1",
+      },
+    ];
+
+    const listBuilder = createListBuilder({ data: rows, error: null });
+    enqueueFrom("reports", listBuilder.builder);
+
+    const linkEq = jest.fn().mockResolvedValue({ data: [{ project_id: "project-1" }], error: null });
+    const linkSelect = jest.fn().mockReturnValue({ eq: linkEq });
+    enqueueFrom("portfolio_projects", { select: linkSelect });
+
+    const result = await listReports(undefined, { portfolioId: "portfolio-99" });
+
+    expect(linkSelect).toHaveBeenCalledWith("project_id");
+    expect(linkEq).toHaveBeenCalledWith("portfolio_id", "portfolio-99");
+    expect(listBuilder.in).toHaveBeenCalledWith("project_id", ["project-1"]);
+    expect(result).toEqual(rows);
   });
 
   it("returns a single report", async () => {

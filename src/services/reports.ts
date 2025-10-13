@@ -96,11 +96,39 @@ async function fetchCachedRun(reportId: string): Promise<ReportResult | null> {
   return normalizeResult(data as unknown as RpcResult);
 }
 
-export const listReports = async (projectId?: string): Promise<Report[]> => {
+export interface ListReportsOptions {
+  portfolioId?: string;
+}
+
+export const listReports = async (
+  projectId?: string,
+  options: ListReportsOptions = {},
+): Promise<Report[]> => {
   let query = supabase.from("reports").select(REPORT_SELECT);
 
   if (projectId) {
     query = query.eq("project_id", projectId);
+  }
+
+  if (options.portfolioId) {
+    const { data: links, error: linkError } = await supabase
+      .from("portfolio_projects" as any)
+      .select("project_id")
+      .eq("portfolio_id", options.portfolioId);
+
+    if (linkError) {
+      throw handleSupabaseError(linkError, "Unable to load reports.");
+    }
+
+    const projectIds = (links ?? [])
+      .map(link => link.project_id)
+      .filter((value): value is string => typeof value === "string" && value.length > 0);
+
+    if (projectIds.length === 0) {
+      return [];
+    }
+
+    query = query.in("project_id", projectIds);
   }
 
   const { data, error } = await query.order("updated_at", { ascending: false });
