@@ -79,7 +79,10 @@ export function WorkflowBuilder({ projectId }: WorkflowBuilderProps) {
         from_state_id: fromState.workflow_template_id, // This will be updated with actual IDs
         to_state_id: toState.workflow_template_id,
         conditions: {},
+        validators: [],
+        transition_screen: null,
         post_actions: [],
+        approvals: [],
       });
     }
 

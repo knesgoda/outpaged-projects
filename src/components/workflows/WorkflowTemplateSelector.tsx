@@ -73,7 +73,10 @@ export function WorkflowTemplateSelector({ projectId, onTemplateApplied }: Workf
             from_state_id: fromStateId,
             to_state_id: toStateId,
             conditions: transition.conditions || {},
+            validators: transition.validators || [],
+            transition_screen: transition.screen || null,
             post_actions: transition.postActions || [],
+            approvals: transition.approvals || [],
           });
         }
       }
