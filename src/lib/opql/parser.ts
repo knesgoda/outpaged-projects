@@ -1762,26 +1762,39 @@ export interface DateRewriteResult {
 
 export function rewriteDateMath(expression: Expression, policy: DatePolicy = {}): DateRewriteResult {
   const appliedPolicies: string[] = [];
-  const now = policy.now ?? new Date();
+  const referenceNow = policy.now ? new Date(policy.now.getTime()) : new Date();
+
+  const describe = (label: string) => describePolicy(label, policy);
 
   function traverse(expr: Expression): Expression {
     switch (expr.kind) {
       case "date_math": {
         const base = traverse(expr.base);
-        const anchor = base.kind === "function" && base.name.toLowerCase() === "now"
-          ? now
-          : now;
-        const offsetMs = durationToMs(expr.offset);
-        const dateValue = new Date(anchor.getTime() + (expr.operator === "+" ? offsetMs : -offsetMs));
-        if (policy.floorToDay) {
-          dateValue.setHours(0, 0, 0, 0);
+        const anchor = resolveDateAnchor(base, referenceNow);
+        if (!anchor) {
+          return { ...expr, base };
         }
-        appliedPolicies.push(`date_math:${expr.operator}${expr.offset.value}${expr.offset.unit}`);
+        const offsetMs = durationToMs(expr.offset);
+        const adjusted = new Date(anchor.getTime() + (expr.operator === "+" ? offsetMs : -offsetMs));
+        const normalized = applyPolicyAdjustments(adjusted, policy);
+        appliedPolicies.push(`${describe("date_math")}:${expr.operator}${expr.offset.value}${expr.offset.unit}`);
         return {
           kind: "literal",
-          value: dateValue.toISOString(),
+          value: normalized.toISOString(),
           valueType: "string",
-        };
+        } satisfies LiteralExpression;
+      }
+      case "function": {
+        if (expr.name.toLowerCase() === "now") {
+          const normalized = applyPolicyAdjustments(new Date(referenceNow.getTime()), policy);
+          appliedPolicies.push(describe("now"));
+          return {
+            kind: "literal",
+            value: normalized.toISOString(),
+            valueType: "string",
+          } satisfies LiteralExpression;
+        }
+        return { ...expr, args: expr.args.map(traverse) };
       }
       case "binary":
         return { ...expr, left: traverse(expr.left), right: traverse(expr.right) };
@@ -1791,14 +1804,72 @@ export function rewriteDateMath(expression: Expression, policy: DatePolicy = {})
         return { ...expr, value: traverse(expr.value), lower: traverse(expr.lower), upper: traverse(expr.upper) };
       case "in":
         return { ...expr, value: traverse(expr.value), options: expr.options.map(traverse) };
-      case "function":
-        return { ...expr, args: expr.args.map(traverse) };
       default:
         return expr;
     }
   }
 
   return { expression: traverse(expression), appliedPolicies };
+}
+
+function resolveDateAnchor(base: Expression, fallback: Date): Date | undefined {
+  if (base.kind === "literal") {
+    return parseLiteralDate(base.value);
+  }
+  if (base.kind === "function" && base.name.toLowerCase() === "now") {
+    return new Date(fallback.getTime());
+  }
+  return undefined;
+}
+
+function parseLiteralDate(value: unknown): Date | undefined {
+  if (value instanceof Date) {
+    return new Date(value.getTime());
+  }
+  if (typeof value === "number") {
+    return new Date(value);
+  }
+  if (typeof value === "string") {
+    const parsed = Date.parse(value);
+    if (!Number.isNaN(parsed)) {
+      return new Date(parsed);
+    }
+  }
+  return undefined;
+}
+
+function applyPolicyAdjustments(date: Date, policy: DatePolicy): Date {
+  if (!policy.floorToDay) {
+    return new Date(date.getTime());
+  }
+  return floorDate(date, policy.timezone);
+}
+
+function floorDate(date: Date, timezone: string | undefined): Date {
+  if (!timezone) {
+    const clone = new Date(date.getTime());
+    clone.setHours(0, 0, 0, 0);
+    return clone;
+  }
+  const locale = date.toLocaleString("en-US", { timeZone: timezone });
+  const localDate = new Date(locale);
+  const offset = date.getTime() - localDate.getTime();
+  localDate.setHours(0, 0, 0, 0);
+  return new Date(localDate.getTime() + offset);
+}
+
+function describePolicy(label: string, policy: DatePolicy): string {
+  const modifiers: string[] = [];
+  if (policy.floorToDay) {
+    modifiers.push("floor");
+  }
+  if (policy.timezone) {
+    modifiers.push(`tz=${policy.timezone}`);
+  }
+  if (!modifiers.length) {
+    return label;
+  }
+  return `${label}[${modifiers.join(",")}]`;
 }
 
 function durationToMs(duration: DurationExpression): number {

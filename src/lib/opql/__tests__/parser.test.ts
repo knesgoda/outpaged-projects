@@ -8,6 +8,7 @@ import {
   FunctionExpression,
   DateMathExpression,
   LiteralExpression,
+  rewriteDateMath,
 } from "../parser";
 
 describe("OPQL parser", () => {
@@ -145,5 +146,43 @@ describe("OPQL parser", () => {
 
     expect(where.operator).toBe("ON");
     expect((where.right as LiteralExpression).value).toBe("2024-01-15");
+  });
+});
+
+describe("rewriteDateMath", () => {
+  it("applies timezone-aware floor policies", () => {
+    const expression: DateMathExpression = {
+      kind: "date_math",
+      base: { kind: "function", name: "NOW", args: [] },
+      operator: "-",
+      offset: { kind: "duration", value: 1, unit: "d" },
+    };
+
+    const now = new Date("2024-01-02T12:00:00Z");
+    const { expression: rewritten, appliedPolicies } = rewriteDateMath(expression, {
+      now,
+      timezone: "America/New_York",
+      floorToDay: true,
+    });
+
+    expect(rewritten.kind).toBe("literal");
+    expect((rewritten as LiteralExpression).value).toBe("2024-01-01T05:00:00.000Z");
+    expect(appliedPolicies).toContain("now[floor,tz=America/New_York]");
+    expect(appliedPolicies).toContain("date_math[floor,tz=America/New_York]:-1d");
+  });
+
+  it("rewrites date math anchored at literals", () => {
+    const expression: DateMathExpression = {
+      kind: "date_math",
+      base: { kind: "literal", value: "2024-03-01T00:00:00Z", valueType: "string" },
+      operator: "+",
+      offset: { kind: "duration", value: 7, unit: "d" },
+    };
+
+    const { expression: rewritten, appliedPolicies } = rewriteDateMath(expression, { now: new Date("2024-03-01T00:00:00Z") });
+
+    expect(rewritten.kind).toBe("literal");
+    expect((rewritten as LiteralExpression).value).toBe("2024-03-08T00:00:00.000Z");
+    expect(appliedPolicies).toContain("date_math:+7d");
   });
 });

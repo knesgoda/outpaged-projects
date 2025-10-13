@@ -4,6 +4,7 @@ import {
   type AggregateStatement,
   type BaseStatement,
   type BinaryExpression,
+  type DatePolicy,
   type Expression,
   type FindStatement,
   type FunctionExpression,
@@ -15,6 +16,7 @@ import {
   formatExpression,
   literalFromValue,
   parseOPQL,
+  rewriteDateMath,
 } from "@/lib/opql/parser";
 
 import {
@@ -26,7 +28,7 @@ import {
 
 import { buildAggregatePlan, buildFindPlan } from "./plan/planner";
 import { evaluateValue, normalizeAlias, timeStage } from "./plan/runtime";
-import type { PlanExecutionContext, PlanResult, PlannerOptions, RuntimeRow } from "./plan/types";
+import type { HistoryScanTrace, PlanExecutionContext, PlanResult, PlannerOptions, RuntimeRow } from "./plan/types";
 import type { MaterializedRow } from "./repository";
 
 export interface PrincipalContext {
@@ -53,6 +55,7 @@ export interface QueryRequest {
   types?: string[];
   explain?: boolean;
   query?: string;
+  datePolicy?: DatePolicy;
 }
 
 export interface ExecutionMetrics {
@@ -78,6 +81,8 @@ export interface QueryExecution {
   orderBy: string[];
   projections: string[];
   metrics: ExecutionMetrics;
+  datePolicies: string[];
+  historyScans?: HistoryScanTrace[];
 }
 
 const DEFAULT_LIMIT = 25;
@@ -293,6 +298,11 @@ export class QueryEngine {
   async execute(request: QueryRequest): Promise<QueryExecution> {
     const start = performance.now();
     const statement = this.prepareStatement(request);
+    const now = request.datePolicy?.now ?? new Date();
+    const policy: DatePolicy | undefined = request.datePolicy
+      ? { ...request.datePolicy, now }
+      : { now };
+    const appliedDatePolicies = policy ? this.applyDatePolicies(statement, policy) : [];
     const base: BaseStatement = statement;
     const targetTypes = this.resolveTargetTypes(statement, request.types);
     if (!targetTypes.length) {
@@ -324,6 +334,11 @@ export class QueryEngine {
       rootAlias,
       aliasSources,
       graphDepthCap: this.graphDepthCap,
+      collectHistoryTrace: Boolean(request.explain),
+      historyTraces: [],
+      timezone: policy?.timezone,
+      now,
+      datePolicies: [...appliedDatePolicies],
     };
 
     const plannerOptions: PlannerOptions = {
@@ -496,6 +511,50 @@ export class QueryEngine {
     return sources;
   }
 
+  private applyDatePolicies(statement: FindStatement | AggregateStatement, policy: DatePolicy): string[] {
+    const applied: string[] = [];
+    const rewrite = (expression: Expression): Expression => {
+      const { expression: rewritten, appliedPolicies } = rewriteDateMath(expression, policy);
+      if (appliedPolicies.length) {
+        applied.push(...appliedPolicies);
+      }
+      return rewritten;
+    };
+
+    if (statement.where) {
+      statement.where = rewrite(statement.where);
+    }
+    if (statement.orderBy) {
+      statement.orderBy = statement.orderBy.map((entry) => ({
+        ...entry,
+        expression: rewrite(entry.expression),
+      }));
+    }
+    if (statement.stableBy) {
+      statement.stableBy = statement.stableBy.map((expr) => rewrite(expr));
+    }
+
+    if (statement.type === "FIND") {
+      statement.projections = statement.projections?.map((projection) => ({
+        ...projection,
+        expression: rewrite(projection.expression),
+      }));
+    } else {
+      statement.aggregates = statement.aggregates.map((aggregate) => ({
+        ...aggregate,
+        expression: rewrite(aggregate.expression),
+      }));
+      if (statement.groupBy) {
+        statement.groupBy = statement.groupBy.map((expr) => rewrite(expr));
+      }
+      if (statement.having) {
+        statement.having = rewrite(statement.having);
+      }
+    }
+
+    return applied;
+  }
+
   private finalizeExecution(
     statement: FindStatement | AggregateStatement,
     result: PlanResult<RuntimeRow>,
@@ -525,6 +584,8 @@ export class QueryEngine {
         orderBy: [...new Set(orderExpressions)],
         projections: [...new Set(context.projections)],
         metrics: context.metrics,
+        datePolicies: [...new Set(context.datePolicies)],
+        historyScans: context.collectHistoryTrace ? context.historyTraces : undefined,
       } satisfies QueryExecution;
     });
   }

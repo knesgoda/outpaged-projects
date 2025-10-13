@@ -55,6 +55,8 @@ export interface SearchStreamChunk {
     appliedFilters: string[];
     pagination: { limit: number; nextCursor?: string };
     tokenizedQuery: string[];
+    historyScans: unknown[];
+    datePolicies: string[];
   };
 }
 
@@ -328,6 +330,7 @@ export class SearchRouter {
       limit,
       cursor: request.cursor,
       types: request.types,
+      explain: request.explain,
     };
 
     const trimmedOpql = request.opql?.trim();
@@ -362,6 +365,8 @@ export class SearchRouter {
             appliedFilters: execution.appliedFilters,
             pagination: { limit, nextCursor },
             tokenizedQuery: tokens,
+            historyScans: execution.historyScans ?? [],
+            datePolicies: execution.datePolicies,
           }
         : undefined;
       const partial = isFinal ? Boolean(execution.nextCursor) : true;
