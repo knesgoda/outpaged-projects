@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -23,6 +22,7 @@ import { TelemetryProvider } from "./components/telemetry/TelemetryProvider";
 import { FeatureFlagProvider } from "./components/feature-flags/FeatureFlagProvider";
 import { AppErrorBoundary } from "./components/foundations/AppErrorBoundary";
 import { OfflinePolicyProvider } from "./components/offline/OfflinePolicyProvider";
+import { PWAProvider } from "./components/offline/PWAProvider";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -43,7 +43,7 @@ const queryClient = new QueryClient({
 const App = () => {
   console.log('[App] Rendering OutPaged App');
   return (
-  <OutpagedThemeProvider>
+                  <OutpagedThemeProvider>
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <ProfileProvider>
@@ -63,11 +63,13 @@ const App = () => {
                                 <BrowserRouter>
                                   <CommandKProvider>
                                     <AppErrorBoundary>
-                                      <OfflinePolicyProvider>
-                                        <CommandPalette />
-                                        <KeyboardShortcuts />
-                                        <AppRoutes />
-                                      </OfflinePolicyProvider>
+                                      <PWAProvider>
+                                        <OfflinePolicyProvider>
+                                          <CommandPalette />
+                                          <KeyboardShortcuts />
+                                          <AppRoutes />
+                                        </OfflinePolicyProvider>
+                                      </PWAProvider>
                                     </AppErrorBoundary>
                                   </CommandKProvider>
                                 </BrowserRouter>

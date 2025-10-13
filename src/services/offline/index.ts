@@ -88,3 +88,9 @@ export {
   getCachedOfflinePolicy,
 } from "./policies";
 export { initializeRemoteWipeListeners, onRemoteWipe, performRemoteWipe } from "./remoteWipe";
+
+// Re-export UI components
+export { ConflictResolver } from "@/components/offline/ConflictResolver";
+export { DiagnosticsPanel } from "@/components/offline/DiagnosticsPanel";
+export { PullToRefresh } from "@/components/offline/PullToRefresh";
+export type { FieldConflict, ConflictRecord } from "@/components/offline/ConflictResolver";

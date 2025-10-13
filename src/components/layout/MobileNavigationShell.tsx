@@ -5,6 +5,7 @@ import { MobileTopbar } from "./MobileTopbar";
 import { MobileQuickBar } from "./MobileQuickBar";
 import { MobileConnectivityChip } from "./MobileConnectivityChip";
 import { MobileQueueDrawer } from "./MobileQueueDrawer";
+import { PullToRefresh } from "@/components/offline/PullToRefresh";
 import { useConnectivityStatus } from "@/hooks/useConnectivityStatus";
 
 interface MobileNavigationShellProps {
@@ -35,6 +36,7 @@ export function MobileNavigationShell({ children, onToggleSidebar, onOpenShortcu
 
   return (
     <div className="flex min-h-screen flex-col bg-muted/30">
+      <PullToRefresh onRefresh={status.refresh} disabled={status.state === "syncing"} />
       <MobileTopbar
         onToggleSidebar={onToggleSidebar}
         onOpenShortcuts={onOpenShortcuts}
