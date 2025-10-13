@@ -1,6 +1,6 @@
 // @ts-nocheck
-import { useCallback, useMemo } from "react";
-import type { ComponentType, SVGProps } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import type { ComponentType, ReactNode, SVGProps } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 import {
@@ -13,23 +13,25 @@ import {
   parseISO,
 } from "date-fns";
 import {
-  AlertTriangle,
-  Archive,
-  ArchiveRestore,
   BarChart3,
   BookOpen,
   CalendarClock,
-  Flag,
   Folder,
   GitBranch,
-  Inbox,
+  MoveDown,
+  MoveUp,
+  Flag,
   LayoutDashboard,
   LayoutList,
+  ListChecks,
   ListTodo,
+  MoreHorizontal,
   Plus,
   Settings,
-  Sparkles,
+  Star,
   Timer,
+  Users,
+  Sparkles,
 } from "lucide-react";
 
 import { Helmet } from "react-helmet-async";
@@ -38,6 +40,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
   Breadcrumb,
   BreadcrumbItem,
   BreadcrumbLink,
@@ -45,9 +54,19 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   ProjectStatus,
@@ -59,6 +78,7 @@ import {
 import { useProjectGovernance } from "@/hooks/useProjectGovernance";
 import { useToast } from "@/hooks/use-toast";
 import { useDocsList } from "@/hooks/useDocs";
+import { useConnectivityStatus } from "@/hooks/useConnectivityStatus";
 import { formatProjectStatus, getProjectStatusBadgeVariant } from "@/utils/project-status";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
@@ -76,17 +96,16 @@ interface ProjectTab {
 
 const tabs: ProjectTab[] = [
   { value: "overview", label: "Overview", icon: LayoutList, description: "High-level health snapshot." },
-  { value: "list", label: "List", icon: ListTodo, description: "Interactive table of every item." },
-  { value: "board", label: "Board", icon: LayoutDashboard, description: "Kanban flow with WIP awareness." },
-  { value: "backlog", label: "Backlog", icon: Inbox, description: "Rank and triage intake." },
-  { value: "sprints", label: "Sprints", icon: Flag, description: "Plan and run iterations." },
-  { value: "calendar", label: "Calendar", icon: CalendarClock, description: "Dates and upcoming milestones." },
+  { value: "backlog", label: "Backlog", icon: ListTodo, description: "Rank and triage intake." },
+  { value: "kanban", label: "Kanban", icon: LayoutDashboard, description: "Flow of work with WIP awareness." },
   { value: "timeline", label: "Timeline", icon: GitBranch, description: "Scheduling and dependency view." },
-  { value: "dependencies", label: "Dependencies", icon: AlertTriangle, description: "Cross-project blockers." },
+  { value: "calendar", label: "Calendar", icon: CalendarClock, description: "Dates and upcoming milestones." },
   { value: "reports", label: "Reports", icon: BarChart3, description: "Velocity, throughput, and risk." },
+  { value: "releases", label: "Releases", icon: Flag, description: "Track launch readiness." },
   { value: "docs", label: "Docs", icon: BookOpen, description: "Knowledge captured inside the project." },
   { value: "files", label: "Files", icon: Folder, description: "Shared assets and approvals." },
-  { value: "automations", label: Sparkles, description: "Recipes that keep the project humming." },
+  { value: "automations", label: "Automations", icon: Sparkles, description: "Recipes that keep the project humming." },
+  { value: "members", label: "Members", icon: Users, description: "Project roster and workload." },
   { value: "settings", label: "Settings", icon: Settings, description: "Governance, roles, and modules." },
 ];
 
@@ -156,6 +175,51 @@ const priorityRank: Record<string, number> = {
 };
 
 const DEFAULT_PRIORITY_WEIGHT = 4;
+
+type OverviewWidgetId =
+  | "status"
+  | "burn"
+  | "deadlines"
+  | "blockers"
+  | "cfd"
+  | "risks"
+  | "sla"
+  | "workload";
+
+interface OverviewWidgetState {
+  order: OverviewWidgetId[];
+  hidden: OverviewWidgetId[];
+}
+
+interface OverviewWidgetInstance {
+  id: OverviewWidgetId;
+  title: string;
+  description: string;
+  content: ReactNode;
+}
+
+const DEFAULT_OVERVIEW_WIDGET_ORDER: OverviewWidgetId[] = [
+  "status",
+  "burn",
+  "deadlines",
+  "blockers",
+  "cfd",
+  "risks",
+  "sla",
+  "workload",
+];
+
+function normalizeWidgetState(state: OverviewWidgetState): OverviewWidgetState {
+  const order = state.order.filter(id => DEFAULT_OVERVIEW_WIDGET_ORDER.includes(id));
+  for (const id of DEFAULT_OVERVIEW_WIDGET_ORDER) {
+    if (!order.includes(id)) {
+      order.push(id);
+    }
+  }
+
+  const hidden = state.hidden.filter(id => DEFAULT_OVERVIEW_WIDGET_ORDER.includes(id));
+  return { order, hidden };
+}
 
 function sortByPriority(left: string | null, right: string | null) {
   const leftRank = left ? priorityRank[left.toLowerCase()] ?? DEFAULT_PRIORITY_WEIGHT : DEFAULT_PRIORITY_WEIGHT;
@@ -389,6 +453,138 @@ export function ProjectDetailPage({ tab = "overview" }: ProjectDetailPageProps) 
   const currentTab = tabs.find(entry => entry.value === activeTab) ?? tabs[0];
   const projectLabel = project?.name ?? projectId ?? "Project";
   const pageTitle = `Projects - ${projectLabel} - ${currentTab.label}`;
+  const connectivity = useConnectivityStatus();
+
+  const [favoriteProjects, setFavoriteProjects] = useState<string[]>(() => {
+    if (typeof window === "undefined") {
+      return [];
+    }
+    try {
+      const stored = window.localStorage.getItem("project:favorites");
+      if (!stored) return [];
+      const parsed = JSON.parse(stored);
+      return Array.isArray(parsed) ? parsed.filter((entry): entry is string => typeof entry === "string") : [];
+    } catch (error) {
+      console.warn("Failed to load favorite projects", error);
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem("project:favorites", JSON.stringify(favoriteProjects));
+    } catch (error) {
+      console.warn("Failed to persist favorite projects", error);
+    }
+  }, [favoriteProjects]);
+
+  const isFavorite = useMemo(() => {
+    if (!projectId) return false;
+    return favoriteProjects.includes(projectId);
+  }, [favoriteProjects, projectId]);
+
+  const toggleFavorite = useCallback(() => {
+    if (!projectId) return;
+    setFavoriteProjects(previous => {
+      if (previous.includes(projectId)) {
+        return previous.filter(entry => entry !== projectId);
+      }
+      return [...previous, projectId];
+    });
+  }, [projectId]);
+
+  const [widgetState, setWidgetState] = useState<OverviewWidgetState>(() => {
+    const fallback = normalizeWidgetState({
+      order: DEFAULT_OVERVIEW_WIDGET_ORDER,
+      hidden: [],
+    });
+    if (typeof window === "undefined") {
+      return fallback;
+    }
+    if (!projectId) return fallback;
+    try {
+      const stored = window.localStorage.getItem(`project:${projectId}:overview-widgets`);
+      if (!stored) return fallback;
+      const parsed = JSON.parse(stored);
+      if (parsed && typeof parsed === "object") {
+        return normalizeWidgetState({
+          order: Array.isArray(parsed.order) ? parsed.order : DEFAULT_OVERVIEW_WIDGET_ORDER,
+          hidden: Array.isArray(parsed.hidden) ? parsed.hidden : [],
+        });
+      }
+    } catch (error) {
+      console.warn("Failed to load overview widgets", error);
+    }
+    return fallback;
+  });
+
+  useEffect(() => {
+    if (!projectId || typeof window === "undefined") return;
+    try {
+      const stored = window.localStorage.getItem(`project:${projectId}:overview-widgets`);
+      if (!stored) return;
+      const parsed = JSON.parse(stored);
+      if (parsed && typeof parsed === "object") {
+        setWidgetState(
+          normalizeWidgetState({
+            order: Array.isArray(parsed.order) ? parsed.order : DEFAULT_OVERVIEW_WIDGET_ORDER,
+            hidden: Array.isArray(parsed.hidden) ? parsed.hidden : [],
+          }),
+        );
+      }
+    } catch (error) {
+      console.warn("Failed to hydrate overview widgets", error);
+    }
+  }, [projectId]);
+
+  const updateWidgetState = useCallback((updater: (previous: OverviewWidgetState) => OverviewWidgetState) => {
+    setWidgetState(previous => normalizeWidgetState(updater(previous)));
+  }, []);
+
+  useEffect(() => {
+    if (!projectId || typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(`project:${projectId}:overview-widgets`, JSON.stringify(widgetState));
+    } catch (error) {
+      console.warn("Failed to persist overview widgets", error);
+    }
+  }, [projectId, widgetState]);
+
+  const [customizeOpen, setCustomizeOpen] = useState(false);
+
+  const handleWidgetVisibility = useCallback(
+    (id: OverviewWidgetId, visible: boolean) => {
+      updateWidgetState(previous => {
+        const hiddenSet = new Set(previous.hidden);
+        if (!visible) {
+          hiddenSet.add(id);
+        } else {
+          hiddenSet.delete(id);
+        }
+        return { ...previous, hidden: Array.from(hiddenSet) };
+      });
+    },
+    [updateWidgetState],
+  );
+
+  const handleWidgetReorder = useCallback(
+    (id: OverviewWidgetId, direction: "up" | "down") => {
+      updateWidgetState(previous => {
+        const order = [...previous.order];
+        const index = order.indexOf(id);
+        if (index === -1) return previous;
+        const nextIndex = direction === "up" ? Math.max(index - 1, 0) : Math.min(index + 1, order.length - 1);
+        if (index === nextIndex) return previous;
+        const [entry] = order.splice(index, 1);
+        order.splice(nextIndex, 0, entry);
+        return { ...previous, order };
+      });
+    },
+    [updateWidgetState],
+  );
+
+  const normalizedWidgetState = useMemo(() => normalizeWidgetState(widgetState), [widgetState]);
 
   const tasksQuery = useQuery<TaskSnapshot[]>({
     queryKey: ["project", projectId, "tasks"],
@@ -483,6 +679,356 @@ export function ProjectDetailPage({ tab = "overview" }: ProjectDetailPageProps) 
   const calendarWeeks = useMemo(() => computeCalendar(tasks), [tasks]);
   const timeline = useMemo(() => computeTimeline(tasks), [tasks]);
 
+  const blockedTasks = useMemo(
+    () =>
+      tasks
+        .filter(task => task.blocked)
+        .sort((left, right) => {
+          const leftDate = left.updated_at ? new Date(left.updated_at).getTime() : 0;
+          const rightDate = right.updated_at ? new Date(right.updated_at).getTime() : 0;
+          return rightDate - leftDate;
+        })
+        .slice(0, 5),
+    [tasks],
+  );
+
+  const upcomingDeadlines = useMemo(
+    () =>
+      tasks
+        .filter(task => task.due_date && isAfter(parseISO(task.due_date), new Date()))
+        .sort((left, right) => {
+          if (!left.due_date || !right.due_date) return 0;
+          return parseISO(left.due_date).getTime() - parseISO(right.due_date).getTime();
+        })
+        .slice(0, 6),
+    [tasks],
+  );
+
+  const overdueTasks = useMemo(
+    () =>
+      tasks
+        .filter(task => {
+          if (!task.due_date) return false;
+          try {
+            return isBefore(parseISO(task.due_date), new Date()) && (task.status ?? "").toLowerCase() !== "done";
+          } catch {
+            return false;
+          }
+        })
+        .sort((left, right) => {
+          if (!left.due_date || !right.due_date) return 0;
+          return parseISO(left.due_date).getTime() - parseISO(right.due_date).getTime();
+        })
+        .slice(0, 6),
+    [tasks],
+  );
+
+  const slaWeeks = useMemo(() => calendarWeeks.slice(0, 6), [calendarWeeks]);
+  const maxSlaVolume = useMemo(() => Math.max(1, ...slaWeeks.map(week => week.entries.length)), [slaWeeks]);
+
+  const health = useMemo(() => (project ? getHealthColor(project.status, summary) : null), [project, summary]);
+
+  const healthClasses = useMemo(() => {
+    if (!health) {
+      return { badge: "border-muted text-muted-foreground", dot: "bg-muted" };
+    }
+    switch (health.badge) {
+      case "destructive":
+        return { badge: "border-destructive/70 text-destructive", dot: "bg-destructive" };
+      case "warning":
+        return { badge: "border-amber-500/60 text-amber-600", dot: "bg-amber-500" };
+      case "success":
+        return { badge: "border-emerald-500/60 text-emerald-600", dot: "bg-emerald-500" };
+      default:
+        return { badge: "border-muted text-emerald-600", dot: "bg-emerald-500" };
+    }
+  }, [health]);
+
+  const overviewWidgetMap = useMemo(() => {
+    const widgets: Record<OverviewWidgetId, OverviewWidgetInstance> = {
+      status: {
+        id: "status",
+        title: "Status summary",
+        description: "Distribution of work items across states.",
+        content: (
+          <Card className="h-full">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-semibold">Status summary</CardTitle>
+              <CardDescription className="text-xs">Track throughput across key swimlanes.</CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-3 sm:grid-cols-3">
+              <MetricTile label="To do" value={summary.byStatus.todo} tone="muted" />
+              <MetricTile label="In progress" value={summary.byStatus.inProgress} tone="warning" />
+              <MetricTile label="Done" value={summary.byStatus.done} tone="success" />
+            </CardContent>
+          </Card>
+        ),
+      },
+      burn: {
+        id: "burn",
+        title: "Burn-up & burn-down",
+        description: "Completion trajectory across items and points.",
+        content: (
+          <Card className="h-full">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-semibold">Burn-up & burn-down</CardTitle>
+              <CardDescription className="text-xs">Progress across scope and velocity.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span>{summary.byStatus.done} done</span>
+                  <span>{summary.total} total</span>
+                </div>
+                <Progress value={summary.completion} className="h-2" />
+                <p className="text-xs text-muted-foreground">{summary.completion}% items complete</p>
+              </div>
+              <div className="rounded-md border bg-muted/30 p-3 text-xs">
+                <div className="flex items-center justify-between">
+                  <span>Story points delivered</span>
+                  <span>{summary.pointCompletion === null ? "—" : `${summary.pointCompletion}%`}</span>
+                </div>
+                <p className="mt-1 text-muted-foreground">Based on recorded story points.</p>
+              </div>
+            </CardContent>
+          </Card>
+        ),
+      },
+      deadlines: {
+        id: "deadlines",
+        title: "Upcoming deadlines",
+        description: "Due items in the next sprint window.",
+        content: (
+          <Card className="h-full">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-semibold">Upcoming deadlines</CardTitle>
+              <CardDescription className="text-xs">Next six items due soon.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {upcomingDeadlines.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No deadlines in the next two weeks.</p>
+              ) : (
+                upcomingDeadlines.map(task => (
+                  <div key={task.id} className="flex items-start justify-between gap-3 text-sm">
+                    <div className="space-y-1">
+                      <p className="font-medium leading-tight">{task.title ?? "Untitled"}</p>
+                      <p className="text-xs text-muted-foreground">{task.priority ?? "Medium"} priority</p>
+                    </div>
+                    <Badge variant="outline" className="shrink-0">
+                      {formatDate(task.due_date)}
+                    </Badge>
+                  </div>
+                ))
+              )}
+            </CardContent>
+          </Card>
+        ),
+      },
+      blockers: {
+        id: "blockers",
+        title: "Risks & blockers",
+        description: "Items awaiting intervention.",
+        content: (
+          <Card className="h-full">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-semibold">Risks & blockers</CardTitle>
+              <CardDescription className="text-xs">Escalate impediments quickly.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {blockedTasks.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No active blockers detected.</p>
+              ) : (
+                blockedTasks.map(task => (
+                  <div key={task.id} className="space-y-1 rounded-md border border-destructive/40 bg-destructive/5 p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-sm font-medium leading-tight">{task.title ?? "Untitled"}</p>
+                      <Badge variant="destructive" className="uppercase">
+                        {(task.priority ?? "").slice(0, 1) || "!"}
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground">{task.blocking_reason ?? "No reason provided."}</p>
+                    <p className="text-xs text-muted-foreground">Due {formatDate(task.due_date)}</p>
+                  </div>
+                ))
+              )}
+            </CardContent>
+          </Card>
+        ),
+      },
+      cfd: {
+        id: "cfd",
+        title: "Cumulative flow",
+        description: "Snapshot of work-in-progress load.",
+        content: (
+          <Card className="h-full">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-semibold">Cumulative flow</CardTitle>
+              <CardDescription className="text-xs">Understand bottlenecks at a glance.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Items</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  <TableRow>
+                    <TableCell>To do</TableCell>
+                    <TableCell className="text-right">{summary.byStatus.todo}</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell>In progress</TableCell>
+                    <TableCell className="text-right">{summary.byStatus.inProgress}</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell>Done</TableCell>
+                    <TableCell className="text-right">{summary.byStatus.done}</TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        ),
+      },
+      risks: {
+        id: "risks",
+        title: "Overdue risks",
+        description: "Past-due work that needs triage.",
+        content: (
+          <Card className="h-full">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-semibold">Overdue risks</CardTitle>
+              <CardDescription className="text-xs">Items breaching commitments.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {overdueTasks.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No overdue work right now.</p>
+              ) : (
+                overdueTasks.map(task => {
+                  const days = task.due_date ? Math.abs(differenceInDays(new Date(), parseISO(task.due_date))) : 0;
+                  return (
+                    <div key={task.id} className="flex items-center justify-between rounded-md border bg-muted/30 p-3 text-sm">
+                      <div className="space-y-1">
+                        <p className="font-medium leading-tight">{task.title ?? "Untitled"}</p>
+                        <p className="text-xs text-muted-foreground">Owner: {task.team_assigned ?? "Unassigned"}</p>
+                      </div>
+                      <Badge variant="destructive">{days}d</Badge>
+                    </div>
+                  );
+                })
+              )}
+            </CardContent>
+          </Card>
+        ),
+      },
+      sla: {
+        id: "sla",
+        title: "SLA heatmap",
+        description: "Due-week workload and breaches.",
+        content: (
+          <Card className="h-full">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-semibold">SLA heatmap</CardTitle>
+              <CardDescription className="text-xs">Volume of due work grouped by week.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {slaWeeks.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No scheduled work yet.</p>
+              ) : (
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                  {slaWeeks.map(week => {
+                    const ratio = week.entries.length / maxSlaVolume;
+                    const intensity = Math.max(0.12, ratio);
+                    return (
+                      <div key={week.key} className="space-y-1">
+                        <div
+                          className="rounded-md border px-3 py-4 text-center text-sm font-semibold"
+                          style={{
+                            backgroundColor: `hsl(142 71% ${Math.max(25, 92 - intensity * 40)}%)`,
+                            color: intensity > 0.6 ? "#0f172a" : "#0b3d2e",
+                          }}
+                        >
+                          {week.entries.length}
+                        </div>
+                        <p className="text-[11px] text-muted-foreground">Week of {week.weekStart}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        ),
+      },
+      workload: {
+        id: "workload",
+        title: "Workload by team",
+        description: "Balance staffing and commitments.",
+        content: (
+          <Card className="h-full">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-semibold">Workload by team</CardTitle>
+              <CardDescription className="text-xs">Top teams and overdue ratio.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {teamBreakdown.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No team assignments recorded.</p>
+              ) : (
+                teamBreakdown.slice(0, 6).map(entry => {
+                  const overdueRatio = entry.count === 0 ? 0 : (entry.overdue / entry.count) * 100;
+                  return (
+                    <div key={entry.team} className="space-y-1">
+                      <div className="flex items-center justify-between text-sm">
+                        <span>{entry.team}</span>
+                        <span>{entry.count}</span>
+                      </div>
+                      <Progress value={Math.min(100, 100 - overdueRatio)} className="h-2" />
+                      <p className="text-[11px] text-muted-foreground">{entry.overdue} overdue</p>
+                    </div>
+                  );
+                })
+              )}
+            </CardContent>
+          </Card>
+        ),
+      },
+    };
+
+    return widgets;
+  }, [
+    summary.byStatus.done,
+    summary.byStatus.inProgress,
+    summary.byStatus.todo,
+    summary.completion,
+    summary.pointCompletion,
+    summary.total,
+    blockedTasks,
+    upcomingDeadlines,
+    overdueTasks,
+    slaWeeks,
+    maxSlaVolume,
+    teamBreakdown,
+  ]);
+
+  const allOverviewWidgets = useMemo(
+    () =>
+      DEFAULT_OVERVIEW_WIDGET_ORDER.map(id => overviewWidgetMap[id]).filter(
+        (widget): widget is OverviewWidgetInstance => Boolean(widget),
+      ),
+    [overviewWidgetMap],
+  );
+
+  const visibleOverviewWidgets = useMemo(
+    () =>
+      normalizedWidgetState.order
+        .map(id => overviewWidgetMap[id])
+        .filter((widget): widget is OverviewWidgetInstance => Boolean(widget))
+        .filter(widget => !normalizedWidgetState.hidden.includes(widget.id)),
+    [normalizedWidgetState.hidden, normalizedWidgetState.order, overviewWidgetMap],
+  );
+
   const renderBreadcrumbForState = (
     finalLabel: string,
     options: { linkProject?: boolean; hideProject?: boolean } = {},
@@ -526,6 +1072,55 @@ export function ProjectDetailPage({ tab = "overview" }: ProjectDetailPageProps) 
       }
     },
     [location.pathname, navigate, projectId],
+  );
+
+  const quickActions = useMemo(
+    () =>
+      projectId
+        ? [
+            {
+              id: "new-item",
+              label: "New item",
+              description: "Capture work instantly",
+              icon: Plus,
+              disabled: !canCreateItems || connectivity.state === "offline",
+              onSelect: () => navigate(`/tasks?projectId=${projectId}`),
+            },
+            {
+              id: "plan-sprint",
+              label: "Plan sprint",
+              description: "Schedule the next iteration",
+              icon: Timer,
+              disabled: !canManageLifecycle,
+              onSelect: () => navigate(`/projects/${projectId}/sprints`),
+            },
+            {
+              id: "run-report",
+              label: "Reports",
+              description: "Open delivery analytics",
+              icon: BarChart3,
+              disabled: false,
+              onSelect: () => handleNavigateToTab("reports"),
+            },
+            {
+              id: "automation",
+              label: "Automations",
+              description: "Tune runbooks",
+              icon: Sparkles,
+              disabled: !canManageAutomations,
+              onSelect: () => navigate(`/projects/${projectId}/automations`),
+            },
+          ]
+        : [],
+    [
+      projectId,
+      canCreateItems,
+      canManageLifecycle,
+      canManageAutomations,
+      connectivity.state,
+      navigate,
+      handleNavigateToTab,
+    ],
   );
 
   const handleArchive = useCallback(async () => {
@@ -585,167 +1180,6 @@ export function ProjectDetailPage({ tab = "overview" }: ProjectDetailPageProps) 
     }
   }, [canDeleteProject, deleteMutation, navigate, projectId, toast]);
 
-  const headerContent = useMemo(() => {
-    if (!project) {
-      return null;
-    }
-
-    const updatedDate = project.updated_at ? new Date(project.updated_at) : null;
-    const isValidDate = updatedDate && !Number.isNaN(updatedDate.getTime());
-    const lastUpdatedLabel = isValidDate
-      ? formatDistanceToNow(updatedDate, { addSuffix: true })
-      : "Unknown";
-
-    const health = getHealthColor(project.status, summary);
-
-    return (
-      <div className="flex flex-col gap-6 rounded-lg border bg-background/80 p-6 shadow-sm">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div className="space-y-3">
-            <div className="flex flex-wrap items-center gap-3">
-              <h1 className="text-3xl font-semibold tracking-tight">{project.name}</h1>
-              <Badge variant={getProjectStatusBadgeVariant(project.status)}>
-                {formatProjectStatus(project.status)}
-              </Badge>
-              <Badge variant={health.badge}>{health.label}</Badge>
-            </div>
-            {project.description ? (
-              <p className="max-w-3xl text-sm text-muted-foreground">{project.description}</p>
-            ) : null}
-            <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
-              <span>Project key: {project.code ?? "—"}</span>
-              <span>Updated {lastUpdatedLabel}</span>
-              <span>Items: {summary.total}</span>
-              <span>Open: {summary.total - summary.byStatus.done}</span>
-              <span>Blocked: {summary.blocked}</span>
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              variant="outline"
-              onClick={() => navigate(`/projects/${projectId}/settings`)}
-              disabled={!projectId || !canManageSettings}
-            >
-              <Settings className="mr-2 h-4 w-4" />
-              Edit settings
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => navigate(`/projects/${projectId}/automations`)}
-              disabled={!canManageAutomations}
-            >
-              <Sparkles className="mr-2 h-4 w-4" />
-              Automations
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => navigate(`/projects/${projectId}/sprints`)}
-              disabled={!canManageLifecycle}
-            >
-              <Timer className="mr-2 h-4 w-4" />
-              Plan sprint
-            </Button>
-            <Button onClick={() => navigate(`/tasks?projectId=${projectId ?? ""}`)} disabled={!canCreateItems}>
-              <Plus className="mr-2 h-4 w-4" />
-              New item
-            </Button>
-            <Button
-              variant="outline"
-              onClick={handleArchive}
-              disabled={!canManageLifecycle || archiveMutation.isPending || updateMutation.isPending}
-            >
-              {project.status === "archived" ? (
-                <>
-                  <ArchiveRestore className="mr-2 h-4 w-4" />
-                  Unarchive
-                </>
-              ) : (
-                <>
-                  <Archive className="mr-2 h-4 w-4" />
-                  Archive
-                </>
-              )}
-            </Button>
-            {canDeleteProject ? (
-              <Button variant="destructive" onClick={handleDelete} disabled={deleteMutation.isPending}>
-                <AlertTriangle className="mr-2 h-4 w-4" />
-                Delete
-              </Button>
-            ) : null}
-          </div>
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <Card className="border-dashed">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Progress</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex items-center justify-between text-sm">
-                <span>{summary.byStatus.done} done</span>
-                <span>{summary.total} total</span>
-              </div>
-              <Progress value={summary.completion} className="h-2" />
-              <p className="text-xs text-muted-foreground">{summary.completion}% complete</p>
-            </CardContent>
-          </Card>
-          <Card className="border-dashed">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Upcoming</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {milestone ? (
-                <>
-                  <div className="text-sm font-medium">{milestone.label}</div>
-                  <p className="text-xs text-muted-foreground">
-                    {milestone.description} · {formatDate(milestone.date)} ({formatRelative(milestone.date)})
-                  </p>
-                </>
-              ) : (
-                <p className="text-xs text-muted-foreground">No upcoming milestones detected.</p>
-              )}
-            </CardContent>
-          </Card>
-          <Card className="border-dashed">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Blocked</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-semibold">{summary.blocked}</p>
-              <p className="text-xs text-muted-foreground">Items needing attention</p>
-            </CardContent>
-          </Card>
-          <Card className="border-dashed">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Story points</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-semibold">
-                {summary.pointCompletion === null ? "—" : `${summary.pointCompletion}%`}
-              </p>
-              <p className="text-xs text-muted-foreground">Completed vs planned</p>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    )
-  }, [
-    archiveMutation.isPending,
-    canCreateItems,
-    canDeleteProject,
-    canManageAutomations,
-    canManageLifecycle,
-    canManageSettings,
-    deleteMutation.isPending,
-    handleArchive,
-    handleDelete,
-    navigate,
-    project,
-    projectId,
-    summary,
-    updateMutation.isPending,
-    milestone,
-  ]);
 
   if (!projectId) {
     const title = "Projects - Not found";
@@ -834,17 +1268,270 @@ export function ProjectDetailPage({ tab = "overview" }: ProjectDetailPageProps) 
     timeline,
     teamBreakdown,
     project,
+    overviewWidgets: visibleOverviewWidgets,
+    openOverviewCustomizer: () => setCustomizeOpen(true),
   });
 
-  const recentActivities = tasks.slice(0, 6);
+  const activityFeed = useMemo(() => {
+    const entries: { id: string; title: string; description: string; timestamp: string | null; categories: string[] }[] = [];
+
+    for (const task of tasks) {
+      const categories = ["updates"];
+      const statusLabel = (task.status ?? "todo").replaceAll("_", " ");
+      if (task.blocked) {
+        categories.push("risks");
+      }
+      if ((task.blocking_reason ?? "").includes("@")) {
+        categories.push("mentions");
+      }
+      if (task.due_date) {
+        try {
+          if (isBefore(parseISO(task.due_date), new Date()) && statusLabel.toLowerCase() !== "done") {
+            categories.push("risks");
+          }
+        } catch {
+          // ignore
+        }
+      }
+      entries.push({
+        id: `task-${task.id}`,
+        title: task.title ?? "Untitled item",
+        description: `${statusLabel} · ${task.team_assigned ?? "Unassigned"}`,
+        timestamp: task.updated_at ?? task.due_date,
+        categories,
+      });
+    }
+
+    for (const doc of docs.slice(0, 12)) {
+      entries.push({
+        id: `doc-${doc.id}`,
+        title: doc.title ?? "Untitled doc",
+        description: "Documentation update",
+        timestamp: doc.updated_at ?? doc.created_at ?? null,
+        categories: ["docs"],
+      });
+    }
+
+    for (const automation of automations.slice(0, 12)) {
+      entries.push({
+        id: `automation-${automation.id}`,
+        title: automation.name,
+        description: automation.is_active ? "Automation ran" : "Automation updated",
+        timestamp: automation.last_executed_at,
+        categories: ["automation"],
+      });
+    }
+
+    entries.sort((left, right) => {
+      const leftDate = left.timestamp ? new Date(left.timestamp).getTime() : 0;
+      const rightDate = right.timestamp ? new Date(right.timestamp).getTime() : 0;
+      return rightDate - leftDate;
+    });
+
+    return entries;
+  }, [automations, docs, tasks]);
+
+  const [activityFilter, setActivityFilter] = useState("all");
+
+  const filteredActivity = useMemo(
+    () =>
+      activityFeed.filter(entry => activityFilter === "all" || entry.categories.includes(activityFilter)).slice(0, 12),
+    [activityFeed, activityFilter],
+  );
+
+  const lastSyncedLabel = useMemo(() => {
+    if (!connectivity.lastSyncedAt) return "recently";
+    try {
+      return formatDistanceToNow(new Date(connectivity.lastSyncedAt), { addSuffix: true });
+    } catch {
+      return "recently";
+    }
+  }, [connectivity.lastSyncedAt]);
+
+  const updatedDate = project?.updated_at ? new Date(project.updated_at) : null;
+  const lastUpdatedLabel = updatedDate && !Number.isNaN(updatedDate.getTime())
+    ? formatDistanceToNow(updatedDate, { addSuffix: true })
+    : "Unknown";
+  const openItems = summary.total - summary.byStatus.done;
+  const queueSize = connectivity.summary?.total ?? 0;
+  const activityFilters = [
+    { value: "all", label: "All" },
+    { value: "updates", label: "Updates" },
+    { value: "mentions", label: "Mentions" },
+    { value: "docs", label: "Docs" },
+    { value: "automation", label: "Automations" },
+    { value: "risks", label: "Risks" },
+  ];
+
+  const offlineDescription =
+    connectivity.state === "offline"
+      ? "You're offline. Changes will sync when you're connected."
+      : connectivity.state === "queue"
+        ? `${queueSize} change(s) waiting to sync.`
+        : connectivity.state === "syncing"
+          ? "Processing queued updates."
+          : `Last synced ${lastSyncedLabel}.`;
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6 pb-24 pt-6 lg:pb-6">
       <Helmet>
         <title>{pageTitle}</title>
       </Helmet>
       {renderBreadcrumbForState(currentTab.label, { linkProject: true })}
-      {headerContent}
+      {connectivity.state !== "online" ? (
+        <Alert
+          variant={connectivity.state === "offline" ? "destructive" : "default"}
+          className="sticky top-16 z-40 border-dashed"
+        >
+          <AlertTitle>
+            {connectivity.state === "offline" ? "Offline mode" : "Syncing offline changes"}
+          </AlertTitle>
+          <AlertDescription>{offlineDescription}</AlertDescription>
+        </Alert>
+      ) : null}
+
+      <section className="sticky top-16 z-30 -mx-4 space-y-4 rounded-2xl border bg-background/95 p-4 shadow-sm backdrop-blur supports-[backdrop-filter]:backdrop-blur sm:-mx-0 sm:p-6">
+        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="sm:hidden"
+                aria-pressed={isFavorite}
+                onClick={toggleFavorite}
+              >
+                <Star
+                  className={cn(
+                    "h-4 w-4",
+                    isFavorite ? "fill-yellow-400 text-yellow-500" : "text-muted-foreground",
+                  )}
+                />
+                <span className="sr-only">Toggle favorite</span>
+              </Button>
+              <h1 className="text-3xl font-semibold tracking-tight">{project.name}</h1>
+              <Badge variant={getProjectStatusBadgeVariant(project.status)}>
+                {formatProjectStatus(project.status)}
+              </Badge>
+              {health ? (
+                <Badge variant="outline" className={cn("flex items-center gap-1", healthClasses.badge)}>
+                  <span className={cn("h-2 w-2 rounded-full", healthClasses.dot)} />
+                  {health.label}
+                </Badge>
+              ) : null}
+            </div>
+            {project.description ? (
+              <p className="max-w-3xl text-sm text-muted-foreground">{project.description}</p>
+            ) : null}
+            <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
+              <span>Project key: {project.code ?? "—"}</span>
+              <span>Updated {lastUpdatedLabel}</span>
+              <span>Items: {summary.total}</span>
+              <span>Open: {openItems}</span>
+              <span>Blocked: {summary.blocked}</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="hidden sm:inline-flex"
+              aria-pressed={isFavorite}
+              onClick={toggleFavorite}
+            >
+              <Star
+                className={cn(
+                  "h-4 w-4",
+                  isFavorite ? "fill-yellow-400 text-yellow-500" : "text-muted-foreground",
+                )}
+              />
+              <span className="sr-only">Toggle favorite</span>
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => navigate(`/projects/${projectId}/settings`)}
+              disabled={!projectId || !canManageSettings}
+            >
+              <Settings className="mr-2 h-4 w-4" /> Settings
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="icon">
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel>Lifecycle</DropdownMenuLabel>
+                <DropdownMenuItem
+                  onClick={handleArchive}
+                  disabled={!canManageLifecycle || archiveMutation.isPending || updateMutation.isPending}
+                >
+                  {project.status === "archived" ? "Restore project" : "Archive project"}
+                </DropdownMenuItem>
+                {canDeleteProject ? (
+                  <DropdownMenuItem onClick={handleDelete} disabled={deleteMutation.isPending}>
+                    Delete project
+                  </DropdownMenuItem>
+                ) : null}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => handleNavigateToTab("automations")}>
+                  Open automations
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="rounded-lg border bg-muted/20 p-3">
+            <p className="text-xs text-muted-foreground">Progress</p>
+            <div className="mt-2 flex items-baseline justify-between">
+              <span className="text-2xl font-semibold">{summary.completion}%</span>
+              <span className="text-xs text-muted-foreground">{summary.byStatus.done}/{summary.total}</span>
+            </div>
+            <Progress value={summary.completion} className="mt-2 h-2" />
+          </div>
+          <div className="rounded-lg border bg-muted/20 p-3">
+            <p className="text-xs text-muted-foreground">Next milestone</p>
+            <p className="mt-2 text-sm font-medium">
+              {milestone ? milestone.label : "No milestone detected"}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {milestone
+                ? `${formatDate(milestone.date)} · ${formatRelative(milestone.date)}`
+                : "Add upcoming deliverables to track them here."}
+            </p>
+          </div>
+          <div className="rounded-lg border bg-muted/20 p-3">
+            <p className="text-xs text-muted-foreground">Offline queue</p>
+            <p className="mt-2 text-sm font-medium">{queueSize}</p>
+            <p className="text-xs text-muted-foreground">{offlineDescription}</p>
+          </div>
+          <div className="rounded-lg border bg-muted/20 p-3">
+            <p className="text-xs text-muted-foreground">Upcoming work</p>
+            <p className="mt-2 text-sm font-medium">{upcomingDeadlines.length} due soon</p>
+            <p className="text-xs text-muted-foreground">Next: {upcomingDeadlines[0] ? formatDate(upcomingDeadlines[0].due_date) : "—"}</p>
+          </div>
+        </div>
+        <div className="overflow-x-auto">
+          <div className="flex gap-2">
+            {quickActions.map(action => (
+              <Button
+                key={action.id}
+                variant="secondary"
+                className="flex-shrink-0"
+                disabled={action.disabled}
+                onClick={action.onSelect}
+              >
+                <action.icon className="mr-2 h-4 w-4" />
+                {action.label}
+              </Button>
+            ))}
+            <Button variant="outline" onClick={() => setCustomizeOpen(true)}>
+              <ListChecks className="mr-2 h-4 w-4" /> Customize overview
+            </Button>
+          </div>
+        </div>
+      </section>
 
       <div className="grid gap-6 lg:grid-cols-[220px_minmax(0,1fr)] xl:grid-cols-[220px_minmax(0,1fr)_320px]">
         <nav className="hidden lg:block">
@@ -893,46 +1580,61 @@ export function ProjectDetailPage({ tab = "overview" }: ProjectDetailPageProps) 
         <aside className="hidden space-y-6 xl:block">
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-semibold">Recent activity</CardTitle>
-              <CardDescription className="text-xs">Latest work item updates.</CardDescription>
+              <CardTitle className="text-sm font-semibold">Activity feed</CardTitle>
+              <CardDescription className="text-xs">Mentions, automations, and work updates.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {tasksQuery.isLoading ? (
-                <div className="space-y-2">
-                  {Array.from({ length: 4 }).map((_, index) => (
-                    <Skeleton key={index} className="h-12 w-full" />
-                  ))}
-                </div>
-              ) : recentActivities.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No recent changes yet.</p>
-              ) : (
-                recentActivities.map(task => (
-                  <div key={task.id} className="space-y-1">
-                    <div className="flex items-start justify-between gap-2">
-                      <p className="text-sm font-medium leading-tight">{task.title ?? "Untitled item"}</p>
-                      <Badge variant="outline" className="text-[11px] capitalize">
-                        {(task.status ?? "todo").replaceAll("_", " ")}
-                      </Badge>
+              <div className="flex flex-wrap gap-2 text-xs">
+                {activityFilters.map(filter => {
+                  const isActive = activityFilter === filter.value;
+                  return (
+                    <button
+                      key={filter.value}
+                      type="button"
+                      onClick={() => setActivityFilter(filter.value)}
+                      className={cn(
+                        "rounded-full border px-3 py-1",
+                        isActive ? "border-primary bg-primary/10 text-primary" : "border-muted"
+                      )}
+                    >
+                      {filter.label}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="space-y-3">
+                {filteredActivity.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No activity yet.</p>
+                ) : (
+                  filteredActivity.map(entry => (
+                    <div key={entry.id} className="space-y-1 rounded-md border bg-muted/20 p-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="text-sm font-medium leading-tight">{entry.title}</p>
+                        <Badge variant="outline" className="text-[11px] capitalize">
+                          {entry.categories[0] ?? "updates"}
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground">{entry.description}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {entry.timestamp ? formatRelative(entry.timestamp) : "Just now"}
+                      </p>
                     </div>
-                    <p className="text-xs text-muted-foreground">
-                      Updated {formatRelative(task.updated_at)} · Due {formatDate(task.due_date)}
-                    </p>
-                  </div>
-                ))
-              )}
+                  ))
+                )}
+              </div>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-semibold">Teams & load</CardTitle>
-              <CardDescription className="text-xs">Distribution by team assignment.</CardDescription>
+              <CardTitle className="text-sm font-semibold">Team load</CardTitle>
+              <CardDescription className="text-xs">Current distribution by team.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               {teamBreakdown.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No team assignments recorded.</p>
               ) : (
-                teamBreakdown.map(entry => (
+                teamBreakdown.slice(0, 8).map(entry => (
                   <div key={entry.team} className="space-y-1">
                     <div className="flex items-center justify-between text-sm">
                       <span>{entry.team}</span>
@@ -946,6 +1648,73 @@ export function ProjectDetailPage({ tab = "overview" }: ProjectDetailPageProps) 
             </CardContent>
           </Card>
         </aside>
+      </div>
+
+      <Dialog open={customizeOpen} onOpenChange={setCustomizeOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Customize overview</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            {allOverviewWidgets.map((widget, index) => {
+              const isVisible = !normalizedWidgetState.hidden.includes(widget.id);
+              return (
+                <div key={widget.id} className="flex items-center justify-between gap-4 rounded-md border p-3">
+                  <div className="flex items-start gap-3">
+                    <div className="flex flex-col gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleWidgetReorder(widget.id, "up")}
+                        disabled={index === 0}
+                      >
+                        <MoveUp className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleWidgetReorder(widget.id, "down")}
+                        disabled={index === allOverviewWidgets.length - 1}
+                      >
+                        <MoveDown className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold">{widget.title}</p>
+                      <p className="text-xs text-muted-foreground">{widget.description}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor={`widget-${widget.id}`} className="text-xs">
+                      Visible
+                    </Label>
+                    <Switch
+                      id={`widget-${widget.id}`}
+                      checked={isVisible}
+                      onCheckedChange={checked => handleWidgetVisibility(widget.id, checked)}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/95 p-3 shadow-lg backdrop-blur supports-[backdrop-filter]:backdrop-blur lg:hidden">
+        <div className="flex gap-2 overflow-x-auto">
+          {quickActions.slice(0, 3).map(action => (
+            <Button
+              key={action.id}
+              onClick={action.onSelect}
+              disabled={action.disabled}
+              className="flex-1 whitespace-nowrap"
+            >
+              <action.icon className="mr-2 h-4 w-4" />
+              {action.label}
+            </Button>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -964,34 +1733,34 @@ type RenderContext = {
   timeline: ReturnType<typeof computeTimeline>;
   teamBreakdown: ReturnType<typeof computeTeamBreakdown>;
   project: { modules: string[] | null; lifecycle: any } & Record<string, unknown>;
+  overviewWidgets: OverviewWidgetInstance[];
+  openOverviewCustomizer: () => void;
 };
 
 function renderTabContent(context: RenderContext) {
   switch (context.activeTab) {
     case "overview":
       return <OverviewTab {...context} />;
-    case "list":
-      return <ListTab {...context} />;
-    case "board":
+    case "kanban":
       return <BoardTab {...context} />;
     case "backlog":
       return <BacklogTab {...context} />;
-    case "sprints":
-      return <SprintsTab {...context} />;
     case "calendar":
       return <CalendarTab {...context} />;
     case "timeline":
       return <TimelineTab {...context} />;
-    case "dependencies":
-      return <DependenciesTab {...context} />;
     case "reports":
       return <ReportsTab {...context} />;
+    case "releases":
+      return <ReleasesTab {...context} />;
     case "docs":
       return <DocsTab {...context} />;
     case "files":
       return <FilesTab {...context} />;
     case "automations":
       return <AutomationsTab {...context} />;
+    case "members":
+      return <MembersTab {...context} />;
     case "settings":
       return <SettingsTab {...context} />;
     default:
@@ -999,69 +1768,32 @@ function renderTabContent(context: RenderContext) {
   }
 }
 
-function OverviewTab({ summary, tasks }: RenderContext) {
-  const recentBlocked = tasks.filter(task => task.blocked).slice(0, 5);
-  const upcoming = tasks
-    .filter(task => task.due_date && isAfter(parseISO(task.due_date), new Date()))
-    .sort((left, right) => {
-      if (!left.due_date || !right.due_date) return 0;
-      return parseISO(left.due_date).getTime() - parseISO(right.due_date).getTime();
-    })
-    .slice(0, 5);
-
+function OverviewTab({ overviewWidgets, openOverviewCustomizer }: RenderContext) {
   return (
-    <div className="grid gap-6 xl:grid-cols-2">
-      <div className="space-y-6">
-        <section className="space-y-4">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Status</h2>
-          <div className="grid gap-4 sm:grid-cols-3">
-            <MetricTile label="To do" value={summary.byStatus.todo} tone="muted" />
-            <MetricTile label="In progress" value={summary.byStatus.inProgress} tone="warning" />
-            <MetricTile label="Done" value={summary.byStatus.done} tone="success" />
-          </div>
-        </section>
-
-        <section className="space-y-4">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Blocked items</h2>
-          {recentBlocked.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No blockers on record.</p>
-          ) : (
-            <div className="space-y-3">
-              {recentBlocked.map(task => (
-                <div key={task.id} className="rounded-md border border-destructive/40 bg-destructive/5 p-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <p className="text-sm font-medium">{task.title ?? "Untitled item"}</p>
-                    <Badge variant="destructive" className="uppercase">{(task.priority ?? "").slice(0, 1)}</Badge>
-                  </div>
-                  <p className="text-xs text-muted-foreground">{task.blocking_reason ?? "No reason provided."}</p>
-                  <p className="text-xs text-muted-foreground">Due {formatDate(task.due_date)}</p>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
+    <div className="space-y-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="space-y-1">
+          <h2 className="text-base font-semibold">Delivery overview</h2>
+          <p className="text-sm text-muted-foreground">
+            Track health, flow, and commitments with configurable widgets.
+          </p>
+        </div>
+        <Button variant="outline" size="sm" onClick={openOverviewCustomizer} className="w-full sm:w-auto">
+          <ListChecks className="mr-2 h-4 w-4" /> Customize widgets
+        </Button>
       </div>
 
-      <div className="space-y-6">
-        <section className="space-y-4">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Upcoming deadlines</h2>
-          {upcoming.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No due dates in the next two weeks.</p>
-          ) : (
-            <div className="space-y-3">
-              {upcoming.map(task => (
-                <div key={task.id} className="rounded-md border bg-muted/30 p-3">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="font-medium">{task.title ?? "Untitled"}</span>
-                    <Badge variant="outline">{formatDate(task.due_date)}</Badge>
-                  </div>
-                  <p className="text-xs text-muted-foreground">{task.priority ?? "Medium"} priority</p>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
-      </div>
+      {overviewWidgets.length === 0 ? (
+        <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
+          All widgets are hidden. Use the customize controls to bring modules back into view.
+        </div>
+      ) : (
+        <div className="grid gap-4 xl:grid-cols-2">
+          {overviewWidgets.map(widget => (
+            <div key={widget.id} className="min-h-[180px]">{widget.content}</div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
