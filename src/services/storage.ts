@@ -2,6 +2,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { mapSupabaseError } from "./utils";
 
 const MAX_SCREENSHOT_SIZE = 5 * 1024 * 1024; // 5 MB
+const MAX_TASK_ATTACHMENT_SIZE = 25 * 1024 * 1024; // 25 MB
+const TASK_ATTACHMENT_BUCKET = "task-attachments";
 
 export async function uploadHelpScreenshot(file: File, userId: string): Promise<{ publicUrl: string }> {
   if (file.size > MAX_SCREENSHOT_SIZE) {
@@ -29,6 +31,38 @@ export async function uploadHelpScreenshot(file: File, userId: string): Promise<
   }
 
   return { publicUrl };
+}
+
+export async function uploadTaskAttachment(
+  file: File,
+  taskId: string,
+  userId: string,
+): Promise<{ path: string; publicUrl: string }> {
+  if (file.size > MAX_TASK_ATTACHMENT_SIZE) {
+    throw new Error("Attachment must be smaller than 25 MB.");
+  }
+
+  const sanitizedName = file.name.replace(/[^a-zA-Z0-9._-]/g, "-");
+  const objectPath = `${taskId}/${userId}/${Date.now()}-${sanitizedName}`;
+
+  const { error } = await supabase.storage.from(TASK_ATTACHMENT_BUCKET).upload(objectPath, file, {
+    cacheControl: "3600",
+    upsert: false,
+    contentType: file.type || "application/octet-stream",
+  });
+
+  if (error) {
+    throw mapSupabaseError(error, "Unable to upload attachment.");
+  }
+
+  const { data } = supabase.storage.from(TASK_ATTACHMENT_BUCKET).getPublicUrl(objectPath);
+  const publicUrl = data?.publicUrl;
+
+  if (!publicUrl) {
+    throw mapSupabaseError(null, "Unable to resolve attachment URL.");
+  }
+
+  return { path: objectPath, publicUrl };
 }
 
 export async function uploadToBucket(
