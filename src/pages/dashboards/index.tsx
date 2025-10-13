@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -7,21 +7,30 @@ import { useAnalytics } from "@/hooks/useAnalytics";
 import type { DashboardDefinition } from "@/hooks/useAnalytics";
 import { Badge } from "@/components/ui/badge";
 
-const MOCK_DASHBOARD: DashboardDefinition = {
-  id: "executive-overview",
-  title: "Executive Overview",
-  description: "Track portfolio velocity, adoption, and governance health.",
-  tiles: [
-    { id: "velocity", reportId: "report-velocity", layout: { x: 0, y: 0, w: 6, h: 4 }, interactions: { crossFilter: true } },
-    { id: "adoption", reportId: "report-adoption", layout: { x: 6, y: 0, w: 6, h: 4 } },
-  ],
-  presentation: { theme: "dark", autoCycle: true, refreshIntervalMinutes: 15 },
-};
-
 export default function DashboardsPage() {
   const { listDashboards } = useAnalytics();
   const [presentationMode, setPresentationMode] = useState(false);
-  const dashboards = useMemo(() => [MOCK_DASHBOARD], []);
+  const [dashboards, setDashboards] = useState<DashboardDefinition[]>([]);
+
+  useEffect(() => {
+    let mounted = true;
+    listDashboards()
+      .then((result) => {
+        if (mounted) {
+          setDashboards(result);
+        }
+      })
+      .catch(() => {
+        setDashboards([]);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, [listDashboards]);
+
+  const handleRefresh = () => {
+    listDashboards().then(setDashboards).catch(() => setDashboards([]));
+  };
 
   return (
     <div className="space-y-6">
@@ -36,7 +45,7 @@ export default function DashboardsPage() {
           <div className="flex items-center gap-2">
             <Switch checked={presentationMode} onCheckedChange={setPresentationMode} />
             <span className="text-sm text-muted-foreground">Presentation mode</span>
-            <Button onClick={() => listDashboards()}>Refresh</Button>
+            <Button onClick={handleRefresh}>Refresh</Button>
           </div>
         </CardHeader>
       </Card>
@@ -56,8 +65,8 @@ export default function DashboardsPage() {
                   <span>{dashboard.title}</span>
                   <div className="flex gap-2">
                     <Badge variant="outline">Theme: {dashboard.presentation?.theme ?? "light"}</Badge>
-                    {dashboard.presentation?.refreshIntervalMinutes ? (
-                      <Badge variant="secondary">Auto refresh {dashboard.presentation.refreshIntervalMinutes}m</Badge>
+                    {dashboard.refreshCadenceMinutes ? (
+                      <Badge variant="secondary">Auto refresh {dashboard.refreshCadenceMinutes}m</Badge>
                     ) : null}
                   </div>
                 </CardTitle>
@@ -70,10 +79,13 @@ export default function DashboardsPage() {
                       className="flex h-40 flex-col justify-between rounded border border-dashed p-4"
                     >
                       <div>
-                        <p className="text-sm font-medium">{tile.reportId}</p>
+                        <p className="text-sm font-medium">{tile.title}</p>
                         <p className="text-xs text-muted-foreground">
-                          Layout ({tile.layout.w}×{tile.layout.h}) cross-filter: {tile.interactions?.crossFilter ? "on" : "off"}
+                          {tile.type} · refresh every {tile.refreshCadenceMinutes}m
                         </p>
+                        {tile.crossFilters?.enabled ? (
+                          <p className="text-xs text-muted-foreground">Cross filters: {tile.crossFilters.mode}</p>
+                        ) : null}
                       </div>
                       <Button size="sm" variant="outline">
                         Open report

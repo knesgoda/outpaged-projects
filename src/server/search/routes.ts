@@ -1,6 +1,14 @@
 // @ts-nocheck
 import { searchEngine, toSearchResult } from "./engineRegistry";
 import type { PrincipalContext, QueryRequest } from "./engineRegistry";
+import {
+  opqlQueryStore,
+  type QueryDialect,
+  type QueryParameterMetadata,
+  type SavedSearchRecord,
+  type SavedSearchScope,
+  type SavedSearchValidationSnapshot,
+} from "./queryStore";
 import type { SearchResult } from "@/types";
 
 const generateId = () => {
@@ -20,6 +28,35 @@ const nowMs = () => {
 const DEFAULT_WINDOW_MS = 10_000;
 const DEFAULT_MAX_REQUESTS = 8;
 const DEFAULT_PAGE_SIZE = 25;
+
+type SavedSearchUpsertPayload = Partial<
+  Omit<
+    SavedSearchRecord,
+    | "workspaceId"
+    | "createdAt"
+    | "updatedAt"
+    | "audit"
+    | "scope"
+    | "validation"
+    | "parameters"
+    | "filters"
+    | "maskedFields"
+    | "opql"
+    | "originalQuery"
+    | "dialect"
+  >
+> &
+  Partial<{
+    scope: Partial<SavedSearchScope>;
+    validation: Partial<SavedSearchValidationSnapshot>;
+    parameters: QueryParameterMetadata[];
+    filters: Record<string, unknown>;
+    maskedFields: string[];
+    opql: string;
+    originalQuery: string;
+    dialect: QueryDialect;
+    sharedWith: string[];
+  }> & { id?: string };
 
 export type SearchPermission =
   | "search.execute"
@@ -75,30 +112,6 @@ export interface OpqlValidationFailure {
 }
 
 export type OpqlValidationResult = OpqlValidationSuccess | OpqlValidationFailure;
-
-export interface SavedSearchRecord {
-  id: string;
-  workspaceId: string;
-  name: string;
-  opql: string;
-  filters: Record<string, unknown>;
-  visibility: "private" | "workspace" | "organization";
-  ownerId: string;
-  description?: string | null;
-  maskedFields: string[];
-  createdAt: string;
-  updatedAt: string;
-  audit: {
-    createdBy: string;
-    updatedBy?: string;
-    lastAccessedAt?: string;
-    exports: Array<{
-      at: string;
-      format: "csv" | "json" | "xlsx";
-      actorId?: string;
-    }>;
-  };
-}
 
 export interface SearchAlertRecord {
   id: string;
@@ -205,6 +218,10 @@ function looksLikeOpql(input: string | undefined): boolean {
   return /^(FIND|COUNT|AGGREGATE|UPDATE|EXPLAIN)\b/i.test(input.trim());
 }
 
+function detectDialect(query: string): QueryDialect {
+  return looksLikeOpql(query) ? "opql" : "jql";
+}
+
 function caretForPosition(input: string, position: number): string {
   const safePosition = Math.max(0, Math.min(position, input.length));
   return `${input}\n${" ".repeat(safePosition)}^`;
@@ -215,6 +232,89 @@ function extractTokens(query: string): string[] {
     .toLowerCase()
     .split(/[^a-z0-9]+/u)
     .filter(Boolean);
+}
+
+function normalizeParameters(input: unknown): QueryParameterMetadata[] {
+  if (!Array.isArray(input)) {
+    return [];
+  }
+
+  return input
+    .map((entry) => {
+      if (!entry || typeof entry !== "object") {
+        return null;
+      }
+      const record = entry as Record<string, unknown>;
+      const token = typeof record.token === "string" ? record.token.trim() : "";
+      if (!token) {
+        return null;
+      }
+      const label =
+        typeof record.label === "string" && record.label.trim()
+          ? record.label.trim()
+          : token;
+      const type = typeof record.type === "string" ? record.type : undefined;
+      const description =
+        typeof record.description === "string" ? record.description : undefined;
+      const required =
+        typeof record.required === "boolean" ? (record.required as boolean) : undefined;
+      const defaultValueCandidate = (record as { defaultValue?: unknown }).defaultValue;
+      const defaultValue =
+        typeof defaultValueCandidate === "string" ||
+        typeof defaultValueCandidate === "number" ||
+        typeof defaultValueCandidate === "boolean" ||
+        defaultValueCandidate === null
+          ? (defaultValueCandidate as string | number | boolean | null)
+          : undefined;
+
+      return {
+        token,
+        label,
+        type,
+        description,
+        required,
+        defaultValue,
+      } satisfies QueryParameterMetadata;
+    })
+    .filter((entry): entry is QueryParameterMetadata => Boolean(entry));
+}
+
+function normalizeScope(
+  candidate: Partial<SavedSearchScope> | undefined,
+  fallbackVisibility: SavedSearchScope["visibility"],
+  fallbackOwner: string,
+  sharedWith?: unknown,
+): SavedSearchScope {
+  const scope: SavedSearchScope = {
+    visibility: candidate?.visibility ?? fallbackVisibility,
+    ownerId: candidate?.ownerId ?? fallbackOwner,
+    sharedWith: [],
+  };
+
+  const providedShared = candidate?.sharedWith ?? sharedWith;
+  if (Array.isArray(providedShared)) {
+    scope.sharedWith = providedShared
+      .filter((value): value is string => typeof value === "string" && Boolean(value))
+      .map((value) => value.trim());
+  }
+
+  return scope;
+}
+
+function normalizeFilters(filters: unknown): Record<string, unknown> {
+  if (!filters || typeof filters !== "object" || Array.isArray(filters)) {
+    return {};
+  }
+  return { ...(filters as Record<string, unknown>) };
+}
+
+function normalizeMaskedFields(masked: unknown): string[] {
+  if (!Array.isArray(masked)) {
+    return [];
+  }
+  return masked
+    .filter((value): value is string => typeof value === "string" && value.length > 0)
+    .map((value) => value.trim());
 }
 
 function applySecurityMask(result: SearchResult, maskedFields: string[]): SearchResult {
@@ -236,7 +336,6 @@ export class SearchRouter {
   private readonly engine: typeof searchEngine;
   private readonly rateLimiter: RateLimiter;
   private readonly maxPageSize: number;
-  private readonly savedSearches = new Map<string, Map<string, SavedSearchRecord>>();
   private readonly alerts = new Map<string, Map<string, SearchAlertRecord>>();
   private readonly logs: SearchLogEntry[] = [];
   private throttledCount = 0;
@@ -254,45 +353,24 @@ export class SearchRouter {
 
   private seedDefaults() {
     const workspaceId = "workspace-demo";
-    const sampleSaved: SavedSearchRecord = {
-      id: generateId(),
-      workspaceId,
-      name: "Search reliability backlog",
-      opql: "search type:task project:'Search reliability initiative'",
-      filters: { type: ["task"], project: "project-1" },
-      visibility: "workspace",
-      ownerId: "owner-1",
-      description: "Tasks driving index stability and abuse safeguards",
-      maskedFields: ["snippet"],
-      createdAt: new Date(Date.now() - 1000 * 60 * 60 * 12).toISOString(),
-      updatedAt: new Date(Date.now() - 1000 * 60 * 60).toISOString(),
-      audit: {
-        createdBy: "owner-1",
-        updatedBy: "owner-1",
-        lastAccessedAt: new Date(Date.now() - 1000 * 60 * 50).toISOString(),
-        exports: [
-          {
-            at: new Date(Date.now() - 1000 * 60 * 90).toISOString(),
-            format: "csv",
-            actorId: "owner-1",
-          },
-        ],
-      },
-    };
+    const savedFilters = opqlQueryStore.listFilters(workspaceId);
+    const primary = savedFilters[0];
+    if (!primary) {
+      return;
+    }
 
     const sampleAlert: SearchAlertRecord = {
       id: generateId(),
       workspaceId,
-      savedSearchId: sampleSaved.id,
+      savedSearchId: primary.id,
       frequency: "daily",
       channels: ["email", "slack"],
       muted: false,
       lastTriggeredAt: new Date(Date.now() - 1000 * 60 * 180).toISOString(),
-      createdAt: sampleSaved.createdAt,
-      updatedAt: sampleSaved.updatedAt,
+      createdAt: primary.createdAt,
+      updatedAt: primary.updatedAt,
     };
 
-    this.savedSearches.set(workspaceId, new Map([[sampleSaved.id, sampleSaved]]));
     this.alerts.set(workspaceId, new Map([[sampleAlert.id, sampleAlert]]));
   }
 
@@ -448,63 +526,76 @@ export class SearchRouter {
 
   listSavedSearches(request: { workspaceId: string; principal: PrincipalContext }): SavedSearchRecord[] {
     this.assertPermission(request.principal, "search.saved.read");
-    const records = Array.from(this.savedSearches.get(request.workspaceId)?.values() ?? []);
-    return records.map((record) => ({ ...record, maskedFields: [...record.maskedFields] }));
+    return opqlQueryStore.listFilters(request.workspaceId);
   }
 
   upsertSavedSearch(request: {
     workspaceId: string;
     principal: PrincipalContext;
-    payload: Partial<Omit<SavedSearchRecord, "id" | "workspaceId" | "createdAt" | "updatedAt" | "audit">> & { id?: string };
+    payload: SavedSearchUpsertPayload;
   }): SavedSearchRecord {
     this.assertPermission(request.principal, "search.saved.manage");
-
-    const store = this.ensureSavedSearchStore(request.workspaceId);
     const now = new Date().toISOString();
+    const existing = request.payload.id
+      ? opqlQueryStore.getFilter(request.workspaceId, request.payload.id)
+      : undefined;
 
-    if (request.payload.id && store.has(request.payload.id)) {
-      const existing = store.get(request.payload.id)!;
-      const next: SavedSearchRecord = {
-        ...existing,
-        ...request.payload,
-        updatedAt: now,
-        audit: {
-          ...existing.audit,
-          updatedBy: request.principal.principalId,
-          lastAccessedAt: existing.audit.lastAccessedAt,
-        },
-      };
-      store.set(next.id, next);
-      return next;
-    }
+    const visibility = request.payload.visibility ?? existing?.visibility ?? "private";
+    const originalQuery = normaliseQuery(
+      request.payload.originalQuery ?? request.payload.opql ?? existing?.originalQuery ?? "",
+    );
+    const canonical = normaliseQuery(request.payload.opql ?? existing?.opql ?? originalQuery);
+    const dialect: QueryDialect = request.payload.dialect ?? detectDialect(originalQuery);
+    const scope = normalizeScope(
+      request.payload.scope,
+      visibility,
+      request.payload.ownerId ?? existing?.ownerId ?? request.principal.principalId,
+      request.payload.sharedWith ?? existing?.scope.sharedWith,
+    );
+    const parameters = normalizeParameters(request.payload.parameters ?? existing?.parameters ?? []);
+    const filters = normalizeFilters(request.payload.filters ?? existing?.filters ?? {});
+    const maskedFields = normalizeMaskedFields(
+      request.payload.maskedFields ?? existing?.maskedFields ?? [],
+    );
 
-    const id = request.payload.id ?? generateId();
-    const next: SavedSearchRecord = {
-      id,
+    const validationResult = this.engine.validate(canonical);
+    const validation: SavedSearchValidationSnapshot = validationResult.valid
+      ? {
+          status: "valid",
+          checkedAt: now,
+          normalizedOpql: canonical,
+        }
+      : {
+          status: "invalid",
+          checkedAt: now,
+          normalizedOpql: canonical,
+          errors: [validationResult.error ?? "Invalid query"],
+          caret: validationResult.caret,
+          position: validationResult.position,
+        };
+
+    return opqlQueryStore.saveFilter({
+      id: request.payload.id,
       workspaceId: request.workspaceId,
-      name: request.payload.name ?? "Untitled saved search",
-      opql: normaliseQuery(request.payload.opql ?? ""),
-      filters: request.payload.filters ?? {},
-      visibility: request.payload.visibility ?? "private",
-      ownerId: request.principal.principalId,
-      description: request.payload.description ?? null,
-      maskedFields: request.payload.maskedFields ?? [],
-      createdAt: now,
-      updatedAt: now,
-      audit: {
-        createdBy: request.principal.principalId,
-        updatedBy: request.principal.principalId,
-        lastAccessedAt: now,
-        exports: [],
-      },
-    };
-    store.set(id, next);
-    return next;
+      name: request.payload.name ?? existing?.name ?? "Untitled saved search",
+      opql: canonical,
+      originalQuery,
+      dialect,
+      parameters,
+      scope,
+      validation,
+      filters,
+      visibility,
+      ownerId: scope.ownerId,
+      description: request.payload.description ?? existing?.description ?? null,
+      maskedFields,
+      audit: existing?.audit,
+    });
   }
 
   deleteSavedSearch(request: { workspaceId: string; principal: PrincipalContext; id: string }): void {
     this.assertPermission(request.principal, "search.saved.manage");
-    this.ensureSavedSearchStore(request.workspaceId).delete(request.id);
+    opqlQueryStore.deleteFilter(request.workspaceId, request.id);
   }
 
   listAlerts(request: { workspaceId: string; principal: PrincipalContext }): SearchAlertRecord[] {
@@ -607,16 +698,8 @@ export class SearchRouter {
   }
 
   getMaskedResult(result: SearchResult, workspaceId: string): SearchResult {
-    const saved = Array.from(this.savedSearches.get(workspaceId)?.values() ?? []);
-    const maskedFields = new Set(saved.flatMap((record) => record.maskedFields));
+    const maskedFields = new Set(opqlQueryStore.getMaskedFields(workspaceId));
     return applySecurityMask(result, Array.from(maskedFields));
-  }
-
-  private ensureSavedSearchStore(workspaceId: string) {
-    if (!this.savedSearches.has(workspaceId)) {
-      this.savedSearches.set(workspaceId, new Map());
-    }
-    return this.savedSearches.get(workspaceId)!;
   }
 
   private ensureAlertStore(workspaceId: string) {
@@ -638,3 +721,4 @@ export function createSearchRouter(options?: SearchRouterOptions) {
 }
 
 export type { SearchLogEntry };
+export type { SavedSearchRecord } from "./queryStore";
