@@ -1,15 +1,17 @@
 import {
   BuilderClause,
   BuilderGroup,
+  BuilderQuery,
   BuilderChangeMeta,
-  countClauses,
   createClause,
   createGroup,
+  createQuery,
   findClause,
-  groupToOpql,
   normalizeGroup,
-  opqlToGroup,
-  summarizeGroup,
+  normalizeQuery,
+  opqlToQuery,
+  queryToOpql,
+  summarizeQuery,
 } from "./builder";
 
 export type NaturalLanguageTokenKind = "clause" | "noise" | "operator";
@@ -27,7 +29,7 @@ export interface NaturalLanguageInterpretation {
   original: string;
   normalized: string;
   opql: string;
-  builder: BuilderGroup;
+  builder: BuilderQuery;
   tokens: NaturalLanguageToken[];
   warnings: string[];
   timestamp: number;
@@ -200,7 +202,7 @@ const cloneFromPrevious = (
   previous?: NaturalLanguageInterpretation | null
 ): BuilderClause => {
   if (!previous) return clause;
-  const existing = findClause(previous.builder, (candidate) =>
+  const existing = findClause(previous.builder.where, (candidate) =>
     candidate.field === clause.field &&
     candidate.comparator === clause.comparator &&
     candidate.value.toLowerCase() === clause.value.toLowerCase()
@@ -217,7 +219,7 @@ const buildInterpretation = (
 ): NaturalLanguageInterpretation => {
   const trimmed = text.trim();
   if (!trimmed) {
-    const empty = createGroup();
+    const empty = createQuery();
     return {
       original: text,
       normalized: "",
@@ -320,14 +322,16 @@ const buildInterpretation = (
     });
   }
 
-  const builder = normalizeGroup(createGroup("AND", clauses));
-  const opql = groupToOpql(builder);
+  const query = createQuery();
+  query.where = normalizeGroup(createGroup("AND", clauses));
+  const normalizedQuery = normalizeQuery(query);
+  const opql = queryToOpql(normalizedQuery);
 
   return {
     original: text,
     normalized: trimmed,
     opql,
-    builder,
+    builder: normalizedQuery,
     tokens,
     warnings,
     timestamp: Date.now(),
@@ -349,8 +353,8 @@ export class NaturalLanguageSession {
   }
 
   synchronizeFromOpql(opql: string): NaturalLanguageInterpretation {
-    const builder = opqlToGroup(opql);
-    const normalized = groupToOpql(builder);
+    const builder = opqlToQuery(opql);
+    const normalized = queryToOpql(builder);
     this.last = {
       original: opql,
       normalized,
@@ -364,8 +368,8 @@ export class NaturalLanguageSession {
     return this.last;
   }
 
-  synchronizeFromBuilder(builder: BuilderGroup): NaturalLanguageInterpretation {
-    const normalized = groupToOpql(builder);
+  synchronizeFromBuilder(builder: BuilderQuery): NaturalLanguageInterpretation {
+    const normalized = queryToOpql(builder);
     this.last = {
       original: normalized,
       normalized,
@@ -379,11 +383,11 @@ export class NaturalLanguageSession {
     return this.last;
   }
 
-  describe(builder: BuilderGroup): string {
-    if (!builder || countClauses(builder) === 0) {
+  describe(builder: BuilderQuery): string {
+    if (!builder) {
       return "";
     }
-    return summarizeGroup(builder, "short");
+    return summarizeQuery(builder);
   }
 
   get interpretation(): NaturalLanguageInterpretation | null {
@@ -395,11 +399,11 @@ export const resynchronizeBuilderFromOpql = (
   opql: string,
   session: NaturalLanguageSession
 ): {
-  builder: BuilderGroup;
+  builder: BuilderQuery;
   meta: BuilderChangeMeta;
 } => {
-  const builder = opqlToGroup(opql);
-  const normalized = groupToOpql(builder);
+  const builder = opqlToQuery(opql);
+  const normalized = queryToOpql(builder);
   session.synchronizeFromBuilder(builder);
   return {
     builder,
