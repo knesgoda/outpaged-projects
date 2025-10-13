@@ -1,10 +1,13 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Sparkles, X, TrendingDown, TrendingUp, Users, Calendar, Check } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { useResourceWorkload } from "@/hooks/useResourceWorkload";
+import { useOperations, type AssistantGuardrail } from "@/components/operations/OperationsProvider";
+import { useTelemetry } from "@/components/telemetry/TelemetryProvider";
+import { format, isWithinInterval } from "date-fns";
 
 interface Suggestion {
   id: string;
@@ -18,6 +21,8 @@ interface Suggestion {
   };
   confidence: number;
   details: string[];
+  guardrailId: string;
+  impactedUsers: string[];
 }
 
 interface BalancingAssistantProps {
@@ -26,103 +31,173 @@ interface BalancingAssistantProps {
 
 export function BalancingAssistant({ onClose }: BalancingAssistantProps) {
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
-  const [loading, setLoading] = useState(true);
   const [applying, setApplying] = useState<string | null>(null);
+  const telemetry = useTelemetry();
+  const { assistantGuardrails, recordAssistantRecommendation, clearAssistantRecommendations } = useOperations();
+  const { data: workloads, loading: workloadsLoading, range, refresh } = useResourceWorkload(undefined, "week");
+  const assistantId = "workload-balancer";
+
+  const guardrailMap = useMemo(() => {
+    const entries = new Map<AssistantGuardrail["metric"], AssistantGuardrail>();
+    assistantGuardrails.forEach((guardrail) => {
+      entries.set(guardrail.metric, guardrail);
+    });
+    return entries;
+  }, [assistantGuardrails]);
 
   useEffect(() => {
-    generateSuggestions();
-  }, []);
-
-  const generateSuggestions = async () => {
-    try {
-      setLoading(true);
-      
-      // Fetch current workload hotspots
-      const { data: assignments, error } = await supabase
-        .from('task_assignees')
-        .select(`
-          task_id,
-          user_id,
-          tasks (
-            id,
-            title,
-            estimated_hours,
-            story_points,
-            priority,
-            due_date,
-            project:projects(name)
-          ),
-          profiles:user_id (
-            full_name
-          )
-        `);
-
-      if (error) throw error;
-
-      // Analyze and generate suggestions
-      const mockSuggestions: Suggestion[] = [
-        {
-          id: '1',
-          type: 'reassign',
-          title: 'Reassign high-priority tasks',
-          description: 'Move 2 tasks from overloaded team member to available capacity',
-          impact: {
-            utilizationDelta: -15,
-            deadlineRisk: -25,
-            affected: 2
-          },
-          confidence: 92,
-          details: [
-            'Alice Johnson (120% → 105%)',
-            'Bob Smith (75% → 90%)',
-            'Skill match: 95/100',
-            'No dependency conflicts'
-          ]
-        },
-        {
-          id: '2',
-          type: 'reschedule',
-          title: 'Shift flexible tasks',
-          description: 'Reschedule 3 medium-priority tasks by 1 week to smooth spike',
-          impact: {
-            utilizationDelta: -8,
-            deadlineRisk: 0,
-            affected: 3
-          },
-          confidence: 85,
-          details: [
-            'Tasks have 2-week flex window',
-            'No hard deadlines affected',
-            'Evens out week 15-16 load'
-          ]
-        },
-        {
-          id: '3',
-          type: 'pair',
-          title: 'Pair programming opportunity',
-          description: 'Add pairing for mentorship and knowledge sharing',
-          impact: {
-            utilizationDelta: 5,
-            deadlineRisk: -10,
-            affected: 2
-          },
-          confidence: 78,
-          details: [
-            'New hire Carol (60% → 70%)',
-            'Senior David (85% → 90%)',
-            'Builds React expertise',
-            '10% overhead for pairing'
-          ]
-        }
-      ];
-
-      setSuggestions(mockSuggestions);
-    } catch (error) {
-      console.error('Error generating suggestions:', error);
-    } finally {
-      setLoading(false);
+    if (workloadsLoading) {
+      return;
     }
-  };
+
+    const overloadGuardrail = guardrailMap.get("utilization_over");
+    const underutilizedGuardrail = guardrailMap.get("utilization_under");
+    const oooGuardrail = guardrailMap.get("ooo_overlap");
+
+    const overloadThreshold = overloadGuardrail?.threshold ?? 110;
+    const underutilizedThreshold = underutilizedGuardrail?.threshold ?? 70;
+    const oooThreshold = oooGuardrail?.threshold ?? 4;
+
+    const overloaded = workloads
+      .filter((workload) => workload.utilization > overloadThreshold)
+      .sort((a, b) => b.utilization - a.utilization);
+    const underutilized = workloads
+      .filter((workload) => workload.utilization < underutilizedThreshold)
+      .sort((a, b) => a.utilization - b.utilization);
+
+    const generatedSuggestions: Suggestion[] = [];
+
+    const priorityWeight = (priority?: string | null) => {
+      switch ((priority ?? "").toLowerCase()) {
+        case "urgent":
+          return 4;
+        case "high":
+          return 3;
+        case "medium":
+          return 2;
+        case "low":
+          return 1;
+        default:
+          return 0;
+      }
+    };
+
+    const computeUtilization = (hours: number, capacity: number) => {
+      if (capacity <= 0) return 0;
+      return Math.max(0, Math.min(200, (hours / capacity) * 100));
+    };
+
+    if (overloaded.length > 0 && underutilized.length > 0) {
+      const heavy = overloaded[0];
+      const light = underutilized[0];
+
+      const transferable = [...heavy.assignments]
+        .filter((assignment) => (assignment.status ?? "").toLowerCase() !== "done")
+        .sort((a, b) => {
+          const priorityDiff = priorityWeight(a.priority) - priorityWeight(b.priority);
+          if (priorityDiff !== 0) return priorityDiff;
+          return (b.estimatedHours ?? 0) - (a.estimatedHours ?? 0);
+        })
+        .slice(0, 2);
+
+      const hoursToMove = transferable.reduce((sum, assignment) => sum + (assignment.estimatedHours ?? 0), 0);
+      const heavyProjected = computeUtilization(heavy.taskHours - hoursToMove, heavy.availableHours);
+      const lightProjected = computeUtilization(light.taskHours + hoursToMove, light.availableHours);
+      const guardrailId = overloadGuardrail?.id ?? "utilization.overload";
+
+      if (transferable.length > 0) {
+        generatedSuggestions.push({
+          id: `${guardrailId}:${heavy.userId}:${light.userId}`,
+          type: 'reassign',
+          title: `Reassign ${transferable.length} task${transferable.length === 1 ? '' : 's'} from ${heavy.fullName} to ${light.fullName}`,
+          description: `Shift lower risk work to ${light.fullName} to relieve ${heavy.fullName}'s load.`,
+          impact: {
+            utilizationDelta: Math.round(heavy.utilization - heavyProjected),
+            deadlineRisk: transferable.reduce((risk, assignment) => {
+              if (!assignment.dueDate) return risk;
+              const dueSoon = new Date(assignment.dueDate).getTime() - Date.now() < 1000 * 60 * 60 * 24 * 7;
+              return risk + (dueSoon ? 10 : 4);
+            }, 0),
+            affected: transferable.length,
+          },
+          confidence: Math.min(95, Math.max(60, 100 - Math.abs(heavyProjected - lightProjected))),
+          details: [
+            `${heavy.fullName}: ${heavy.utilization.toFixed(0)}% → ${heavyProjected.toFixed(0)}%`,
+            `${light.fullName}: ${light.utilization.toFixed(0)}% → ${lightProjected.toFixed(0)}%`,
+            ...transferable.map((assignment) => {
+              const dueLabel = assignment.dueDate ? format(new Date(assignment.dueDate), 'MMM d') : 'no due date';
+              const hours = (assignment.estimatedHours ?? 0).toFixed(1);
+              return `${assignment.title} • ${hours}h • due ${dueLabel}`;
+            }),
+          ],
+          guardrailId,
+          impactedUsers: [heavy.userId, light.userId],
+        });
+      }
+    }
+
+    workloads
+      .filter((workload) => workload.oooHours >= oooThreshold && workload.oooWindows.length > 0)
+      .forEach((workload) => {
+        const conflictingAssignments = workload.assignments.filter((assignment) => {
+          if (!assignment.dueDate) return false;
+          const due = new Date(assignment.dueDate);
+          return workload.oooWindows.some((window) =>
+            isWithinInterval(due, { start: new Date(window.start), end: new Date(window.end) })
+          );
+        });
+
+        if (conflictingAssignments.length === 0) {
+          return;
+        }
+
+        const guardrailId = oooGuardrail?.id ?? "ooo.conflict";
+        const highlighted = conflictingAssignments.slice(0, 3);
+        generatedSuggestions.push({
+          id: `${guardrailId}:${workload.userId}`,
+          type: 'reschedule',
+          title: `Reschedule ${highlighted.length} task${highlighted.length === 1 ? '' : 's'} for ${workload.fullName}`,
+          description: `Upcoming time off overlaps planned work. Consider shifting deadlines or sharing ownership.`,
+          impact: {
+            utilizationDelta: 0,
+            deadlineRisk: highlighted.length * 6,
+            affected: highlighted.length,
+          },
+          confidence: 82,
+          details: highlighted.map((assignment) => {
+            const dueLabel = assignment.dueDate ? format(new Date(assignment.dueDate), 'MMM d') : 'no due date';
+            return `${assignment.title} • due ${dueLabel}`;
+          }),
+          guardrailId,
+          impactedUsers: [workload.userId],
+        });
+      });
+
+    setSuggestions(generatedSuggestions);
+    clearAssistantRecommendations(assistantId);
+    generatedSuggestions.forEach((suggestion) => {
+      recordAssistantRecommendation({
+        id: suggestion.id,
+        assistant: assistantId,
+        guardrailId: suggestion.guardrailId,
+        summary: suggestion.title,
+        impactedUsers: suggestion.impactedUsers,
+        metadata: {
+          type: suggestion.type,
+          confidence: suggestion.confidence,
+          workloadRangeStart: range.start.toISOString(),
+          workloadRangeEnd: range.end.toISOString(),
+        },
+      });
+    });
+    telemetry.track("assistant.suggestion_issued", {
+      assistant: assistantId,
+      suggestionCount: generatedSuggestions.length,
+      guardrails: generatedSuggestions.map((suggestion) => suggestion.guardrailId),
+    });
+  }, [assistantId, clearAssistantRecommendations, guardrailMap, range.end, range.start, recordAssistantRecommendation, telemetry, workloads, workloadsLoading]);
+
+  const loading = workloadsLoading;
 
   const applySuggestion = async (suggestionId: string) => {
     setApplying(suggestionId);
@@ -278,7 +353,9 @@ export function BalancingAssistant({ onClose }: BalancingAssistantProps) {
           variant="outline"
           size="sm"
           className="w-full"
-          onClick={generateSuggestions}
+          onClick={() => {
+            void refresh();
+          }}
           disabled={loading}
         >
           <Sparkles className="mr-2 h-4 w-4" />

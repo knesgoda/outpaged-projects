@@ -384,6 +384,25 @@ export interface PerformanceGuardrail {
   status: "passing" | "failing";
 }
 
+export interface AssistantGuardrail {
+  id: string;
+  name: string;
+  metric: "utilization_over" | "utilization_under" | "ooo_overlap";
+  threshold: number;
+  severity: "info" | "warning" | "critical";
+  description: string;
+}
+
+export interface AssistantRecommendationRecord {
+  id: string;
+  assistant: string;
+  guardrailId: string;
+  issuedAt: string;
+  summary: string;
+  impactedUsers: string[];
+  metadata: Record<string, unknown>;
+}
+
 export interface BackupJob {
   id: string;
   projectId: string;
@@ -474,6 +493,8 @@ export interface OperationsState {
   digestSchedules: DigestSchedule[];
   reports: PortfolioReport[];
   performanceGuardrails: PerformanceGuardrail[];
+  assistantGuardrails: AssistantGuardrail[];
+  assistantRecommendations: AssistantRecommendationRecord[];
   backupJobs: BackupJob[];
   failoverDrills: FailoverDrill[];
   mobileApprovals: MobileApproval[];
@@ -533,6 +554,33 @@ const defaultState: OperationsState = {
   digestSchedules: [],
   reports: [],
   performanceGuardrails: [],
+  assistantGuardrails: [
+    {
+      id: "utilization.overload",
+      name: "Utilization above 110%",
+      metric: "utilization_over",
+      threshold: 110,
+      severity: "critical",
+      description: "Flag teammates operating beyond sustainable capacity thresholds.",
+    },
+    {
+      id: "utilization.underutilized",
+      name: "Utilization below 70%",
+      metric: "utilization_under",
+      threshold: 70,
+      severity: "warning",
+      description: "Highlight available teammates who can absorb additional work.",
+    },
+    {
+      id: "ooo.conflict",
+      name: "Out-of-office conflict",
+      metric: "ooo_overlap",
+      threshold: 4,
+      severity: "warning",
+      description: "Detect when planned work overlaps with four or more hours of time off.",
+    },
+  ],
+  assistantRecommendations: [],
   backupJobs: [],
   failoverDrills: [],
   mobileApprovals: [],
@@ -589,6 +637,15 @@ interface OperationsContextValue extends OperationsState {
   scheduleDigest: (schedule: Omit<DigestSchedule, "id"> & { id?: string }) => DigestSchedule;
   recordReport: (report: Omit<PortfolioReport, "id">) => PortfolioReport;
   definePerformanceGuardrail: (guardrail: Omit<PerformanceGuardrail, "id"> & { id?: string }) => PerformanceGuardrail;
+  updateAssistantGuardrail: (guardrail: Omit<AssistantGuardrail, "id"> & { id?: string }) => AssistantGuardrail;
+  recordAssistantRecommendation: (
+    recommendation: Omit<AssistantRecommendationRecord, "issuedAt" | "metadata" | "id"> & {
+      id?: string;
+      issuedAt?: string;
+      metadata?: Record<string, unknown>;
+    }
+  ) => AssistantRecommendationRecord;
+  clearAssistantRecommendations: (assistant: string) => void;
   recordBackupJob: (job: Omit<BackupJob, "id"> & { id?: string }) => BackupJob;
   recordFailoverDrill: (drill: Omit<FailoverDrill, "id"> & { id?: string }) => FailoverDrill;
   recordMobileApproval: (approval: Omit<MobileApproval, "id"> & { id?: string }) => MobileApproval;
@@ -1459,6 +1516,53 @@ export function OperationsProvider({ children }: { children: React.ReactNode }) 
           : [...prev.performanceGuardrails, newGuardrail],
       }));
       return newGuardrail;
+    },
+    updateAssistantGuardrail: (guardrail) => {
+      const id = guardrail.id ?? createId();
+      const updatedGuardrail: AssistantGuardrail = {
+        id,
+        name: guardrail.name,
+        metric: guardrail.metric,
+        threshold: guardrail.threshold,
+        severity: guardrail.severity,
+        description: guardrail.description,
+      };
+      setState((prev) => ({
+        ...prev,
+        assistantGuardrails: prev.assistantGuardrails.some((item) => item.id === id)
+          ? prev.assistantGuardrails.map((item) => (item.id === id ? updatedGuardrail : item))
+          : [...prev.assistantGuardrails, updatedGuardrail],
+      }));
+      return updatedGuardrail;
+    },
+    recordAssistantRecommendation: (recommendation) => {
+      const id = recommendation.id ?? `${recommendation.assistant}:${recommendation.guardrailId}`;
+      const issuedAt = recommendation.issuedAt ?? new Date().toISOString();
+      const record: AssistantRecommendationRecord = {
+        id,
+        assistant: recommendation.assistant,
+        guardrailId: recommendation.guardrailId,
+        issuedAt,
+        summary: recommendation.summary,
+        impactedUsers: recommendation.impactedUsers,
+        metadata: recommendation.metadata ?? {},
+      };
+      setState((prev) => ({
+        ...prev,
+        assistantRecommendations: [
+          ...prev.assistantRecommendations.filter((entry) => entry.id !== id),
+          record,
+        ],
+      }));
+      return record;
+    },
+    clearAssistantRecommendations: (assistant) => {
+      setState((prev) => ({
+        ...prev,
+        assistantRecommendations: prev.assistantRecommendations.filter(
+          (entry) => entry.assistant !== assistant
+        ),
+      }));
     },
     recordBackupJob: (job) => {
       const id = job.id ?? createId();
