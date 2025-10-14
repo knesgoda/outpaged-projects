@@ -11,4 +11,24 @@ export function triggerIntegrationSync(integrationId: string) {
   return Promise.resolve({ syncedAt: new Date().toISOString() });
 }
 
+export function connectIntegration() {
+  console.warn("Calendar integrations are temporarily disabled");
+  return Promise.resolve();
+}
+
+export function disconnectIntegration() {
+  console.warn("Calendar integrations are temporarily disabled");
+  return Promise.resolve();
+}
+
+export function subscribeToIntegrationUpdates() {
+  console.warn("Calendar integrations are temporarily disabled");
+  return () => {}; // Return unsubscribe function
+}
+
+export function updateConflictPreference() {
+  console.warn("Calendar integrations are temporarily disabled");
+  return Promise.resolve();
+}
+
 export type CalendarEvent = any;
