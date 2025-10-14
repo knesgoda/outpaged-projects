@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Editor } from "@tiptap/react";
 import type { JSONContent } from "@tiptap/core";
 import { Button } from "@/components/ui/button";
-import { RichTextEditor } from "@/components/ui/rich-text-editor";
+import { RichTextEditor } from "@/components/rich-text/RichTextEditor";
 import { createMentionExtension, type MentionSuggestionItem } from "@/components/rich-text/extensions/mention";
 import { createCrossReferenceExtension, type CrossReferenceSuggestion } from "@/components/rich-text/extensions/xref";
 import { SlashCommandExtension } from "@/components/rich-text/extensions/slash-command";

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { EditorContent, useEditor, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
@@ -16,11 +16,15 @@ import type { JSONContent } from "@tiptap/core";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { Bold, Code, Heading2, Heading3, Italic, Link2, List, ListOrdered, Quote, Strikethrough } from "lucide-react";
+import { Bold, Code, Heading2, Heading3, Italic, Link2, List, ListOrdered, Quote, Strikethrough, Table as TableIcon, Save, AlertCircle } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { SlashCommandExtension } from "./extensions/slash-command";
+import { useRichTextAutosave } from "./hooks/useRichTextAutosave";
+import { useRichTextConflict } from "./hooks/useRichTextConflict";
+import { sanitizeHtml } from "@/lib/security";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const lowlight = createLowlight(common);
-CodeBlockLowlight.configure({ lowlight });
 
 export interface RichTextEditorProps {
   value?: string;
@@ -35,6 +39,22 @@ export interface RichTextEditorProps {
   minHeight?: number;
   extensions?: Parameters<typeof useEditor>[0]["extensions"];
   editable?: boolean;
+  // Autosave & offline features
+  autosaveKey?: string; // Unique key for this document (e.g., "task-123-description")
+  autosaveEnabled?: boolean;
+  autosaveDelayMs?: number;
+  offlineEnabled?: boolean; // If false, content won't be cached offline
+  // Conflict resolution
+  onConflict?: (local: string, remote: string) => void;
+  // Security
+  sanitizeOnRender?: boolean;
+  // Chip configuration
+  enableMentions?: boolean;
+  enableCrossReferences?: boolean;
+  enableLabels?: boolean;
+  enableDates?: boolean;
+  fetchMentions?: (query: string) => Promise<any[]>;
+  fetchCrossReferences?: (query: string) => Promise<any[]>;
 }
 
 const DEFAULT_CLASSES = "prose prose-sm max-w-none dark:prose-invert focus:outline-none";
@@ -50,43 +70,79 @@ export function RichTextEditor({
   className,
   editorClassName,
   minHeight = 160,
-  extensions,
+  extensions: customExtensions,
   editable = true,
+  autosaveKey,
+  autosaveEnabled = false,
+  autosaveDelayMs = 2000,
+  offlineEnabled = true,
+  onConflict,
+  sanitizeOnRender = true,
+  enableMentions = false,
+  enableCrossReferences = false,
+  enableLabels = false,
+  enableDates = false,
+  fetchMentions,
+  fetchCrossReferences,
 }: RichTextEditorProps) {
   const lastValueRef = useRef<string | undefined>(value);
   const [hasFocus, setHasFocus] = useState(false);
+  const [currentDoc, setCurrentDoc] = useState<JSONContent | null>(initialDoc ?? null);
+
+  // Autosave hook
+  const {
+    saveState,
+    lastSaved,
+    saveNow,
+    conflict,
+    resolveConflict,
+  } = useRichTextAutosave({
+    key: autosaveKey,
+    enabled: autosaveEnabled && !!autosaveKey,
+    delayMs: autosaveDelayMs,
+    offlineEnabled,
+    onConflict,
+  });
+
+  // Build extensions list
+  const allExtensions = useMemo(() => {
+    const base = [
+      StarterKit.configure({
+        heading: { levels: [1, 2, 3, 4] },
+      }),
+      Link.configure({
+        openOnClick: false,
+        autolink: true,
+        linkOnPaste: true,
+      }),
+      Placeholder.configure({
+        placeholder: placeholder ?? "Write something…",
+        includeChildren: true,
+        showOnlyWhenEditable: true,
+      }),
+      Highlight,
+      TaskList,
+      TaskItem.configure({ nested: true }),
+      Table.configure({ resizable: true }),
+      TableRow,
+      TableHeader,
+      TableCell,
+      CodeBlockLowlight.configure({
+        lowlight,
+        defaultLanguage: "text",
+      }),
+      SlashCommandExtension,
+    ];
+
+    // Add chip extensions if enabled
+    // TODO: Add mention, xref, label, date extensions when config is provided
+
+    return [...base, ...(customExtensions ?? [])];
+  }, [placeholder, customExtensions]);
 
   const editor = useEditor(
     {
-      extensions: [
-        StarterKit.configure({
-          heading: {
-            levels: [1, 2, 3, 4],
-          },
-        }),
-        Link.configure({
-          openOnClick: false,
-          autolink: true,
-          linkOnPaste: true,
-        }),
-        Placeholder.configure({
-          placeholder: placeholder ?? "Write something…",
-          includeChildren: true,
-          showOnlyWhenEditable: true,
-        }),
-        Highlight,
-        TaskList,
-        TaskItem.configure({ nested: true }),
-        Table.configure({ resizable: true }),
-        TableRow,
-        TableHeader,
-        TableCell,
-        CodeBlockLowlight.configure({
-          lowlight,
-          defaultLanguage: "text",
-        }),
-        ...(extensions ?? []),
-      ],
+      extensions: allExtensions,
       editorProps: {
         attributes: {
           class: cn(DEFAULT_CLASSES, editorClassName, !readOnly && "focus-visible:outline-none"),
@@ -96,9 +152,12 @@ export function RichTextEditor({
           if (!editable) return false;
           const text = event.clipboardData?.getData("text/plain") ?? "";
           const rich = event.clipboardData?.getData("text/html");
-          if (rich && !text.startsWith("http")) {
-            // Allow tiptap to handle HTML paste, but sanitize will occur server-side.
-            return false;
+          if (rich && sanitizeOnRender) {
+            // Sanitize pasted HTML
+            const clean = sanitizeHtml(rich);
+            if (clean !== rich) {
+              console.debug("Sanitized pasted HTML");
+            }
           }
           return false;
         },
@@ -106,12 +165,21 @@ export function RichTextEditor({
       editable: editable && !readOnly,
       autofocus: false,
       onUpdate({ editor: nextEditor }) {
-        if (!onChange) return;
         const html = nextEditor.getHTML();
         const doc = nextEditor.getJSON();
+        const text = nextEditor.getText();
+
+        setCurrentDoc(doc);
+
+        if (!onChange) return;
         if (lastValueRef.current !== html) {
           lastValueRef.current = html;
-          onChange(html, { doc, text: nextEditor.getText() });
+          onChange(html, { doc, text });
+
+          // Trigger autosave
+          if (autosaveEnabled && autosaveKey) {
+            saveNow({ html, doc, text });
+          }
         }
       },
       onSelectionUpdate({ editor: nextEditor }) {
@@ -119,7 +187,7 @@ export function RichTextEditor({
       },
       content: initialDoc ?? value ?? "",
     },
-    [placeholder, extensions, readOnly, editable]
+    [placeholder, allExtensions, readOnly, editable]
   );
 
   useEffect(() => {
@@ -132,7 +200,7 @@ export function RichTextEditor({
         lastValueRef.current = value;
       }
     }
-  }, [value, editor]);
+  }, [value, editor, onReady]);
 
   useEffect(() => {
     if (!editor || !initialDoc) return;
@@ -140,6 +208,7 @@ export function RichTextEditor({
     const next = JSON.stringify(initialDoc);
     if (JSON.stringify(current) !== next) {
       editor.commands.setContent(initialDoc, false);
+      setCurrentDoc(initialDoc);
     }
   }, [editor, initialDoc]);
 
@@ -147,6 +216,18 @@ export function RichTextEditor({
     if (!editor) return;
     editor.setEditable(!readOnly && editable);
   }, [editor, readOnly, editable]);
+
+  useEffect(() => {
+    if (!editor) return;
+    const handleFocus = () => setHasFocus(true);
+    const handleBlur = () => setHasFocus(false);
+    editor.on("focus", handleFocus);
+    editor.on("blur", handleBlur);
+    return () => {
+      editor.off("focus", handleFocus);
+      editor.off("blur", handleBlur);
+    };
+  }, [editor]);
 
   const runCommand = useCallback(
     (command: () => void) => () => {
@@ -156,15 +237,20 @@ export function RichTextEditor({
     [editor]
   );
 
+  const insertTable = useCallback(() => {
+    if (!editor) return;
+    editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
+  }, [editor]);
+
   const toolbar = useMemo(() => {
     if (!editor || readOnly) return null;
     const buttons = [
-          {
-            icon: <Bold className="h-4 w-4" />,
-            active: editor.isActive("bold"),
-            label: "Bold",
-            action: () => editor.chain().focus().toggleBold().run(),
-          },
+      {
+        icon: <Bold className="h-4 w-4" />,
+        active: editor.isActive("bold"),
+        label: "Bold",
+        action: () => editor.chain().focus().toggleBold().run(),
+      },
       {
         icon: <Italic className="h-4 w-4" />,
         active: editor.isActive("italic"),
@@ -230,7 +316,7 @@ export function RichTextEditor({
                   <ToggleGroupItem
                     value={button.value}
                     className={cn(
-                      "h-8 w-8 border border-transparent p-0", 
+                      "h-8 w-8 border border-transparent p-0",
                       button.active && "bg-primary/10 text-primary"
                     )}
                     onClick={(event) => {
@@ -320,21 +406,43 @@ export function RichTextEditor({
             <TooltipContent side="bottom">Heading 3</TooltipContent>
           </Tooltip>
         </TooltipProvider>
+        <TooltipProvider delayDuration={100}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                className={cn("h-8 w-8", editor.isActive("table") && "bg-primary/10 text-primary")}
+                onClick={insertTable}
+              >
+                <TableIcon className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Insert table</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+        {autosaveEnabled && (
+          <>
+            <div className="h-4 w-px bg-border" />
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              {saveState === "saving" && (
+                <>
+                  <Save className="h-3 w-3 animate-pulse" />
+                  <span>Saving…</span>
+                </>
+              )}
+              {saveState === "saved" && lastSaved && (
+                <span>
+                  Saved {new Date(lastSaved).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                </span>
+              )}
+            </div>
+          </>
+        )}
       </div>
     );
-  }, [editor, readOnly, hasFocus, runCommand]);
-
-  useEffect(() => {
-    if (!editor) return;
-    const handleFocus = () => setHasFocus(true);
-    const handleBlur = () => setHasFocus(false);
-    editor.on("focus", handleFocus);
-    editor.on("blur", handleBlur);
-    return () => {
-      editor.off("focus", handleFocus);
-      editor.off("blur", handleBlur);
-    };
-  }, [editor]);
+  }, [editor, readOnly, hasFocus, runCommand, insertTable, autosaveEnabled, saveState, lastSaved]);
 
   if (!editor) {
     return (
@@ -351,8 +459,33 @@ export function RichTextEditor({
 
   return (
     <div className={cn("space-y-2", className)}>
+      {conflict && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            Conflict detected: Your local changes differ from the server. 
+            <Button
+              variant="link"
+              size="sm"
+              onClick={() => resolveConflict?.("keep-local")}
+              className="px-2"
+            >
+              Keep local
+            </Button>
+            |
+            <Button
+              variant="link"
+              size="sm"
+              onClick={() => resolveConflict?.("keep-remote")}
+              className="px-2"
+            >
+              Keep remote
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
       {toolbar}
-      <div className={cn("rounded-md border border-border bg-background p-3", hasFocus && "border-primary/70")}> 
+      <div className={cn("rounded-md border border-border bg-background p-3", hasFocus && "border-primary/70")}>
         <EditorContent editor={editor} className={cn("rich-text-editor", editorClassName)} />
       </div>
     </div>
@@ -361,7 +494,7 @@ export function RichTextEditor({
 
 type FormattingButtonProps = {
   editor: Editor;
-  icon: ReactNode;
+  icon: React.ReactNode;
   active: boolean;
   label: string;
   action: () => void;

@@ -506,7 +506,7 @@ export const CommandPalette = () => {
         query: debouncedQuery,
         types: scope.types,
       }),
-    enabled: open && Boolean(debouncedQuery.trim()),
+    enabled: open && Boolean(debouncedQuery.trim()) && debouncedQuery.trim().length >= 2,
     staleTime: 1000 * 30,
   });
 

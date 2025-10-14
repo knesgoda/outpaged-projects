@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { RichTextEditor } from './rich-text-editor';
+import { RichTextEditor } from '@/components/rich-text/RichTextEditor';
 import { Card } from './card';
 import { Avatar, AvatarFallback, AvatarImage } from './avatar';
 import { useProjectMembers, type ProjectMember } from '@/hooks/useProjectMembers';

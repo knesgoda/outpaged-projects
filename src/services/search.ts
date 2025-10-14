@@ -5,6 +5,7 @@ import { createSearchRouter, type OpqlValidationResult, type SavedSearchRecord, 
 import type { PrincipalContext } from "@/server/search/queryEngine";
 import type { OpqlSuggestionRequest, OpqlSuggestionResponse, SearchResult } from "@/types";
 import { recordOpqlResponse } from "@/services/offline";
+import { prepareForIndexing, type RichTextSearchable } from "./search/richTextIndexing";
 
 const router = createSearchRouter();
 
@@ -289,4 +290,23 @@ export function getSearchAuditLog() {
 
 export async function globalSearch(query: string, options: Omit<Parameters<typeof searchAll>[0], "q"> = {}) {
   return searchAll({ q: query, ...options });
+}
+
+/**
+ * Index rich text content for search
+ * This should be called whenever a rich text field is updated
+ */
+export function indexRichTextContent(searchable: RichTextSearchable): void {
+  const indexed = prepareForIndexing(searchable);
+  
+  // TODO: Integrate with actual search index
+  // For now, this just prepares the data
+  console.debug("Indexed rich text content:", {
+    id: indexed.id,
+    type: indexed.type,
+    textLength: indexed.text.length,
+    keywordCount: indexed.keywords.length,
+    mentionCount: indexed.mentions.length,
+    xrefCount: indexed.xrefs.length,
+  });
 }

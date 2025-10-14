@@ -28,7 +28,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { FileUpload, UploadedFile } from "@/components/ui/file-upload";
 import { SmartTaskTypeSelector, SMART_TASK_TYPE_OPTIONS } from "@/components/tasks/SmartTaskTypeSelector";
-import { RichTextEditor } from "@/components/ui/rich-text-editor";
+import { RichTextEditor } from "@/components/rich-text/RichTextEditor";
 import { SafeHtml } from "@/components/ui/safe-html";
 import { Task } from "./TaskCard";
 import { CalendarIcon, X, User, Tag, MessageSquare, Paperclip, GitBranch, Check, XCircle, CheckCircle, Link as LinkIcon, Trash2 } from "lucide-react";
