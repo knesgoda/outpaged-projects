@@ -34,6 +34,95 @@ export type AutomationRun = {
   created_at: string;
 };
 
+export type AutomationGraphNodeType =
+  | "trigger"
+  | "condition"
+  | "action"
+  | "if"
+  | "switch"
+  | "parallel";
+
+export type AutomationGraphNode = {
+  id: string;
+  type: AutomationGraphNodeType;
+  label: string;
+  description?: string | null;
+  config: Record<string, unknown>;
+  position: { x: number; y: number };
+  metadata?: {
+    branchKeys?: string[];
+    icon?: string;
+    color?: string;
+  };
+};
+
+export type AutomationGraphEdge = {
+  id: string;
+  source: string;
+  target: string;
+  label?: string | null;
+  branchKey?: string | null;
+};
+
+export type AutomationGovernance = {
+  ownerId?: string | null;
+  reviewers?: string[];
+  requiresReview?: boolean;
+};
+
+export type AutomationVersionSummary = {
+  id: string;
+  version_number: number;
+  created_at: string;
+  created_by?: string | null;
+  notes?: string | null;
+  is_enabled: boolean;
+  name?: string | null;
+};
+
+export type AutomationRunLog = {
+  id: string;
+  execution_id: string;
+  node_id?: string | null;
+  step_id?: string | null;
+  input?: Record<string, unknown> | null;
+  output?: Record<string, unknown> | null;
+  duration_ms?: number | null;
+  created_at: string;
+};
+
+export type AutomationRunDetails = {
+  id: string;
+  rule_id: string;
+  version_id?: string | null;
+  executed_at: string;
+  success: boolean;
+  duration_ms?: number | null;
+  trigger_data?: Record<string, unknown> | null;
+  input?: Record<string, unknown> | null;
+  output?: Record<string, unknown> | null;
+  logs?: AutomationRunLog[];
+};
+
+export type AutomationConflict = {
+  automationId: string;
+  conflictingAutomationId: string;
+  reason: string;
+  severity: "warning" | "error";
+};
+
+export type AutomationDryRunResult = {
+  executionId: string;
+  durationMs?: number | null;
+  logs: Array<{
+    nodeId: string;
+    status: "success" | "skipped" | "failed";
+    input?: Record<string, unknown> | null;
+    output?: Record<string, unknown> | null;
+    durationMs?: number | null;
+  }>;
+};
+
 export type AutomationEventType =
   | "task.created"
   | "task.updated"
