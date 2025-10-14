@@ -1,7 +1,9 @@
 import type { TenantContext } from "../tenant";
 
 export type DomainEventType =
+  | "project.create_started"
   | "project.created"
+  | "project.seed_complete"
   | "project.updated"
   | "project.deleted"
   | "project.archived"

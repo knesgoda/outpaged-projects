@@ -105,7 +105,21 @@ describe("createProject", () => {
     );
     expect(selectMock).toHaveBeenCalledWith();
     expect(singleMock).toHaveBeenCalledWith();
-    expect(publish).toHaveBeenCalledWith("project.created", { projectId: insertedProject.id });
+    expect(publish).toHaveBeenCalledWith(
+      "project.create_started",
+      expect.objectContaining({
+        name: "Example Project",
+        workspaceId: tenant.workspaceId,
+      }),
+    );
+    expect(publish).toHaveBeenCalledWith(
+      "project.created",
+      expect.objectContaining({
+        projectId: insertedProject.id,
+        workspaceId: tenant.workspaceId,
+        modules: [],
+      }),
+    );
     expect(project).toEqual(insertedProject);
   });
 
@@ -183,7 +197,14 @@ describe("createProject", () => {
     expect(first).toEqual(insertedProject);
     expect(second).toBe(first);
     expect(insertMock).toHaveBeenCalledTimes(1);
-    expect(publish).toHaveBeenCalledTimes(1);
+    expect(publish).toHaveBeenCalledWith(
+      "project.create_started",
+      expect.objectContaining({ name: "Idempotent Project" }),
+    );
+    expect(publish).toHaveBeenCalledWith(
+      "project.created",
+      expect.objectContaining({ projectId: insertedProject.id }),
+    );
   });
 });
 
