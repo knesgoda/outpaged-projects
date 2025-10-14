@@ -1,5 +1,3 @@
-import { randomUUID } from "node:crypto";
-
 export type QueryDialect = "opql" | "jql";
 
 export interface QueryParameterMetadata {
@@ -178,7 +176,8 @@ export interface SaveDashboardInput {
 
 function generateId(prefix: string): string {
   try {
-    return `${prefix}-${randomUUID()}`;
+    // Use Web Crypto API (browser-compatible)
+    return `${prefix}-${crypto.randomUUID()}`;
   } catch (_error) {
     const random = Math.random().toString(16).slice(2);
     return `${prefix}-${random}-${Date.now()}`;
