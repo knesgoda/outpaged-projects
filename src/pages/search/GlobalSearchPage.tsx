@@ -975,6 +975,9 @@ export const GlobalSearchPage = () => {
     createSavedSearchMutation.mutate({
       name: saveName || inputValue,
       query: inputValue,
+      filters: null,
+      visibility: "private",
+      description: "",
     });
   };
 

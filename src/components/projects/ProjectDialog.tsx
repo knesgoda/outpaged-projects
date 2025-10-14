@@ -1323,13 +1323,13 @@ export function ProjectDialog({ open, onOpenChange, onSuccess, initialTemplateId
         review_cadence: formData.reviewCadence,
         maintenance_window: formData.maintenanceWindow,
       },
-      component_catalog: formData.componentCatalog,
+      component_catalog: formData.componentCatalog.map(c => c.name),
       intake_forms: formData.intakeForms,
       automation_plan: {
         primary_recipe: formData.automationRecipe,
         additional: formData.automationSelections.filter(selection => selection.enabled).map(selection => selection.id),
       },
-      integration_configs: formData.integrationMappings,
+      integration_configs: formData.integrationMappings.map(m => JSON.stringify(m)),
       members: formData.invitees,
       permissions: {
         scheme_id: formData.permissionScheme,
@@ -1678,7 +1678,10 @@ export function ProjectDialog({ open, onOpenChange, onSuccess, initialTemplateId
           ? {
               blueprintId: selectedWorkflow.id,
               name: selectedWorkflow.name,
-              states: workflowStates,
+              states: workflowStates.map(s => ({
+                ...s,
+                category: s.category as import("@/services/projects/projectCreationOrchestrator").WorkflowStateCategory
+              })),
               transitions: workflowTransitions,
               slaHooks: workflowHooks,
             }
@@ -1688,7 +1691,10 @@ export function ProjectDialog({ open, onOpenChange, onSuccess, initialTemplateId
         componentCatalog,
         intakeForms,
         automationRules,
-        integrationConnectors,
+        integrationConnectors: integrationConnectors.map(ic => ({
+          ...ic,
+          direction: ic.direction as import("@/services/projects/projectCreationOrchestrator").DataDirection
+        })),
         memberInvitations,
         permissionAssignment,
         notificationPolicies,

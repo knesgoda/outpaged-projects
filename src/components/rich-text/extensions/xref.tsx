@@ -156,39 +156,31 @@ export function createCrossReferenceExtension(options: CrossReferenceExtensionOp
       ];
     },
     addProseMirrorPlugins() {
-      const suggestion = Suggestion({
-        char: "[",
-        allowSpaces: true,
-        startOfLine: false,
-        command: ({ editor, range, props }) => {
-          editor
-            .chain()
-            .focus()
-            .deleteRange({ from: range.from - 1, to: range.to })
-            .insertContent([
-              {
-                type: "xref",
-                attrs: props,
-              },
-              { type: "text", text: " " },
-            ])
-            .run();
-          options.onSelect?.(props as CrossReferenceSuggestion, editor);
-        },
-        items: async ({ query, state, range }) => {
-          const before = state.doc.textBetween(Math.max(0, range.from - 2), range.from, " ");
-          if (!before.endsWith("[")) {
-            return [];
-          }
-          try {
-            const results = await options.fetchSuggestions(query);
-            return results.slice(0, 20);
-          } catch (error) {
-            console.error("xref:suggestions", error);
-            return [];
-          }
-        },
-        render: () => {
+      return [
+        Suggestion({
+          editor: this.editor,
+          char: "[",
+          allowSpaces: true,
+          startOfLine: false,
+          command: ({ editor, range, props }) => {
+            editor
+              .chain()
+              .focus()
+              .deleteRange({ from: range.from - 1, to: range.to })
+              .insertContent([
+                {
+                  type: "xref",
+                  attrs: props,
+                },
+                { type: "text", text: " " },
+              ])
+              .run();
+            options.onSelect?.(props as CrossReferenceSuggestion, editor);
+          },
+          items: async ({ query }) => {
+            return await options.fetchSuggestions(query);
+          },
+          render: () => {
           let component: ReactRenderer<XrefListProps> | null = null;
           let popup: TippyInstance[] = [];
 
@@ -203,7 +195,7 @@ export function createCrossReferenceExtension(options: CrossReferenceExtensionOp
                   onClose: () => popup.forEach((instance) => instance.destroy()),
                 },
                 editor: props.editor,
-              });
+              }) as any;
 
               if (!props.clientRect) {
                 return;
@@ -240,7 +232,7 @@ export function createCrossReferenceExtension(options: CrossReferenceExtensionOp
                 popup.forEach((instance) => instance.hide());
                 return true;
               }
-              const ref = component?.ref as XrefListHandle | undefined;
+              const ref = component?.ref as any;
               return ref?.onKeyDown(props.event) ?? false;
             },
             onExit() {
@@ -250,9 +242,8 @@ export function createCrossReferenceExtension(options: CrossReferenceExtensionOp
             },
           };
         },
-      }) as unknown as SuggestionOptions<CrossReferenceSuggestion>;
-
-      return [suggestion];
+        }),
+      ];
     },
   });
 }

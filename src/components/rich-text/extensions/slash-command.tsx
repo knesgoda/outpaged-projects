@@ -148,6 +148,7 @@ export const SlashCommandExtension = Extension.create<SlashCommandExtensionOptio
 
     return [
       Suggestion({
+        editor: this.editor,
         char: "/",
         allowSpaces: true,
         startOfLine: true,
@@ -171,14 +172,14 @@ export const SlashCommandExtension = Extension.create<SlashCommandExtensionOptio
 
           return {
             onStart: (props) => {
-              component = new ReactRenderer(SlashMenu, {
-                props: {
-                  items: props.items as SlashCommandItem[],
-                  command: (item) => props.command(item),
-                  onClose: () => popup.forEach((instance) => instance.destroy()),
-                },
-                editor: props.editor,
-              });
+            component = new ReactRenderer(SlashMenu, {
+              props: {
+                items: props.items as SlashCommandItem[],
+                command: (item) => props.command(item),
+                onClose: () => popup.forEach((instance) => instance.destroy()),
+              },
+              editor: props.editor,
+            }) as any;
 
               if (!props.clientRect) {
                 return;
@@ -213,7 +214,7 @@ export const SlashCommandExtension = Extension.create<SlashCommandExtensionOptio
                 popup.forEach((instance) => instance.hide());
                 return true;
               }
-              const ref = component?.ref as SlashMenuHandle | undefined;
+              const ref = component?.ref as any;
               return ref?.onKeyDown(props.event) ?? false;
             },
             onExit() {

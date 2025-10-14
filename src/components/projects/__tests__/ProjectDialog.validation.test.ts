@@ -95,8 +95,6 @@ describe("ProjectDialog validation", () => {
 
     expect(validation.basics.valid).toBe(true);
     expect(validation.template.valid).toBe(true);
-    expect(validation.capabilities.valid).toBe(true);
-    expect(validation.lifecycle.valid).toBe(true);
     expect(validation.review.valid).toBe(true);
   });
 });

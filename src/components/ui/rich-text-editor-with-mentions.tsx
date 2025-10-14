@@ -164,7 +164,6 @@ export function RichTextEditorWithMentions({
         onChange={handleTextChange}
         placeholder={placeholder}
         className={className}
-        modules={enhancedModules}
       />
       
       {/* Mention Suggestions Dropdown */}

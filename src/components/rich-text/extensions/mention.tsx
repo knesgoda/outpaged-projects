@@ -150,7 +150,7 @@ export function createMentionExtension(options: MentionExtensionOptions) {
               props: {
                 items: props.items,
                 command: (item) => {
-                  props.command({ id: item.id, label: item.label, description: item.description, avatarUrl: item.avatarUrl });
+                  props.command({ id: item.id, label: item.label });
                   options.onSelect?.(item, props.editor);
                 },
                 onClose: () => {
@@ -158,7 +158,7 @@ export function createMentionExtension(options: MentionExtensionOptions) {
                 },
               },
               editor: props.editor,
-            });
+            }) as any;
 
             if (!props.clientRect) {
               return;
@@ -179,7 +179,7 @@ export function createMentionExtension(options: MentionExtensionOptions) {
             component?.updateProps({
               items: props.items,
               command: (item) => {
-                props.command({ id: item.id, label: item.label, description: item.description, avatarUrl: item.avatarUrl });
+                props.command({ id: item.id, label: item.label });
                 options.onSelect?.(item, props.editor);
               },
               onClose: () => popup.forEach((instance) => instance.destroy()),
@@ -200,7 +200,7 @@ export function createMentionExtension(options: MentionExtensionOptions) {
               popup.forEach((instance) => instance.hide());
               return true;
             }
-            const ref = component?.ref as MentionListHandle | undefined;
+            const ref = component?.ref as any;
             return ref?.onKeyDown(props.event) ?? false;
           },
           onExit() {
