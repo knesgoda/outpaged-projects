@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { format } from "date-fns";
-import { CalendarIcon, Check } from "lucide-react";
+import { CalendarIcon, Check, Plus, Trash2 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -112,8 +112,93 @@ const LANGUAGE_OPTIONS = [
 
 type StepComponent = (props: ProjectCreationStepContext) => JSX.Element;
 
+type BoardColumnConfig = {
+  id: string;
+  name: string;
+  group: string;
+  wipLimit?: number | null;
+};
+
+type WorkflowTransitionConfig = {
+  id: string;
+  from: string;
+  to: string;
+  rule: string;
+};
+
+type BoardConfiguration = {
+  methodology: "scrum" | "kanban";
+  backlogMapping: string;
+  estimationField: string;
+  defaultBoard: string;
+};
+
+type SprintConfiguration = {
+  cadence: string;
+  capacity: number;
+  releaseCadence: string;
+};
+
+type ComponentRoutingConfig = {
+  id: string;
+  name: string;
+  owner: string;
+  routingQueue: string;
+};
+
+type IntakeFormDefinition = {
+  id: string;
+  name: string;
+  audience: "public" | "internal";
+  routing: string;
+};
+
+type AutomationSelection = {
+  id: string;
+  enabled: boolean;
+};
+
+type IntegrationMapping = {
+  id: string;
+  enabled: boolean;
+  projectKey: string;
+};
+
+type MemberInvite = {
+  id: string;
+  name: string;
+  role: string;
+  email: string;
+};
+
+type PermissionOverride = {
+  scope: string;
+  role: string;
+  access: string;
+};
+
+type ImportMapping = {
+  source: string;
+  target: string;
+  sample?: string;
+};
+
 interface StepDefinition {
-  id: "basics" | "template" | "capabilities" | "lifecycle" | "review";
+  id:
+    | "basics"
+    | "template"
+    | "columns"
+    | "workflow"
+    | "boards"
+    | "sprints"
+    | "components"
+    | "forms"
+    | "automations"
+    | "integrations"
+    | "members"
+    | "permissions"
+    | "data"
+    | "review";
   title: string;
   description: string;
   Component: StepComponent;
@@ -143,20 +228,74 @@ const STEP_DEFINITIONS: StepDefinition[] = [
   {
     id: "template",
     title: "Template & Structure",
-    description: "Select templates, fields, workflows, and component catalogs.",
+    description: "Select templates, fields, workflows, and initial presets.",
     Component: PRJCreateStepBTemplate,
   },
   {
-    id: "capabilities",
-    title: "Modules & Schemes",
-    description: "Enable product modules, schemes, automations, and integrations.",
-    Component: PRJCreateStepCPlatformCapabilities,
+    id: "columns",
+    title: "Columns & Groups",
+    description: "Seed board columns and swimlane groupings for work visualization.",
+    Component: PRJCreateStepCColumnsGroups,
   },
   {
-    id: "lifecycle",
-    title: "Lifecycle & Launch",
-    description: "Lifecycle metadata, import strategy, calendars, and archival.",
-    Component: PRJCreateStepDLifecycle,
+    id: "workflow",
+    title: "Workflow & Status",
+    description: "Configure statuses, transitions, and WIP policies.",
+    Component: PRJCreateStepDWorkflowStatus,
+  },
+  {
+    id: "boards",
+    title: "Boards",
+    description: "Choose Scrum or Kanban setups and backlog mapping.",
+    Component: PRJCreateStepEBoards,
+  },
+  {
+    id: "sprints",
+    title: "Sprints & Releases",
+    description: "Define sprint cadence, capacity, and release conventions.",
+    Component: PRJCreateStepFSprintsReleases,
+  },
+  {
+    id: "components",
+    title: "Components & Routing",
+    description: "Assign component owners and routing defaults.",
+    Component: PRJCreateStepGComponentsRouting,
+  },
+  {
+    id: "forms",
+    title: "Forms & Intake",
+    description: "Set up public and internal request forms with routing rules.",
+    Component: PRJCreateStepHFormsIntake,
+  },
+  {
+    id: "automations",
+    title: "Automations & Recipes",
+    description: "Select starter automations and no-code flows.",
+    Component: PRJCreateStepIAutomations,
+  },
+  {
+    id: "integrations",
+    title: "Integrations",
+    description: "Enable source tool connections and mapping preferences.",
+    Component: PRJCreateStepJIntegrations,
+  },
+  {
+    id: "members",
+    title: "Members & Roles",
+    description: "Invite teammates and assign default roles.",
+    Component: PRJCreateStepKMembersRoles,
+  },
+  {
+    id: "permissions",
+    title: "Permissions & Notifications",
+    description: "Pick schemes, privacy defaults, and overrides.",
+    Component: PRJCreateStepLPermissions,
+  },
+  {
+    id: "data",
+    title: "Data & Import",
+    description: "Review sample data, import mappings, and launch readiness.",
+    Component: PRJCreateStepMDataImport,
   },
   {
     id: "review",
@@ -211,6 +350,21 @@ type CreationState = {
   calendarId: string;
   timezone: string;
   archivalWorkflow: string;
+  boardGroups: string[];
+  boardColumns: BoardColumnConfig[];
+  workflowStatuses: string[];
+  workflowTransitions: WorkflowTransitionConfig[];
+  boardConfiguration: BoardConfiguration;
+  sprintConfiguration: SprintConfiguration;
+  componentCatalog: ComponentRoutingConfig[];
+  intakeForms: IntakeFormDefinition[];
+  automationSelections: AutomationSelection[];
+  integrationMappings: IntegrationMapping[];
+  invitees: MemberInvite[];
+  permissionOverrides: PermissionOverride[];
+  privacyDefault: string;
+  notificationDefaults: string;
+  importMappings: ImportMapping[];
 };
 
 type ProjectSchemeOption = (typeof PROJECT_SCHEMES)[number];
@@ -269,6 +423,89 @@ const splitList = (value: string) =>
     .split(/[\n,]+/)
     .map(entry => entry.trim())
     .filter(Boolean);
+
+const DEFAULT_BOARD_GROUPS = ["Planned", "Active", "Done"];
+
+const createDefaultBoardColumns = (): BoardColumnConfig[] => {
+  const [firstWorkflow] = PROJECT_WORKFLOW_BLUEPRINTS;
+  if (!firstWorkflow) {
+    return [];
+  }
+  return firstWorkflow.states.map((state, index, array) => ({
+    id: state.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+    name: state,
+    group:
+      index === 0
+        ? DEFAULT_BOARD_GROUPS[0]
+        : index === array.length - 1
+        ? DEFAULT_BOARD_GROUPS[2]
+        : DEFAULT_BOARD_GROUPS[1],
+    wipLimit: index > 0 && index < array.length - 1 ? 5 : null,
+  }));
+};
+
+const createDefaultWorkflowStatuses = (): string[] => {
+  const [firstWorkflow] = PROJECT_WORKFLOW_BLUEPRINTS;
+  return firstWorkflow ? [...firstWorkflow.states] : [];
+};
+
+const createDefaultWorkflowTransitions = (): WorkflowTransitionConfig[] => {
+  const statuses = createDefaultWorkflowStatuses();
+  return statuses.slice(0, -1).map((status, index) => ({
+    id: `${status.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-to-${statuses[index + 1]
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")}`,
+    from: status,
+    to: statuses[index + 1] ?? status,
+    rule: "Forward progression",
+  }));
+};
+
+const createDefaultComponentCatalog = (): ComponentRoutingConfig[] => {
+  const [firstPack] = PROJECT_COMPONENT_PACKS;
+  if (!firstPack) {
+    return [];
+  }
+  return firstPack.components.map((component, index) => ({
+    id: `${firstPack.id}-${index}`,
+    name: component,
+    owner: index === 0 ? "Platform Lead" : "Unassigned",
+    routingQueue: index === 0 ? "Core Team" : "Default",
+  }));
+};
+
+const createDefaultIntakeForms = (): IntakeFormDefinition[] => [
+  { id: "public-intake", name: "Public Intake", audience: "public", routing: "Front Desk" },
+  { id: "internal-intake", name: "Internal Intake", audience: "internal", routing: "Core Team" },
+];
+
+const createDefaultAutomationSelections = (): AutomationSelection[] =>
+  PROJECT_AUTOMATION_RECIPES.map((recipe, index) => ({
+    id: recipe.id,
+    enabled: index === 0,
+  }));
+
+const createDefaultIntegrationMappings = (): IntegrationMapping[] =>
+  PROJECT_INTEGRATION_OPTIONS.map((integration, index) => ({
+    id: integration.id,
+    enabled: index < 2,
+    projectKey: integration.id === "github" ? "main-repo" : "",
+  }));
+
+const createDefaultInvitees = (): MemberInvite[] => [
+  { id: "owner", name: "Delivery Lead", role: "Project Admin", email: "" },
+  { id: "scrum-master", name: "Scrum Master", role: "Manager", email: "" },
+];
+
+const createDefaultPermissionOverrides = (): PermissionOverride[] => [
+  { scope: "Backlog", role: "Contributors", access: "Edit" },
+  { scope: "Releases", role: "Stakeholders", access: "View" },
+];
+
+const createDefaultImportMappings = (): ImportMapping[] => [
+  { source: "Summary", target: "Title", sample: "Improve onboarding experience" },
+  { source: "Assignee", target: "Owner", sample: "alex@example.com" },
+];
 
 const computeStepValidation = (
   state: CreationState,
@@ -329,38 +566,204 @@ const computeStepValidation = (
     templateIssues.push("Choose a versioning strategy.");
   }
 
-  const capabilitiesIssues: string[] = [];
-  if (!state.permissionScheme) {
-    capabilitiesIssues.push("Assign a permission scheme.");
+  const columnsIssues: string[] = [];
+  const groupSet = new Set(state.boardGroups.map(group => group.trim()).filter(Boolean));
+  if (!groupSet.size) {
+    columnsIssues.push("Define at least one swimlane group.");
   }
-  if (!state.notificationScheme) {
-    capabilitiesIssues.push("Assign a notification scheme.");
+  if (!state.boardColumns.length) {
+    columnsIssues.push("Add at least one board column.");
+  }
+  state.boardColumns.forEach(column => {
+    if (!column.name.trim()) {
+      columnsIssues.push("All board columns need a name.");
+    }
+    if (!groupSet.has(column.group)) {
+      columnsIssues.push(`Column ${column.name || column.id} must map to a valid group.`);
+    }
+    if (typeof column.wipLimit === "number" && column.wipLimit <= 0) {
+      columnsIssues.push(`Column ${column.name || column.id} must have a positive WIP limit.`);
+    }
+  });
+
+  const workflowIssues: string[] = [];
+  const statuses = state.workflowStatuses.map(status => status.trim()).filter(Boolean);
+  if (!statuses.length) {
+    workflowIssues.push("Provide at least one workflow status.");
+  }
+  if (new Set(statuses).size !== statuses.length) {
+    workflowIssues.push("Statuses must be unique.");
+  }
+  if (!state.workflowTransitions.length) {
+    workflowIssues.push("Configure status transitions.");
+  }
+  state.workflowTransitions.forEach(transition => {
+    if (!statuses.includes(transition.from) || !statuses.includes(transition.to)) {
+      workflowIssues.push(`Transition ${transition.from} → ${transition.to} must use valid statuses.`);
+    }
+    if (!transition.rule.trim()) {
+      workflowIssues.push(`Transition ${transition.from} → ${transition.to} needs a guard rule.`);
+    }
+  });
+
+  const boardsIssues: string[] = [];
+  if (!state.boardConfiguration.methodology) {
+    boardsIssues.push("Choose Scrum or Kanban methodology.");
+  }
+  if (!state.boardConfiguration.backlogMapping.trim()) {
+    boardsIssues.push("Map which backlog feeds the board.");
+  }
+  if (!state.boardConfiguration.estimationField.trim()) {
+    boardsIssues.push("Provide an estimation field.");
+  }
+  if (!state.boardConfiguration.defaultBoard.trim()) {
+    boardsIssues.push("Name the default working board.");
   }
 
-  const lifecycleIssues: string[] = [];
+  const sprintsIssues: string[] = [];
+  if (!state.sprintConfiguration.cadence.trim()) {
+    sprintsIssues.push("Set a sprint cadence.");
+  }
+  if (!Number.isFinite(state.sprintConfiguration.capacity) || state.sprintConfiguration.capacity <= 0) {
+    sprintsIssues.push("Team capacity must be a positive number.");
+  }
+  if (!state.sprintConfiguration.releaseCadence.trim()) {
+    sprintsIssues.push("Define a release cadence.");
+  }
   if (!state.reviewCadence) {
-    lifecycleIssues.push("Define a review cadence.");
+    sprintsIssues.push("Define a review cadence.");
   }
   if (!state.calendarId) {
-    lifecycleIssues.push("Select a project calendar.");
+    sprintsIssues.push("Select a project calendar.");
   }
-  if (!state.archivalWorkflow) {
-    lifecycleIssues.push("Choose an archival workflow.");
+
+  const componentsIssues: string[] = [];
+  if (!state.componentCatalog.length) {
+    componentsIssues.push("Seed the component catalog with at least one entry.");
   }
+  state.componentCatalog.forEach(component => {
+    if (!component.name.trim()) {
+      componentsIssues.push("Component names cannot be empty.");
+    }
+    if (!component.owner.trim()) {
+      componentsIssues.push(`Assign an owner for ${component.name || component.id}.`);
+    }
+    if (!component.routingQueue.trim()) {
+      componentsIssues.push(`Provide a routing rule for ${component.name || component.id}.`);
+    }
+  });
+
+  const formsIssues: string[] = [];
+  if (!state.intakeForms.length) {
+    formsIssues.push("Create at least one intake form.");
+  }
+  state.intakeForms.forEach(form => {
+    if (!form.name.trim()) {
+      formsIssues.push("Form names are required.");
+    }
+    if (!form.routing.trim()) {
+      formsIssues.push(`Define routing for ${form.name || form.id}.`);
+    }
+  });
+
+  const automationsIssues: string[] = [];
+  if (!state.automationSelections.some(selection => selection.enabled)) {
+    automationsIssues.push("Enable at least one automation recipe.");
+  }
+
+  const integrationsIssues: string[] = [];
+  if (!state.integrationMappings.length) {
+    integrationsIssues.push("Select integrations to configure.");
+  }
+  const enabledIntegrations = state.integrationMappings.filter(mapping => mapping.enabled);
+  if (!enabledIntegrations.length) {
+    integrationsIssues.push("Enable at least one integration.");
+  }
+  enabledIntegrations.forEach(mapping => {
+    if (!mapping.projectKey.trim()) {
+      integrationsIssues.push(`Provide a project or workspace mapping for ${mapping.id}.`);
+    }
+  });
+
+  const membersIssues: string[] = [];
+  if (!state.invitees.length) {
+    membersIssues.push("Invite at least one teammate.");
+  }
+  state.invitees.forEach(invite => {
+    if (!invite.name.trim()) {
+      membersIssues.push("Each invitee must include a name.");
+    }
+    if (!invite.role.trim()) {
+      membersIssues.push(`Assign a role to ${invite.name || invite.id}.`);
+    }
+  });
+
+  const permissionsIssues: string[] = [];
+  if (!state.permissionScheme) {
+    permissionsIssues.push("Assign a permission scheme.");
+  }
+  if (!state.notificationScheme) {
+    permissionsIssues.push("Assign a notification scheme.");
+  }
+  if (!state.privacyDefault.trim()) {
+    permissionsIssues.push("Choose a privacy default.");
+  }
+  if (!state.notificationDefaults.trim()) {
+    permissionsIssues.push("Set default notification behavior.");
+  }
+  if (!state.permissionOverrides.length) {
+    permissionsIssues.push("Add at least one permission override.");
+  }
+
+  const dataIssues: string[] = [];
   if (!state.importStrategy) {
-    lifecycleIssues.push("Choose an import or seeding strategy.");
+    dataIssues.push("Choose an import or seeding strategy.");
+  }
+  if (!state.importMappings.length) {
+    dataIssues.push("Provide field mappings for import.");
+  }
+  state.importMappings.forEach(mapping => {
+    if (!mapping.source.trim() || !mapping.target.trim()) {
+      dataIssues.push("Each mapping requires both a source and target field.");
+    }
+  });
+  if (!state.archivalWorkflow) {
+    dataIssues.push("Choose an archival workflow.");
   }
 
   const reviewIssues: string[] = [];
-  if (basicsIssues.length || templateIssues.length || capabilitiesIssues.length || lifecycleIssues.length) {
+  if (
+    basicsIssues.length ||
+    templateIssues.length ||
+    columnsIssues.length ||
+    workflowIssues.length ||
+    boardsIssues.length ||
+    sprintsIssues.length ||
+    componentsIssues.length ||
+    formsIssues.length ||
+    automationsIssues.length ||
+    integrationsIssues.length ||
+    membersIssues.length ||
+    permissionsIssues.length ||
+    dataIssues.length
+  ) {
     reviewIssues.push("Resolve issues in previous steps before creating the project.");
   }
 
   return {
     basics: { valid: basicsIssues.length === 0, issues: basicsIssues },
     template: { valid: templateIssues.length === 0, issues: templateIssues },
-    capabilities: { valid: capabilitiesIssues.length === 0, issues: capabilitiesIssues },
-    lifecycle: { valid: lifecycleIssues.length === 0, issues: lifecycleIssues },
+    columns: { valid: columnsIssues.length === 0, issues: columnsIssues },
+    workflow: { valid: workflowIssues.length === 0, issues: workflowIssues },
+    boards: { valid: boardsIssues.length === 0, issues: boardsIssues },
+    sprints: { valid: sprintsIssues.length === 0, issues: sprintsIssues },
+    components: { valid: componentsIssues.length === 0, issues: componentsIssues },
+    forms: { valid: formsIssues.length === 0, issues: formsIssues },
+    automations: { valid: automationsIssues.length === 0, issues: automationsIssues },
+    integrations: { valid: integrationsIssues.length === 0, issues: integrationsIssues },
+    members: { valid: membersIssues.length === 0, issues: membersIssues },
+    permissions: { valid: permissionsIssues.length === 0, issues: permissionsIssues },
+    data: { valid: dataIssues.length === 0, issues: dataIssues },
     review: { valid: reviewIssues.length === 0, issues: reviewIssues },
   } satisfies Record<StepId, StepValidationResult>;
 };
@@ -408,6 +811,30 @@ const createInitialState = (initialTemplateId?: string): CreationState => ({
   calendarId: calendarOptions[0]?.id ?? "delivery-calendar",
   timezone: DEFAULT_TIMEZONES[0] ?? "UTC",
   archivalWorkflow: PROJECT_ARCHIVAL_WORKFLOWS[0]?.id ?? "",
+  boardGroups: [...DEFAULT_BOARD_GROUPS],
+  boardColumns: createDefaultBoardColumns(),
+  workflowStatuses: createDefaultWorkflowStatuses(),
+  workflowTransitions: createDefaultWorkflowTransitions(),
+  boardConfiguration: {
+    methodology: "scrum",
+    backlogMapping: "Product Backlog",
+    estimationField: "Story Points",
+    defaultBoard: "Delivery Board",
+  },
+  sprintConfiguration: {
+    cadence: "2 weeks",
+    capacity: 25,
+    releaseCadence: PROJECT_VERSION_STRATEGIES[0]?.cadence ?? "Quarterly cadence",
+  },
+  componentCatalog: createDefaultComponentCatalog(),
+  intakeForms: createDefaultIntakeForms(),
+  automationSelections: createDefaultAutomationSelections(),
+  integrationMappings: createDefaultIntegrationMappings(),
+  invitees: createDefaultInvitees(),
+  permissionOverrides: createDefaultPermissionOverrides(),
+  privacyDefault: "Team-visible",
+  notificationDefaults: "Digest updates",
+  importMappings: createDefaultImportMappings(),
 });
 
 type PersistedCreationState = Omit<CreationState, "startDate" | "endDate" | "kickoffDate" | "discoveryComplete" | "launchTarget"> &
@@ -439,6 +866,72 @@ const hydrateCreationState = (persisted: Partial<PersistedCreationState>, initia
     workingDays: Array.isArray((persisted as any).workingDays) && (persisted as any).workingDays.length
       ? ((persisted as any).workingDays as string[])
       : base.workingDays,
+    boardGroups:
+      Array.isArray((persisted as any).boardGroups) && (persisted as any).boardGroups.length
+        ? ((persisted as any).boardGroups as string[])
+        : base.boardGroups,
+    boardColumns:
+      Array.isArray((persisted as any).boardColumns) && (persisted as any).boardColumns.length
+        ? ((persisted as any).boardColumns as BoardColumnConfig[])
+        : base.boardColumns,
+    workflowStatuses:
+      Array.isArray((persisted as any).workflowStatuses) && (persisted as any).workflowStatuses.length
+        ? ((persisted as any).workflowStatuses as string[])
+        : base.workflowStatuses,
+    workflowTransitions:
+      Array.isArray((persisted as any).workflowTransitions) && (persisted as any).workflowTransitions.length
+        ? ((persisted as any).workflowTransitions as WorkflowTransitionConfig[])
+        : base.workflowTransitions,
+    boardConfiguration:
+      typeof (persisted as any).boardConfiguration === "object" && (persisted as any).boardConfiguration
+        ? {
+            ...base.boardConfiguration,
+            ...(persisted as any).boardConfiguration,
+          }
+        : base.boardConfiguration,
+    sprintConfiguration:
+      typeof (persisted as any).sprintConfiguration === "object" && (persisted as any).sprintConfiguration
+        ? {
+            ...base.sprintConfiguration,
+            ...(persisted as any).sprintConfiguration,
+          }
+        : base.sprintConfiguration,
+    componentCatalog:
+      Array.isArray((persisted as any).componentCatalog) && (persisted as any).componentCatalog.length
+        ? ((persisted as any).componentCatalog as ComponentRoutingConfig[])
+        : base.componentCatalog,
+    intakeForms:
+      Array.isArray((persisted as any).intakeForms) && (persisted as any).intakeForms.length
+        ? ((persisted as any).intakeForms as IntakeFormDefinition[])
+        : base.intakeForms,
+    automationSelections:
+      Array.isArray((persisted as any).automationSelections) && (persisted as any).automationSelections.length
+        ? ((persisted as any).automationSelections as AutomationSelection[])
+        : base.automationSelections,
+    integrationMappings:
+      Array.isArray((persisted as any).integrationMappings) && (persisted as any).integrationMappings.length
+        ? ((persisted as any).integrationMappings as IntegrationMapping[])
+        : base.integrationMappings,
+    invitees:
+      Array.isArray((persisted as any).invitees) && (persisted as any).invitees.length
+        ? ((persisted as any).invitees as MemberInvite[])
+        : base.invitees,
+    permissionOverrides:
+      Array.isArray((persisted as any).permissionOverrides) && (persisted as any).permissionOverrides.length
+        ? ((persisted as any).permissionOverrides as PermissionOverride[])
+        : base.permissionOverrides,
+    importMappings:
+      Array.isArray((persisted as any).importMappings) && (persisted as any).importMappings.length
+        ? ((persisted as any).importMappings as ImportMapping[])
+        : base.importMappings,
+    privacyDefault:
+      typeof (persisted as any).privacyDefault === "string" && (persisted as any).privacyDefault.length
+        ? ((persisted as any).privacyDefault as string)
+        : base.privacyDefault,
+    notificationDefaults:
+      typeof (persisted as any).notificationDefaults === "string" && (persisted as any).notificationDefaults.length
+        ? ((persisted as any).notificationDefaults as string)
+        : base.notificationDefaults,
     codeManuallyEdited:
       typeof (persisted as any).codeManuallyEdited === "boolean"
         ? (persisted as any).codeManuallyEdited
@@ -795,19 +1288,58 @@ export function ProjectDialog({ open, onOpenChange, onSuccess, initialTemplateId
       notification_scheme_id: formData.notificationScheme,
       sla_scheme_id: formData.slaScheme,
       field_configuration: selectedFieldPreset?.fields,
-      workflow_ids: selectedWorkflow?.states,
+      workflow_blueprint: selectedWorkflow?.states,
       screen_ids: selectedScreenPack?.screens,
-      component_catalog: selectedComponentPack?.components,
+      component_pack: selectedComponentPack?.components,
       version_streams: selectedVersionStrategy
         ? [`${selectedVersionStrategy.name} (${selectedVersionStrategy.cadence})`]
         : undefined,
-      automation_rules: selectedAutomation
-        ? [selectedAutomation.id, ...selectedAutomation.triggers]
-        : undefined,
-      integration_configs: formData.integrationOptions,
+      board_setup: {
+        groups: formData.boardGroups,
+        columns: formData.boardColumns.map(column => ({
+          id: column.id,
+          name: column.name,
+          group: column.group,
+          wip_limit: column.wipLimit ?? undefined,
+        })),
+        configuration: formData.boardConfiguration,
+      },
+      workflow_config: {
+        statuses: formData.workflowStatuses,
+        transitions: formData.workflowTransitions.map(transition => ({
+          id: transition.id,
+          from: transition.from,
+          to: transition.to,
+          rule: transition.rule,
+        })),
+      },
+      sprint_settings: {
+        cadence: formData.sprintConfiguration.cadence,
+        capacity: formData.sprintConfiguration.capacity,
+        release_cadence: formData.sprintConfiguration.releaseCadence,
+        review_cadence: formData.reviewCadence,
+        maintenance_window: formData.maintenanceWindow,
+      },
+      component_catalog: formData.componentCatalog,
+      intake_forms: formData.intakeForms,
+      automation_plan: {
+        primary_recipe: formData.automationRecipe,
+        additional: formData.automationSelections.filter(selection => selection.enabled).map(selection => selection.id),
+      },
+      integration_configs: formData.integrationMappings,
+      members: formData.invitees,
+      permissions: {
+        scheme_id: formData.permissionScheme,
+        notification_scheme_id: formData.notificationScheme,
+        sla_scheme_id: formData.slaScheme,
+        overrides: formData.permissionOverrides,
+        privacy_default: formData.privacyDefault,
+        notification_default: formData.notificationDefaults,
+      },
       default_views: selectedViewCollection?.views,
       dashboard_ids: selectedDashboard ? [selectedDashboard.id] : undefined,
       import_strategy: formData.importStrategy,
+      import_mappings: formData.importMappings,
       import_sources: selectedImportOption?.sources,
       lifecycle,
       calendar_id: formData.calendarId || undefined,
@@ -1053,6 +1585,7 @@ export function ProjectDialog({ open, onOpenChange, onSuccess, initialTemplateId
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const __testing__ = {
   createInitialState,
   computeStepValidation,
@@ -1528,167 +2061,1375 @@ function PRJCreateStepBTemplate({
   );
 }
 
-function PRJCreateStepCPlatformCapabilities({
+
+
+function PRJCreateStepCColumnsGroups({
   formData,
   setFormData,
-  selectedTemplate,
-  selectedAutomation,
-  selectedIntegrations,
-  permissionSchemes,
-  notificationSchemes,
-  slaSchemes,
-  toggleModule,
-  toggleIntegration,
+  selectedViewCollection,
 }: ProjectCreationStepContext) {
+  const groupsText = formData.boardGroups.join("\n");
+  const normalizedGroups = formData.boardGroups.map(group => group.trim()).filter(Boolean);
+
+  const updateGroups = (value: string) => {
+    const groups = value
+      .split("\n")
+      .map(entry => entry.trim())
+      .filter(Boolean);
+    setFormData(prev => ({
+      ...prev,
+      boardGroups: groups.length ? groups : ["Planned"],
+      boardColumns: prev.boardColumns.map(column => ({
+        ...column,
+        group: groups.includes(column.group) ? column.group : groups[0] ?? column.group,
+      })),
+    }));
+  };
+
+  const updateColumn = (index: number, updates: Partial<BoardColumnConfig>) => {
+    setFormData(prev => ({
+      ...prev,
+      boardColumns: prev.boardColumns.map((column, idx) =>
+        idx === index
+          ? {
+              ...column,
+              ...updates,
+              wipLimit:
+                typeof updates.wipLimit === "number"
+                  ? updates.wipLimit
+                  : updates.wipLimit === null
+                  ? null
+                  : column.wipLimit,
+            }
+          : column,
+      ),
+    }));
+  };
+
+  const addColumn = () => {
+    setFormData(prev => ({
+      ...prev,
+      boardColumns: [
+        ...prev.boardColumns,
+        {
+          id: `column-${prev.boardColumns.length + 1}`,
+          name: `Column ${prev.boardColumns.length + 1}`,
+          group: prev.boardGroups[0] ?? "Planned",
+          wipLimit: null,
+        },
+      ],
+    }));
+  };
+
+  const removeColumn = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      boardColumns: prev.boardColumns.filter((_, idx) => idx !== index),
+    }));
+  };
+
   return (
     <div className="grid gap-6 lg:grid-cols-[3fr,2fr]">
       <div className="space-y-4">
-        <Label className="text-sm font-medium">Modules</Label>
-        <ScrollArea className="h-[300px] rounded-md border">
-          <div className="space-y-3 p-4">
-            {PROJECT_MODULES.map(module => {
-              const enabled = formData.modules.includes(module.id);
-              const recommended = selectedTemplate?.recommendedModules.includes(module.id);
-              return (
-                <div
-                  key={module.id}
-                  className="flex items-start justify-between gap-3 rounded-md border bg-background px-3 py-3"
-                >
-                  <div>
-                    <p className="text-sm font-medium text-foreground">
-                      {module.name}
-                      {recommended && (
-                        <Badge variant="outline" className="ml-2 text-xs uppercase">
-                          Recommended
-                        </Badge>
-                      )}
-                    </p>
-                    <p className="text-xs text-muted-foreground">{module.description}</p>
-                  </div>
-                  <Switch checked={enabled} onCheckedChange={() => toggleModule(module.id)} />
-                </div>
-              );
-            })}
+        <div className="space-y-2">
+          <Label>Swimlane Groups</Label>
+          <Textarea
+            value={groupsText}
+            onChange={event => updateGroups(event.target.value)}
+            rows={normalizedGroups.length ? normalizedGroups.length + 1 : 3}
+            placeholder={"Planned\nActive\nDone"}
+          />
+          <p className="text-xs text-muted-foreground">
+            One group per line. Columns inherit visibility and WIP caps from the group.
+          </p>
+        </div>
+
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <Label className="text-sm font-medium">Board Columns</Label>
+            <Button type="button" variant="outline" size="sm" onClick={addColumn}>
+              <Plus className="mr-1 h-4 w-4" /> Add column
+            </Button>
           </div>
-        </ScrollArea>
+          <ScrollArea className="h-[300px] rounded-md border">
+            <div className="divide-y">
+              {formData.boardColumns.map((column, index) => (
+                <div key={column.id ?? index} className="grid gap-3 p-4 sm:grid-cols-[2fr,2fr,1fr,auto]">
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Column</Label>
+                    <Input
+                      value={column.name}
+                      onChange={event => updateColumn(index, { name: event.target.value })}
+                      placeholder="In Progress"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Group</Label>
+                    <Select value={column.group} onValueChange={value => updateColumn(index, { group: value })}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {normalizedGroups.length ? (
+                          normalizedGroups.map(group => (
+                            <SelectItem key={group} value={group}>
+                              {group}
+                            </SelectItem>
+                          ))
+                        ) : (
+                          <SelectItem value="Planned">Planned</SelectItem>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">WIP limit</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      value={column.wipLimit ?? ""}
+                      onChange={event => {
+                        const value = event.target.value;
+                        updateColumn(index, {
+                          wipLimit: value ? Number.parseInt(value, 10) || 0 : null,
+                        });
+                      }}
+                      placeholder="5"
+                    />
+                  </div>
+                  <div className="flex items-end justify-end">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => removeColumn(index)}
+                      disabled={formData.boardColumns.length <= 1}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </ScrollArea>
+        </div>
       </div>
 
       <div className="space-y-4">
-        <div className="space-y-2">
-          <Label>Permission Scheme</Label>
-          <Select value={formData.permissionScheme} onValueChange={value => setFormData(prev => ({ ...prev, permissionScheme: value }))}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {permissionSchemes.map(scheme => (
-                <SelectItem key={scheme.id} value={scheme.id}>
-                  <div className="flex flex-col">
-                    <span>{scheme.name}</span>
-                    <span className="text-xs text-muted-foreground">{scheme.description}</span>
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="space-y-2">
-          <Label>Notification Scheme</Label>
-          <Select
-            value={formData.notificationScheme}
-            onValueChange={value => setFormData(prev => ({ ...prev, notificationScheme: value }))}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {notificationSchemes.map(scheme => (
-                <SelectItem key={scheme.id} value={scheme.id}>
-                  <div className="flex flex-col">
-                    <span>{scheme.name}</span>
-                    <span className="text-xs text-muted-foreground">{scheme.description}</span>
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="space-y-2">
-          <Label>SLA Scheme</Label>
-          <Select value={formData.slaScheme} onValueChange={value => setFormData(prev => ({ ...prev, slaScheme: value }))}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {slaSchemes.map(scheme => (
-                <SelectItem key={scheme.id} value={scheme.id}>
-                  <div className="flex flex-col">
-                    <span>{scheme.name}</span>
-                    <span className="text-xs text-muted-foreground">{scheme.description}</span>
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="space-y-2">
-          <Label>Automation Recipe</Label>
-          <Select
-            value={formData.automationRecipe}
-            onValueChange={value => setFormData(prev => ({ ...prev, automationRecipe: value }))}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {PROJECT_AUTOMATION_RECIPES.map(recipe => (
-                <SelectItem key={recipe.id} value={recipe.id}>
-                  <div className="flex flex-col">
-                    <span>{recipe.name}</span>
-                    <span className="text-xs text-muted-foreground">{recipe.description}</span>
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {selectedAutomation && (
-            <p className="text-xs text-muted-foreground">Triggers: {selectedAutomation.triggers.join(", ")}</p>
-          )}
-        </div>
-
-        <div className="space-y-2">
-          <Label>Integrations</Label>
-          <div className="flex flex-wrap gap-2">
-            {PROJECT_INTEGRATION_OPTIONS.map(option => {
-              const active = formData.integrationOptions.includes(option.id);
-              return (
-                <Button
-                  key={option.id}
-                  type="button"
-                  size="sm"
-                  variant={active ? "default" : "outline"}
-                  onClick={() => toggleIntegration(option.id)}
-                >
-                  {option.name}
-                </Button>
-              );
-            })}
-          </div>
-          {selectedIntegrations.length > 0 && (
-            <p className="text-xs text-muted-foreground">
-              Enabled: {selectedIntegrations.map(item => item.name).join(", ")}
-            </p>
-          )}
-        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Default Views</CardTitle>
+            <CardDescription>
+              Ensure columns align with saved boards your team relies on for delivery and governance.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {selectedViewCollection ? (
+              <ul className="space-y-1 text-sm text-muted-foreground">
+                {selectedViewCollection.views.map(view => (
+                  <li key={view}>• {view}</li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-muted-foreground">Select a view collection to preview associated boards.</p>
+            )}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Guidance</CardTitle>
+            <CardDescription>
+              Establish at least three groups (planned, active, done) to visualise flow and make status checks effortless.
+            </CardDescription>
+          </CardHeader>
+        </Card>
       </div>
     </div>
   );
 }
 
-function PRJCreateStepDLifecycle({
+function PRJCreateStepDWorkflowStatus({
+  formData,
+  setFormData,
+  selectedWorkflow,
+}: ProjectCreationStepContext) {
+  const statusesText = formData.workflowStatuses.join("\n");
+
+  const updateStatuses = (value: string) => {
+    const statuses = value
+      .split("\n")
+      .map(status => status.trim())
+      .filter(Boolean);
+    setFormData(prev => ({
+      ...prev,
+      workflowStatuses: statuses,
+      workflowTransitions: prev.workflowTransitions.filter(
+        transition => statuses.includes(transition.from) && statuses.includes(transition.to),
+      ),
+    }));
+  };
+
+  const updateTransition = (index: number, updates: Partial<WorkflowTransitionConfig>) => {
+    setFormData(prev => ({
+      ...prev,
+      workflowTransitions: prev.workflowTransitions.map((transition, idx) =>
+        idx === index
+          ? {
+              ...transition,
+              ...updates,
+              rule: updates.rule ?? transition.rule,
+            }
+          : transition,
+      ),
+    }));
+  };
+
+  const addTransition = () => {
+    const [first, second] = formData.workflowStatuses;
+    setFormData(prev => ({
+      ...prev,
+      workflowTransitions: [
+        ...prev.workflowTransitions,
+        {
+          id: `transition-${prev.workflowTransitions.length + 1}`,
+          from: first ?? "Backlog",
+          to: second ?? first ?? "In Progress",
+          rule: "Standard flow",
+        },
+      ],
+    }));
+  };
+
+  const removeTransition = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      workflowTransitions: prev.workflowTransitions.filter((_, idx) => idx !== index),
+    }));
+  };
+
+  const statusOptions = formData.workflowStatuses.map(status => status.trim()).filter(Boolean);
+
+  return (
+    <div className="grid gap-6 lg:grid-cols-[3fr,2fr]">
+      <div className="space-y-4">
+        <div className="space-y-2">
+          <Label>Status Set</Label>
+          <Textarea
+            value={statusesText}
+            onChange={event => updateStatuses(event.target.value)}
+            rows={statusOptions.length ? statusOptions.length + 1 : 4}
+            placeholder={selectedWorkflow?.states.join("\n") ?? "Backlog\nReady\nIn Progress\nDone"}
+          />
+          <p className="text-xs text-muted-foreground">List each status on a new line in the order work should progress.</p>
+        </div>
+
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <Label className="text-sm font-medium">Transitions</Label>
+            <Button type="button" variant="outline" size="sm" onClick={addTransition}>
+              <Plus className="mr-1 h-4 w-4" /> Add transition
+            </Button>
+          </div>
+          <ScrollArea className="h-[300px] rounded-md border">
+            <div className="divide-y">
+              {formData.workflowTransitions.map((transition, index) => (
+                <div key={transition.id ?? index} className="grid gap-3 p-4 sm:grid-cols-[1fr,1fr,2fr,auto]">
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">From</Label>
+                    <Select value={transition.from} onValueChange={value => updateTransition(index, { from: value })}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {statusOptions.length ? (
+                          statusOptions.map(status => (
+                            <SelectItem key={status} value={status}>
+                              {status}
+                            </SelectItem>
+                          ))
+                        ) : (
+                          <SelectItem value="Backlog">Backlog</SelectItem>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">To</Label>
+                    <Select value={transition.to} onValueChange={value => updateTransition(index, { to: value })}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {statusOptions.length ? (
+                          statusOptions.map(status => (
+                            <SelectItem key={status} value={status}>
+                              {status}
+                            </SelectItem>
+                          ))
+                        ) : (
+                          <SelectItem value="Done">Done</SelectItem>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Transition guard</Label>
+                    <Input
+                      value={transition.rule}
+                      onChange={event => updateTransition(index, { rule: event.target.value })}
+                      placeholder="Requires QA approval"
+                    />
+                  </div>
+                  <div className="flex items-end justify-end">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => removeTransition(index)}
+                      disabled={formData.workflowTransitions.length <= 1}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </ScrollArea>
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Blueprint reference</CardTitle>
+            <CardDescription>
+              Use the selected workflow blueprint as inspiration, then tailor statuses to your team.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {selectedWorkflow ? (
+              <div className="space-y-2 text-sm text-muted-foreground">
+                <p className="font-medium text-foreground">{selectedWorkflow.name}</p>
+                <p>{selectedWorkflow.description}</p>
+                <p>Default states: {selectedWorkflow.states.join(" → ")}</p>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">Select a workflow blueprint in the previous step to preview states.</p>
+            )}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Operational tip</CardTitle>
+            <CardDescription>
+              Document exit criteria in transition guards to make service transitions auditable and predictable.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+function PRJCreateStepEBoards({
+  formData,
+  setFormData,
+  selectedTemplate,
+  toggleModule,
+}: ProjectCreationStepContext) {
+  const updateBoardConfiguration = <K extends keyof BoardConfiguration>(
+    key: K,
+    value: BoardConfiguration[K],
+  ) => {
+    setFormData(prev => ({
+      ...prev,
+      boardConfiguration: {
+        ...prev.boardConfiguration,
+        [key]: value,
+      },
+    }));
+  };
+
+  return (
+    <div className="grid gap-6 lg:grid-cols-[3fr,2fr]">
+      <div className="space-y-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div className="space-y-2">
+            <Label>Methodology</Label>
+            <Select
+              value={formData.boardConfiguration.methodology}
+              onValueChange={value =>
+                updateBoardConfiguration("methodology", value as BoardConfiguration["methodology"])
+              }
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="scrum">Scrum</SelectItem>
+                <SelectItem value="kanban">Kanban</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>Default Board Name</Label>
+            <Input
+              value={formData.boardConfiguration.defaultBoard}
+              onChange={event => updateBoardConfiguration("defaultBoard", event.target.value)}
+              placeholder="Delivery Board"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Backlog Mapping</Label>
+            <Input
+              value={formData.boardConfiguration.backlogMapping}
+              onChange={event => updateBoardConfiguration("backlogMapping", event.target.value)}
+              placeholder="Product Backlog"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Estimation Field</Label>
+            <Input
+              value={formData.boardConfiguration.estimationField}
+              onChange={event => updateBoardConfiguration("estimationField", event.target.value)}
+              placeholder="Story Points"
+            />
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label className="text-sm font-medium">Modules enabled</Label>
+          <ScrollArea className="h-[280px] rounded-md border">
+            <div className="space-y-3 p-4">
+              {PROJECT_MODULES.map(module => {
+                const enabled = formData.modules.includes(module.id);
+                const recommended = selectedTemplate?.recommendedModules.includes(module.id);
+                return (
+                  <div
+                    key={module.id}
+                    className="flex items-start justify-between gap-3 rounded-md border bg-background px-3 py-3"
+                  >
+                    <div>
+                      <p className="text-sm font-medium text-foreground">
+                        {module.name}
+                        {recommended && (
+                          <Badge variant="outline" className="ml-2 text-xs uppercase">
+                            Recommended
+                          </Badge>
+                        )}
+                      </p>
+                      <p className="text-xs text-muted-foreground">{module.description}</p>
+                    </div>
+                    <Switch checked={enabled} onCheckedChange={() => toggleModule(module.id)} />
+                  </div>
+                );
+              })}
+            </div>
+          </ScrollArea>
+          <p className="text-xs text-muted-foreground">
+            Modules control which board features (backlog, release hub, request queues) are provisioned on day one.
+          </p>
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Methodology guidance</CardTitle>
+            <CardDescription>
+              Scrum adds sprint planning, commitment, and review ceremonies. Kanban keeps work continuously flowing.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Backlog routing</CardTitle>
+            <CardDescription>
+              Align backlog mapping with intake forms to guarantee new work lands in the right queue and board column.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+function PRJCreateStepFSprintsReleases({ formData, setFormData }: ProjectCreationStepContext) {
+  const updateSprintConfiguration = <K extends keyof SprintConfiguration>(
+    key: K,
+    value: SprintConfiguration[K],
+  ) => {
+    setFormData(prev => ({
+      ...prev,
+      sprintConfiguration: {
+        ...prev.sprintConfiguration,
+        [key]: value,
+      },
+    }));
+  };
+
+  const cadenceOptions = ["1 week", "2 weeks", "3 weeks", "4 weeks"];
+  const releaseCadenceOptions = Array.from(new Set(PROJECT_VERSION_STRATEGIES.map(strategy => strategy.cadence)));
+
+  return (
+    <div className="grid gap-6 lg:grid-cols-[3fr,2fr]">
+      <div className="space-y-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <div className="space-y-2">
+            <Label>Sprint cadence</Label>
+            <Select
+              value={formData.sprintConfiguration.cadence}
+              onValueChange={value => updateSprintConfiguration("cadence", value)}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {cadenceOptions.map(option => (
+                  <SelectItem key={option} value={option}>
+                    {option}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>Team capacity</Label>
+            <Input
+              type="number"
+              min={1}
+              value={formData.sprintConfiguration.capacity}
+              onChange={event => updateSprintConfiguration("capacity", Number(event.target.value) || 0)}
+              placeholder="25"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Release cadence</Label>
+            <Select
+              value={formData.sprintConfiguration.releaseCadence}
+              onValueChange={value => updateSprintConfiguration("releaseCadence", value)}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {releaseCadenceOptions.map(option => (
+                  <SelectItem key={option} value={option}>
+                    {option}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label>Review cadence</Label>
+          <Select value={formData.reviewCadence} onValueChange={value => setFormData(prev => ({ ...prev, reviewCadence: value }))}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {reviewCadenceOptions.map(option => (
+                <SelectItem key={option} value={option}>
+                  {option}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <Label>Maintenance window</Label>
+          <Select
+            value={formData.maintenanceWindow}
+            onValueChange={value => setFormData(prev => ({ ...prev, maintenanceWindow: value }))}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {maintenanceWindowOptions.map(option => (
+                <SelectItem key={option} value={option}>
+                  {option}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          {[
+            {
+              label: "Kickoff",
+              value: formData.kickoffDate,
+              onSelect: (date?: Date) => setFormData(prev => ({ ...prev, kickoffDate: date ?? undefined })),
+            },
+            {
+              label: "Discovery complete",
+              value: formData.discoveryComplete,
+              onSelect: (date?: Date) => setFormData(prev => ({ ...prev, discoveryComplete: date ?? undefined })),
+            },
+            {
+              label: "Launch target",
+              value: formData.launchTarget,
+              onSelect: (date?: Date) => setFormData(prev => ({ ...prev, launchTarget: date ?? undefined })),
+            },
+          ].map(item => (
+            <div key={item.label} className="space-y-2">
+              <Label>{item.label}</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !item.value && "text-muted-foreground",
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {item.value ? format(item.value, "PPP") : "Select"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar mode="single" selected={item.value} onSelect={item.onSelect} initialFocus />
+                </PopoverContent>
+              </Popover>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Calendar alignment</CardTitle>
+            <CardDescription>
+              Sync sprint boundaries and release trains with the change calendar to avoid blackout conflicts.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <Label className="text-xs text-muted-foreground">Delivery calendar</Label>
+            <Select value={formData.calendarId} onValueChange={value => setFormData(prev => ({ ...prev, calendarId: value }))}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {calendarOptions.map(option => (
+                  <SelectItem key={option.id} value={option.id}>
+                    {option.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Cadence insight</CardTitle>
+            <CardDescription>
+              Use shorter sprints when experimenting, then expand cadence as delivery predictability increases.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+function PRJCreateStepGComponentsRouting({
+  formData,
+  setFormData,
+  selectedComponentPack,
+}: ProjectCreationStepContext) {
+  const updateComponent = (index: number, updates: Partial<ComponentRoutingConfig>) => {
+    setFormData(prev => ({
+      ...prev,
+      componentCatalog: prev.componentCatalog.map((component, idx) =>
+        idx === index
+          ? {
+              ...component,
+              ...updates,
+            }
+          : component,
+      ),
+    }));
+  };
+
+  const addComponent = () => {
+    setFormData(prev => ({
+      ...prev,
+      componentCatalog: [
+        ...prev.componentCatalog,
+        {
+          id: `component-${prev.componentCatalog.length + 1}`,
+          name: `Component ${prev.componentCatalog.length + 1}`,
+          owner: "Unassigned",
+          routingQueue: "Default",
+        },
+      ],
+    }));
+  };
+
+  const removeComponent = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      componentCatalog: prev.componentCatalog.filter((_, idx) => idx !== index),
+    }));
+  };
+
+  return (
+    <div className="grid gap-6 lg:grid-cols-[3fr,2fr]">
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <Label className="text-sm font-medium">Component catalog</Label>
+          <Button type="button" variant="outline" size="sm" onClick={addComponent}>
+            <Plus className="mr-1 h-4 w-4" /> Add component
+          </Button>
+        </div>
+        <ScrollArea className="h-[320px] rounded-md border">
+          <div className="divide-y">
+            {formData.componentCatalog.map((component, index) => (
+              <div key={component.id ?? index} className="grid gap-3 p-4 sm:grid-cols-[1.2fr,1fr,1fr,auto]">
+                <Input
+                  value={component.name}
+                  onChange={event => updateComponent(index, { name: event.target.value })}
+                  placeholder="Web"
+                />
+                <Input
+                  value={component.owner}
+                  onChange={event => updateComponent(index, { owner: event.target.value })}
+                  placeholder="Owner"
+                />
+                <Input
+                  value={component.routingQueue}
+                  onChange={event => updateComponent(index, { routingQueue: event.target.value })}
+                  placeholder="Routing queue"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => removeComponent(index)}
+                  disabled={formData.componentCatalog.length <= 1}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        </ScrollArea>
+      </div>
+
+      <div className="space-y-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Component pack</CardTitle>
+            <CardDescription>
+              Selected catalogs provide a starting list of services and subsystems to accelerate routing.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {selectedComponentPack ? (
+              <div className="space-y-2 text-sm text-muted-foreground">
+                <p className="font-medium text-foreground">{selectedComponentPack.name}</p>
+                <p>{selectedComponentPack.description}</p>
+                <p>Includes: {selectedComponentPack.components.join(", ")}</p>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">Select a component pack in the template step.</p>
+            )}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Routing tip</CardTitle>
+            <CardDescription>
+              Assign owners to each component so triage rules and on-call automations know who to notify.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+function PRJCreateStepHFormsIntake({ formData, setFormData }: ProjectCreationStepContext) {
+  const updateForm = (index: number, updates: Partial<IntakeFormDefinition>) => {
+    setFormData(prev => ({
+      ...prev,
+      intakeForms: prev.intakeForms.map((form, idx) =>
+        idx === index
+          ? {
+              ...form,
+              ...updates,
+            }
+          : form,
+      ),
+    }));
+  };
+
+  const addForm = () => {
+    setFormData(prev => ({
+      ...prev,
+      intakeForms: [
+        ...prev.intakeForms,
+        { id: `form-${prev.intakeForms.length + 1}`, name: "New form", audience: "internal", routing: "Core Team" },
+      ],
+    }));
+  };
+
+  const removeForm = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      intakeForms: prev.intakeForms.filter((_, idx) => idx !== index),
+    }));
+  };
+
+  return (
+    <div className="grid gap-6 lg:grid-cols-[3fr,2fr]">
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <Label className="text-sm font-medium">Forms</Label>
+          <Button type="button" variant="outline" size="sm" onClick={addForm}>
+            <Plus className="mr-1 h-4 w-4" /> Add form
+          </Button>
+        </div>
+        <ScrollArea className="h-[320px] rounded-md border">
+          <div className="divide-y">
+            {formData.intakeForms.map((form, index) => (
+              <div key={form.id ?? index} className="grid gap-3 p-4 sm:grid-cols-[1.2fr,1fr,1fr,auto]">
+                <Input
+                  value={form.name}
+                  onChange={event => updateForm(index, { name: event.target.value })}
+                  placeholder="Customer Intake"
+                />
+                <Select
+                  value={form.audience}
+                  onValueChange={value => updateForm(index, { audience: value as IntakeFormDefinition["audience"] })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="public">Public</SelectItem>
+                    <SelectItem value="internal">Internal</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Input
+                  value={form.routing}
+                  onChange={event => updateForm(index, { routing: event.target.value })}
+                  placeholder="Routes to core triage"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => removeForm(index)}
+                  disabled={formData.intakeForms.length <= 1}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        </ScrollArea>
+      </div>
+
+      <div className="space-y-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Routing guidance</CardTitle>
+            <CardDescription>
+              Match forms to board columns so new work arrives pre-triaged with the right component owners.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Audience note</CardTitle>
+            <CardDescription>
+              Public forms surface in customer portals, internal forms support partner teams and cross-functional requests.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+function PRJCreateStepIAutomations({ formData, setFormData }: ProjectCreationStepContext) {
+  const toggleSelection = (id: string) => {
+    setFormData(prev => ({
+      ...prev,
+      automationSelections: prev.automationSelections.map(selection =>
+        selection.id === id ? { ...selection, enabled: !selection.enabled } : selection,
+      ),
+    }));
+  };
+
+  return (
+    <div className="grid gap-6 lg:grid-cols-[3fr,2fr]">
+      <div className="space-y-4">
+        <div className="space-y-2">
+          <Label>Primary automation recipe</Label>
+          <RadioGroup
+            value={formData.automationRecipe}
+            onValueChange={value => setFormData(prev => ({ ...prev, automationRecipe: value }))}
+            className="space-y-3"
+          >
+            {PROJECT_AUTOMATION_RECIPES.map(recipe => (
+              <Card
+                key={recipe.id}
+                className={cn("border", formData.automationRecipe === recipe.id && "border-primary bg-primary/5")}
+              >
+                <CardHeader className="flex flex-row items-start gap-4">
+                  <RadioGroupItem value={recipe.id} className="mt-1" />
+                  <div>
+                    <CardTitle className="text-base">{recipe.name}</CardTitle>
+                    <CardDescription>{recipe.description}</CardDescription>
+                    <p className="text-xs text-muted-foreground">Triggers: {recipe.triggers.join(", ")}</p>
+                  </div>
+                </CardHeader>
+              </Card>
+            ))}
+          </RadioGroup>
+        </div>
+
+        <div className="space-y-2">
+          <Label>Starter flows</Label>
+          <div className="space-y-3">
+            {PROJECT_AUTOMATION_RECIPES.map(recipe => {
+              const selection = formData.automationSelections.find(item => item.id === recipe.id);
+              const enabled = selection?.enabled ?? false;
+              return (
+                <div
+                  key={recipe.id}
+                  className="flex items-start justify-between gap-3 rounded-md border bg-background px-3 py-3"
+                >
+                  <div>
+                    <p className="text-sm font-medium text-foreground">{recipe.name}</p>
+                    <p className="text-xs text-muted-foreground">{recipe.description}</p>
+                  </div>
+                  <Switch checked={enabled} onCheckedChange={() => toggleSelection(recipe.id)} />
+                </div>
+              );
+            })}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Enable additional flows for no-code automation that notify owners, re-open items, or escalate risks.
+          </p>
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Automation best practice</CardTitle>
+            <CardDescription>
+              Start with one core recipe, then incrementally enable supporting flows for guardrails and escalations.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Suggested next steps</CardTitle>
+            <CardDescription>
+              Pair automation rules with integrations so incidents, deployments, and approvals stay in sync.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+function PRJCreateStepJIntegrations({
+  formData,
+  setFormData,
+  selectedIntegrations,
+  toggleIntegration,
+}: ProjectCreationStepContext) {
+  const setMappingEnabled = (id: string, enabled: boolean) => {
+    setFormData(prev => ({
+      ...prev,
+      integrationMappings: prev.integrationMappings.map(mapping =>
+        mapping.id === id ? { ...mapping, enabled } : mapping,
+      ),
+    }));
+  };
+
+  const updateProjectKey = (id: string, projectKey: string) => {
+    setFormData(prev => ({
+      ...prev,
+      integrationMappings: prev.integrationMappings.map(mapping =>
+        mapping.id === id ? { ...mapping, projectKey } : mapping,
+      ),
+    }));
+  };
+
+  return (
+    <div className="grid gap-6 lg:grid-cols-[3fr,2fr]">
+      <div className="space-y-3">
+        <Label className="text-sm font-medium">Integrations</Label>
+        <ScrollArea className="h-[320px] rounded-md border">
+          <div className="divide-y">
+            {PROJECT_INTEGRATION_OPTIONS.map(option => {
+              const mapping = formData.integrationMappings.find(item => item.id === option.id);
+              const enabled = mapping?.enabled ?? false;
+              const optionCurrentlySelected = formData.integrationOptions.includes(option.id);
+              return (
+                <div key={option.id} className="space-y-3 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-medium text-foreground">{option.name}</p>
+                      <p className="text-xs text-muted-foreground">{option.description}</p>
+                    </div>
+                    <Switch
+                      checked={enabled}
+                      onCheckedChange={value => {
+                        setMappingEnabled(option.id, value);
+                        if (value !== optionCurrentlySelected) {
+                          toggleIntegration(option.id);
+                        }
+                      }}
+                    />
+                  </div>
+                  {enabled && (
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground">Project mapping</Label>
+                      <Input
+                        value={mapping?.projectKey ?? ""}
+                        onChange={event => updateProjectKey(option.id, event.target.value)}
+                        placeholder="workspace/project-key"
+                      />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </ScrollArea>
+        {selectedIntegrations.length > 0 && (
+          <p className="text-xs text-muted-foreground">
+            Enabled: {selectedIntegrations.map(item => item.name).join(", ")}
+          </p>
+        )}
+      </div>
+
+      <div className="space-y-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Integration mapping</CardTitle>
+            <CardDescription>
+              Define workspace or project identifiers so updates flow in both directions without manual sync.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Security note</CardTitle>
+            <CardDescription>
+              Limit access keys to production systems and audit enabled integrations each quarter.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+function PRJCreateStepKMembersRoles({ formData, setFormData }: ProjectCreationStepContext) {
+  const updateInvitee = (index: number, updates: Partial<MemberInvite>) => {
+    setFormData(prev => ({
+      ...prev,
+      invitees: prev.invitees.map((invite, idx) =>
+        idx === index
+          ? {
+              ...invite,
+              ...updates,
+            }
+          : invite,
+      ),
+    }));
+  };
+
+  const addInvitee = () => {
+    setFormData(prev => ({
+      ...prev,
+      invitees: [
+        ...prev.invitees,
+        { id: `invite-${prev.invitees.length + 1}`, name: "New teammate", role: "Contributor", email: "" },
+      ],
+    }));
+  };
+
+  const removeInvitee = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      invitees: prev.invitees.filter((_, idx) => idx !== index),
+    }));
+  };
+
+  const defaultRoles = ["Project Admin", "Manager", "Contributor", "Stakeholder"];
+
+  return (
+    <div className="grid gap-6 lg:grid-cols-[3fr,2fr]">
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <Label className="text-sm font-medium">Team roster</Label>
+          <Button type="button" variant="outline" size="sm" onClick={addInvitee}>
+            <Plus className="mr-1 h-4 w-4" /> Add invite
+          </Button>
+        </div>
+        <ScrollArea className="h-[320px] rounded-md border">
+          <div className="divide-y">
+            {formData.invitees.map((invite, index) => (
+              <div key={invite.id ?? index} className="grid gap-3 p-4 sm:grid-cols-[1.2fr,1.2fr,1fr,auto]">
+                <Input
+                  value={invite.name}
+                  onChange={event => updateInvitee(index, { name: event.target.value })}
+                  placeholder="Teammate name"
+                />
+                <Input
+                  value={invite.email}
+                  onChange={event => updateInvitee(index, { email: event.target.value })}
+                  placeholder="name@example.com"
+                />
+                <Select value={invite.role} onValueChange={value => updateInvitee(index, { role: value })}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {defaultRoles.map(role => (
+                      <SelectItem key={role} value={role}>
+                        {role}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => removeInvitee(index)}
+                  disabled={formData.invitees.length <= 1}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        </ScrollArea>
+      </div>
+
+      <div className="space-y-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Role guidance</CardTitle>
+            <CardDescription>
+              Invite at least one admin, a delivery lead, and stakeholders for read-only updates.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Team defaults</CardTitle>
+            <CardDescription>
+              Default roles can be customised after creation to map to your organisation’s permission scheme.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+function PRJCreateStepLPermissions({
+  formData,
+  setFormData,
+  permissionSchemes,
+  notificationSchemes,
+  slaSchemes,
+}: ProjectCreationStepContext) {
+  const updateOverride = (index: number, updates: Partial<PermissionOverride>) => {
+    setFormData(prev => ({
+      ...prev,
+      permissionOverrides: prev.permissionOverrides.map((override, idx) =>
+        idx === index
+          ? {
+              ...override,
+              ...updates,
+            }
+          : override,
+      ),
+    }));
+  };
+
+  const addOverride = () => {
+    setFormData(prev => ({
+      ...prev,
+      permissionOverrides: [
+        ...prev.permissionOverrides,
+        { scope: "Board", role: "Contributors", access: "Edit" },
+      ],
+    }));
+  };
+
+  const removeOverride = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      permissionOverrides: prev.permissionOverrides.filter((_, idx) => idx !== index),
+    }));
+  };
+
+  return (
+    <div className="grid gap-6 lg:grid-cols-[3fr,2fr]">
+      <div className="space-y-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <div className="space-y-2">
+            <Label>Permission scheme</Label>
+            <Select value={formData.permissionScheme} onValueChange={value => setFormData(prev => ({ ...prev, permissionScheme: value }))}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {permissionSchemes.map(scheme => (
+                  <SelectItem key={scheme.id} value={scheme.id}>
+                    <div className="flex flex-col">
+                      <span>{scheme.name}</span>
+                      <span className="text-xs text-muted-foreground">{scheme.description}</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>Notification scheme</Label>
+            <Select
+              value={formData.notificationScheme}
+              onValueChange={value => setFormData(prev => ({ ...prev, notificationScheme: value }))}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {notificationSchemes.map(scheme => (
+                  <SelectItem key={scheme.id} value={scheme.id}>
+                    <div className="flex flex-col">
+                      <span>{scheme.name}</span>
+                      <span className="text-xs text-muted-foreground">{scheme.description}</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>SLA scheme</Label>
+            <Select value={formData.slaScheme} onValueChange={value => setFormData(prev => ({ ...prev, slaScheme: value }))}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {slaSchemes.map(scheme => (
+                  <SelectItem key={scheme.id} value={scheme.id}>
+                    <div className="flex flex-col">
+                      <span>{scheme.name}</span>
+                      <span className="text-xs text-muted-foreground">{scheme.description}</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div className="space-y-2">
+            <Label>Privacy default</Label>
+            <Input
+              value={formData.privacyDefault}
+              onChange={event => setFormData(prev => ({ ...prev, privacyDefault: event.target.value }))}
+              placeholder="Team-visible"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Notification default</Label>
+            <Input
+              value={formData.notificationDefaults}
+              onChange={event => setFormData(prev => ({ ...prev, notificationDefaults: event.target.value }))}
+              placeholder="Digest updates"
+            />
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <Label className="text-sm font-medium">Overrides</Label>
+            <Button type="button" variant="outline" size="sm" onClick={addOverride}>
+              <Plus className="mr-1 h-4 w-4" /> Add override
+            </Button>
+          </div>
+          <ScrollArea className="h-[220px] rounded-md border">
+            <div className="divide-y">
+              {formData.permissionOverrides.map((override, index) => (
+                <div key={`${override.scope}-${index}`} className="grid gap-3 p-3 sm:grid-cols-[1fr,1fr,1fr,auto]">
+                  <Input
+                    value={override.scope}
+                    onChange={event => updateOverride(index, { scope: event.target.value })}
+                    placeholder="Scope"
+                  />
+                  <Input
+                    value={override.role}
+                    onChange={event => updateOverride(index, { role: event.target.value })}
+                    placeholder="Role"
+                  />
+                  <Input
+                    value={override.access}
+                    onChange={event => updateOverride(index, { access: event.target.value })}
+                    placeholder="Access level"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => removeOverride(index)}
+                    disabled={formData.permissionOverrides.length <= 1}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </ScrollArea>
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Governance insight</CardTitle>
+            <CardDescription>
+              Permission schemes enforce who can move work, while overrides tailor access to specific boards or forms.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Notification hygiene</CardTitle>
+            <CardDescription>
+              Start with digest notifications, then enable real-time alerts for critical transitions or escalations.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+function PRJCreateStepMDataImport({
   formData,
   setFormData,
   selectedLifecyclePreset,
@@ -1697,15 +3438,43 @@ function PRJCreateStepDLifecycle({
   selectedDashboard,
   selectedArchival,
 }: ProjectCreationStepContext) {
+  const updateMapping = (index: number, updates: Partial<ImportMapping>) => {
+    setFormData(prev => ({
+      ...prev,
+      importMappings: prev.importMappings.map((mapping, idx) =>
+        idx === index
+          ? {
+              ...mapping,
+              ...updates,
+            }
+          : mapping,
+      ),
+    }));
+  };
+
+  const addMapping = () => {
+    setFormData(prev => ({
+      ...prev,
+      importMappings: [
+        ...prev.importMappings,
+        { source: "", target: "", sample: "" },
+      ],
+    }));
+  };
+
+  const removeMapping = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      importMappings: prev.importMappings.filter((_, idx) => idx !== index),
+    }));
+  };
+
   return (
     <div className="grid gap-6 lg:grid-cols-[3fr,2fr]">
       <div className="space-y-4">
         <div className="space-y-2">
-          <Label>Lifecycle Preset</Label>
-          <Select
-            value={formData.lifecyclePreset}
-            onValueChange={value => setFormData(prev => ({ ...prev, lifecyclePreset: value }))}
-          >
+          <Label>Lifecycle preset</Label>
+          <Select value={formData.lifecyclePreset} onValueChange={value => setFormData(prev => ({ ...prev, lifecyclePreset: value }))}>
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>
@@ -1727,150 +3496,18 @@ function PRJCreateStepDLifecycle({
           )}
         </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div className="space-y-2">
-            <Label>Kickoff</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className={cn("w-full justify-start text-left font-normal", !formData.kickoffDate && "text-muted-foreground")}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {formData.kickoffDate ? format(formData.kickoffDate, "PPP") : "Select"}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={formData.kickoffDate}
-                  onSelect={date => setFormData(prev => ({ ...prev, kickoffDate: date ?? undefined }))}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
-          </div>
-          <div className="space-y-2">
-            <Label>Discovery Complete</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className={cn(
-                    "w-full justify-start text-left font-normal",
-                    !formData.discoveryComplete && "text-muted-foreground",
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {formData.discoveryComplete ? format(formData.discoveryComplete, "PPP") : "Select"}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={formData.discoveryComplete}
-                  onSelect={date => setFormData(prev => ({ ...prev, discoveryComplete: date ?? undefined }))}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
-          </div>
-          <div className="space-y-2">
-            <Label>Target Launch</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className={cn("w-full justify-start text-left font-normal", !formData.launchTarget && "text-muted-foreground")}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {formData.launchTarget ? format(formData.launchTarget, "PPP") : "Select"}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={formData.launchTarget}
-                  onSelect={date => setFormData(prev => ({ ...prev, launchTarget: date ?? undefined }))}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <Label>Review Cadence</Label>
-          <Select value={formData.reviewCadence} onValueChange={value => setFormData(prev => ({ ...prev, reviewCadence: value }))}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {reviewCadenceOptions.map(option => (
-                <SelectItem key={option} value={option}>
-                  {option}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="space-y-2">
-          <Label>Maintenance Window</Label>
-          <Select
-            value={formData.maintenanceWindow}
-            onValueChange={value => setFormData(prev => ({ ...prev, maintenanceWindow: value }))}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {maintenanceWindowOptions.map(option => (
-                <SelectItem key={option} value={option}>
-                  {option}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="space-y-2">
-          <Label>Archival Workflow</Label>
-          <Select
-            value={formData.archivalWorkflow}
-            onValueChange={value => setFormData(prev => ({ ...prev, archivalWorkflow: value }))}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {PROJECT_ARCHIVAL_WORKFLOWS.map(workflow => (
-                <SelectItem key={workflow.id} value={workflow.id}>
-                  <div className="flex flex-col">
-                    <span>{workflow.name}</span>
-                    <span className="text-xs text-muted-foreground">{workflow.description}</span>
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {selectedArchival?.retention && (
-            <p className="text-xs text-muted-foreground">Retention: {selectedArchival.retention}</p>
-          )}
-        </div>
-
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div className="space-y-2">
-            <Label>Mission Statement</Label>
+            <Label>Mission statement</Label>
             <Textarea
               value={formData.lifecycleMission}
               onChange={event => setFormData(prev => ({ ...prev, lifecycleMission: event.target.value }))}
-              placeholder="Deliver an integrated customer onboarding experience."
+              placeholder="Deliver an integrated onboarding experience"
               rows={2}
             />
           </div>
           <div className="space-y-2">
-            <Label>Success Metrics</Label>
+            <Label>Success metrics</Label>
             <Textarea
               value={formData.lifecycleSuccessMetrics}
               onChange={event => setFormData(prev => ({ ...prev, lifecycleSuccessMetrics: event.target.value }))}
@@ -1888,7 +3525,7 @@ function PRJCreateStepDLifecycle({
             />
           </div>
           <div className="space-y-2">
-            <Label>Communication Channels</Label>
+            <Label>Communication channels</Label>
             <Textarea
               value={formData.lifecycleChannels}
               onChange={event => setFormData(prev => ({ ...prev, lifecycleChannels: event.target.value }))}
@@ -1897,53 +3534,18 @@ function PRJCreateStepDLifecycle({
             />
           </div>
           <div className="space-y-2 md:col-span-2">
-            <Label>Lifecycle Notes</Label>
+            <Label>Lifecycle notes</Label>
             <Textarea
               value={formData.lifecycleNotes}
               onChange={event => setFormData(prev => ({ ...prev, lifecycleNotes: event.target.value }))}
-              placeholder="Risks, dependencies, and gating factors to highlight for leadership."
+              placeholder="Risks, dependencies, and gating factors"
               rows={3}
             />
           </div>
         </div>
-      </div>
-
-      <div className="space-y-4">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div className="space-y-2">
-            <Label>Calendar</Label>
-            <Select value={formData.calendarId} onValueChange={value => setFormData(prev => ({ ...prev, calendarId: value }))}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {calendarOptions.map(option => (
-                  <SelectItem key={option.id} value={option.id}>
-                    {option.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label>Timezone</Label>
-            <Select value={formData.timezone} onValueChange={value => setFormData(prev => ({ ...prev, timezone: value }))}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {DEFAULT_TIMEZONES.map(zone => (
-                  <SelectItem key={zone} value={zone}>
-                    {zone}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
 
         <div className="space-y-2">
-          <Label>Import Strategy</Label>
+          <Label>Import strategy</Label>
           <RadioGroup
             value={formData.importStrategy}
             onValueChange={value => setFormData(prev => ({ ...prev, importStrategy: value }))}
@@ -1969,54 +3571,152 @@ function PRJCreateStepDLifecycle({
           </RadioGroup>
         </div>
 
-        <div className="space-y-2">
-          <Label>Default Views</Label>
-          <Select value={formData.viewCollection} onValueChange={value => setFormData(prev => ({ ...prev, viewCollection: value }))}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {PROJECT_VIEW_COLLECTIONS.map(collection => (
-                <SelectItem key={collection.id} value={collection.id}>
-                  <div className="flex flex-col">
-                    <span>{collection.name}</span>
-                    <span className="text-xs text-muted-foreground">{collection.description}</span>
-                  </div>
-                </SelectItem>
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <Label className="text-sm font-medium">Field mappings</Label>
+            <Button type="button" variant="outline" size="sm" onClick={addMapping}>
+              <Plus className="mr-1 h-4 w-4" /> Add mapping
+            </Button>
+          </div>
+          <ScrollArea className="h-[220px] rounded-md border">
+            <div className="divide-y">
+              {formData.importMappings.map((mapping, index) => (
+                <div key={`${mapping.source}-${index}`} className="grid gap-3 p-3 sm:grid-cols-[1fr,1fr,1fr,auto]">
+                  <Input
+                    value={mapping.source}
+                    onChange={event => updateMapping(index, { source: event.target.value })}
+                    placeholder="Source field"
+                  />
+                  <Input
+                    value={mapping.target}
+                    onChange={event => updateMapping(index, { target: event.target.value })}
+                    placeholder="Workspace field"
+                  />
+                  <Input
+                    value={mapping.sample ?? ""}
+                    onChange={event => updateMapping(index, { sample: event.target.value })}
+                    placeholder="Sample value"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => removeMapping(index)}
+                    disabled={formData.importMappings.length <= 1}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
               ))}
-            </SelectContent>
-          </Select>
-          {selectedViewCollection && (
-            <p className="text-xs text-muted-foreground">
-              Views: {selectedViewCollection.views.join(", ")}
-            </p>
-          )}
+            </div>
+          </ScrollArea>
         </div>
+      </div>
 
-        <div className="space-y-2">
-          <Label>Dashboard Starter</Label>
-          <Select
-            value={formData.dashboardStarter}
-            onValueChange={value => setFormData(prev => ({ ...prev, dashboardStarter: value }))}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {PROJECT_DASHBOARD_STARTERS.map(starter => (
-                <SelectItem key={starter.id} value={starter.id}>
-                  <div className="flex flex-col">
-                    <span>{starter.name}</span>
-                    <span className="text-xs text-muted-foreground">{starter.description}</span>
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {selectedDashboard && (
-            <p className="text-xs text-muted-foreground">{selectedDashboard.description}</p>
-          )}
-        </div>
+      <div className="space-y-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Default views</CardTitle>
+            <CardDescription>
+              Connect import data to the dashboards and boards your team expects on day one.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Views</Label>
+              <Select value={formData.viewCollection} onValueChange={value => setFormData(prev => ({ ...prev, viewCollection: value }))}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {PROJECT_VIEW_COLLECTIONS.map(collection => (
+                    <SelectItem key={collection.id} value={collection.id}>
+                      <div className="flex flex-col">
+                        <span>{collection.name}</span>
+                        <span className="text-xs text-muted-foreground">{collection.description}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {selectedViewCollection && (
+                <p className="text-xs text-muted-foreground">Views: {selectedViewCollection.views.join(", ")}</p>
+              )}
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Dashboard</Label>
+              <Select
+                value={formData.dashboardStarter}
+                onValueChange={value => setFormData(prev => ({ ...prev, dashboardStarter: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {PROJECT_DASHBOARD_STARTERS.map(dashboard => (
+                    <SelectItem key={dashboard.id} value={dashboard.id}>
+                      <div className="flex flex-col">
+                        <span>{dashboard.name}</span>
+                        <span className="text-xs text-muted-foreground">{dashboard.description}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {selectedDashboard && (
+                <p className="text-xs text-muted-foreground">Widgets: {selectedDashboard.widgets.join(", ")}</p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Archival workflow</CardTitle>
+            <CardDescription>
+              Configure retention and export handling once the project completes.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <Select
+              value={formData.archivalWorkflow}
+              onValueChange={value => setFormData(prev => ({ ...prev, archivalWorkflow: value }))}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {PROJECT_ARCHIVAL_WORKFLOWS.map(workflow => (
+                  <SelectItem key={workflow.id} value={workflow.id}>
+                    <div className="flex flex-col">
+                      <span>{workflow.name}</span>
+                      <span className="text-xs text-muted-foreground">{workflow.description}</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {selectedArchival?.retention && (
+              <p className="text-xs text-muted-foreground">Retention: {selectedArchival.retention}</p>
+            )}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Import sources</CardTitle>
+            <CardDescription>
+              Confirm data connections prior to orchestrating seeding jobs.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="rounded-md border bg-muted/30 p-3 text-xs text-muted-foreground">
+              {selectedImportOption?.sources?.length ? (
+                <span>{selectedImportOption.sources.join(", ")}</span>
+              ) : (
+                <span>No external sources required.</span>
+              )}
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
@@ -2027,13 +3727,20 @@ function PRJCreateStepOReview({
   selectedTemplate,
   selectedFieldPreset,
   selectedWorkflow,
+  selectedScreenPack,
+  selectedComponentPack,
+  selectedVersionStrategy,
   selectedModules,
   selectedLifecyclePreset,
   selectedImportOption,
   selectedViewCollection,
   selectedDashboard,
   selectedIntegrations,
+  selectedArchival,
 }: ProjectCreationStepContext) {
+  const enabledAutomations = formData.automationSelections.filter(selection => selection.enabled);
+  const enabledIntegrations = formData.integrationMappings.filter(mapping => mapping.enabled);
+
   return (
     <div className="space-y-4">
       <Card>
@@ -2041,7 +3748,7 @@ function PRJCreateStepOReview({
           <CardTitle className="text-base">Overview</CardTitle>
           <CardDescription>Confirm the configuration before provisioning your workspace.</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-6">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div>
               <h4 className="text-sm font-semibold">Basics</h4>
@@ -2051,79 +3758,193 @@ function PRJCreateStepOReview({
                 <strong>Code:</strong> {formData.code || "—"}
                 <br />
                 <strong>Status:</strong> {formData.status}
+                <br />
+                <strong>Visibility:</strong> {formData.visibility}
               </p>
             </div>
             <div>
               <h4 className="text-sm font-semibold">Timeline</h4>
-              <p className="text-sm text-muted-foreground">
-                <strong>Start:</strong> {formData.startDate ? format(formData.startDate, "PPP") : "—"}
+              <p className="text-sm text-muted-foreground space-y-1">
+                <span>
+                  <strong>Start:</strong> {formData.startDate ? format(formData.startDate, "PPP") : "—"}
+                </span>
                 <br />
-                <strong>End:</strong> {formData.endDate ? format(formData.endDate, "PPP") : "—"}
+                <span>
+                  <strong>Discovery complete:</strong>{" "}
+                  {formData.discoveryComplete ? format(formData.discoveryComplete, "PPP") : "—"}
+                </span>
                 <br />
-                <strong>Launch:</strong> {formData.launchTarget ? format(formData.launchTarget, "PPP") : "—"}
+                <span>
+                  <strong>Launch:</strong> {formData.launchTarget ? format(formData.launchTarget, "PPP") : "—"}
+                </span>
               </p>
             </div>
           </div>
+
           <Separator />
+
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div>
-              <h4 className="text-sm font-semibold">Template</h4>
-              <p className="text-sm text-muted-foreground">
-                {selectedTemplate?.name || "—"}
+              <h4 className="text-sm font-semibold">Template & structure</h4>
+              <p className="text-sm text-muted-foreground space-y-1">
+                <span>{selectedTemplate?.name || "—"}</span>
                 <br />
-                Field preset: {selectedFieldPreset?.name || "—"}
+                <span>Field preset: {selectedFieldPreset?.name || "—"}</span>
                 <br />
-                Workflow: {selectedWorkflow?.name || "—"}
+                <span>Workflow blueprint: {selectedWorkflow?.name || "—"}</span>
+                <br />
+                <span>Screen pack: {selectedScreenPack?.name || "—"}</span>
+                <br />
+                <span>Component pack: {selectedComponentPack?.name || "—"}</span>
+                <br />
+                <span>Version strategy: {selectedVersionStrategy?.name || "—"}</span>
               </p>
             </div>
             <div>
-              <h4 className="text-sm font-semibold">Modules & Schemes</h4>
-              <p className="text-sm text-muted-foreground">
-                Modules: {selectedModules.map(module => module.name).join(", ") || "—"}
+              <h4 className="text-sm font-semibold">Columns & workflow</h4>
+              <p className="text-sm text-muted-foreground space-y-1">
+                <span>Groups: {formData.boardGroups.join(", ") || "—"}</span>
                 <br />
-                Permission: {formData.permissionScheme || "—"}
+                <span>
+                  Columns: {formData.boardColumns.map(column => `${column.name} (${column.group})`).join(", ") || "—"}
+                </span>
                 <br />
-                Notification: {formData.notificationScheme || "—"}
-                <br />
-                SLA: {formData.slaScheme || "—"}
+                <span>Statuses: {formData.workflowStatuses.join(" → ") || "—"}</span>
               </p>
             </div>
           </div>
+
           <Separator />
+
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div>
-              <h4 className="text-sm font-semibold">Lifecycle</h4>
-              <p className="text-sm text-muted-foreground">
-                Preset: {selectedLifecyclePreset?.name || "—"}
+              <h4 className="text-sm font-semibold">Boards & cadence</h4>
+              <p className="text-sm text-muted-foreground space-y-1">
+                <span>Methodology: {formData.boardConfiguration.methodology}</span>
                 <br />
-                Review Cadence: {formData.reviewCadence}
+                <span>Backlog: {formData.boardConfiguration.backlogMapping}</span>
                 <br />
-                Maintenance: {formData.maintenanceWindow}
+                <span>Estimation: {formData.boardConfiguration.estimationField}</span>
+                <br />
+                <span>Default board: {formData.boardConfiguration.defaultBoard}</span>
+                <br />
+                <span>Modules: {selectedModules.map(module => module.name).join(", ") || "—"}</span>
               </p>
             </div>
             <div>
-              <h4 className="text-sm font-semibold">Launch Logistics</h4>
-              <p className="text-sm text-muted-foreground">
-                Calendar: {calendarOptions.find(option => option.id === formData.calendarId)?.name || "—"}
+              <h4 className="text-sm font-semibold">Sprints & logistics</h4>
+              <p className="text-sm text-muted-foreground space-y-1">
+                <span>Sprint cadence: {formData.sprintConfiguration.cadence}</span>
                 <br />
-                Timezone: {formData.timezone}
+                <span>Capacity: {formData.sprintConfiguration.capacity}</span>
                 <br />
-                Import: {selectedImportOption?.name || "—"}
+                <span>Release cadence: {formData.sprintConfiguration.releaseCadence}</span>
+                <br />
+                <span>Review cadence: {formData.reviewCadence}</span>
+                <br />
+                <span>Maintenance window: {formData.maintenanceWindow}</span>
+                <br />
+                <span>
+                  Calendar: {calendarOptions.find(option => option.id === formData.calendarId)?.name || "—"}
+                </span>
+                <br />
+                <span>Timezone: {formData.timezone}</span>
               </p>
             </div>
           </div>
+
           <Separator />
+
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div>
-              <h4 className="text-sm font-semibold">Views & Dashboards</h4>
-              <p className="text-sm text-muted-foreground">
-                Views: {selectedViewCollection?.views.join(", ") || "—"}
+              <h4 className="text-sm font-semibold">Components & forms</h4>
+              <p className="text-sm text-muted-foreground space-y-1">
+                <span>
+                  Components: {formData.componentCatalog.map(component => `${component.name} → ${component.owner}`).join("; ") || "—"}
+                </span>
                 <br />
-                Dashboard: {selectedDashboard?.name || "—"}
+                <span>
+                  Forms: {formData.intakeForms.map(form => `${form.name} (${form.audience})`).join("; ") || "—"}
+                </span>
               </p>
             </div>
             <div>
-              <h4 className="text-sm font-semibold">Integrations</h4>
+              <h4 className="text-sm font-semibold">Automations & integrations</h4>
+              <p className="text-sm text-muted-foreground space-y-1">
+                <span>Primary recipe: {formData.automationRecipe}</span>
+                <br />
+                <span>
+                  Enabled flows: {enabledAutomations.map(selection => selection.id).join(", ") || "None"}
+                </span>
+                <br />
+                <span>
+                  Integrations:
+                  {enabledIntegrations.length
+                    ? ` ${enabledIntegrations
+                        .map(mapping => `${mapping.id}${mapping.projectKey ? ` → ${mapping.projectKey}` : ""}`)
+                        .join(", ")}`
+                    : " None"}
+                </span>
+              </p>
+            </div>
+          </div>
+
+          <Separator />
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div>
+              <h4 className="text-sm font-semibold">Members & permissions</h4>
+              <p className="text-sm text-muted-foreground space-y-1">
+                <span>
+                  Invitees: {formData.invitees.map(invite => `${invite.name} (${invite.role})`).join("; ") || "—"}
+                </span>
+                <br />
+                <span>Permission scheme: {formData.permissionScheme || "—"}</span>
+                <br />
+                <span>Notification scheme: {formData.notificationScheme || "—"}</span>
+                <br />
+                <span>SLA scheme: {formData.slaScheme || "—"}</span>
+                <br />
+                <span>Privacy default: {formData.privacyDefault}</span>
+                <br />
+                <span>Notification default: {formData.notificationDefaults}</span>
+                <br />
+                <span>
+                  Overrides: {formData.permissionOverrides.map(override => `${override.scope} ${override.role} → ${override.access}`).join("; ") || "—"}
+                </span>
+              </p>
+            </div>
+            <div>
+              <h4 className="text-sm font-semibold">Lifecycle & import</h4>
+              <p className="text-sm text-muted-foreground space-y-1">
+                <span>Preset: {selectedLifecyclePreset?.name || "—"}</span>
+                <br />
+                <span>Mission: {formData.lifecycleMission || "—"}</span>
+                <br />
+                <span>Import strategy: {selectedImportOption?.name || "—"}</span>
+                <br />
+                <span>
+                  Field mappings: {formData.importMappings.map(mapping => `${mapping.source} → ${mapping.target}`).join("; ") || "—"}
+                </span>
+                <br />
+                <span>Archival workflow: {selectedArchival?.name || "—"}</span>
+              </p>
+            </div>
+          </div>
+
+          <Separator />
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div>
+              <h4 className="text-sm font-semibold">Views & dashboards</h4>
+              <p className="text-sm text-muted-foreground space-y-1">
+                <span>Views: {selectedViewCollection?.views.join(", ") || "—"}</span>
+                <br />
+                <span>Dashboard: {selectedDashboard?.name || "—"}</span>
+              </p>
+            </div>
+            <div>
+              <h4 className="text-sm font-semibold">Integrations enabled</h4>
               <p className="text-sm text-muted-foreground">
                 {selectedIntegrations.length > 0
                   ? selectedIntegrations.map(integration => integration.name).join(", ")
