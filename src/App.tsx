@@ -16,6 +16,7 @@ import { SlackProvider } from "./components/integrations/SlackProvider";
 import { ReleaseProvider } from "./components/releases/ReleaseProvider";
 import { MarketingProvider } from "./components/marketing/MarketingProvider";
 import { AppRoutes } from "./routes";
+import { TaskPanelRouterProvider } from "./state/taskPanelRouter";
 import { WorkspaceProvider } from "./state/workspace";
 import { TenantProvider } from "./domain/tenant";
 import { TelemetryProvider } from "./components/telemetry/TelemetryProvider";
@@ -67,7 +68,9 @@ const App = () => {
                                         <OfflinePolicyProvider>
                                           <CommandPalette />
                                           <KeyboardShortcuts />
-                                          <AppRoutes />
+                                          <TaskPanelRouterProvider>
+                                            <AppRoutes />
+                                          </TaskPanelRouterProvider>
                                         </OfflinePolicyProvider>
                                       </PWAProvider>
                                     </AppErrorBoundary>
