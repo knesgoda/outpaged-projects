@@ -11,7 +11,8 @@ jest.mock("@/hooks/use-toast", () => ({
 const upsertCustomFieldDefinition = jest.fn(async () => ({ id: "cf-1", name: "Customer impact" }));
 
 jest.mock("@/services/customFields", () => ({
-  upsertCustomFieldDefinition: (...args: any[]) => upsertCustomFieldDefinition(...args),
+  // @ts-ignore - test mock
+  upsertCustomFieldDefinition: () => upsertCustomFieldDefinition(),
 }));
 
 jest.mock("sonner", () => ({

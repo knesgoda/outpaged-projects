@@ -172,6 +172,11 @@ export type AutomationRecipeDefinition = {
   preview?: string;
 };
 
+export type AutomationCanvasState = {
+  nodes: AutomationGraphNode[];
+  edges: AutomationGraphEdge[];
+};
+
 export type AutomationEventPayload = {
   projectId: string;
   type: AutomationEventType;

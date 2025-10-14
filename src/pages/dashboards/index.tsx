@@ -64,7 +64,7 @@ export default function DashboardsPage() {
                 <CardTitle className="flex items-center justify-between">
                   <span>{dashboard.title}</span>
                   <div className="flex gap-2">
-                    <Badge variant="outline">Theme: {dashboard.presentation?.theme ?? "light"}</Badge>
+                    <Badge variant="outline">Theme: {(dashboard as any).presentation?.theme ?? "light"}</Badge>
                     {dashboard.refreshCadenceMinutes ? (
                       <Badge variant="secondary">Auto refresh {dashboard.refreshCadenceMinutes}m</Badge>
                     ) : null}

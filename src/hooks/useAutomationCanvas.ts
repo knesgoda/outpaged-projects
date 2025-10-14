@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 
 import type {
+  AutomationCanvasState,
   AutomationGraphEdge,
   AutomationGraphNode,
   AutomationGraphNodeType,
@@ -15,11 +16,6 @@ type AddNodeOptions = {
   parentId?: string | null;
   branchKey?: string | null;
   position?: { x: number; y: number };
-};
-
-export type AutomationCanvasState = {
-  nodes: AutomationGraphNode[];
-  edges: AutomationGraphEdge[];
 };
 
 export interface UseAutomationCanvasOptions {
@@ -257,7 +253,9 @@ function titleCaseFromType(type: AutomationGraphNodeType): string {
       return "Switch";
     case "parallel":
       return "Parallel";
-    default:
-      return type.charAt(0).toUpperCase() + type.slice(1);
+    default: {
+      const typeStr = String(type);
+      return typeStr.charAt(0).toUpperCase() + typeStr.slice(1);
+    }
   }
 }

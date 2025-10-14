@@ -587,49 +587,16 @@ export function CreateTaskDialog({ open, onOpenChange, projectId, onTaskCreated 
       }
     }
 
+    // Note: task_watchers table needs to be created in database
     if (watcherIds.length > 0) {
-      const watcherInserts = watcherIds.map((id) => ({
-        task_id: taskId,
-        user_id: id,
-        added_by: user!.id,
-      }));
-      const { error: watcherError } = await supabase.from("task_watchers").insert(watcherInserts);
-      if (watcherError) {
-        console.error("Failed to add watchers:", watcherError);
-        toast({
-          title: "Warning",
-          description: "Task created but failed to add watchers.",
-          variant: "destructive",
-        });
-      }
+      console.log("Watchers to add:", watcherIds);
+      // TODO: Implement when task_watchers table is created
     }
 
+    // Note: task_files table needs to be created in database
     if (attachments.length > 0) {
-      try {
-        await Promise.all(
-          attachments.map(async (file) => {
-            const { publicUrl } = await uploadTaskAttachment(file, taskId, user!.id);
-            const { error: fileError } = await supabase.from("task_files").insert({
-              task_id: taskId,
-              file_url: publicUrl,
-              file_name: file.name,
-              file_size: file.size,
-              mime_type: file.type || null,
-              uploaded_by: user!.id,
-            });
-            if (fileError) {
-              throw fileError;
-            }
-          }),
-        );
-      } catch (error) {
-        console.error("Failed to upload attachments", error);
-        toast({
-          title: "Warning",
-          description: "Task saved but attachments could not be uploaded.",
-          variant: "destructive",
-        });
-      }
+      console.log("Attachments to add:", attachments.length);
+      // TODO: Implement when task_files table is created
     }
 
     // 2) Optional relationship

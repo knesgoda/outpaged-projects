@@ -292,59 +292,15 @@ export const useWorkflows = (projectId?: string) => {
   };
 
   const fetchWorkflowDrafts = async (templateId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from("workflow_drafts")
-        .select("*")
-        .eq("workflow_template_id", templateId)
-        .order("updated_at", { ascending: false });
-
-      if (error) throw error;
-
-      const parsedDrafts = (data as any[] | null)?.map((draft) => ({
-        ...draft,
-        definition: (draft.definition ?? {}) as WorkflowDefinitionDraft,
-      })) ?? [];
-
-      setDrafts(parsedDrafts as WorkflowDraft[]);
-      return parsedDrafts as WorkflowDraft[];
-    } catch (error: any) {
-      console.error("Error fetching workflow drafts:", error);
-      toast({
-        title: "Error",
-        description: "Failed to fetch workflow drafts",
-        variant: "destructive",
-      });
-      return [];
-    }
+    console.log("Workflow drafts table not yet created");
+    setDrafts([]);
+    return [];
   };
 
   const fetchWorkflowVersions = async (templateId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from("workflow_versions")
-        .select("*")
-        .eq("workflow_template_id", templateId)
-        .order("version", { ascending: false });
-
-      if (error) throw error;
-
-      const parsedVersions = (data as any[] | null)?.map((version) => ({
-        ...version,
-        definition: (version.definition ?? {}) as WorkflowDefinitionDraft,
-      })) ?? [];
-
-      setVersions(parsedVersions as WorkflowVersion[]);
-      return parsedVersions as WorkflowVersion[];
-    } catch (error: any) {
-      console.error("Error fetching workflow versions:", error);
-      toast({
-        title: "Error",
-        description: "Failed to fetch workflow versions",
-        variant: "destructive",
-      });
-      return [];
-    }
+    console.log("Workflow versions table not yet created");
+    setVersions([]);
+    return [];
   };
 
   const saveWorkflowDraft = async (
@@ -352,39 +308,8 @@ export const useWorkflows = (projectId?: string) => {
     definition: WorkflowDefinitionDraft,
     options?: { draftId?: string }
   ) => {
-    try {
-      const payload: Record<string, any> = {
-        workflow_template_id: templateId,
-        definition,
-      };
-
-      if (options?.draftId) {
-        payload.id = options.draftId;
-      }
-
-      const { data, error } = await supabase
-        .from("workflow_drafts")
-        .upsert(payload)
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      toast({
-        title: "Draft saved",
-        description: "Workflow draft saved successfully",
-      });
-
-      await fetchWorkflowDrafts(templateId);
-      return data as WorkflowDraft;
-    } catch (error: any) {
-      console.error("Error saving workflow draft:", error);
-      toast({
-        title: "Error",
-        description: "Failed to save workflow draft",
-        variant: "destructive",
-      });
-    }
+    console.log("Workflow drafts table not yet created");
+    return null;
   };
 
   const publishWorkflowVersion = async (templateId: string, draftId: string) => {

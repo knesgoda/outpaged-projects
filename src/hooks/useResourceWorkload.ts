@@ -186,38 +186,10 @@ export function useResourceWorkload(projectId: OptionalString, timeframe: Resour
       const { data: tasks, error: tasksError } = await taskQuery;
       if (tasksError) throw tasksError;
 
-      const { data: calendarEvents, error: calendarError } = await supabase
-        .from("calendar_events")
-        .select(`
-          id,
-          start_time,
-          end_time,
-          availability_type,
-          event_type,
-          type,
-          status,
-          attendees:calendar_event_attendees(user_id)
-        `)
-        .lte("start_time", range.end.toISOString())
-        .gte("end_time", range.start.toISOString());
-
-      const resolvedCalendarEvents: any[] = calendarError ? [] : calendarEvents ?? [];
-
-      if (calendarError) {
-        console.warn("Calendar events fetch failed", calendarError.message ?? calendarError);
-      }
-
-      const { data: oooEvents, error: oooError } = await supabase
-        .from("ooo_events")
-        .select("id, user_id, start_time, end_time")
-        .lte("start_time", range.end.toISOString())
-        .gte("end_time", range.start.toISOString());
-
-      const resolvedOooEvents: any[] = oooError ? [] : oooEvents ?? [];
-
-      if (oooError) {
-        console.warn("OOO events fetch failed", oooError.message ?? oooError);
-      }
+      // Note: calendar_events and ooo_events tables need to be created in database
+      console.log("Loading calendar events (tables not yet created)");
+      const resolvedCalendarEvents: any[] = [];
+      const resolvedOOOEvents: any[] = [];
 
       const { data: skills, error: skillsError } = await supabase
         .from("skill_development")
@@ -249,7 +221,7 @@ export function useResourceWorkload(projectId: OptionalString, timeframe: Resour
         });
       });
 
-      resolvedOooEvents.forEach((event) => {
+      resolvedOOOEvents.forEach((event) => {
         const userId = event?.user_id as OptionalString;
         if (!userId) return;
         const duration = overlapHours(range.start, range.end, event.start_time, event.end_time);

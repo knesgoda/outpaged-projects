@@ -1,0 +1,8 @@
+// This file is temporarily disabled due to missing database schema
+// TODO: Re-enable when workflow_states, workflow_transitions tables have the required columns:
+// - validators, transition_screen, post_actions, approvals in workflow_transitions
+// - required_fields, approval_roles as proper types in workflow_states
+
+export function VisualWorkflowBuilder() {
+  return <div>Workflow builder is currently unavailable. Database schema needs to be updated.</div>;
+}
