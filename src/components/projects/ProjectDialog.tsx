@@ -24,7 +24,10 @@ import { useApplyProjectTemplate, useProjectTemplates } from "@/hooks/useProject
 import { useTelemetry } from "@/components/telemetry/TelemetryProvider";
 import { useTenant } from "@/domain/tenant";
 import type { ProjectStatus } from "@/services/projects";
-import { orchestrateProjectArtifacts } from "@/services/projects/projectCreationOrchestrator";
+import {
+  orchestrateProjectArtifacts,
+  type ProjectArtifactPlan,
+} from "@/services/projects/projectCreationOrchestrator";
 import { PROJECT_STATUS_FILTER_OPTIONS } from "@/utils/project-status";
 import { cn } from "@/lib/utils";
 import {
@@ -1400,26 +1403,308 @@ export function ProjectDialog({ open, onOpenChange, onSuccess, initialTemplateId
       const payload = buildPayload();
       const project = await createProject.mutateAsync(payload);
 
-      const artifacts = await orchestrateProjectArtifacts({
+      const inferColumnDataType = (name: string) => {
+        const normalized = name.toLowerCase();
+        if (/point|estimate|story/i.test(normalized)) {
+          return "number";
+        }
+        if (/owner|assignee|lead/i.test(normalized)) {
+          return "user";
+        }
+        if (/date|time|deadline/i.test(normalized)) {
+          return "date";
+        }
+        if (/status|stage|state/i.test(normalized)) {
+          return "status";
+        }
+        return "string";
+      };
+
+      const boardSchemaKey = "primary";
+      const savedViews = (selectedViewCollection?.views ?? []).map((view, index) => ({
+        key: `${selectedViewCollection?.id ?? "custom"}-${index}`,
+        name: view,
+        filters: {},
+        sort: [],
+        isDefault: index === 0,
+      }));
+      const boardSchemas = [
+        {
+          key: boardSchemaKey,
+          name: `${formData.name || "Project"} Board`,
+          description: selectedViewCollection?.description ?? null,
+          columns: formData.boardColumns.map(column => ({
+            key: column.id,
+            label: column.name,
+            dataType: inferColumnDataType(column.name),
+            group: column.group,
+            wipLimit: column.wipLimit ?? null,
+          })),
+          groups: formData.boardGroups.map((group, index) => ({
+            key: group.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+            label: group,
+            order: index,
+            color: PROJECT_COLOR_OPTIONS[index % PROJECT_COLOR_OPTIONS.length] ?? null,
+          })),
+          savedViews,
+          defaultViewKey: savedViews.find(view => view.isDefault)?.key ?? savedViews[0]?.key ?? null,
+        },
+      ];
+
+      const workflowStates = formData.workflowStatuses.map((status, index, statuses) => ({
+        key: status.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+        name: status,
+        category:
+          index === 0 ? "backlog" : index === statuses.length - 1 ? "done" : "in_progress",
+        wipLimit:
+          boardSchemas[0]?.columns.find(column => column.label.toLowerCase() === status.toLowerCase())
+            ?.wipLimit ?? null,
+      }));
+
+      const workflowTransitions = formData.workflowTransitions.map(transition => ({
+        id: transition.id,
+        from: transition.from,
+        to: transition.to,
+        guard: transition.rule,
+        slaPause: /pending|blocked|on hold/i.test(transition.to),
+        slaResume: /ready|progress|qa|done|review|verification/i.test(transition.to),
+      }));
+
+      const workflowHooks = workflowStates.flatMap(state => {
+        const hooks = [] as {
+          state: string;
+          action: "pause" | "resume";
+          reason: string;
+        }[];
+        if (/pending|blocked|on hold/i.test(state.name)) {
+          hooks.push({ state: state.name, action: "pause", reason: "waiting_state" });
+        }
+        if (/ready|progress|qa|done|review|verification|commit/i.test(state.name)) {
+          hooks.push({ state: state.name, action: "resume", reason: "active_state" });
+        }
+        return hooks;
+      });
+
+      const boardPrograms = [
+        {
+          key: boardSchemaKey,
+          type: formData.boardConfiguration.methodology,
+          schemaKey: boardSchemaKey,
+          backlog: {
+            source: formData.boardConfiguration.backlogMapping,
+            workItemTypes: formData.modules,
+            estimationField: formData.boardConfiguration.estimationField,
+          },
+          rankingStrategy:
+            formData.boardConfiguration.methodology === "scrum"
+              ? "sprint_commitment"
+              : "flow_efficiency",
+          defaultViewKey: savedViews.find(view => view.isDefault)?.key ?? null,
+        },
+      ];
+
+      const averageCapacity = formData.invitees.length
+        ? Math.max(Math.round(formData.sprintConfiguration.capacity / formData.invitees.length), 1)
+        : formData.sprintConfiguration.capacity;
+
+      const notesTemplateSections = [
+        "Highlights",
+        "Risks",
+        "Next Sprint Focus",
+      ];
+      if (formData.lifecycleNotes) {
+        notesTemplateSections.push(formData.lifecycleNotes);
+      }
+
+      const sprintSchedule = {
+        cadence: formData.sprintConfiguration.cadence,
+        startDate: toISODate(formData.kickoffDate ?? formData.startDate) ?? null,
+        timezone: formData.timezone,
+        calendarId: formData.calendarId || null,
+        capacityRules: formData.invitees.map(invite => ({
+          role: invite.role,
+          hoursPerWeek: averageCapacity,
+          maxWorkItems: undefined,
+        })),
+        releaseVersioning: selectedVersionStrategy
+          ? {
+              strategy: selectedVersionStrategy.id,
+              cadence: selectedVersionStrategy.cadence,
+              prefix: formData.code || undefined,
+            }
+          : null,
+        notesTemplates: [
+          {
+            id: "sprint-review",
+            name: `${formData.sprintConfiguration.cadence} Review`,
+            sections: notesTemplateSections,
+          },
+        ],
+      };
+
+      const componentCatalog = formData.componentCatalog.length
+        ? {
+            components: formData.componentCatalog.map(component => ({
+              key: component.id,
+              name: component.name,
+              owner: component.owner,
+              routingQueue: component.routingQueue,
+            })),
+            routingRules: formData.componentCatalog.map(component => ({
+              id: `${component.id}-route`,
+              criteria: { component: component.name },
+              destination: component.routingQueue,
+            })),
+          }
+        : null;
+
+      const intakeForms = formData.intakeForms.map(form => ({
+        id: form.id,
+        name: form.name,
+        audience: form.audience,
+        routing: form.routing,
+        targetBoardKey: boardSchemaKey,
+        fields: [
+          { id: "summary", label: "Summary", type: "text", required: true },
+          { id: "details", label: "Details", type: "textarea", required: true },
+          {
+            id: "audience",
+            label: "Audience",
+            type: "select",
+            required: true,
+            options: ["internal", "public"],
+          },
+        ],
+      }));
+
+      const automationRules = formData.automationSelections
+        .filter(selection => selection.enabled)
+        .map(selection => {
+          const recipe = PROJECT_AUTOMATION_RECIPES.find(item => item.id === selection.id);
+          return {
+            id: selection.id,
+            name: recipe?.name ?? selection.id,
+            trigger: { type: recipe?.triggers?.[0] ?? "custom" },
+            actions: [
+              { type: "notify", params: { channel: formData.notificationDefaults || "email" } },
+              {
+                type: "transition",
+                params: { to: formData.workflowTransitions[0]?.to ?? "Done" },
+              },
+            ],
+          };
+        });
+
+      const integrationConnectors = formData.integrationMappings
+        .filter(mapping => mapping.enabled)
+        .map(mapping => {
+          const option = PROJECT_INTEGRATION_OPTIONS.find(item => item.id === mapping.id);
+          const direction =
+            mapping.id === "slack"
+              ? "export"
+              : mapping.id === "github"
+              ? "bidirectional"
+              : "import";
+          return {
+            id: mapping.id,
+            provider: option?.name ?? mapping.id,
+            configuration: {
+              projectKey: mapping.projectKey || formData.code || formData.name,
+              category: option?.category,
+            },
+            direction,
+          };
+        });
+
+      const memberInvitations = formData.invitees.map(invite => ({
+        email:
+          invite.email || `${invite.name.replace(/[^a-z0-9]+/gi, ".").toLowerCase()}@example.com`,
+        name: invite.name,
+        role: invite.role,
+        message: `Welcome to ${formData.name}!`,
+      }));
+
+      const permissionAssignment = formData.permissionScheme
+        ? {
+            schemeId: formData.permissionScheme,
+            notificationSchemeId: formData.notificationScheme || null,
+            slaSchemeId: formData.slaScheme || null,
+            overrides: formData.permissionOverrides.map(override => ({
+              scope: override.scope,
+              role: override.role,
+              access: override.access,
+            })),
+            privacyDefault: formData.privacyDefault || null,
+            notificationDefault: formData.notificationDefaults || null,
+          }
+        : null;
+
+      const notificationPolicies = (formData.notificationScheme || formData.notificationDefaults)
+        ? [
+            {
+              channel: formData.notificationDefaults || "email",
+              events: ["project.create_started", "project.seed_complete"],
+              defaultRecipients: memberInvitations.map(invite => invite.email),
+              policyId: formData.notificationScheme || undefined,
+            },
+          ]
+        : [];
+
+      const importPlan = {
+        strategy: formData.importStrategy,
+        sources: selectedImportOption?.sources ?? [],
+        mappings: formData.importMappings.map(mapping => ({
+          source: mapping.source,
+          target: mapping.target,
+          sample: mapping.sample ?? null,
+        })),
+        sampleDataSets: formData.importMappings.map((mapping, index) => ({
+          id: `${mapping.target.toLowerCase().replace(/[^a-z0-9]+/g, "-") || "dataset"}-${index}`,
+          name: mapping.target,
+          recordCount: mapping.sample ? 1 : 0,
+          sampleFields: mapping.sample ? { [mapping.source]: mapping.sample } : undefined,
+        })),
+      };
+
+      const artifactPlan: ProjectArtifactPlan = {
         projectId: project.id,
         workspaceId: tenant.workspaceId ?? undefined,
         timezone: formData.timezone,
         visibility: formData.visibility,
         modules: formData.modules,
         templateKey: formData.templateKey || null,
-        workflowBlueprint: selectedWorkflow
-          ? { id: selectedWorkflow.id, name: selectedWorkflow.name, states: selectedWorkflow.states }
+        boardSchemas,
+        workflowConfiguration: selectedWorkflow
+          ? {
+              blueprintId: selectedWorkflow.id,
+              name: selectedWorkflow.name,
+              states: workflowStates,
+              transitions: workflowTransitions,
+              slaHooks: workflowHooks,
+            }
           : null,
-        importStrategy: formData.importStrategy,
-        importSources: selectedImportOption?.sources ?? [],
-      });
+        boardPrograms,
+        sprintSchedule,
+        componentCatalog,
+        intakeForms,
+        automationRules,
+        integrationConnectors,
+        memberInvitations,
+        permissionAssignment,
+        notificationPolicies,
+        importPlan,
+        tenant,
+      };
 
-      if (artifacts.board) {
+      const artifacts = await orchestrateProjectArtifacts(artifactPlan);
+
+      const primaryBoardSchema = artifacts.boardSchemas[0];
+      if (primaryBoardSchema) {
         telemetry.track("project.create_board", {
           projectId: project.id,
-          boardId: artifacts.board.id,
-          moduleCount: artifacts.board.modules.length,
-          templateKey: artifacts.board.templateKey ?? undefined,
+          boardSchemaId: primaryBoardSchema.id,
+          columnCount: primaryBoardSchema.columns.length,
+          defaultView: primaryBoardSchema.defaultViewKey ?? undefined,
         });
       }
 

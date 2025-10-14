@@ -390,6 +390,24 @@ export async function createProject(
     archived_at: null,
   };
 
+  const creationContext = {
+    name: payload.name,
+    templateKey: payload.template_key ?? undefined,
+    workspaceId: payload.workspace_id ?? undefined,
+    idempotencyKey: idempotencyKey ?? undefined,
+    modules: payload.modules ?? [],
+  };
+
+  if (options?.client) {
+    options.client.publish("project.create_started", creationContext);
+  } else {
+    domainEventBus.publish({
+      type: "project.create_started",
+      payload: creationContext,
+      tenant: tenant ?? undefined,
+    });
+  }
+
   const request = (async () => {
     const { data, error } = await (client
       .from("projects")
@@ -402,12 +420,21 @@ export async function createProject(
     }
 
     const project = data as any as ProjectRecord;
+    const createdPayload = {
+      projectId: project.id,
+      workspaceId: project.workspace_id ?? payload.workspace_id ?? null,
+      templateKey: project.template_key ?? payload.template_key ?? null,
+      modules: project.modules ?? payload.modules ?? [],
+      importStrategy: project.import_strategy ?? payload.import_strategy ?? null,
+      importSources: project.import_sources ?? payload.import_sources ?? [],
+    };
+
     if (options?.client) {
-      options.client.publish("project.created", { projectId: project.id });
+      options.client.publish("project.created", createdPayload);
     } else {
       domainEventBus.publish({
         type: "project.created",
-        payload: { projectId: project.id },
+        payload: createdPayload,
         tenant: tenant ?? undefined,
       });
     }
