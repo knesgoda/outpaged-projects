@@ -42,6 +42,14 @@ export {
   saveProfilePreferenceSnapshot,
   getProfilePreferenceSnapshot,
   processProfilePreferenceQueue,
+  saveCommentDraft,
+  getCommentDraft,
+  deleteCommentDraft,
+  saveRichTextDraft,
+  getRichTextDraft,
+  deleteRichTextDraft,
+  listRichTextDrafts,
+  updateRichTextDraft,
 } from "./indexedDbQueue";
 
 export {
@@ -78,6 +86,8 @@ export type {
   ProfilePreferenceSnapshot,
   ProfilePreferenceSyncer,
   ProcessPreferenceQueueResult,
+  CommentDraftRecord,
+  RichTextDraftRecord,
 } from "./indexedDbQueue";
 
 export type { OfflinePolicy, RemoteWipePolicy } from "./types";

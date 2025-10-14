@@ -1,3 +1,5 @@
+import type { RichTextIndexFields } from "./rich-text";
+
 export type SearchResult = {
   id: string;
   type:
@@ -14,6 +16,9 @@ export type SearchResult = {
   project_id?: string | null;
   updated_at?: string | null;
   score?: number;
+  description?: string | null;
+  rich_text?: RichTextIndexFields | null;
+  richText?: RichTextIndexFields | null;
 };
 
 export type OpqlGrammarState =

@@ -1,11 +1,21 @@
-import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
+import type { Editor } from "@tiptap/react";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FileDown, Sparkles, Edit3, Eye, Copy, Check } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { useRichTextChips } from "@/hooks/useRichTextChips";
+import { Markdown } from "tiptap-markdown";
+import { searchTeammates } from "@/services/people";
+import { searchCrossReferences } from "@/services/search";
+import type { MentionSuggestionItem } from "@/components/rich-text/extensions/mention";
+import type { CrossReferenceSuggestion } from "@/components/rich-text/extensions/xref";
+import { SlashCommandExtension } from "@/components/rich-text/extensions/slash-command";
+import { useMemo, useState, useCallback, useRef } from "react";
+import DOMPurify from "dompurify";
+import { marked } from "marked";
 
 interface TaskItem {
   id: string;
@@ -19,6 +29,17 @@ interface ReleaseData {
   version: string;
   releaseDate: string;
   tasks: TaskItem[];
+}
+
+const DEFAULT_MARKDOWN_OPTIONS = { html: true, linkify: true, breaks: true } as const;
+
+function markdownToHtml(markdown: string) {
+  if (!markdown) return "";
+  const rendered = marked.parse(markdown);
+  if (typeof rendered === "string") {
+    return DOMPurify.sanitize(rendered);
+  }
+  return "";
 }
 
 export function ReleaseNotesGenerator() {
@@ -73,11 +94,44 @@ For detailed information, see the [full changelog](https://github.com/yourorg/yo
 `;
   };
 
-  const [markdownContent, setMarkdownContent] = useState(generateMarkdown());
+  const initialMarkdown = useMemo(() => generateMarkdown(), []);
+  const [markdownContent, setMarkdownContent] = useState(initialMarkdown);
+  const [htmlContent, setHtmlContent] = useState(() => markdownToHtml(initialMarkdown));
+  const [editor, setEditor] = useState<Editor | null>(null);
+  const lastMarkdownRef = useRef(initialMarkdown);
+  const chips = useRichTextChips(
+    useMemo(
+      () => ({
+        mentions: {
+          fetchSuggestions: async (query: string) => {
+            if (!query.trim()) return [];
+            const result = await searchTeammates({ q: query });
+            return result.slice(0, 20).map((profile) => ({
+              id: profile.user_id,
+              label: profile.full_name ?? profile.email ?? "Unknown user",
+              description: profile.email ?? undefined,
+              avatarUrl: profile.avatar_url ?? null,
+            } satisfies MentionSuggestionItem));
+          },
+        },
+        crossReferences: {
+          fetchSuggestions: async (query: string) => {
+            return searchCrossReferences({ query });
+          },
+        },
+      }),
+      []
+    )
+  );
+  const editorExtensions = useMemo(() => [SlashCommandExtension, Markdown.configure(DEFAULT_MARKDOWN_OPTIONS)], []);
 
   const handleGenerate = () => {
     const newContent = generateMarkdown();
+    lastMarkdownRef.current = newContent;
     setMarkdownContent(newContent);
+    const sanitized = markdownToHtml(newContent);
+    setHtmlContent(sanitized);
+    editor?.commands.setContent(sanitized || "<p></p>", false);
     toast({
       title: "Release notes generated",
       description: "Release notes have been auto-generated from completed tasks.",
@@ -93,6 +147,26 @@ For detailed information, see the [full changelog](https://github.com/yourorg/yo
       description: "Release notes copied successfully.",
     });
   };
+
+  const handleEditorChange = useCallback(
+    (html: string) => {
+      setHtmlContent(html);
+      if (editor?.storage?.markdown?.getMarkdown) {
+        const markdown = editor.storage.markdown.getMarkdown();
+        lastMarkdownRef.current = markdown;
+        setMarkdownContent(markdown);
+      }
+    },
+    [editor]
+  );
+
+  useEffect(() => {
+    if (!editor) return;
+    const current = editor.getHTML();
+    if (current !== htmlContent) {
+      editor.commands.setContent(htmlContent || "<p></p>", false);
+    }
+  }, [editor, htmlContent]);
 
   const handleExport = (format: "md" | "html" | "pdf") => {
     // In real implementation, this would generate and download the file
@@ -171,8 +245,8 @@ For detailed information, see the [full changelog](https://github.com/yourorg/yo
           </TabsList>
 
           <TabsContent value="preview" className="space-y-4">
-            <div className="prose prose-sm max-w-none bg-muted/50 p-6 rounded-lg">
-              <pre className="whitespace-pre-wrap font-sans">{markdownContent}</pre>
+            <div className="prose prose-sm max-w-none rounded-lg border bg-muted/50 p-6">
+              <div dangerouslySetInnerHTML={{ __html: htmlContent }} />
             </div>
             <div className="flex gap-2">
               <Button onClick={handleCopy} variant="outline">
@@ -195,11 +269,13 @@ For detailed information, see the [full changelog](https://github.com/yourorg/yo
           </TabsContent>
 
           <TabsContent value="edit">
-            <Textarea
-              value={markdownContent}
-              onChange={(e) => setMarkdownContent(e.target.value)}
-              className="min-h-[400px] font-mono text-sm"
-              placeholder="Edit release notes..."
+            <RichTextEditor
+              value={htmlContent}
+              onChange={(html) => handleEditorChange(html)}
+              onReady={setEditor}
+              chips={chips}
+              extensions={editorExtensions}
+              minHeight={400}
             />
           </TabsContent>
 

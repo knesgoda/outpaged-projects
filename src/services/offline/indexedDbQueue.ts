@@ -129,10 +129,12 @@ type OfflineStoreName =
   | "dependencies"
   | "batches"
   | "profilePreferenceQueue"
-  | "profilePreferenceSnapshots";
+  | "profilePreferenceSnapshots"
+  | "commentDrafts"
+  | "richTextDrafts";
 
 const DB_NAME = "outpaged-board-offline";
-const DB_VERSION = 3;
+const DB_VERSION = 5;
 const STORE_CONFIG: Record<OfflineStoreName, { keyPath: string }> = {
   boardQueue: { keyPath: "id" },
   itemQueue: { keyPath: "id" },
@@ -144,6 +146,8 @@ const STORE_CONFIG: Record<OfflineStoreName, { keyPath: string }> = {
   batches: { keyPath: "id" },
   profilePreferenceQueue: { keyPath: "id" },
   profilePreferenceSnapshots: { keyPath: "id" },
+  commentDrafts: { keyPath: "id" },
+  richTextDrafts: { keyPath: "id" },
 };
 
 const memoryStores: Record<OfflineStoreName, Map<string, unknown>> = {
@@ -157,6 +161,8 @@ const memoryStores: Record<OfflineStoreName, Map<string, unknown>> = {
   batches: new Map(),
   profilePreferenceQueue: new Map(),
   profilePreferenceSnapshots: new Map(),
+  commentDrafts: new Map(),
+  richTextDrafts: new Map(),
 };
 
 let dbPromise: Promise<IDBDatabase> | null = null;
@@ -1276,6 +1282,41 @@ export interface ProfilePreferenceSnapshot {
   updatedAt: number;
 }
 
+export interface CommentDraftRecord extends OfflineOperationMetadata {
+  id: string;
+  threadId: string;
+  payload: {
+    content: string;
+    doc?: Record<string, unknown> | null;
+    plaintext?: string;
+  };
+  updatedAt: number;
+}
+
+export interface RichTextDraftRecord extends OfflineOperationMetadata {
+  id: string;
+  scope: string;
+  entityId: string;
+  field: string;
+  classification?: "default" | "no-offline";
+  remoteHash?: string | null;
+  payload: {
+    content: string;
+    doc?: Record<string, unknown> | null;
+    plaintext?: string;
+    json?: Record<string, unknown> | null;
+    metadata?: Record<string, unknown> | null;
+  };
+  updatedAt: number;
+  conflict?: {
+    remoteHash?: string | null;
+    remoteContent?: string | null;
+    remotePlaintext?: string | null;
+    remoteDoc?: Record<string, unknown> | null;
+    detectedAt: number;
+  } | null;
+}
+
 export interface ProfilePreferenceMutation extends OfflineOperationMetadata {
   id: string;
   userId: string;
@@ -1357,6 +1398,89 @@ export async function saveProfilePreferenceSnapshot(snapshot: ProfilePreferenceS
 export async function getProfilePreferenceSnapshot(userId: string) {
   const records = await readAllRecords<ProfilePreferenceSnapshot>("profilePreferenceSnapshots");
   return records.find((record) => record.userId === userId) ?? null;
+}
+
+export async function saveCommentDraft(record: CommentDraftRecord) {
+  const existing = await readRecord<CommentDraftRecord>("commentDrafts", record.id);
+  const next: CommentDraftRecord = {
+    ...existing,
+    ...record,
+    vectorClock: incrementVectorClock(record.vectorClock ?? existing?.vectorClock),
+    updatedAt: record.updatedAt ?? now(),
+  } as CommentDraftRecord;
+  await registerDependencies(next);
+  return putRecord("commentDrafts", next);
+}
+
+export async function getCommentDraft(id: string) {
+  return readRecord<CommentDraftRecord>("commentDrafts", id);
+}
+
+export async function deleteCommentDraft(id: string) {
+  await deleteRecord("commentDrafts", id);
+  await markDependencyResolved(id);
+}
+
+export async function saveRichTextDraft(record: RichTextDraftRecord) {
+  const existing = await readRecord<RichTextDraftRecord>("richTextDrafts", record.id);
+  const next: RichTextDraftRecord = {
+    ...existing,
+    ...record,
+    payload: {
+      ...(existing?.payload ?? {}),
+      ...(record.payload ?? {}),
+    },
+    vectorClock: incrementVectorClock(record.vectorClock ?? existing?.vectorClock),
+    conflictPolicy: record.conflictPolicy ?? existing?.conflictPolicy ?? defaultConflictPolicy(),
+    dependencies: record.dependencies ?? existing?.dependencies ?? [],
+    updatedAt: record.updatedAt ?? now(),
+    conflict: record.conflict ?? existing?.conflict ?? null,
+  } as RichTextDraftRecord;
+
+  await registerDependencies(next);
+  return putRecord("richTextDrafts", next);
+}
+
+export async function updateRichTextDraft(id: string, patch: Partial<RichTextDraftRecord>) {
+  const existing = await readRecord<RichTextDraftRecord>("richTextDrafts", id);
+  if (!existing) return;
+  const next: RichTextDraftRecord = {
+    ...existing,
+    ...patch,
+    payload: {
+      ...(existing.payload ?? {}),
+      ...(patch.payload ?? {}),
+    },
+    vectorClock: patch.vectorClock
+      ? mergeVectorClocks(existing.vectorClock, patch.vectorClock)
+      : existing.vectorClock,
+    updatedAt: patch.updatedAt ?? now(),
+  } as RichTextDraftRecord;
+
+  await registerDependencies(next);
+  await putRecord("richTextDrafts", next);
+}
+
+export async function getRichTextDraft(id: string) {
+  return readRecord<RichTextDraftRecord>("richTextDrafts", id);
+}
+
+export async function listRichTextDrafts(options?: { scope?: string; entityId?: string; field?: string }) {
+  const records = await readAllRecords<RichTextDraftRecord>("richTextDrafts");
+  return records
+    .filter((record) =>
+      options
+        ? (!options.scope || record.scope === options.scope) &&
+          (!options.entityId || record.entityId === options.entityId) &&
+          (!options.field || record.field === options.field)
+        : true
+    )
+    .sort((a, b) => b.updatedAt - a.updatedAt);
+}
+
+export async function deleteRichTextDraft(id: string) {
+  await deleteRecord<RichTextDraftRecord>("richTextDrafts", id);
+  await markDependencyResolved(id);
 }
 
 export async function processProfilePreferenceQueue(

@@ -18,3 +18,4 @@ export * from "./reports";
 export * from "./subscriptions";
 export * from "./boards";
 export * from "./tasks";
+export * from "./rich-text";

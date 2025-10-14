@@ -3,7 +3,7 @@ import { compileJql, isLikelyJql } from "@/lib/opql/jqlCompiler";
 import { getOpqlSuggestions } from "@/server/search/suggest";
 import { createSearchRouter, type OpqlValidationResult, type SavedSearchRecord, type SearchAlertRecord } from "@/server/search/routes";
 import type { PrincipalContext } from "@/server/search/queryEngine";
-import type { OpqlSuggestionRequest, OpqlSuggestionResponse, SearchResult } from "@/types";
+import type { CrossReferenceSuggestion, OpqlSuggestionRequest, OpqlSuggestionResponse, RichTextIndexFields, SearchResult } from "@/types";
 import { recordOpqlResponse } from "@/services/offline";
 
 const router = createSearchRouter();
@@ -81,6 +81,35 @@ const hashTerm = (term: string) => {
   }
   return hash.toString(16).padStart(8, "0");
 };
+
+function coerceRichText(payload: unknown): RichTextIndexFields | null {
+  if (!payload || typeof payload !== "object") {
+    return null;
+  }
+  const source = payload as Record<string, unknown>;
+  const get = (keys: string[]): string | null | undefined => {
+    for (const key of keys) {
+      const value = source[key];
+      if (typeof value === "string") {
+        return value;
+      }
+      if (value === null) {
+        return null;
+      }
+    }
+    return undefined;
+  };
+  const fields: RichTextIndexFields = {
+    descriptionHtml: get(["descriptionHtml", "description_html", "descriptionHTML"]),
+    descriptionText: get(["descriptionText", "description_text", "descriptionPlain"]),
+    commentHtml: get(["commentHtml", "comment_html", "commentHTML"]),
+    commentText: get(["commentText", "comment_text", "commentPlain"]),
+    docHtml: get(["docHtml", "doc_html", "docHTML", "contentHtml", "content_html"]),
+    docText: get(["docText", "doc_text", "docPlain", "contentText", "content_text"]),
+  };
+
+  return Object.values(fields).some((value) => value != null) ? fields : null;
+}
 
 function maskResults(results: SearchResult[]): SearchResult[] {
   return results.map((result) => router.getMaskedResult(result, CLIENT_PRINCIPAL.workspaceId));
@@ -194,6 +223,12 @@ export async function searchAll({
     );
   }
 
+  result.items = result.items.map((item) => {
+    const normalizedRichText = coerceRichText((item as Record<string, unknown>).richText ?? (item as Record<string, unknown>).rich_text);
+    if (!normalizedRichText) return item;
+    return { ...item, richText: normalizedRichText } satisfies SearchResult;
+  });
+
   if (q.trim()) {
     const hashed = hashTerm(q.trim().toLowerCase());
     console.debug?.("search:query", { hash: hashed, partial: result.partial, timeout: result.metrics.timeout });
@@ -211,6 +246,56 @@ export async function searchAll({
   }
 
   return result;
+}
+
+const CROSS_REFERENCE_TYPES: ReadonlySet<SearchResult["type"]> = new Set(["task", "project", "doc", "file", "comment"]);
+
+export async function searchCrossReferences({
+  query,
+  projectId,
+  limit = 12,
+  types,
+  includeComments = true,
+}: {
+  query: string;
+  projectId?: string;
+  limit?: number;
+  types?: SearchResult["type"][];
+  includeComments?: boolean;
+}): Promise<CrossReferenceSuggestion[]> {
+  const trimmed = query.trim();
+  if (!trimmed) {
+    return [];
+  }
+
+  const allowedTypes = types?.length ? types.filter((type) => CROSS_REFERENCE_TYPES.has(type)) : undefined;
+  const { items } = await searchAll({
+    q: trimmed,
+    projectId,
+    limit,
+    types: allowedTypes,
+    includeComments,
+  });
+
+  return items
+    .filter((item) => CROSS_REFERENCE_TYPES.has(item.type))
+    .map((item) => {
+      const richText = (item as Record<string, unknown>).richText as RichTextIndexFields | undefined;
+      const subtitle =
+        richText?.descriptionText ??
+        richText?.commentText ??
+        richText?.docText ??
+        item.snippet ??
+        item.description ??
+        undefined;
+      return {
+        id: item.id,
+        type: item.type as CrossReferenceSuggestion["type"],
+        title: item.title ?? item.id,
+        subtitle: subtitle ?? undefined,
+        url: item.url,
+      } satisfies CrossReferenceSuggestion;
+    });
 }
 
 export async function searchTasks({ query, limit, cursor, timeoutMs }: { query: string; limit?: number; cursor?: string; timeoutMs?: number }) {

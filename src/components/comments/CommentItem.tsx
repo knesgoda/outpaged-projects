@@ -1,6 +1,6 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { CornerDownRight, Edit2, MoreHorizontal, Reply, Trash2 } from "lucide-react";
+import { CornerDownRight, Edit2, History, MoreHorizontal, Reply, SmilePlus, Trash2 } from "lucide-react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,8 @@ import { SafeHtml } from "@/components/ui/safe-html";
 import { markdownToHtml } from "@/lib/markdown";
 import type { CommentWithAuthor as ServiceCommentWithAuthor } from "@/services/comments";
 import { formatDistanceToNow } from "date-fns";
+import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 export type CommentWithAuthor = ServiceCommentWithAuthor & {
   mentions: string[];
@@ -28,6 +30,7 @@ export interface CommentItemProps {
   onReply?: (comment: CommentWithAuthor) => void;
   onEdit?: (comment: CommentWithAuthor) => void;
   onDelete?: (comment: CommentWithAuthor) => void;
+  onReact?: (comment: CommentWithAuthor, emoji: string) => void;
 }
 
 function CommentItem({
@@ -37,8 +40,10 @@ function CommentItem({
   onReply,
   onEdit,
   onDelete,
+  onReact,
 }: CommentItemProps) {
   const isAuthor = currentUserId === comment.author;
+  const [showHistory, setShowHistory] = useState(false);
 
   const html = useMemo(() => {
     if (comment.body_html) return comment.body_html;
@@ -48,6 +53,8 @@ function CommentItem({
   const canReply = Boolean(onReply);
   const canEdit = isAuthor && Boolean(onEdit);
   const canDelete = isAuthor && Boolean(onDelete);
+  const reactions = comment.reactions ?? [];
+  const pending = comment.metadata && (comment.metadata as Record<string, unknown>).status === "pending";
 
   return (
     <div className={depth > 0 ? "pl-6" : ""}>
@@ -74,6 +81,24 @@ function CommentItem({
                   {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true })}
                 </span>
                 {comment.edited_at && <span className="text-xs text-muted-foreground">Edited</span>}
+                {pending && <Badge variant="outline">Pending sync</Badge>}
+                {comment.history?.length ? (
+                  <TooltipProvider delayDuration={200}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          type="button"
+                          onClick={() => setShowHistory((prev) => !prev)}
+                          className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                        >
+                          <History className="h-3 w-3" />
+                          History
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent>View edit history</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                ) : null}
               </div>
 
               {(canReply || canEdit || canDelete) && (
@@ -109,6 +134,71 @@ function CommentItem({
 
             <SafeHtml html={html} className="prose prose-sm max-w-none text-foreground dark:prose-invert" />
 
+            {comment.cross_references && comment.cross_references.length > 0 && (
+              <div className="flex flex-wrap gap-2 text-xs">
+                {comment.cross_references.map((xref) => (
+                  <Badge key={`${comment.id}-${xref.type}-${xref.id}`} variant="secondary" className="font-normal">
+                    <span className="capitalize">{xref.type}</span>
+                    <span className="mx-1">•</span>
+                    <span>{xref.title}</span>
+                  </Badge>
+                ))}
+              </div>
+            )}
+
+            <div className="flex flex-wrap items-center gap-2">
+              {reactions.map((reaction) => {
+                const reacted = reaction.userIds.includes(currentUserId ?? "");
+                return (
+                  <Button
+                    key={`${comment.id}-${reaction.emoji}`}
+                    size="sm"
+                    variant={reacted ? "secondary" : "ghost"}
+                    className="h-6 gap-1 rounded-full px-2 text-xs"
+                    onClick={() => onReact?.(comment, reaction.emoji)}
+                  >
+                    <span>{reaction.emoji}</span>
+                    <span>{reaction.userIds.length}</span>
+                  </Button>
+                );
+              })}
+              {onReact && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button size="sm" variant="ghost" className="h-6 rounded-full px-2 text-xs">
+                      <SmilePlus className="mr-1 h-3 w-3" /> React
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start">
+                    {REACTION_PRESETS.map((emoji) => (
+                      <DropdownMenuItem key={emoji} onClick={() => onReact(comment, emoji)}>
+                        {emoji}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+            </div>
+
+            {showHistory && comment.history?.length ? (
+              <div className="mt-3 space-y-2 rounded-md border border-border/60 bg-muted/30 p-3 text-xs">
+                {comment.history
+                  .sort((a, b) => (a.edited_at > b.edited_at ? -1 : 1))
+                  .map((entry) => (
+                    <div key={entry.id} className="space-y-1">
+                      <div className="flex items-center justify-between text-muted-foreground">
+                        <span>Edited {formatDistanceToNow(new Date(entry.edited_at), { addSuffix: true })}</span>
+                        {entry.edited_by && <span>by {entry.edited_by}</span>}
+                      </div>
+                      <SafeHtml
+                        html={entry.body_html ?? markdownToHtml(entry.body_markdown)}
+                        className="prose prose-xs max-w-none dark:prose-invert"
+                      />
+                    </div>
+                  ))}
+              </div>
+            ) : null}
+
             {canReply && (
               <Button
                 variant="ghost"
@@ -143,3 +233,5 @@ function CommentItem({
 }
 
 export default CommentItem;
+
+const REACTION_PRESETS = ["👍", "🎉", "❤️", "🔥", "👀", "💯", "🚀"];

@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
@@ -190,11 +190,11 @@ export function CustomFieldDefinitionManager({ projectId, workspaceId }: CustomF
               </div>
               <div className="space-y-2">
                 <Label htmlFor="description">Description</Label>
-                <Textarea
-                  id="description"
+                <RichTextEditor
                   value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  onChange={(html) => setFormData({ ...formData, description: html })}
                   placeholder="Optional description"
+                  minHeight={160}
                 />
               </div>
               {needsOptions && (
