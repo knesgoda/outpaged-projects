@@ -14,13 +14,14 @@ import { ProjectDialog } from "@/components/projects/ProjectDialog";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useCreateTask } from "@/hooks/useCreateTask";
 
 export function GlobalCreateButton() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [showTaskDialog, setShowTaskDialog] = useState(false);
   const [showProjectDialog, setShowProjectDialog] = useState(false);
   const [defaultProjectId, setDefaultProjectId] = useState<string | null>(null);
+  const { openCreateTask, dialogProps } = useCreateTask({ projectId: defaultProjectId });
 
   useEffect(() => {
     // Fetch the user's first available project as default
@@ -60,16 +61,6 @@ export function GlobalCreateButton() {
     fetchDefaultProject();
   }, [user]);
 
-  const handleTaskCreated = () => {
-    setShowTaskDialog(false);
-    toast({
-      title: "Success",
-      description: "Task created successfully!",
-    });
-    // Optionally refresh page data if needed
-    window.location.reload();
-  };
-
   const handleCreateTask = () => {
     if (!defaultProjectId) {
       toast({
@@ -79,7 +70,19 @@ export function GlobalCreateButton() {
       });
       return;
     }
-    setShowTaskDialog(true);
+    openCreateTask({
+      projectId: defaultProjectId,
+      defaults: { assigneeIds: user ? [user.id] : [] },
+      onTaskCreated: (_, meta) => {
+        if (!meta?.pending) {
+          toast({
+            title: "Success",
+            description: "Task created successfully!",
+          });
+          window.location.reload();
+        }
+      },
+    });
   };
 
   if (!user) return null;
@@ -123,14 +126,7 @@ export function GlobalCreateButton() {
         </DropdownMenuContent>
       </DropdownMenu>
 
-      {defaultProjectId && (
-        <CreateTaskDialog
-          open={showTaskDialog}
-          onOpenChange={setShowTaskDialog}
-          projectId={defaultProjectId}
-          onTaskCreated={handleTaskCreated}
-        />
-      )}
+      {dialogProps && <CreateTaskDialog {...dialogProps} />}
 
       <ProjectDialog
         open={showProjectDialog}

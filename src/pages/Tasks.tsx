@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { TaskDialog } from "@/components/kanban/TaskDialog";
 import { CreateTaskDialog } from "@/components/tasks/CreateTaskDialog";
+import { useCreateTask } from "@/hooks/useCreateTask";
 import { StandardizedTaskCard, StandardizedTask } from "@/components/ui/standardized-task-card";
 import { upsertTaskCustomFieldValues } from "@/services/customFields";
 
@@ -113,10 +114,10 @@ export default function Tasks() {
   const [hierarchyFilter, setHierarchyFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<TaskType | null>(null);
   const [taskToDelete, setTaskToDelete] = useState<string | null>(null);
   const [defaultProjectId, setDefaultProjectId] = useState<string | null>(null);
+  const { openCreateTask, dialogProps } = useCreateTask({ projectId: defaultProjectId });
 
   const fetchTasks = async () => {
     if (!user) return;
@@ -492,7 +493,7 @@ export default function Tasks() {
           <h1 className="text-3xl font-bold text-foreground">Tasks</h1>
           <p className="text-muted-foreground">Manage and track all your tasks</p>
         </div>
-        <Button 
+        <Button
           className="bg-gradient-primary hover:opacity-90"
           onClick={() => {
             if (!defaultProjectId) {
@@ -503,7 +504,14 @@ export default function Tasks() {
               });
               return;
             }
-            setIsCreateDialogOpen(true);
+            openCreateTask({
+              projectId: defaultProjectId,
+              onTaskCreated: (_, meta) => {
+                if (!meta?.pending) {
+                  fetchTasks();
+                }
+              },
+            });
           }}
         >
           <Plus className="w-4 h-4 mr-2" />
@@ -608,9 +616,19 @@ export default function Tasks() {
                 }
               </p>
               {tasks.length === 0 && (
-                <Button 
+                <Button
                   className="bg-gradient-primary hover:opacity-90"
-                  onClick={() => setIsTaskDialogOpen(true)}
+                  onClick={() =>
+                    openCreateTask({
+                      projectId: defaultProjectId ?? undefined,
+                      onTaskCreated: (_, meta) => {
+                        if (!meta?.pending) {
+                          fetchTasks();
+                        }
+                      },
+                    })
+                  }
+                  disabled={!defaultProjectId}
                 >
                   <Plus className="w-4 h-4 mr-2" />
                   Create First Task
@@ -649,17 +667,7 @@ export default function Tasks() {
         projectId={selectedTask?.project_id ?? tasks[0]?.project_id}
       />
 
-      {defaultProjectId && (
-        <CreateTaskDialog
-          open={isCreateDialogOpen}
-          onOpenChange={setIsCreateDialogOpen}
-          projectId={defaultProjectId}
-          onTaskCreated={() => {
-            setIsCreateDialogOpen(false);
-            fetchTasks();
-          }}
-        />
-      )}
+      {dialogProps && <CreateTaskDialog {...dialogProps} />}
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={!!taskToDelete} onOpenChange={() => setTaskToDelete(null)}>

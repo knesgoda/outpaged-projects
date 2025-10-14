@@ -129,10 +129,11 @@ type OfflineStoreName =
   | "dependencies"
   | "batches"
   | "profilePreferenceQueue"
-  | "profilePreferenceSnapshots";
+  | "profilePreferenceSnapshots"
+  | "commentDrafts";
 
 const DB_NAME = "outpaged-board-offline";
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 const STORE_CONFIG: Record<OfflineStoreName, { keyPath: string }> = {
   boardQueue: { keyPath: "id" },
   itemQueue: { keyPath: "id" },
@@ -144,6 +145,7 @@ const STORE_CONFIG: Record<OfflineStoreName, { keyPath: string }> = {
   batches: { keyPath: "id" },
   profilePreferenceQueue: { keyPath: "id" },
   profilePreferenceSnapshots: { keyPath: "id" },
+  commentDrafts: { keyPath: "id" },
 };
 
 const memoryStores: Record<OfflineStoreName, Map<string, unknown>> = {
@@ -157,6 +159,7 @@ const memoryStores: Record<OfflineStoreName, Map<string, unknown>> = {
   batches: new Map(),
   profilePreferenceQueue: new Map(),
   profilePreferenceSnapshots: new Map(),
+  commentDrafts: new Map(),
 };
 
 let dbPromise: Promise<IDBDatabase> | null = null;
@@ -1276,6 +1279,17 @@ export interface ProfilePreferenceSnapshot {
   updatedAt: number;
 }
 
+export interface CommentDraftRecord extends OfflineOperationMetadata {
+  id: string;
+  threadId: string;
+  payload: {
+    content: string;
+    doc?: Record<string, unknown> | null;
+    plaintext?: string;
+  };
+  updatedAt: number;
+}
+
 export interface ProfilePreferenceMutation extends OfflineOperationMetadata {
   id: string;
   userId: string;
@@ -1357,6 +1371,27 @@ export async function saveProfilePreferenceSnapshot(snapshot: ProfilePreferenceS
 export async function getProfilePreferenceSnapshot(userId: string) {
   const records = await readAllRecords<ProfilePreferenceSnapshot>("profilePreferenceSnapshots");
   return records.find((record) => record.userId === userId) ?? null;
+}
+
+export async function saveCommentDraft(record: CommentDraftRecord) {
+  const existing = await readRecord<CommentDraftRecord>("commentDrafts", record.id);
+  const next: CommentDraftRecord = {
+    ...existing,
+    ...record,
+    vectorClock: incrementVectorClock(record.vectorClock ?? existing?.vectorClock),
+    updatedAt: record.updatedAt ?? now(),
+  } as CommentDraftRecord;
+  await registerDependencies(next);
+  return putRecord("commentDrafts", next);
+}
+
+export async function getCommentDraft(id: string) {
+  return readRecord<CommentDraftRecord>("commentDrafts", id);
+}
+
+export async function deleteCommentDraft(id: string) {
+  await deleteRecord("commentDrafts", id);
+  await markDependencyResolved(id);
 }
 
 export async function processProfilePreferenceQueue(

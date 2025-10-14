@@ -11,6 +11,7 @@ export interface CommentListProps {
   renderReplyBox?: (comment: CommentWithAuthor) => React.ReactNode;
   editingId?: string | null;
   renderEditBox?: (comment: CommentWithAuthor) => React.ReactNode;
+  onReact?: (comment: CommentWithAuthor, emoji: string) => void;
 }
 
 type CommentNode = CommentWithAuthor & { replies: CommentNode[] };
@@ -25,6 +26,7 @@ export function CommentList({
   renderReplyBox,
   editingId,
   renderEditBox,
+  onReact,
 }: CommentListProps) {
   const tree = buildTree(comments);
 
@@ -42,6 +44,7 @@ export function CommentList({
             onReply={onReply}
             onEdit={onEdit}
             onDelete={onDelete}
+            onReact={onReact}
           />
           {editingId === comment.id && renderEditBox?.(comment)}
           {replyingToId === comment.id && renderReplyBox?.(comment)}
