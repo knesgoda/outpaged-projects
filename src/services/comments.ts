@@ -131,7 +131,7 @@ export async function createComment(input: CreateCommentInput): Promise<CommentW
       body_markdown: input.body_markdown,
       body_html: input.body_html ?? null,
       body_json: input.body_json ?? null,
-    })
+    } as any)
     .select(
       `
         id,
@@ -161,7 +161,7 @@ export async function createComment(input: CreateCommentInput): Promise<CommentW
     throw error;
   }
 
-  const comment = mapCommentRow(user.id)(data);
+  const comment = mapCommentRow(data);
 
   const mentionIds = dedupeIds(input.mentions, MAX_MENTIONS_PER_COMMENT);
   if (mentionIds.length > 0) {
@@ -267,14 +267,14 @@ export async function updateComment(id: string, patch: UpdateCommentInput): Prom
 
   if (error) throw error;
 
-  const comment = mapCommentRow(user.id)(data);
+  const comment = mapCommentRow(data);
 
   const newMentions = dedupeIds(patch.mentions, MAX_MENTIONS_PER_COMMENT);
   const synced = await syncMentions({
     commentId: comment.id,
     newMentionIds: newMentions,
     authorId: user.id,
-    entityType: existing.entity_type,
+    entityType: existing.entity_type as CommentEntityType,
     entityId: existing.entity_id,
   });
   comment.mentions = synced;
@@ -509,6 +509,7 @@ function mapCommentRow(row: any): CommentWithAuthor {
     edited_by: row.edited_by ?? null,
     author_profile: {
       id: row.author_profile?.user_id ?? row.author,
+      user_id: row.author_profile?.user_id ?? row.author,
       full_name: row.author_profile?.full_name,
       avatar_url: row.author_profile?.avatar_url,
       email: row.author_profile?.email,

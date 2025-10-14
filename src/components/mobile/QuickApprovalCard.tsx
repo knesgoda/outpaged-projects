@@ -51,10 +51,11 @@ export function QuickApprovalCard({ approval, onApprovalComplete }: QuickApprova
       const { error: commentError } = await supabase
         .from('comments')
         .insert({
-          task_id: approval.task_id,
-          author_id: user?.id,
-          content: commentText,
-        });
+          entity_type: 'task',
+          entity_id: approval.task_id,
+          author: user?.id,
+          body_markdown: commentText,
+        } as any);
 
       if (commentError) throw commentError;
 
@@ -92,10 +93,11 @@ export function QuickApprovalCard({ approval, onApprovalComplete }: QuickApprova
       const { error: commentError } = await supabase
         .from('comments')
         .insert({
-          task_id: approval.task_id,
-          author_id: user?.id,
-          content: `❌ Rejected: ${comment}`,
-        });
+          entity_type: 'task',
+          entity_id: approval.task_id,
+          author: user?.id,
+          body_markdown: `❌ Rejected: ${comment}`,
+        } as any);
 
       if (commentError) throw commentError;
 

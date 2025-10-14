@@ -179,92 +179,6 @@ export type Database = {
         }
         Relationships: []
       }
-      saved_searches: {
-        Row: {
-          alert_channels: Database["public"]["Enums"]["saved_search_alert_channel"][]
-          alert_frequency: Database["public"]["Enums"]["saved_search_alert_frequency"]
-          alert_metadata: Json
-          alert_thresholds: Json
-          audit_metadata: Json
-          created_at: string
-          description: string | null
-          filters: Json
-          id: string
-          last_accessed_at: string | null
-          last_alert_sent_at: string | null
-          masked_fields: string[]
-          name: string
-          owner_id: string | null
-          owner_type: Database["public"]["Enums"]["saved_search_owner_type"]
-          parameter_tokens: Json
-          query: string
-          shared_slug: string | null
-          shared_url: string | null
-          updated_at: string
-          updated_by: string | null
-          user_id: string
-          visibility: Database["public"]["Enums"]["saved_search_visibility"]
-        }
-        Insert: {
-          alert_channels?: Database["public"]["Enums"]["saved_search_alert_channel"][]
-          alert_frequency?: Database["public"]["Enums"]["saved_search_alert_frequency"]
-          alert_metadata?: Json
-          alert_thresholds?: Json
-          audit_metadata?: Json
-          created_at?: string
-          description?: string | null
-          filters?: Json
-          id?: string
-          last_accessed_at?: string | null
-          last_alert_sent_at?: string | null
-          masked_fields?: string[]
-          name: string
-          owner_id?: string | null
-          owner_type?: Database["public"]["Enums"]["saved_search_owner_type"]
-          parameter_tokens?: Json
-          query: string
-          shared_slug?: string | null
-          shared_url?: string | null
-          updated_at?: string
-          updated_by?: string | null
-          user_id: string
-          visibility?: Database["public"]["Enums"]["saved_search_visibility"]
-        }
-        Update: {
-          alert_channels?: Database["public"]["Enums"]["saved_search_alert_channel"][]
-          alert_frequency?: Database["public"]["Enums"]["saved_search_alert_frequency"]
-          alert_metadata?: Json
-          alert_thresholds?: Json
-          audit_metadata?: Json
-          created_at?: string
-          description?: string | null
-          filters?: Json
-          id?: string
-          last_accessed_at?: string | null
-          last_alert_sent_at?: string | null
-          masked_fields?: string[]
-          name?: string
-          owner_id?: string | null
-          owner_type?: Database["public"]["Enums"]["saved_search_owner_type"]
-          parameter_tokens?: Json
-          query?: string
-          shared_slug?: string | null
-          shared_url?: string | null
-          updated_at?: string
-          updated_by?: string | null
-          user_id?: string
-          visibility?: Database["public"]["Enums"]["saved_search_visibility"]
-        }
-        Relationships: [
-          {
-            foreignKeyName: "saved_searches_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          }
-        ]
-      }
       audit_log: {
         Row: {
           action: string
@@ -501,28 +415,192 @@ export type Database = {
           },
         ]
       }
-      comments: {
+      comment_backlinks: {
         Row: {
-          author_id: string
-          content: string
+          comment_id: string
+          context: string | null
+          created_at: string
+          target_id: string
+          target_type: string
+        }
+        Insert: {
+          comment_id: string
+          context?: string | null
+          created_at?: string
+          target_id: string
+          target_type: string
+        }
+        Update: {
+          comment_id?: string
+          context?: string | null
+          created_at?: string
+          target_id?: string
+          target_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comment_backlinks_comment_id_fkey"
+            columns: ["comment_id"]
+            isOneToOne: false
+            referencedRelation: "comments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      comment_history: {
+        Row: {
+          body_html: string | null
+          body_json: Json | null
+          body_markdown: string
+          comment_id: string
+          edited_at: string
+          edited_by: string | null
+          id: string
+          version: number
+        }
+        Insert: {
+          body_html?: string | null
+          body_json?: Json | null
+          body_markdown: string
+          comment_id: string
+          edited_at?: string
+          edited_by?: string | null
+          id?: string
+          version?: number
+        }
+        Update: {
+          body_html?: string | null
+          body_json?: Json | null
+          body_markdown?: string
+          comment_id?: string
+          edited_at?: string
+          edited_by?: string | null
+          id?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comment_history_comment_id_fkey"
+            columns: ["comment_id"]
+            isOneToOne: false
+            referencedRelation: "comments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      comment_mentions: {
+        Row: {
+          comment_id: string
           created_at: string
           id: string
+          mentioned_user: string
+        }
+        Insert: {
+          comment_id: string
+          created_at?: string
+          id?: string
+          mentioned_user: string
+        }
+        Update: {
+          comment_id?: string
+          created_at?: string
+          id?: string
+          mentioned_user?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comment_mentions_comment_id_fkey"
+            columns: ["comment_id"]
+            isOneToOne: false
+            referencedRelation: "comments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      comment_reactions: {
+        Row: {
+          comment_id: string
+          created_at: string
+          emoji: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          comment_id: string
+          created_at?: string
+          emoji: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          comment_id?: string
+          created_at?: string
+          emoji?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comment_reactions_comment_id_fkey"
+            columns: ["comment_id"]
+            isOneToOne: false
+            referencedRelation: "comments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      comments: {
+        Row: {
+          author: string
+          author_id: string
+          body_html: string | null
+          body_json: Json | null
+          body_markdown: string
+          content: string
+          created_at: string
+          edited_at: string | null
+          edited_by: string | null
+          entity_id: string
+          entity_type: string
+          id: string
+          metadata: Json | null
+          parent_id: string | null
           task_id: string
           updated_at: string
         }
         Insert: {
+          author: string
           author_id: string
+          body_html?: string | null
+          body_json?: Json | null
+          body_markdown: string
           content: string
           created_at?: string
+          edited_at?: string | null
+          edited_by?: string | null
+          entity_id: string
+          entity_type: string
           id?: string
+          metadata?: Json | null
+          parent_id?: string | null
           task_id: string
           updated_at?: string
         }
         Update: {
+          author?: string
           author_id?: string
+          body_html?: string | null
+          body_json?: Json | null
+          body_markdown?: string
           content?: string
           created_at?: string
+          edited_at?: string | null
+          edited_by?: string | null
+          entity_id?: string
+          entity_type?: string
           id?: string
+          metadata?: Json | null
+          parent_id?: string | null
           task_id?: string
           updated_at?: string
         }
@@ -1359,153 +1437,6 @@ export type Database = {
           },
           {
             foreignKeyName: "projects_workspace_id_fkey"
-            columns: ["workspace_id"]
-            isOneToOne: false
-            referencedRelation: "workspaces"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      portfolio_items: {
-        Row: {
-          added_at: string
-          added_by: string | null
-          contribution_weight: number | null
-          id: string
-          item_id: string
-          metadata: Json
-          portfolio_id: string
-          project_id: string | null
-        }
-        Insert: {
-          added_at?: string
-          added_by?: string | null
-          contribution_weight?: number | null
-          id?: string
-          item_id: string
-          metadata?: Json
-          portfolio_id: string
-          project_id?: string | null
-        }
-        Update: {
-          added_at?: string
-          added_by?: string | null
-          contribution_weight?: number | null
-          id?: string
-          item_id?: string
-          metadata?: Json
-          portfolio_id?: string
-          project_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "portfolio_items_item_id_fkey"
-            columns: ["item_id"]
-            isOneToOne: false
-            referencedRelation: "tasks"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "portfolio_items_portfolio_id_fkey"
-            columns: ["portfolio_id"]
-            isOneToOne: false
-            referencedRelation: "portfolios"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "portfolio_items_project_id_fkey"
-            columns: ["project_id"]
-            isOneToOne: false
-            referencedRelation: "projects"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      portfolio_projects: {
-        Row: {
-          added_at: string
-          added_by: string | null
-          id: string
-          metadata: Json
-          portfolio_id: string
-          project_id: string
-          strategic_importance: number | null
-        }
-        Insert: {
-          added_at?: string
-          added_by?: string | null
-          id?: string
-          metadata?: Json
-          portfolio_id: string
-          project_id: string
-          strategic_importance?: number | null
-        }
-        Update: {
-          added_at?: string
-          added_by?: string | null
-          id?: string
-          metadata?: Json
-          portfolio_id?: string
-          project_id?: string
-          strategic_importance?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "portfolio_projects_portfolio_id_fkey"
-            columns: ["portfolio_id"]
-            isOneToOne: false
-            referencedRelation: "portfolios"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "portfolio_projects_project_id_fkey"
-            columns: ["project_id"]
-            isOneToOne: false
-            referencedRelation: "projects"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      portfolios: {
-        Row: {
-          created_at: string
-          description: string | null
-          health: string | null
-          id: string
-          metadata: Json
-          name: string
-          owner_id: string | null
-          status: Database["public"]["Enums"]["portfolio_status"]
-          updated_at: string
-          workspace_id: string | null
-        }
-        Insert: {
-          created_at?: string
-          description?: string | null
-          health?: string | null
-          id?: string
-          metadata?: Json
-          name: string
-          owner_id?: string | null
-          status?: Database["public"]["Enums"]["portfolio_status"]
-          updated_at?: string
-          workspace_id?: string | null
-        }
-        Update: {
-          created_at?: string
-          description?: string | null
-          health?: string | null
-          id?: string
-          metadata?: Json
-          name?: string
-          owner_id?: string | null
-          status?: Database["public"]["Enums"]["portfolio_status"]
-          updated_at?: string
-          workspace_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "portfolios_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
@@ -3262,24 +3193,6 @@ export type Database = {
       }
     }
     Views: {
-      portfolio_overview: {
-        Row: {
-          completed_item_count: number | null
-          created_at: string | null
-          description: string | null
-          health: string | null
-          id: string | null
-          item_count: number | null
-          metadata: Json | null
-          name: string | null
-          owner_id: string | null
-          project_count: number | null
-          status: Database["public"]["Enums"]["portfolio_status"] | null
-          updated_at: string | null
-          workspace_id: string | null
-        }
-        Relationships: []
-      }
       project_members_with_profiles: {
         Row: {
           avatar_url: string | null
@@ -3489,22 +3402,12 @@ export type Database = {
         | "url"
       leaderboard_type: "global" | "project" | "team" | "challenge"
       notification_type: "info" | "success" | "warning" | "error"
-      saved_search_alert_channel: "email" | "slack" | "webhook"
-      saved_search_alert_frequency:
-        | "off"
-        | "immediate"
-        | "hourly"
-        | "daily"
-        | "weekly"
-      saved_search_owner_type: "user" | "team" | "project" | "org"
-      saved_search_visibility: "private" | "team" | "project" | "org"
       project_status:
         | "planning"
         | "active"
         | "on_hold"
         | "completed"
         | "cancelled"
-      portfolio_status: "draft" | "active" | "paused" | "archived"
       sprint_status: "planning" | "active" | "completed"
       story_theme_category:
         | "fantasy"
@@ -3747,16 +3650,6 @@ export const Constants = {
       ],
       leaderboard_type: ["global", "project", "team", "challenge"],
       notification_type: ["info", "success", "warning", "error"],
-      saved_search_alert_channel: ["email", "slack", "webhook"],
-      saved_search_alert_frequency: [
-        "off",
-        "immediate",
-        "hourly",
-        "daily",
-        "weekly",
-      ],
-      saved_search_owner_type: ["user", "team", "project", "org"],
-      saved_search_visibility: ["private", "team", "project", "org"],
       project_status: [
         "planning",
         "active",

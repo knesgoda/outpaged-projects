@@ -50,10 +50,11 @@ export function ApprovalGate({
       // Log approval in comments
       if (comments) {
         await supabase.from("comments").insert({
-          task_id: taskId,
-          author_id: user.data.user?.id,
-          content: `✅ Approved transition from ${fromStatus} to ${toStatus}\n\n${comments}`,
-        });
+          entity_type: 'task',
+          entity_id: taskId,
+          author: user.data.user?.id,
+          body_markdown: `✅ Approved transition from ${fromStatus} to ${toStatus}\n\n${comments}`,
+        } as any);
       }
 
       toast({
@@ -81,10 +82,11 @@ export function ApprovalGate({
       
       // Log rejection in comments
       await supabase.from("comments").insert({
-        task_id: taskId,
-        author_id: user.data.user?.id,
-        content: `❌ Rejected transition from ${fromStatus} to ${toStatus}\n\n${comments || "No reason provided"}`,
-      });
+        entity_type: 'task',
+        entity_id: taskId,
+        author: user.data.user?.id,
+        body_markdown: `❌ Rejected transition from ${fromStatus} to ${toStatus}\n\n${comments || "No reason provided"}`,
+      } as any);
 
       toast({
         title: "Transition Rejected",

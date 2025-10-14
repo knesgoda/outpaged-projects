@@ -11,7 +11,7 @@ import TableRow from "@tiptap/extension-table-row";
 import TableHeader from "@tiptap/extension-table-header";
 import TableCell from "@tiptap/extension-table-cell";
 import { CodeBlockLowlight } from "@tiptap/extension-code-block-lowlight";
-import { lowlight } from "lowlight/lib/core";
+import { createLowlight, common } from "lowlight";
 import type { JSONContent } from "@tiptap/core";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -19,6 +19,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Bold, Code, Heading2, Heading3, Italic, Link2, List, ListOrdered, Quote, Strikethrough } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
+const lowlight = createLowlight(common);
 CodeBlockLowlight.configure({ lowlight });
 
 export interface RichTextEditorProps {

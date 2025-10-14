@@ -9,6 +9,8 @@ export type SearchResult = {
     | "person"
     | "team_member";
   title: string;
+  key?: string | null;
+  description?: string | null;
   snippet?: string | null;
   url: string;
   project_id?: string | null;
