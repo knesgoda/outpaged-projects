@@ -19,7 +19,7 @@ import {
 import { formatDistanceToNow } from "date-fns";
 import {
   AlertCircle,
-  Branch,
+  GitBranch,
   GitBranchPlus,
   ListChecks,
   Play,
@@ -245,7 +245,7 @@ function AutomationBuilderInner({ projectId, automationId, onSave }: AutomationB
 
   const handleNodesChange = useCallback(
     (changes: NodeChange[]) => {
-      onNodesChange(changes);
+      onNodesChange(changes as NodeChange<FlowNode<CanvasNodeData>>[]);
       changes.forEach((change) => {
         if (change.type === "position" && change.position) {
           updateNode(change.id, { position: change.position });
@@ -277,7 +277,7 @@ function AutomationBuilderInner({ projectId, automationId, onSave }: AutomationB
     (connection: Connection | FlowEdge) => {
       if (!connection.source || !connection.target) return;
       linkNodes(connection.source, connection.target, {
-        label: "label" in connection ? connection.label ?? null : null,
+        label: ("label" in connection ? connection.label : undefined) as string | null | undefined ?? null,
       });
     },
     [linkNodes]
@@ -734,7 +734,7 @@ function AutomationNode({ data }: { data: CanvasNodeData }) {
       case "action":
         return <GitBranchPlus className="h-4 w-4" />;
       default:
-        return <Branch className="h-4 w-4" />;
+        return <GitBranch className="h-4 w-4" />;
     }
   }, [data.kind]);
 

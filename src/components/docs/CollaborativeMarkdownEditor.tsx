@@ -545,8 +545,9 @@ export const CollaborativeMarkdownEditor = forwardRef<
       handleSignalMessage(event.payload as SignalPayload);
     });
 
-    channel.on("presence", { event: "sync" }, ({ currentPresences }) => {
-      const peers = Object.keys(currentPresences ?? {}).filter(
+    channel.on("broadcast", { event: "sync" }, (event) => {
+      const currentPresences = (event?.payload as { presences?: Record<string, unknown> })?.presences ?? {};
+      const peers = Object.keys(currentPresences).filter(
         (key) => key !== clientIdRef.current
       );
       setStatus((previous) => ({ ...previous, connectedPeers: peers.length }));

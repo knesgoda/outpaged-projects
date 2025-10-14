@@ -73,8 +73,8 @@ interface VisualWorkflowBuilderProps {
 }
 
 export function VisualWorkflowBuilder({ templateId, onSave }: VisualWorkflowBuilderProps) {
-  const [nodes, setNodes, internalOnNodesChange] = useNodesState<Node[]>([]);
-  const [edges, setEdges, internalOnEdgesChange] = useEdgesState<Edge[]>([]);
+  const [nodes, setNodes, internalOnNodesChange] = useNodesState<Node>([]);
+  const [edges, setEdges, internalOnEdgesChange] = useEdgesState<Edge>([]);
   const [stateMetadata, setStateMetadata] = useState<Record<string, StateFormState>>({});
   const [transitionMetadata, setTransitionMetadata] = useState<Record<string, TransitionFormState>>({});
   const [newStateName, setNewStateName] = useState('');

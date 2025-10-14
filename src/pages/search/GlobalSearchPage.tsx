@@ -34,7 +34,7 @@ import {
   ListX,
   Loader2,
   MessageSquare,
-  NotEqual,
+  XCircle,
   Pen,
   Save,
   ScanText,
@@ -46,7 +46,6 @@ import {
   UserCheck,
   UserCircle,
   Users,
-  XCircle,
   type LucideIcon,
 } from "lucide-react";
 
@@ -142,7 +141,7 @@ const SUGGESTION_ICON_MAP: Record<string, LucideIcon> = {
   "share-2": Share2,
   "scan-text": ScanText,
   equals: Equal,
-  "not-equal": NotEqual,
+  "not-equal": XCircle,
   "chevron-right": ChevronRight,
   "chevron-left": ChevronLeft,
   "list": List,
