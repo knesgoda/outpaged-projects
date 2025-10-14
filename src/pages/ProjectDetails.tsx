@@ -11,6 +11,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useProjectNavigation } from "@/hooks/useProjectNavigation";
 import { format } from "date-fns";
 import { CreateTaskDialog } from "@/components/tasks/CreateTaskDialog";
+import { useCreateTask } from "@/hooks/useCreateTask";
 import { InviteMemberDialog } from "@/components/team/InviteMemberDialog";
 import { enableOutpagedBrand } from "@/lib/featureFlags";
 import { StatusChip } from "@/components/outpaged/StatusChip";
@@ -36,9 +37,9 @@ function LegacyProjectDetails({ overrideProjectId }: { overrideProjectId?: strin
   const { navigateToProjectSettings } = useProjectNavigation();
   const [tasks, setTasks] = useState<any[]>([]);
   const [members, setMembers] = useState<any[]>([]);
-  const [showCreateTask, setShowCreateTask] = useState(false);
   const [showInviteMember, setShowInviteMember] = useState(false);
   const [commentCount, setCommentCount] = useState(0);
+  const { openCreateTask, dialogProps } = useCreateTask({ projectId });
 
   const {
     data: project,
@@ -270,7 +271,19 @@ function LegacyProjectDetails({ overrideProjectId }: { overrideProjectId?: strin
         <TabsContent value="overview" className="space-y-4">
           <div className="flex justify-between items-center">
             <h3 className="text-lg font-semibold">Project Overview</h3>
-            <Button size="sm" onClick={() => setShowCreateTask(true)}>
+            <Button
+              size="sm"
+              onClick={() =>
+                openCreateTask({
+                  projectId: projectId ?? undefined,
+                  onTaskCreated: (_, meta) => {
+                    if (!meta?.pending) {
+                      fetchTasks();
+                    }
+                  },
+                })
+              }
+            >
               <Plus className="w-4 h-4 mr-2" />
               Create Task
             </Button>
@@ -309,7 +322,20 @@ function LegacyProjectDetails({ overrideProjectId }: { overrideProjectId?: strin
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>Recent Activity</CardTitle>
               {tasks.length === 0 && (
-                <Button variant="outline" size="sm" onClick={() => setShowCreateTask(true)}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    openCreateTask({
+                      projectId: projectId ?? undefined,
+                      onTaskCreated: (_, meta) => {
+                        if (!meta?.pending) {
+                          fetchTasks();
+                        }
+                      },
+                    })
+                  }
+                >
                   <Plus className="w-4 h-4 mr-2" />
                   Create First Task
                 </Button>
@@ -349,7 +375,19 @@ function LegacyProjectDetails({ overrideProjectId }: { overrideProjectId?: strin
         <TabsContent value="tasks" className="space-y-4">
           <div className="flex justify-between items-center">
             <h3 className="text-lg font-semibold">Project Tasks</h3>
-            <Button size="sm" onClick={() => setShowCreateTask(true)}>
+            <Button
+              size="sm"
+              onClick={() =>
+                openCreateTask({
+                  projectId: projectId ?? undefined,
+                  onTaskCreated: (_, meta) => {
+                    if (!meta?.pending) {
+                      fetchTasks();
+                    }
+                  },
+                })
+              }
+            >
               <Plus className="w-4 h-4 mr-2" />
               Add Task
             </Button>
@@ -363,7 +401,18 @@ function LegacyProjectDetails({ overrideProjectId }: { overrideProjectId?: strin
                     <p className="text-lg font-medium">No tasks yet</p>
                     <p className="text-muted-foreground">Create your first task to get started</p>
                   </div>
-                  <Button onClick={() => setShowCreateTask(true)}>
+                  <Button
+                    onClick={() =>
+                      openCreateTask({
+                        projectId: projectId ?? undefined,
+                        onTaskCreated: (_, meta) => {
+                          if (!meta?.pending) {
+                            fetchTasks();
+                          }
+                        },
+                      })
+                    }
+                  >
                     <Plus className="w-4 h-4 mr-2" />
                     Create Task
                   </Button>
@@ -457,12 +506,7 @@ function LegacyProjectDetails({ overrideProjectId }: { overrideProjectId?: strin
         </TabsContent>
       </Tabs>
 
-      <CreateTaskDialog
-        open={showCreateTask}
-        onOpenChange={setShowCreateTask}
-        projectId={projectId!}
-        onTaskCreated={fetchTasks}
-      />
+      {dialogProps && <CreateTaskDialog {...dialogProps} />}
 
       <InviteMemberDialog
         open={showInviteMember}

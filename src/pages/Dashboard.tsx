@@ -23,6 +23,7 @@ import { FilterChip } from "@/components/outpaged/FilterChip";
 import { StatusChip } from "@/components/outpaged/StatusChip";
 import { TaskDialog } from "@/components/kanban/TaskDialog";
 import { CreateTaskDialog } from "@/components/tasks/CreateTaskDialog";
+import { useCreateTask } from "@/hooks/useCreateTask";
 import { format } from "date-fns";
 import {
   formatProjectStatus,
@@ -36,8 +37,8 @@ function OutpagedDashboard() {
   const [handoffItems, setHandoffItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedTask, setSelectedTask] = useState<any>(null);
-  const [showCreateTask, setShowCreateTask] = useState(false);
   const [defaultProjectId, setDefaultProjectId] = useState<string | null>(null);
+  const { openCreateTask, dialogProps } = useCreateTask({ projectId: defaultProjectId });
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -112,9 +113,18 @@ function OutpagedDashboard() {
             </p>
             <h1 className="text-4xl font-semibold tracking-tight text-[hsl(var(--foreground))]">My Work</h1>
           </div>
-          <Button 
+          <Button
             className="rounded-full bg-accent px-6 py-2 text-sm font-semibold text-accent-foreground shadow-soft hover:bg-accent/90"
-            onClick={() => setShowCreateTask(true)}
+            onClick={() =>
+              openCreateTask({
+                projectId: defaultProjectId ?? undefined,
+                onTaskCreated: (_, meta) => {
+                  if (!meta?.pending) {
+                    window.location.reload();
+                  }
+                },
+              })
+            }
             disabled={!defaultProjectId}
           >
             Create item
@@ -261,18 +271,7 @@ function OutpagedDashboard() {
         />
       )}
 
-      {/* Create Task Dialog */}
-      {defaultProjectId && (
-        <CreateTaskDialog
-          open={showCreateTask}
-          onOpenChange={setShowCreateTask}
-          projectId={defaultProjectId}
-          onTaskCreated={() => {
-            setShowCreateTask(false);
-            window.location.reload();
-          }}
-        />
-      )}
+      {dialogProps && <CreateTaskDialog {...dialogProps} />}
     </div>
   );
 }
