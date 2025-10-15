@@ -8,7 +8,34 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { fetchCalendarLayers, persistCalendarPreferences } from "@/services/calendarLayers";
+import {
+  addCalendarComment,
+  addCalendarFollower,
+  addCalendarShare,
+  deleteCalendarNotifications,
+  deleteCalendarSchedulingSuggestion,
+  fetchCalendarAutomationRules,
+  fetchCalendarComments,
+  fetchCalendarDelegations,
+  fetchCalendarFollowers,
+  fetchCalendarHolidays,
+  fetchCalendarInvitations,
+  fetchCalendarLayers,
+  fetchCalendarNotifications,
+  fetchCalendarOutOfOffice,
+  fetchCalendarSchedulingSuggestions,
+  fetchCalendarShareSettings,
+  fetchCalendarWorkingHours,
+  removeCalendarFollower,
+  removeCalendarShare,
+  setAutomationRuleEnabled,
+  updateCalendarInvitationStatus,
+  updateCalendarLayerPreferences,
+  updateCalendarShareRole,
+  upsertCalendarNotifications,
+  upsertCalendarOutOfOffice,
+  upsertCalendarWorkingHours,
+} from "@/services/calendarMetadata";
 import type {
   CalendarAutomationRule,
   CalendarComment,
@@ -28,37 +55,76 @@ import type {
   CalendarOutOfOffice,
   CalendarSavedFilter,
   CalendarSavedView,
-  CalendarSchedulingSuggestion,
   CalendarSearchToken,
   CalendarShareSetting,
   CalendarWorkingHours,
   CalendarDefaultSettings,
+  SchedulingAssistantSuggestion,
 } from "@/types/calendar";
 import {
   connectIntegration,
   disconnectIntegration,
+  fetchCalendarIntegrations,
   subscribeToIntegrationUpdates,
   triggerIntegrationSync,
   updateConflictPreference,
 } from "@/services/calendarIntegrations";
-import {
-  MOCK_AUTOMATION_RULES,
-  MOCK_CALENDAR_DELEGATIONS,
-  MOCK_CALENDAR_FOLLOWERS,
-  MOCK_CALENDAR_INTEGRATIONS,
-  MOCK_EVENT_COMMENTS,
-  MOCK_HOLIDAYS,
-  MOCK_INVITATIONS,
-  MOCK_OUT_OF_OFFICE,
-  MOCK_SCHEDULING_SUGGESTIONS,
-  MOCK_SHARE_SETTINGS,
-  MOCK_WORKING_HOURS,
-} from "@/data/calendarIntegrations";
-import {
-  CALENDAR_DEFAULT_SETTINGS,
-  CALENDAR_DOCUMENTATION,
-  CALENDAR_GOVERNANCE_SETTINGS,
-} from "@/data/calendarGovernance";
+const DEFAULT_CALENDAR_SETTINGS: CalendarDefaultSettings = {
+  defaultView: "week",
+  workingHoursStart: 9,
+  workingHoursEnd: 17,
+  snapMinutes: 15,
+  defaultReminderMinutes: 10,
+  defaultVisibility: "team",
+  defaultTimezone: "UTC",
+  maxEventDurationHours: 8,
+  colorEncoding: "calendar",
+};
+
+const DEFAULT_GOVERNANCE_SETTINGS: CalendarGovernanceSettings = {
+  activeHolidaySet: "us-national",
+  holidaySets: [
+    { id: "us-national", name: "US National", active: true },
+    { id: "emea", name: "EMEA Regional", active: false },
+  ],
+  integrationLimits: [
+    { provider: "google", maxConnections: 5 },
+    { provider: "outlook", maxConnections: 3 },
+    { provider: "apple", maxConnections: 2 },
+  ],
+  retentionPolicy: {
+    retainEventsMonths: 24,
+    purgeAttachments: false,
+  },
+  dataResidency: "us-east",
+  delegationPolicies: [
+    { id: "delegation-default", name: "Default delegation", enabled: true },
+    { id: "delegation-exec", name: "Executive assistant", enabled: true },
+  ],
+  complianceExportsEnabled: true,
+  encryptionAtRest: true,
+};
+
+const DEFAULT_DOCUMENTATION: CalendarDocumentationEntry[] = [
+  {
+    id: "docs-visual-encoding",
+    title: "Understand calendar visual encoding",
+    description: "Learn how stripes, dots, and badges communicate status and urgency.",
+    href: "https://example.com/docs/calendar-visuals",
+  },
+  {
+    id: "docs-automation",
+    title: "Calendar automations",
+    description: "Configure rules to sync tasks, releases, and vacations automatically.",
+    href: "https://example.com/docs/calendar-automation",
+  },
+  {
+    id: "docs-governance",
+    title: "Governance & compliance",
+    description: "Manage retention, residency, and audit exports for calendar data.",
+    href: "https://example.com/docs/calendar-governance",
+  },
+];
 
 export interface CalendarStateContextValue {
   calendars: CalendarLayer[];
@@ -119,7 +185,7 @@ export interface CalendarStateContextValue {
   holidays: CalendarHoliday[];
   outOfOffice: CalendarOutOfOffice[];
   upsertOutOfOffice: (entry: CalendarOutOfOffice) => void;
-  schedulingSuggestions: CalendarSchedulingSuggestion[];
+  schedulingSuggestions: SchedulingAssistantSuggestion[];
   acceptSchedulingSuggestion: (suggestionId: string) => void;
   refreshSchedulingSuggestions: () => void;
   delegations: CalendarDelegation[];
@@ -204,27 +270,30 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchTokens, setSearchTokens] = useState<CalendarSearchToken[]>([]);
   const [notifications, setNotificationsState] = useState<CalendarNotification[]>([]);
-  const [integrations, setIntegrations] = useState<CalendarIntegration[]>(MOCK_CALENDAR_INTEGRATIONS);
-  const [automationRules, setAutomationRules] = useState<CalendarAutomationRule[]>(MOCK_AUTOMATION_RULES);
-  const [shareSettings, setShareSettings] = useState<CalendarShareSetting[]>(MOCK_SHARE_SETTINGS);
-  const [invitations, setInvitations] = useState<CalendarInvitation[]>(MOCK_INVITATIONS);
-  const [followers, setFollowers] = useState<CalendarFollower[]>(MOCK_CALENDAR_FOLLOWERS);
-  const [comments, setComments] = useState<CalendarComment[]>(MOCK_EVENT_COMMENTS);
-  const [workingHours, setWorkingHours] = useState<CalendarWorkingHours[]>(MOCK_WORKING_HOURS);
-  const [holidays] = useState<CalendarHoliday[]>(MOCK_HOLIDAYS);
-  const [outOfOffice, setOutOfOffice] = useState<CalendarOutOfOffice[]>(MOCK_OUT_OF_OFFICE);
-  const [schedulingSuggestions, setSchedulingSuggestions] = useState<CalendarSchedulingSuggestion[]>(
-    MOCK_SCHEDULING_SUGGESTIONS
-  );
-  const [delegations] = useState<CalendarDelegation[]>(MOCK_CALENDAR_DELEGATIONS);
-  const [defaults, setDefaults] = useState<CalendarDefaultSettings>(CALENDAR_DEFAULT_SETTINGS);
-  const [governance, setGovernance] = useState<CalendarGovernanceSettings>(CALENDAR_GOVERNANCE_SETTINGS);
-  const [documentation] = useState<CalendarDocumentationEntry[]>(CALENDAR_DOCUMENTATION);
+  const [integrations, setIntegrations] = useState<CalendarIntegration[]>([]);
+  const [automationRules, setAutomationRules] = useState<CalendarAutomationRule[]>([]);
+  const [shareSettings, setShareSettings] = useState<CalendarShareSetting[]>([]);
+  const [invitations, setInvitations] = useState<CalendarInvitation[]>([]);
+  const [followers, setFollowers] = useState<CalendarFollower[]>([]);
+  const [comments, setComments] = useState<CalendarComment[]>([]);
+  const [workingHours, setWorkingHours] = useState<CalendarWorkingHours[]>([]);
+  const [holidays, setHolidays] = useState<CalendarHoliday[]>([]);
+  const [outOfOffice, setOutOfOffice] = useState<CalendarOutOfOffice[]>([]);
+  const [schedulingSuggestions, setSchedulingSuggestions] = useState<SchedulingAssistantSuggestion[]>([]);
+  const [delegations, setDelegations] = useState<CalendarDelegation[]>([]);
+  const [defaults, setDefaults] = useState<CalendarDefaultSettings>(DEFAULT_CALENDAR_SETTINGS);
+  const [governance, setGovernance] = useState<CalendarGovernanceSettings>(DEFAULT_GOVERNANCE_SETTINGS);
+  const [documentation] = useState<CalendarDocumentationEntry[]>(DEFAULT_DOCUMENTATION);
+
+  const loadCalendarLayers = useCallback(async () => {
+    const layers = await fetchCalendarLayers();
+    return layers;
+  }, []);
 
   const refreshCalendars = useCallback(async () => {
     setLoading(true);
     try {
-      const next = await fetchCalendarLayers();
+      const next = await loadCalendarLayers();
       setCalendars(next);
       setError(null);
     } catch (cause) {
@@ -237,11 +306,83 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [loadCalendarLayers]);
 
   useEffect(() => {
-    void refreshCalendars();
-  }, [refreshCalendars]);
+    let cancelled = false;
+
+    async function hydrate() {
+      setLoading(true);
+      try {
+        const [
+          layerData,
+          notificationData,
+          integrationData,
+          automationData,
+          shareData,
+          invitationData,
+          followerData,
+          commentData,
+          workingHoursData,
+          holidayData,
+          outOfOfficeData,
+          schedulingData,
+          delegationData,
+        ] = await Promise.all([
+          loadCalendarLayers(),
+          fetchCalendarNotifications(),
+          fetchCalendarIntegrations(),
+          fetchCalendarAutomationRules(),
+          fetchCalendarShareSettings(),
+          fetchCalendarInvitations(),
+          fetchCalendarFollowers(),
+          fetchCalendarComments(),
+          fetchCalendarWorkingHours(),
+          fetchCalendarHolidays(),
+          fetchCalendarOutOfOffice(),
+          fetchCalendarSchedulingSuggestions(),
+          fetchCalendarDelegations(),
+        ]);
+
+        if (cancelled) {
+          return;
+        }
+
+        setCalendars(layerData);
+        setNotificationsState(notificationData);
+        setIntegrations(integrationData);
+        setAutomationRules(automationData);
+        setShareSettings(shareData);
+        setInvitations(invitationData);
+        setFollowers(followerData);
+        setComments(commentData);
+        setWorkingHours(workingHoursData);
+        setHolidays(holidayData);
+        setOutOfOffice(outOfOfficeData);
+        setSchedulingSuggestions(schedulingData);
+        setDelegations(delegationData);
+        setError(null);
+      } catch (cause) {
+        if (!cancelled) {
+          const message =
+            cause instanceof Error
+              ? cause
+              : new Error("Unable to load calendar data. Please try again later.");
+          setError(message);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
+
+    void hydrate();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [loadCalendarLayers]);
 
   useEffect(() => {
     const unsubscribe = subscribeToIntegrationUpdates((event) => {
@@ -277,13 +418,16 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
   const toggleCalendarVisibility = useCallback(
     (calendarId: string) => {
       setCalendars((current) => {
-        const next = current.map((calendar) =>
-          calendar.id === calendarId && calendar.subscribed
-            ? { ...calendar, visible: !calendar.visible }
-            : calendar
-        );
-        void persistCalendarPreferences(next);
-        return next;
+        return current.map((calendar) => {
+          if (calendar.id !== calendarId || !calendar.subscribed) {
+            return calendar;
+          }
+          const updated = { ...calendar, visible: !calendar.visible };
+          void updateCalendarLayerPreferences(calendarId, { visible: updated.visible }).catch((error) => {
+            console.error("Failed to update calendar visibility", error);
+          });
+          return updated;
+        });
       });
     },
     []
@@ -291,35 +435,51 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
 
   const setCalendarColor = useCallback((calendarId: string, color: string) => {
     setCalendars((current) => {
-      const next = current.map((calendar) =>
-        calendar.id === calendarId ? { ...calendar, color } : calendar
-      );
-      void persistCalendarPreferences(next);
-      return next;
+      return current.map((calendar) => {
+        if (calendar.id !== calendarId) {
+          return calendar;
+        }
+        void updateCalendarLayerPreferences(calendarId, { color }).catch((error) => {
+          console.error("Failed to update calendar color", error);
+        });
+        return { ...calendar, color };
+      });
     });
   }, []);
 
   const subscribeToCalendar = useCallback((calendarId: string) => {
     setCalendars((current) => {
-      const next = current.map((calendar) =>
-        calendar.id === calendarId
-          ? { ...calendar, subscribed: true, visible: true }
-          : calendar
-      );
-      void persistCalendarPreferences(next);
-      return next;
+      return current.map((calendar) => {
+        if (calendar.id !== calendarId) {
+          return calendar;
+        }
+        const updated = { ...calendar, subscribed: true, visible: true };
+        void updateCalendarLayerPreferences(calendarId, {
+          subscribed: true,
+          visible: true,
+        }).catch((error) => {
+          console.error("Failed to subscribe to calendar", error);
+        });
+        return updated;
+      });
     });
   }, []);
 
   const unsubscribeFromCalendar = useCallback((calendarId: string) => {
     setCalendars((current) => {
-      const next = current.map((calendar) =>
-        calendar.id === calendarId
-          ? { ...calendar, subscribed: false, visible: false }
-          : calendar
-      );
-      void persistCalendarPreferences(next);
-      return next;
+      return current.map((calendar) => {
+        if (calendar.id !== calendarId) {
+          return calendar;
+        }
+        const updated = { ...calendar, subscribed: false, visible: false };
+        void updateCalendarLayerPreferences(calendarId, {
+          subscribed: false,
+          visible: false,
+        }).catch((error) => {
+          console.error("Failed to unsubscribe from calendar", error);
+        });
+        return updated;
+      });
     });
   }, []);
 
@@ -361,9 +521,25 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
         }
         const next = current.map((calendar) => ({
           ...calendar,
-          visible: view.calendarIds.includes(calendar.id) ? calendar.visible || calendar.subscribed : false,
+          visible: view.calendarIds.includes(calendar.id)
+            ? calendar.visible || calendar.subscribed
+            : false,
         }));
-        void persistCalendarPreferences(next);
+
+        const updates = next.reduce<Promise<void>[]>((acc, calendar, index) => {
+          const previous = current[index];
+          if (previous && previous.visible !== calendar.visible) {
+            acc.push(
+              updateCalendarLayerPreferences(calendar.id, { visible: calendar.visible }).catch((error) => {
+                console.error("Failed to update calendar visibility", error);
+              })
+            );
+          }
+          return acc;
+        }, []);
+        if (updates.length > 0) {
+          void Promise.all(updates);
+        }
         return next;
       });
     },
@@ -418,7 +594,35 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
 
   const setNotifications = useCallback(
     (updater: (current: CalendarNotification[]) => CalendarNotification[]) => {
-      setNotificationsState((current) => updater(current));
+      setNotificationsState((current) => {
+        const next = updater(current);
+        const currentById = new Map(current.map((item) => [item.id, item]));
+        const nextIds = new Set(next.map((item) => item.id));
+
+        const removedIds = current
+          .filter((item) => !nextIds.has(item.id))
+          .map((item) => item.id);
+
+        const changedNotifications = next.filter((item) => {
+          const existing = currentById.get(item.id);
+          return !existing || JSON.stringify(existing) !== JSON.stringify(item);
+        });
+
+        void (async () => {
+          try {
+            if (changedNotifications.length > 0) {
+              await upsertCalendarNotifications(changedNotifications);
+            }
+            if (removedIds.length > 0) {
+              await deleteCalendarNotifications(removedIds);
+            }
+          } catch (error) {
+            console.error("Failed to persist calendar notifications", error);
+          }
+        })();
+
+        return next;
+      });
     },
     []
   );
@@ -459,28 +663,59 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
 
   const toggleAutomationRule = useCallback((ruleId: string) => {
     setAutomationRules((current) =>
-      current.map((rule) => (rule.id === ruleId ? { ...rule, enabled: !rule.enabled } : rule))
+      current.map((rule) => {
+        if (rule.id !== ruleId) {
+          return rule;
+        }
+        const next = { ...rule, enabled: !rule.enabled };
+        void setAutomationRuleEnabled(ruleId, next.enabled).catch((error) => {
+          console.error("Failed to update automation rule", error);
+        });
+        return next;
+      })
     );
   }, []);
 
   const updateShareRole = useCallback((shareId: string, role: CalendarShareSetting["role"]) => {
     setShareSettings((current) =>
-      current.map((share) => (share.id === shareId ? { ...share, role } : share))
+      current.map((share) => {
+        if (share.id !== shareId) {
+          return share;
+        }
+        void updateCalendarShareRole(shareId, role).catch((error) => {
+          console.error("Failed to update share role", error);
+        });
+        return { ...share, role };
+      })
     );
   }, []);
 
   const removeShareTarget = useCallback((shareId: string) => {
     setShareSettings((current) => current.filter((share) => share.id !== shareId));
+    void removeCalendarShare(shareId).catch((error) => {
+      console.error("Failed to remove share target", error);
+    });
   }, []);
 
   const addShareTarget = useCallback((share: CalendarShareSetting) => {
     setShareSettings((current) => [...current, share]);
+    void addCalendarShare(share).catch((error) => {
+      console.error("Failed to add share target", error);
+    });
   }, []);
 
   const updateInvitationStatus = useCallback(
     (invitationId: string, status: CalendarInvitation["status"]) => {
       setInvitations((current) =>
-        current.map((invitation) => (invitation.id === invitationId ? { ...invitation, status } : invitation))
+        current.map((invitation) => {
+          if (invitation.id !== invitationId) {
+            return invitation;
+          }
+          void updateCalendarInvitationStatus(invitationId, status).catch((error) => {
+            console.error("Failed to update invitation", error);
+          });
+          return { ...invitation, status };
+        })
       );
     },
     []
@@ -488,60 +723,92 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
 
   const addFollower = useCallback((follower: CalendarFollower) => {
     setFollowers((current) => [...current, follower]);
+    void addCalendarFollower(follower).catch((error) => {
+      console.error("Failed to add follower", error);
+    });
   }, []);
 
   const removeFollower = useCallback((followerId: string) => {
     setFollowers((current) => current.filter((follower) => follower.id !== followerId));
+    void removeCalendarFollower(followerId).catch((error) => {
+      console.error("Failed to remove follower", error);
+    });
   }, []);
 
   const addComment = useCallback((comment: CalendarComment) => {
     setComments((current) => [...current, comment]);
+    void addCalendarComment(comment).catch((error) => {
+      console.error("Failed to add comment", error);
+    });
   }, []);
 
   const updateWorkingHours = useCallback((ownerId: string, hours: Partial<CalendarWorkingHours>) => {
-    setWorkingHours((current) =>
-      current.map((item) =>
-        item.ownerId === ownerId ? { ...item, ...hours, days: { ...item.days, ...(hours.days ?? {}) } } : item
-      )
-    );
+    setWorkingHours((current) => {
+      const existing = current.find((item) => item.ownerId === ownerId);
+      const base: CalendarWorkingHours = existing ?? {
+        ownerId,
+        timezone: hours.timezone ?? "UTC",
+        days: (hours.days as CalendarWorkingHours["days"]) ?? ({} as CalendarWorkingHours["days"]),
+      };
+      const merged: CalendarWorkingHours = {
+        ...base,
+        ...hours,
+        days: { ...base.days, ...(hours.days ?? {}) },
+      };
+
+      void upsertCalendarWorkingHours(merged).catch((error) => {
+        console.error("Failed to update working hours", error);
+      });
+
+      if (existing) {
+        return current.map((item) => (item.ownerId === ownerId ? merged : item));
+      }
+      return [...current, merged];
+    });
   }, []);
 
   const upsertOutOfOffice = useCallback((entry: CalendarOutOfOffice) => {
     setOutOfOffice((current) => {
       const index = current.findIndex((item) => item.id === entry.id);
+      const nextEntry = { ...entry };
+      void upsertCalendarOutOfOffice(nextEntry).catch((error) => {
+        console.error("Failed to persist out of office entry", error);
+      });
       if (index === -1) {
-        return [...current, entry];
+        return [...current, nextEntry];
       }
       const next = [...current];
-      next[index] = { ...next[index], ...entry };
+      next[index] = nextEntry;
       return next;
     });
   }, []);
 
   const acceptSchedulingSuggestion = useCallback((suggestionId: string) => {
     setSchedulingSuggestions((current) => current.filter((suggestion) => suggestion.id !== suggestionId));
+    void deleteCalendarSchedulingSuggestion(suggestionId).catch((error) => {
+      console.error("Failed to dismiss scheduling suggestion", error);
+    });
   }, []);
 
   const refreshSchedulingSuggestions = useCallback(() => {
-    setSchedulingSuggestions(MOCK_SCHEDULING_SUGGESTIONS.map((suggestion) => ({ ...suggestion })));
+    fetchCalendarSchedulingSuggestions()
+      .then((suggestions) => {
+        setSchedulingSuggestions(suggestions);
+      })
+      .catch((error) => {
+        console.error("Failed to refresh scheduling suggestions", error);
+      });
   }, []);
 
   const updateDefaultSetting = useCallback(
     <K extends keyof CalendarDefaultSettings>(key: K, value: CalendarDefaultSettings[K]) => {
-      setDefaults((current) => {
-        const next = { ...current, [key]: value };
-        persistCalendarPreferences({
-          density,
-          ...next,
-        }).catch(() => undefined);
-        return next;
-      });
+      setDefaults((current) => ({ ...current, [key]: value }));
     },
-    [density]
+    []
   );
 
   const resetDefaults = useCallback(() => {
-    setDefaults(CALENDAR_DEFAULT_SETTINGS);
+    setDefaults(DEFAULT_CALENDAR_SETTINGS);
   }, []);
 
   const updateGovernanceSetting = useCallback(
