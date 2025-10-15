@@ -377,6 +377,860 @@ export type Database = {
           },
         ]
       }
+      calendar_availability_blocks: {
+        Row: {
+          availability_type: Database["public"]["Enums"]["calendar_availability_type"]
+          created_at: string
+          end_at: string
+          id: string
+          owner_id: string
+          source: string | null
+          start_at: string
+        }
+        Insert: {
+          availability_type: Database["public"]["Enums"]["calendar_availability_type"]
+          created_at?: string
+          end_at: string
+          id?: string
+          owner_id: string
+          source?: string | null
+          start_at: string
+        }
+        Update: {
+          availability_type?: Database["public"]["Enums"]["calendar_availability_type"]
+          created_at?: string
+          end_at?: string
+          id?: string
+          owner_id?: string
+          source?: string | null
+          start_at?: string
+        }
+        Relationships: []
+      }
+      calendar_automation_rules: {
+        Row: {
+          action: Database["public"]["Enums"]["calendar_automation_action"]
+          config: Json | null
+          created_at: string
+          description: string | null
+          enabled: boolean
+          id: string
+          name: string
+          trigger: Database["public"]["Enums"]["calendar_automation_trigger"]
+          workspace_id: string | null
+        }
+        Insert: {
+          action: Database["public"]["Enums"]["calendar_automation_action"]
+          config?: Json | null
+          created_at?: string
+          description?: string | null
+          enabled?: boolean
+          id?: string
+          name: string
+          trigger: Database["public"]["Enums"]["calendar_automation_trigger"]
+          workspace_id?: string | null
+        }
+        Update: {
+          action?: Database["public"]["Enums"]["calendar_automation_action"]
+          config?: Json | null
+          created_at?: string
+          description?: string | null
+          enabled?: boolean
+          id?: string
+          name?: string
+          trigger?: Database["public"]["Enums"]["calendar_automation_trigger"]
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calendar_automation_rules_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      calendar_comments: {
+        Row: {
+          author_id: string
+          author_name: string
+          body: string
+          created_at: string
+          event_id: string | null
+          id: string
+          mentions: Json | null
+        }
+        Insert: {
+          author_id: string
+          author_name: string
+          body: string
+          created_at?: string
+          event_id?: string | null
+          id?: string
+          mentions?: Json | null
+        }
+        Update: {
+          author_id?: string
+          author_name?: string
+          body?: string
+          created_at?: string
+          event_id?: string | null
+          id?: string
+          mentions?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calendar_comments_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "calendar_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      calendar_delegations: {
+        Row: {
+          created_at: string
+          delegate_id: string
+          delegate_name: string
+          expires_at: string | null
+          id: string
+          owner_id: string
+          scope: Database["public"]["Enums"]["calendar_delegation_scope"]
+        }
+        Insert: {
+          created_at?: string
+          delegate_id: string
+          delegate_name: string
+          expires_at?: string | null
+          id?: string
+          owner_id: string
+          scope: Database["public"]["Enums"]["calendar_delegation_scope"]
+        }
+        Update: {
+          created_at?: string
+          delegate_id?: string
+          delegate_name?: string
+          expires_at?: string | null
+          id?: string
+          owner_id?: string
+          scope?: Database["public"]["Enums"]["calendar_delegation_scope"]
+        }
+        Relationships: []
+      }
+      calendar_event_attachments: {
+        Row: {
+          created_at: string
+          event_id: string
+          id: string
+          name: string
+          size: number | null
+          url: string
+        }
+        Insert: {
+          created_at?: string
+          event_id: string
+          id?: string
+          name: string
+          size?: number | null
+          url: string
+        }
+        Update: {
+          created_at?: string
+          event_id?: string
+          id?: string
+          name?: string
+          size?: number | null
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calendar_event_attachments_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "calendar_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      calendar_event_attendees: {
+        Row: {
+          attendee_id: string | null
+          created_at: string
+          email: string | null
+          event_id: string
+          id: string
+          name: string
+          response: Database["public"]["Enums"]["calendar_rsvp_status"] | null
+        }
+        Insert: {
+          attendee_id?: string | null
+          created_at?: string
+          email?: string | null
+          event_id: string
+          id?: string
+          name: string
+          response?: Database["public"]["Enums"]["calendar_rsvp_status"] | null
+        }
+        Update: {
+          attendee_id?: string | null
+          created_at?: string
+          email?: string | null
+          event_id?: string
+          id?: string
+          name?: string
+          response?: Database["public"]["Enums"]["calendar_rsvp_status"] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calendar_event_attendees_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "calendar_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      calendar_event_automation_rules: {
+        Row: {
+          event_id: string
+          rule_id: string
+        }
+        Insert: {
+          event_id: string
+          rule_id: string
+        }
+        Update: {
+          event_id?: string
+          rule_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calendar_event_automation_rules_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "calendar_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "calendar_event_automation_rules_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "calendar_automation_rules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      calendar_event_links: {
+        Row: {
+          event_id: string
+          href: string | null
+          id: string
+          label: string
+          link_type: string
+        }
+        Insert: {
+          event_id: string
+          href?: string | null
+          id?: string
+          label: string
+          link_type: string
+        }
+        Update: {
+          event_id?: string
+          href?: string | null
+          id?: string
+          label?: string
+          link_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calendar_event_links_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "calendar_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      calendar_event_reminders: {
+        Row: {
+          created_at: string
+          event_id: string
+          id: string
+          method: Database["public"]["Enums"]["calendar_reminder_method"]
+          offset_minutes: number
+        }
+        Insert: {
+          created_at?: string
+          event_id: string
+          id?: string
+          method: Database["public"]["Enums"]["calendar_reminder_method"]
+          offset_minutes: number
+        }
+        Update: {
+          created_at?: string
+          event_id?: string
+          id?: string
+          method?: Database["public"]["Enums"]["calendar_reminder_method"]
+          offset_minutes?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calendar_event_reminders_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "calendar_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      calendar_event_resources: {
+        Row: {
+          event_id: string
+          resource_id: string
+        }
+        Insert: {
+          event_id: string
+          resource_id: string
+        }
+        Update: {
+          event_id?: string
+          resource_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calendar_event_resources_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "calendar_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "calendar_event_resources_resource_id_fkey"
+            columns: ["resource_id"]
+            isOneToOne: false
+            referencedRelation: "calendar_resources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      calendar_events: {
+        Row: {
+          all_day: boolean
+          calendar_id: string
+          color: string | null
+          completed: boolean
+          created_at: string
+          description: string | null
+          end_at: string
+          external_id: string | null
+          id: string
+          is_deadline: boolean
+          is_recurring_exception: boolean
+          is_recurring_instance: boolean
+          is_release_window: boolean
+          labels: string[] | null
+          location: string | null
+          metadata: Json | null
+          organizer: string | null
+          owner_id: string | null
+          owner_name: string | null
+          priority: Database["public"]["Enums"]["calendar_event_priority"] | null
+          project_id: string | null
+          recurrence_exceptions: string[] | null
+          recurrence_rule: string | null
+          start_at: string
+          status: Database["public"]["Enums"]["calendar_event_status"] | null
+          sync_source: Database["public"]["Enums"]["calendar_integration_provider"] | null
+          team_id: string | null
+          team_name: string | null
+          timezone: string | null
+          title: string
+          type: Database["public"]["Enums"]["calendar_event_type"] | null
+          updated_at: string
+          video_link: string | null
+          visibility: Database["public"]["Enums"]["calendar_event_visibility"] | null
+          working_hours_impact: string | null
+        }
+        Insert: {
+          all_day?: boolean
+          calendar_id: string
+          color?: string | null
+          completed?: boolean
+          created_at?: string
+          description?: string | null
+          end_at: string
+          external_id?: string | null
+          id?: string
+          is_deadline?: boolean
+          is_recurring_exception?: boolean
+          is_recurring_instance?: boolean
+          is_release_window?: boolean
+          labels?: string[] | null
+          location?: string | null
+          metadata?: Json | null
+          organizer?: string | null
+          owner_id?: string | null
+          owner_name?: string | null
+          priority?: Database["public"]["Enums"]["calendar_event_priority"] | null
+          project_id?: string | null
+          recurrence_exceptions?: string[] | null
+          recurrence_rule?: string | null
+          start_at: string
+          status?: Database["public"]["Enums"]["calendar_event_status"] | null
+          sync_source?: Database["public"]["Enums"]["calendar_integration_provider"] | null
+          team_id?: string | null
+          team_name?: string | null
+          timezone?: string | null
+          title: string
+          type?: Database["public"]["Enums"]["calendar_event_type"] | null
+          updated_at?: string
+          video_link?: string | null
+          visibility?: Database["public"]["Enums"]["calendar_event_visibility"] | null
+          working_hours_impact?: string | null
+        }
+        Update: {
+          all_day?: boolean
+          calendar_id?: string
+          color?: string | null
+          completed?: boolean
+          created_at?: string
+          description?: string | null
+          end_at?: string
+          external_id?: string | null
+          id?: string
+          is_deadline?: boolean
+          is_recurring_exception?: boolean
+          is_recurring_instance?: boolean
+          is_release_window?: boolean
+          labels?: string[] | null
+          location?: string | null
+          metadata?: Json | null
+          organizer?: string | null
+          owner_id?: string | null
+          owner_name?: string | null
+          priority?: Database["public"]["Enums"]["calendar_event_priority"] | null
+          project_id?: string | null
+          recurrence_exceptions?: string[] | null
+          recurrence_rule?: string | null
+          start_at?: string
+          status?: Database["public"]["Enums"]["calendar_event_status"] | null
+          sync_source?: Database["public"]["Enums"]["calendar_integration_provider"] | null
+          team_id?: string | null
+          team_name?: string | null
+          timezone?: string | null
+          title?: string
+          type?: Database["public"]["Enums"]["calendar_event_type"] | null
+          updated_at?: string
+          video_link?: string | null
+          visibility?: Database["public"]["Enums"]["calendar_event_visibility"] | null
+          working_hours_impact?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calendar_events_calendar_id_fkey"
+            columns: ["calendar_id"]
+            isOneToOne: false
+            referencedRelation: "calendar_layers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      calendar_followers: {
+        Row: {
+          event_id: string | null
+          id: string
+          subscribed_at: string
+          target: Json
+        }
+        Insert: {
+          event_id?: string | null
+          id?: string
+          subscribed_at?: string
+          target: Json
+        }
+        Update: {
+          event_id?: string | null
+          id?: string
+          subscribed_at?: string
+          target?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calendar_followers_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "calendar_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      calendar_holidays: {
+        Row: {
+          holiday_date: string
+          id: string
+          name: string
+          region: string
+        }
+        Insert: {
+          holiday_date: string
+          id?: string
+          name: string
+          region: string
+        }
+        Update: {
+          holiday_date?: string
+          id?: string
+          name?: string
+          region?: string
+        }
+        Relationships: []
+      }
+      calendar_integrations: {
+        Row: {
+          account_email: string
+          calendars_linked: number | null
+          conflict_preference: Database["public"]["Enums"]["calendar_conflict_preference"]
+          created_at: string
+          id: string
+          last_sync_at: string | null
+          pending_conflicts: number | null
+          provider: Database["public"]["Enums"]["calendar_integration_provider"]
+          scopes: string[] | null
+          status: Database["public"]["Enums"]["calendar_integration_status"]
+          sync_error: string | null
+        }
+        Insert: {
+          account_email: string
+          calendars_linked?: number | null
+          conflict_preference?: Database["public"]["Enums"]["calendar_conflict_preference"]
+          created_at?: string
+          id?: string
+          last_sync_at?: string | null
+          pending_conflicts?: number | null
+          provider: Database["public"]["Enums"]["calendar_integration_provider"]
+          scopes?: string[] | null
+          status?: Database["public"]["Enums"]["calendar_integration_status"]
+          sync_error?: string | null
+        }
+        Update: {
+          account_email?: string
+          calendars_linked?: number | null
+          conflict_preference?: Database["public"]["Enums"]["calendar_conflict_preference"]
+          created_at?: string
+          id?: string
+          last_sync_at?: string | null
+          pending_conflicts?: number | null
+          provider?: Database["public"]["Enums"]["calendar_integration_provider"]
+          scopes?: string[] | null
+          status?: Database["public"]["Enums"]["calendar_integration_status"]
+          sync_error?: string | null
+        }
+        Relationships: []
+      }
+      calendar_invitations: {
+        Row: {
+          created_at: string
+          event_id: string
+          ics_url: string | null
+          id: string
+          invitee: Json
+          responded_at: string | null
+          response_note: string | null
+          status: Database["public"]["Enums"]["calendar_rsvp_status"]
+        }
+        Insert: {
+          created_at?: string
+          event_id: string
+          ics_url?: string | null
+          id?: string
+          invitee: Json
+          responded_at?: string | null
+          response_note?: string | null
+          status: Database["public"]["Enums"]["calendar_rsvp_status"]
+        }
+        Update: {
+          created_at?: string
+          event_id?: string
+          ics_url?: string | null
+          id?: string
+          invitee?: Json
+          responded_at?: string | null
+          response_note?: string | null
+          status?: Database["public"]["Enums"]["calendar_rsvp_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calendar_invitations_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "calendar_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      calendar_layers: {
+        Row: {
+          color: string
+          created_at: string
+          description: string | null
+          id: string
+          is_read_only: boolean
+          name: string
+          subscribed: boolean
+          timezone: string | null
+          type: Database["public"]["Enums"]["calendar_layer_type"]
+          updated_at: string
+          visible: boolean
+          workspace_id: string | null
+        }
+        Insert: {
+          color: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_read_only?: boolean
+          name: string
+          subscribed?: boolean
+          timezone?: string | null
+          type: Database["public"]["Enums"]["calendar_layer_type"]
+          updated_at?: string
+          visible?: boolean
+          workspace_id?: string | null
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_read_only?: boolean
+          name?: string
+          subscribed?: boolean
+          timezone?: string | null
+          type?: Database["public"]["Enums"]["calendar_layer_type"]
+          updated_at?: string
+          visible?: boolean
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calendar_layers_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      calendar_notifications: {
+        Row: {
+          action_label: string | null
+          channel: Database["public"]["Enums"]["calendar_reminder_method"]
+          created_at: string
+          event_id: string
+          id: string
+          start_at: string
+          status: Database["public"]["Enums"]["calendar_notification_status"]
+          title: string
+        }
+        Insert: {
+          action_label?: string | null
+          channel: Database["public"]["Enums"]["calendar_reminder_method"]
+          created_at?: string
+          event_id: string
+          id?: string
+          start_at: string
+          status?: Database["public"]["Enums"]["calendar_notification_status"]
+          title: string
+        }
+        Update: {
+          action_label?: string | null
+          channel?: Database["public"]["Enums"]["calendar_reminder_method"]
+          created_at?: string
+          event_id?: string
+          id?: string
+          start_at?: string
+          status?: Database["public"]["Enums"]["calendar_notification_status"]
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calendar_notifications_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "calendar_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      calendar_out_of_office: {
+        Row: {
+          created_at: string
+          end_at: string
+          id: string
+          message: string | null
+          owner_id: string
+          start_at: string
+          status: Database["public"]["Enums"]["calendar_out_of_office_status"]
+        }
+        Insert: {
+          created_at?: string
+          end_at: string
+          id?: string
+          message?: string | null
+          owner_id: string
+          start_at: string
+          status: Database["public"]["Enums"]["calendar_out_of_office_status"]
+        }
+        Update: {
+          created_at?: string
+          end_at?: string
+          id?: string
+          message?: string | null
+          owner_id?: string
+          start_at?: string
+          status?: Database["public"]["Enums"]["calendar_out_of_office_status"]
+        }
+        Relationships: []
+      }
+      calendar_resources: {
+        Row: {
+          capacity: number | null
+          color: string | null
+          created_at: string
+          id: string
+          location: string | null
+          name: string
+          type: Database["public"]["Enums"]["calendar_resource_type"]
+          workspace_id: string | null
+        }
+        Insert: {
+          capacity?: number | null
+          color?: string | null
+          created_at?: string
+          id?: string
+          location?: string | null
+          name: string
+          type: Database["public"]["Enums"]["calendar_resource_type"]
+          workspace_id?: string | null
+        }
+        Update: {
+          capacity?: number | null
+          color?: string | null
+          created_at?: string
+          id?: string
+          location?: string | null
+          name?: string
+          type?: Database["public"]["Enums"]["calendar_resource_type"]
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calendar_resources_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      calendar_scheduling_suggestions: {
+        Row: {
+          attendee_ids: string[]
+          conflicts: string[] | null
+          end_at: string
+          generated_at: string
+          id: string
+          reason: string | null
+          score: number
+          start_at: string
+          suggestion_type: Database["public"]["Enums"]["calendar_scheduling_suggestion_type"]
+        }
+        Insert: {
+          attendee_ids: string[]
+          conflicts?: string[] | null
+          end_at: string
+          generated_at?: string
+          id?: string
+          reason?: string | null
+          score: number
+          start_at: string
+          suggestion_type: Database["public"]["Enums"]["calendar_scheduling_suggestion_type"]
+        }
+        Update: {
+          attendee_ids?: string[]
+          conflicts?: string[] | null
+          end_at?: string
+          generated_at?: string
+          id?: string
+          reason?: string | null
+          score?: number
+          start_at?: string
+          suggestion_type?: Database["public"]["Enums"]["calendar_scheduling_suggestion_type"]
+        }
+        Relationships: []
+      }
+      calendar_share_settings: {
+        Row: {
+          calendar_id: string
+          can_share: boolean
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["calendar_share_role"]
+          subscribed: boolean
+          target: Json
+        }
+        Insert: {
+          calendar_id: string
+          can_share?: boolean
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["calendar_share_role"]
+          subscribed?: boolean
+          target: Json
+        }
+        Update: {
+          calendar_id?: string
+          can_share?: boolean
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["calendar_share_role"]
+          subscribed?: boolean
+          target?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calendar_share_settings_calendar_id_fkey"
+            columns: ["calendar_id"]
+            isOneToOne: false
+            referencedRelation: "calendar_layers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      calendar_working_hours: {
+        Row: {
+          days: Json
+          owner_id: string
+          timezone: string
+          updated_at: string
+        }
+        Insert: {
+          days: Json
+          owner_id: string
+          timezone: string
+          updated_at?: string
+        }
+        Update: {
+          days?: Json
+          owner_id?: string
+          timezone?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       challenge_participants: {
         Row: {
           challenge_id: string
@@ -3193,6 +4047,85 @@ export type Database = {
       }
     }
     Views: {
+      calendar_events_with_details: {
+        Row: {
+          all_day: boolean
+          attachments: Json
+          attendees: Json
+          automation_rule_ids: string[] | null
+          calendar_id: string | null
+          color: string | null
+          comments: Json
+          completed: boolean | null
+          created_at: string | null
+          description: string | null
+          end: string | null
+          external_id: string | null
+          followers: Json
+          has_attachments: boolean | null
+          has_reminders: boolean | null
+          id: string | null
+          invitations: Json
+          is_deadline: boolean | null
+          is_recurring_exception: boolean | null
+          is_recurring_instance: boolean | null
+          is_release_window: boolean | null
+          labels: string[] | null
+          linked_items: Json
+          location: string | null
+          metadata: Json | null
+          organizer: string | null
+          owner_id: string | null
+          owner_name: string | null
+          priority:
+            | Database["public"]["Enums"]["calendar_event_priority"]
+            | null
+          priority_color: string | null
+          privacy_overrides: Json
+          project_id: string | null
+          recurrence_exceptions: string[] | null
+          recurrence_rule: string | null
+          reminders: Json
+          resource_ids: string[] | null
+          resources: Json
+          start: string | null
+          status: Database["public"]["Enums"]["calendar_event_status"] | null
+          status_color: string | null
+          sync_source:
+            | Database["public"]["Enums"]["calendar_integration_provider"]
+            | null
+          team_id: string | null
+          team_name: string | null
+          timezone: string | null
+          title: string | null
+          type: Database["public"]["Enums"]["calendar_event_type"] | null
+          type_color: string | null
+          updated_at: string | null
+          video_link: string | null
+          visibility:
+            | Database["public"]["Enums"]["calendar_event_visibility"]
+            | null
+          working_hours_impact: string | null
+        }
+        Relationships: []
+      }
+      calendar_layers_with_preferences: {
+        Row: {
+          color: string | null
+          created_at: string | null
+          description: string | null
+          id: string | null
+          is_read_only: boolean | null
+          name: string | null
+          subscribed: boolean | null
+          timezone: string | null
+          type: Database["public"]["Enums"]["calendar_layer_type"] | null
+          updated_at: string | null
+          visible: boolean | null
+          workspace_id: string | null
+        }
+        Relationships: []
+      }
       project_members_with_profiles: {
         Row: {
           avatar_url: string | null
@@ -3385,6 +4318,51 @@ export type Database = {
         | "task_created"
         | "comment_added"
         | "time_logged"
+      calendar_availability_type: "busy" | "free" | "ooo"
+      calendar_automation_action:
+        | "create-task"
+        | "post-channel"
+        | "add-to-sprint"
+        | "notify-owner"
+      calendar_automation_trigger:
+        | "event-created"
+        | "event-updated"
+        | "event-starting"
+        | "event-conflict"
+        | "external-sync"
+      calendar_conflict_preference: "platform" | "external"
+      calendar_delegation_scope: "view" | "edit" | "manage"
+      calendar_event_priority: "low" | "normal" | "high" | "critical"
+      calendar_event_status: "confirmed" | "tentative" | "cancelled" | "milestone" | "busy"
+      calendar_event_type:
+        | "meeting"
+        | "task"
+        | "milestone"
+        | "sprint"
+        | "release"
+        | "focus"
+        | "availability"
+      calendar_event_visibility:
+        | "private"
+        | "team"
+        | "project"
+        | "workspace"
+        | "org"
+      calendar_integration_provider: "google" | "outlook" | "apple"
+      calendar_integration_status:
+        | "disconnected"
+        | "connecting"
+        | "connected"
+        | "syncing"
+        | "error"
+      calendar_layer_type: "personal" | "team" | "project" | "workspace" | "external"
+      calendar_notification_status: "pending" | "snoozed" | "sent"
+      calendar_out_of_office_status: "scheduled" | "active" | "completed"
+      calendar_reminder_method: "popup" | "email" | "push" | "slack" | "webhook"
+      calendar_resource_type: "room" | "equipment" | "virtual"
+      calendar_rsvp_status: "accepted" | "declined" | "tentative" | "needs-action"
+      calendar_scheduling_suggestion_type: "primary" | "alternative"
+      calendar_share_role: "viewer" | "editor" | "manager"
       challenge_type:
         | "sprint"
         | "milestone"

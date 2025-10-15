@@ -105,13 +105,15 @@ import type {
   CalendarVisualCategory,
   CalendarExportOptions,
   CalendarRSVPStatus,
+  CalendarAvailabilityBlock,
+  CalendarPerson,
+  CalendarResource,
 } from "@/types/calendar";
 import {
-  MOCK_AVAILABILITY,
-  MOCK_CALENDAR_PEOPLE,
-  MOCK_CALENDAR_RESOURCES,
-  MOCK_NOTIFICATIONS,
-} from "@/data/calendarAvailability";
+  fetchCalendarAvailability,
+  fetchCalendarPeople,
+  fetchCalendarResources,
+} from "@/services/calendarMetadata";
 import { VISUAL_CATEGORIES, eventMatchesVisualCategory } from "@/components/calendar/visualEncoding";
 
 const WEEK_OPTIONS = { weekStartsOn: 1 as const };
@@ -1172,6 +1174,9 @@ function CalendarPageContent() {
   const [highlightCategory, setHighlightCategory] = useState<CalendarVisualCategory | null>(null);
   const [undoStack, setUndoStack] = useState<CalendarEvent[][]>([]);
   const [redoStack, setRedoStack] = useState<CalendarEvent[][]>([]);
+  const [people, setPeople] = useState<CalendarPerson[]>([]);
+  const [availability, setAvailability] = useState<CalendarAvailabilityBlock[]>([]);
+  const [resources, setResources] = useState<CalendarResource[]>([]);
   const [syncStatus, setSyncStatus] = useState<{
     state: "idle" | "syncing" | "offline" | "error";
     lastSyncedAt?: string;
@@ -1219,10 +1224,31 @@ function CalendarPageContent() {
   }, [searchQuery, setSearchTokens]);
 
   useEffect(() => {
-    if (notifications.length === 0) {
-      setNotifications((current) => (current.length === 0 ? [...MOCK_NOTIFICATIONS] : current));
+    let cancelled = false;
+    async function loadCalendarMetadata() {
+      try {
+        const [peopleData, availabilityData, resourceData] = await Promise.all([
+          fetchCalendarPeople(),
+          fetchCalendarAvailability(),
+          fetchCalendarResources(),
+        ]);
+        if (cancelled) {
+          return;
+        }
+        setPeople(peopleData);
+        setAvailability(availabilityData);
+        setResources(resourceData);
+      } catch (error) {
+        console.error("Failed to load calendar metadata", error);
+      }
     }
-  }, [notifications.length, setNotifications]);
+
+    void loadCalendarMetadata();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filteredEvents = useMemo(
     () => applyFiltersToEvents(events, filters, searchTokens),
@@ -1622,7 +1648,7 @@ function CalendarPageContent() {
 
   const handleReassignOwner = useCallback(
     (eventId: string, ownerId: string) => {
-      const person = MOCK_CALENDAR_PEOPLE.find((candidate) => candidate.id === ownerId);
+      const person = people.find((candidate) => candidate.id === ownerId);
       if (!person) return;
       const teamName = person.teamId
         ? person.teamId
@@ -1646,7 +1672,7 @@ function CalendarPageContent() {
         )
       );
     },
-    [commitEvents]
+    [commitEvents, people]
   );
 
   const handleToggleResourceLock = useCallback((eventId: string) => {
@@ -1906,21 +1932,21 @@ function CalendarPageContent() {
         return (
           <div className="grid h-full grid-cols-[2fr_1fr] gap-4 p-4">
             <PeopleScheduleView
-              people={MOCK_CALENDAR_PEOPLE}
+              people={people}
               events={currentEvents}
-              availability={MOCK_AVAILABILITY}
+              availability={availability}
               onOpenEvent={handleOpenDetail}
               onReassignOwner={handleReassignOwner}
               conflicts={conflicts}
               range={range}
             />
-            <AvailabilityHeatmap events={currentEvents} availability={MOCK_AVAILABILITY} range={range} />
+            <AvailabilityHeatmap events={currentEvents} availability={availability} range={range} />
           </div>
         );
       case "resources":
         return (
           <ResourceScheduleView
-            resources={MOCK_CALENDAR_RESOURCES}
+            resources={resources}
             events={currentEvents}
             onOpenEvent={handleOpenDetail}
             onToggleLock={handleToggleResourceLock}

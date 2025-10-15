@@ -1,47 +1,112 @@
-// Stub file - original disabled due to missing database function
-// TODO: Re-enable when calendar_set_conflict_preference function is created
+import { supabase } from "@/integrations/supabase/client";
+import type { Database } from "@/integrations/supabase/types";
+import type {
+  CalendarConflictPreference,
+  CalendarIntegration,
+  CalendarIntegrationProvider,
+} from "@/types/calendar";
+import { mapSupabaseError } from "./utils";
 
-export function syncCalendarEvents() {
-  console.warn("Calendar integrations are temporarily disabled");
-  return Promise.resolve();
+type IntegrationRow = Database["public"]["Tables"]["calendar_integrations"]["Row"];
+
+function deserializeIntegration(row: IntegrationRow): CalendarIntegration {
+  return {
+    id: row.id,
+    provider: row.provider,
+    accountEmail: row.account_email,
+    status: row.status,
+    lastSyncAt: row.last_sync_at ?? undefined,
+    syncError: row.sync_error,
+    conflictPreference: row.conflict_preference,
+    calendarsLinked: row.calendars_linked ?? undefined,
+    scopes: row.scopes ?? undefined,
+    pendingConflicts: row.pending_conflicts ?? undefined,
+  };
 }
 
-export function triggerIntegrationSync(integrationId: string) {
-  console.warn("Calendar integrations are temporarily disabled");
-  return Promise.resolve({ id: integrationId, syncedAt: new Date().toISOString() });
+export async function fetchCalendarIntegrations(): Promise<CalendarIntegration[]> {
+  const { data, error } = await supabase
+    .from("calendar_integrations")
+    .select("*")
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    throw mapSupabaseError(error, "Unable to load calendar integrations");
+  }
+
+  return (data ?? []).map(deserializeIntegration);
 }
 
-export function connectIntegration(provider?: any, accountEmail?: string) {
-  console.warn("Calendar integrations are temporarily disabled");
-  // Return a stub integration object so UI logic can proceed during development
-  const id = typeof crypto !== "undefined" && "randomUUID" in crypto
-    ? crypto.randomUUID()
-    : `stub-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  return Promise.resolve({
-    id,
-    provider: provider ?? "stub",
-    accountEmail: accountEmail ?? "stub@example.com",
-    status: "connected",
-    conflictPreference: "prefer_external",
-    pendingConflicts: 0,
-    lastSyncAt: new Date().toISOString(),
-  } as any);
+export async function connectIntegration(
+  provider: CalendarIntegrationProvider,
+  accountEmail: string
+): Promise<CalendarIntegration> {
+  const { data, error } = await supabase
+    .from("calendar_integrations")
+    .insert({
+      provider,
+      account_email: accountEmail,
+      status: "connecting",
+      conflict_preference: "platform",
+      pending_conflicts: 0,
+    })
+    .select("*")
+    .single();
+
+  if (error) {
+    throw mapSupabaseError(error, "Unable to connect integration");
+  }
+
+  return deserializeIntegration(data);
 }
 
-export function disconnectIntegration(integrationId?: string) {
-  console.warn("Calendar integrations are temporarily disabled");
-  return Promise.resolve({ id: integrationId });
+export async function disconnectIntegration(integrationId: string): Promise<void> {
+  const { error } = await supabase
+    .from("calendar_integrations")
+    .delete()
+    .eq("id", integrationId);
+
+  if (error) {
+    throw mapSupabaseError(error, "Unable to disconnect integration");
+  }
 }
 
-export function subscribeToIntegrationUpdates(callback?: (event: any) => void) {
-  console.warn("Calendar integrations are temporarily disabled");
-  // No real-time updates in stub; return a no-op unsubscribe
+export async function triggerIntegrationSync(integrationId: string) {
+  const syncedAt = new Date().toISOString();
+  const { error } = await supabase
+    .from("calendar_integrations")
+    .update({ status: "syncing", last_sync_at: syncedAt })
+    .eq("id", integrationId);
+
+  if (error) {
+    throw mapSupabaseError(error, "Unable to trigger integration sync");
+  }
+
+  return { id: integrationId, syncedAt };
+}
+
+export async function updateConflictPreference(
+  integrationId: string,
+  preference: CalendarConflictPreference
+): Promise<void> {
+  const { error } = await supabase
+    .from("calendar_integrations")
+    .update({ conflict_preference: preference })
+    .eq("id", integrationId);
+
+  if (error) {
+    throw mapSupabaseError(error, "Unable to update integration settings");
+  }
+}
+
+export function subscribeToIntegrationUpdates(
+  _callback: (payload: { type: "updated" | "disconnected"; integration: CalendarIntegration }) => void
+) {
   return () => {};
 }
 
-export function updateConflictPreference(integrationId?: string, _preference?: any) {
-  console.warn("Calendar integrations are temporarily disabled");
-  return Promise.resolve({ id: integrationId });
+export async function syncCalendarEvents(): Promise<void> {
+  await supabase.rpc("sync_calendar_integrations").catch(() => {
+    // ignore missing RPC for now
+  });
 }
-
-export type CalendarEvent = any;
