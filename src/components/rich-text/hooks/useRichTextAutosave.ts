@@ -68,7 +68,7 @@ export function useRichTextAutosave({
         },
         updatedAt: Date.now(),
         vectorClock: {},
-        conflictPolicy: "last-write-wins",
+        conflictPolicy: { strategy: "lww" },
         dependencies: [],
         attempt: 0,
       };
