@@ -458,7 +458,15 @@ export function RichTextEditor({
   }, [editor, initialDoc]);
 
   useEffect(() => {
-    if (!editor || !draft || draftRestored || !isIndexedDbEnabled()) return;
+    if (
+      !editor ||
+      !draft ||
+      draftRestored ||
+      !isIndexedDbEnabled() ||
+      draft.classification === "no-offline"
+    ) {
+      return;
+    }
     let cancelled = false;
     setIsLoadingDraft(true);
     getRichTextDraft(draft.id)
