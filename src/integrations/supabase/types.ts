@@ -377,6 +377,271 @@ export type Database = {
           },
         ]
       }
+      backlog_history: {
+        Row: {
+          backlog_item_id: string
+          detail: string | null
+          event_type: string
+          id: string
+          occurred_at: string
+        }
+        Insert: {
+          backlog_item_id: string
+          detail?: string | null
+          event_type: string
+          id?: string
+          occurred_at?: string
+        }
+        Update: {
+          backlog_item_id?: string
+          detail?: string | null
+          event_type?: string
+          id?: string
+          occurred_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "backlog_history_backlog_item_id_fkey"
+            columns: ["backlog_item_id"]
+            isOneToOne: false
+            referencedRelation: "backlog_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      backlog_item_assignees: {
+        Row: {
+          assigned_at: string
+          backlog_item_id: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          assigned_at?: string
+          backlog_item_id: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          assigned_at?: string
+          backlog_item_id?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "backlog_item_assignees_backlog_item_id_fkey"
+            columns: ["backlog_item_id"]
+            isOneToOne: false
+            referencedRelation: "backlog_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "backlog_item_assignees_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      backlog_item_tags: {
+        Row: {
+          backlog_item_id: string
+          tag_id: string
+        }
+        Insert: {
+          backlog_item_id: string
+          tag_id: string
+        }
+        Update: {
+          backlog_item_id?: string
+          tag_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "backlog_item_tags_backlog_item_id_fkey"
+            columns: ["backlog_item_id"]
+            isOneToOne: false
+            referencedRelation: "backlog_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "backlog_item_tags_tag_id_fkey"
+            columns: ["tag_id"]
+            isOneToOne: false
+            referencedRelation: "backlog_tags"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      backlog_items: {
+        Row: {
+          acceptance_criteria: string[] | null
+          archived_at: string | null
+          business_value: number
+          created_at: string
+          description: string | null
+          effort: number
+          id: string
+          priority: string
+          rank: number
+          sprint_id: string | null
+          status: string
+          story_points: number | null
+          time_estimate_hours: number | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          acceptance_criteria?: string[] | null
+          archived_at?: string | null
+          business_value?: number
+          created_at?: string
+          description?: string | null
+          effort?: number
+          id?: string
+          priority?: string
+          rank?: number
+          sprint_id?: string | null
+          status?: string
+          story_points?: number | null
+          time_estimate_hours?: number | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          acceptance_criteria?: string[] | null
+          archived_at?: string | null
+          business_value?: number
+          created_at?: string
+          description?: string | null
+          effort?: number
+          id?: string
+          priority?: string
+          rank?: number
+          sprint_id?: string | null
+          status?: string
+          story_points?: number | null
+          time_estimate_hours?: number | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "backlog_items_sprint_id_fkey"
+            columns: ["sprint_id"]
+            isOneToOne: false
+            referencedRelation: "sprints"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      backlog_tags: {
+        Row: {
+          color: string | null
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      sprint_items: {
+        Row: {
+          added_at: string
+          backlog_item_id: string
+          committed_points: number | null
+          id: string
+          position: number
+          sprint_id: string
+        }
+        Insert: {
+          added_at?: string
+          backlog_item_id: string
+          committed_points?: number | null
+          id?: string
+          position?: number
+          sprint_id: string
+        }
+        Update: {
+          added_at?: string
+          backlog_item_id?: string
+          committed_points?: number | null
+          id?: string
+          position?: number
+          sprint_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sprint_items_backlog_item_id_fkey"
+            columns: ["backlog_item_id"]
+            isOneToOne: false
+            referencedRelation: "backlog_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sprint_items_sprint_id_fkey"
+            columns: ["sprint_id"]
+            isOneToOne: false
+            referencedRelation: "sprints"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sprints: {
+        Row: {
+          capacity: number | null
+          created_at: string
+          end_date: string | null
+          goal: string | null
+          id: string
+          member_capacity: Json
+          name: string
+          start_date: string | null
+          status: string
+          updated_at: string
+          velocity_history: Json
+        }
+        Insert: {
+          capacity?: number | null
+          created_at?: string
+          end_date?: string | null
+          goal?: string | null
+          id?: string
+          member_capacity?: Json
+          name: string
+          start_date?: string | null
+          status?: string
+          updated_at?: string
+          velocity_history?: Json
+        }
+        Update: {
+          capacity?: number | null
+          created_at?: string
+          end_date?: string | null
+          goal?: string | null
+          id?: string
+          member_capacity?: Json
+          name?: string
+          start_date?: string | null
+          status?: string
+          updated_at?: string
+          velocity_history?: Json
+        }
+        Relationships: []
+      }
       calendar_availability_blocks: {
         Row: {
           availability_type: Database["public"]["Enums"]["calendar_availability_type"]
