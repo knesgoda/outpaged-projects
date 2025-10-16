@@ -2,7 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { listGitHubRepos } from "@/services/github";
 import { listDocs } from "@/services/docs";
 import { listMyTickets } from "@/services/support";
-import { triggerIntegrationSync } from "@/services/calendarIntegrations";
+// import { triggerIntegrationSync } from "@/services/calendarIntegrations"; // Temporarily disabled
 import type { TaskIntegrationBadge } from "@/types/tasks";
 
 export interface LoadTaskIntegrationOptions {
@@ -178,32 +178,13 @@ const resolveSupportStatus = async ({ taskId }: LoadTaskIntegrationOptions): Pro
 };
 
 const resolveCalendarStatus = async ({ includeCalendarIntegrationId }: LoadTaskIntegrationOptions): Promise<TaskIntegrationBadge> => {
-  if (!includeCalendarIntegrationId) {
-    return toBadge({
-      type: "calendar",
-      status: "pending",
-      label: "Calendar pending",
-      tooltip: "Sync a calendar event to surface availability and meetings.",
-    });
-  }
-
-  try {
-    const result = await triggerIntegrationSync(includeCalendarIntegrationId);
-    return toBadge({
-      type: "calendar",
-      status: "connected",
-      label: "Calendar synced",
-      tooltip: "Calendar integration recently synced.",
-      lastSyncedAt: result.syncedAt,
-    });
-  } catch (error) {
-    return toBadge({
-      type: "calendar",
-      status: "error",
-      label: "Calendar error",
-      tooltip: error instanceof Error ? error.message : "Unable to refresh calendar integration.",
-    });
-  }
+  // Calendar integration temporarily disabled
+  return toBadge({
+    type: "calendar",
+    status: "pending",
+    label: "Calendar pending",
+    tooltip: "Calendar integration temporarily unavailable.",
+  });
 };
 
 export async function loadTaskIntegrationStatus(

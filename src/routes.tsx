@@ -10,7 +10,7 @@ const HomePage = lazy(() => import("@/pages/ia/HomePage"));
 const TimelinePage = lazy(() => import("@/pages/ia/TimelinePage"));
 const MyWorkPage = lazy(() => import("@/pages/ia/MyWorkPage"));
 const BoardsPage = lazy(() => import("@/pages/BoardsPage"));
-const CalendarPage = lazy(() => import("@/pages/calendar/CalendarPage"));
+// const CalendarPage = lazy(() => import("@/pages/calendar/CalendarPage"));
 const Projects = lazy(() => import("@/pages/Projects"));
 const ProjectDetails = lazy(() => import("@/pages/ProjectDetails"));
 const TasksPage = lazy(() => import("@/pages/Tasks"));
@@ -87,7 +87,7 @@ export function AppRoutes() {
         { index: true, element: withSuspense(<HomePage />) },
         { path: "my-work", element: withSuspense(<MyWorkPage />) },
         { path: "boards", element: withSuspense(<BoardsPage />) },
-        { path: "calendar", element: withSuspense(<CalendarPage />) },
+        // { path: "calendar", element: withSuspense(<CalendarPage />) },
         { path: "timeline", element: withSuspense(<TimelinePage />) },
         { path: "inbox", element: withSuspense(<InboxRoute tab="all" />) },
         { path: "inbox/mentions", element: withSuspense(<InboxRoute tab="mentions" />) },
