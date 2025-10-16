@@ -17,6 +17,14 @@ export const useAnalytics = () => {
     return analyticsEngine.schedule(schedule);
   }, []);
 
+  const listSchedules = useCallback(async () => {
+    return analyticsEngine.listSchedules();
+  }, []);
+
+  const deleteSchedule = useCallback(async (id: string) => {
+    return analyticsEngine.deleteSchedule(id);
+  }, []);
+
   const listDashboards = useCallback(async () => {
     return analyticsEngine.listDashboards();
   }, []);
@@ -28,6 +36,8 @@ export const useAnalytics = () => {
   return {
     runReport,
     scheduleReport,
+    listSchedules,
+    deleteSchedule,
     listDashboards,
     upsertAutomation,
   };

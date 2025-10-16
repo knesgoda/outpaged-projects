@@ -5,6 +5,7 @@ import {
   type QueryParameterMetadata,
   type ReportRecord,
 } from "@/server/search/queryStore";
+import { supabase, supabaseConfigured } from "@/integrations/supabase/client";
 import { searchEngine, toSearchResult } from "@/server/search/engineRegistry";
 import type { PrincipalContext } from "@/server/search/engineRegistry";
 import type { SearchResult } from "@/types";
@@ -197,6 +198,50 @@ const materializeReportTile = (
   return { opql, types: report.dataset.entityTypes };
 };
 
+const SCHEDULE_TABLES = ["analytics_report_schedules", "report_schedules"];
+
+const normalizeSupabaseSchedule = (row: Record<string, any>): ScheduledReport => {
+  const recipients = Array.isArray(row.recipients)
+    ? row.recipients
+    : Array.isArray(row.email_recipients)
+      ? row.email_recipients
+      : [];
+
+  const lastRunAt = row.last_run_at ?? row.lastRunAt ?? null;
+  const nextRunAt = row.next_run_at ?? row.nextRunAt ?? null;
+
+  const generatedId =
+    typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+      ? crypto.randomUUID()
+      : `schedule-${Math.random().toString(36).slice(2)}`;
+
+  return {
+    id: row.id ?? row.schedule_id ?? row.slug ?? generatedId,
+    reportId: row.report_id ?? row.reportId ?? row.report_slug ?? "",
+    cron: row.cron ?? row.schedule_cron ?? row.cadence ?? "* * * * *",
+    channel: row.channel ?? row.delivery_channel ?? "email",
+    recipients,
+    lastRunAt: lastRunAt ?? null,
+    nextRunAt: nextRunAt ?? null,
+  } satisfies ScheduledReport;
+};
+
+const isMissingTableError = (error: unknown) => {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+
+  const code = (error as { code?: string }).code;
+  const message = String((error as { message?: string }).message ?? "");
+  return (
+    code === "42P01" ||
+    code === "42P07" ||
+    code === "PGRST201" ||
+    code === "PGRST301" ||
+    message.toLowerCase().includes("does not exist")
+  );
+};
+
 const resolveTileQuery = (
   tile: DashboardTileDefinition,
   params: Record<string, unknown> = {},
@@ -274,8 +319,120 @@ export class AnalyticsEngine {
       nextRunAt: report.nextRunAt ?? null,
       recipients: [...(report.recipients ?? [])],
     };
-    this.schedules.set(report.id, next);
+
+    if (supabaseConfigured) {
+      let saved = false;
+      let lastError: Error | null = null;
+
+      for (const table of SCHEDULE_TABLES) {
+        const response = await supabase
+          .from(table as any)
+          .upsert(
+            {
+              id: next.id,
+              workspace_id: DASHBOARD_PRINCIPAL.workspaceId,
+              report_id: next.reportId,
+              cron: next.cron,
+              channel: next.channel,
+              recipients: next.recipients,
+              last_run_at: next.lastRunAt,
+              next_run_at: next.nextRunAt,
+            },
+            { onConflict: "id" },
+          )
+          .select();
+
+        if (response.error) {
+          if (isMissingTableError(response.error)) {
+            continue;
+          }
+          lastError = new Error(response.error.message ?? "Failed to save schedule");
+          break;
+        }
+
+        const row = Array.isArray(response.data) ? response.data[0] : response.data;
+        if (row) {
+          const normalized = normalizeSupabaseSchedule(row);
+          next.lastRunAt = normalized.lastRunAt ?? next.lastRunAt;
+          next.nextRunAt = normalized.nextRunAt ?? next.nextRunAt;
+          next.recipients = normalized.recipients ?? next.recipients;
+        }
+        saved = true;
+        break;
+      }
+
+      if (lastError) {
+        throw lastError;
+      }
+
+      if (!saved) {
+        console.warn("Supabase schedule persistence unavailable; falling back to in-memory store");
+      }
+    }
+
+    this.schedules.set(next.id, next);
     return next;
+  }
+
+  async listSchedules(): Promise<ScheduledReport[]> {
+    if (supabaseConfigured) {
+      let lastError: Error | null = null;
+      for (const table of SCHEDULE_TABLES) {
+        const response = await supabase
+          .from(table as any)
+          .select("*")
+          .eq("workspace_id", DASHBOARD_PRINCIPAL.workspaceId);
+
+        if (response.error) {
+          if (isMissingTableError(response.error)) {
+            continue;
+          }
+          lastError = new Error(response.error.message ?? "Failed to list schedules");
+          break;
+        }
+
+        if (Array.isArray(response.data)) {
+          const schedules = response.data.map((row) => normalizeSupabaseSchedule(row));
+          schedules.forEach((schedule) => this.schedules.set(schedule.id, schedule));
+          return schedules;
+        }
+      }
+
+      if (lastError) {
+        throw lastError;
+      }
+    }
+
+    return Array.from(this.schedules.values());
+  }
+
+  async deleteSchedule(id: string): Promise<void> {
+    if (supabaseConfigured) {
+      let lastError: Error | null = null;
+      for (const table of SCHEDULE_TABLES) {
+        const response = await supabase
+          .from(table as any)
+          .delete()
+          .eq("id", id);
+
+        if (response.error) {
+          if (isMissingTableError(response.error)) {
+            continue;
+          }
+          lastError = new Error(response.error.message ?? "Failed to delete schedule");
+          break;
+        }
+
+        lastError = null;
+        break;
+      }
+
+      if (lastError) {
+        throw lastError;
+      }
+    }
+
+    this.schedules.delete(id);
   }
 
   async listDashboards(): Promise<DashboardDefinition[]> {
