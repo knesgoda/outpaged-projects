@@ -48,6 +48,7 @@ export const supabaseMock = {
 
 jest.mock("@/integrations/supabase/client", () => ({
   supabase: supabaseMock,
+  supabaseConfigured: true,
 }));
 
 const requireUserIdMock = jest.fn(async () => "user-123");

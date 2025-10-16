@@ -21,7 +21,7 @@ import {
   type WorkspaceMetadata,
 } from "@/data/workspaceMeta";
 import { searchEngine } from "./engineRegistry";
-import type { RepositoryRow, SearchRepository } from "./repository";
+import { MockSearchRepository, type RepositoryRow, type SearchRepository } from "./repository";
 
 type Candidate = OpqlSuggestionItem & {
   weight?: number;
@@ -216,7 +216,8 @@ const mergeCandidates = (...lists: Candidate[][]): Candidate[] => {
   }
   return Array.from(merged.values());
 };
-const repositoryInstance: SearchRepository = searchEngine.getRepository();
+const repositoryInstance: SearchRepository =
+  (searchEngine.getRepository() as SearchRepository | null) ?? new MockSearchRepository();
 
 const DEFAULT_WORKSPACE = DEFAULT_WORKSPACE_ID;
 
@@ -529,12 +530,12 @@ const collectFieldValues = (repository: SearchRepository, workspaceId: string, p
   return map;
 };
 
-const buildSuggestionCatalog = (
+const buildSuggestionCatalog = async (
   repository: SearchRepository,
   workspaceId: string,
   context?: OpqlSuggestionContext
-): SuggestionCatalog => {
-  const metadata: WorkspaceMetadata = getWorkspaceMetadata(workspaceId);
+): Promise<SuggestionCatalog> => {
+  const metadata: WorkspaceMetadata = await getWorkspaceMetadata(workspaceId);
   const permissions = new Set(context?.permissions ?? []);
 
   const synonyms: Record<string, string[]> = {
@@ -1212,9 +1213,9 @@ const tokenAtCursor = (text: string, cursor: number) => {
   };
 };
 
-export const getOpqlSuggestions = (
+export const getOpqlSuggestions = async (
   request: OpqlSuggestionRequest
-): OpqlSuggestionResponse => {
+): Promise<OpqlSuggestionResponse> => {
   const start = typeof performance !== "undefined" ? performance.now() : Date.now();
   const text = normaliseText(request.text ?? "");
   const cursor = request.cursor ?? text.length;
@@ -1229,7 +1230,7 @@ export const getOpqlSuggestions = (
     state: grammarState,
   };
   const trigger = detectTrigger(prefix);
-  const catalog = buildSuggestionCatalog(repositoryInstance, DEFAULT_WORKSPACE, request.context);
+  const catalog = await buildSuggestionCatalog(repositoryInstance, DEFAULT_WORKSPACE, request.context);
   const candidates = gatherCandidates(catalog, grammarState, trigger, cursorContext, request.context)
     .filter((candidate) => matchesPermission(candidate, request.context))
     .map((candidate) => ({
