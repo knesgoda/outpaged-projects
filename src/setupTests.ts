@@ -168,9 +168,17 @@ jest.mock("@/integrations/supabase/client", () => {
         })),
       },
     },
-    supabaseConfigured: false,
+    supabaseConfigured: true,
   };
 });
+
+jest.mock("@/components/telemetry/TelemetryProvider", () => ({
+  useTelemetry: () => ({
+    track: jest.fn(),
+    identify: jest.fn(),
+    group: jest.fn(),
+  }),
+}));
 
 if (typeof Element !== "undefined" && !Element.prototype.scrollIntoView) {
   Element.prototype.scrollIntoView = () => {};
