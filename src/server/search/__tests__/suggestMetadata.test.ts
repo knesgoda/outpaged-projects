@@ -5,7 +5,6 @@ import {
 import { getOpqlSuggestions } from "@/server/search/suggest";
 import {
   DEFAULT_WORKSPACE_ID,
-  clearWorkspaceMetadataCache,
   getWorkspaceMetadata,
 } from "@/data/workspaceMeta";
 
@@ -39,7 +38,6 @@ const queueMetadataTables = (config: {
 describe("OPQL suggestions adapt to metadata", () => {
   beforeEach(() => {
     resetSupabaseMocks();
-    clearWorkspaceMetadataCache(DEFAULT_WORKSPACE_ID);
   });
 
   it("reflects updated labels after metadata refresh", async () => {
@@ -49,7 +47,7 @@ describe("OPQL suggestions adapt to metadata", () => {
       ],
     });
 
-    const metadata = await getWorkspaceMetadata(DEFAULT_WORKSPACE_ID, { refresh: true });
+    const metadata = await getWorkspaceMetadata(DEFAULT_WORKSPACE_ID);
     expect(metadata.labels.map((label) => label.value)).toEqual(["analytics"]);
 
     const first = await getOpqlSuggestions({
@@ -62,7 +60,6 @@ describe("OPQL suggestions adapt to metadata", () => {
     const labelValues = first.items.filter((item) => item.kind === "label").map((item) => item.value);
     expect(labelValues).toContain("analytics");
 
-    clearWorkspaceMetadataCache(DEFAULT_WORKSPACE_ID);
     resetSupabaseMocks();
 
     queueMetadataTables({

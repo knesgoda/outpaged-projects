@@ -408,7 +408,7 @@ export async function createBacklogItem(
 
   const { data, error } = await supabase
     .from("backlog_items")
-    .insert(payload)
+    .insert(payload as any)
     .select("id")
     .maybeSingle();
 
@@ -478,7 +478,7 @@ export async function reorderBacklogItems(
     updated_at: timestamp,
   }));
 
-  const { error } = await supabase.from("backlog_items").upsert(updates);
+  const { error } = await supabase.from("backlog_items").upsert(updates as any);
   if (error) {
     throw mapSupabaseError(error, "Failed to reorder backlog items");
   }

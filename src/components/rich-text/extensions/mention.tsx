@@ -141,7 +141,7 @@ export function createMentionExtension(options: MentionExtensionOptions) {
         }
       },
       render: () => {
-        let component: ReactRenderer<MentionListProps> | null = null;
+        let component: any = null;
         let popup: TippyInstance[] = [];
 
         return {
@@ -158,7 +158,7 @@ export function createMentionExtension(options: MentionExtensionOptions) {
                 },
               },
               editor: props.editor,
-            }) as any;
+            } as any);
 
             if (!props.clientRect) {
               return;

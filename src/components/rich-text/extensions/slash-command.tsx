@@ -148,7 +148,7 @@ export const SlashCommandExtension = Extension.create<SlashCommandExtensionOptio
 
     return [
       Suggestion({
-        editor: this.editor,
+        editor: this.editor as any,
         char: "/",
         allowSpaces: true,
         startOfLine: true,

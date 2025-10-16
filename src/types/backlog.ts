@@ -17,7 +17,7 @@ export interface BacklogItem {
   effort: number;
   createdAt: Date;
   sprintId?: string;
-  rank?: number;
+  rank: number;
   history?: BacklogHistoryEntry[];
 }
 

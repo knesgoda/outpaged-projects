@@ -158,7 +158,7 @@ export function createCrossReferenceExtension(options: CrossReferenceExtensionOp
     addProseMirrorPlugins() {
       return [
         Suggestion({
-          editor: this.editor,
+          editor: this.editor as any,
           char: "[",
           allowSpaces: true,
           startOfLine: false,
