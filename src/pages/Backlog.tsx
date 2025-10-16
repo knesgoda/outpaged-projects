@@ -1,14 +1,13 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import enterpriseBacklog from "@/data/enterpriseBacklog";
-import { BacklogItem, BacklogHistoryEntry } from "@/types/backlog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DndContext,
-  DragEndEvent,
+  type DragEndEvent,
   PointerSensor,
   useSensor,
   useSensors,
@@ -33,7 +32,8 @@ import {
   ArrowRight,
   Target,
   Tag,
-  Star
+  Star,
+  Archive,
 } from "lucide-react";
 import {
   Select,
@@ -48,29 +48,23 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-
-const initialBacklogItems: BacklogItem[] = enterpriseBacklog;
-
-const STORAGE_KEY = "backlog_items_v2";
-const createId = () =>
-  typeof crypto !== "undefined" && crypto.randomUUID
-    ? crypto.randomUUID()
-    : Math.random().toString(36).slice(2);
-
-const enrichBacklogItems = (items: BacklogItem[]): BacklogItem[] =>
-  items.map((item, index) => ({
-    ...item,
-    createdAt: new Date(item.createdAt),
-    rank: item.rank ?? index + 1,
-    timeEstimateHours:
-      item.timeEstimateHours ?? Math.max(item.storyPoints ? item.storyPoints * 2 : 8, 1),
-    history: item.history ?? [],
-  }));
+import type {
+  BacklogHistoryInput,
+  UpdateBacklogItemInput,
+} from "@/services/backlog";
+import {
+  archiveBacklogItem,
+  createBacklogItem,
+  listBacklogItems,
+  reorderBacklogItems,
+  updateBacklogItem,
+} from "@/services/backlog";
+import type { BacklogItem } from "@/types/backlog";
 
 const statusColors = {
   new: "bg-muted text-muted-foreground",
   refined: "bg-warning/20 text-warning",
-  estimated: "bg-primary/20 text-primary", 
+  estimated: "bg-primary/20 text-primary",
   ready: "bg-success/20 text-success",
   in_sprint: "bg-accent/20 text-accent",
 };
@@ -84,29 +78,22 @@ const priorityColors = {
 
 interface BacklogItemCardProps {
   item: BacklogItem;
-  onEdit?: (item: BacklogItem) => void;
-  onDelete?: (itemId: string) => void;
   onMoveToSprint?: (itemId: string) => void;
   onStoryPointsChange?: (itemId: string, storyPoints: number) => void;
   onTimeEstimateChange?: (itemId: string, time: number) => void;
+  onArchive?: (itemId: string) => void;
 }
 
 function BacklogItemCard({
   item,
-  onEdit,
-  onDelete,
   onMoveToSprint,
   onStoryPointsChange,
   onTimeEstimateChange,
+  onArchive,
 }: BacklogItemCardProps) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: item.id });
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: item.id,
+  });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -117,12 +104,9 @@ function BacklogItemCard({
     <Card
       ref={setNodeRef}
       style={style}
-      className={`hover:shadow-medium transition-shadow ${
-        isDragging ? "opacity-50 rotate-1 shadow-large" : ""
-      }`}
+      className={`hover:shadow-medium transition-shadow ${isDragging ? "opacity-50 rotate-1 shadow-large" : ""}`}
     >
       <CardContent className="p-4">
-        {/* Header */}
         <div className="flex items-start gap-3 mb-3">
           <div
             {...attributes}
@@ -131,7 +115,7 @@ function BacklogItemCard({
           >
             <GripVertical className="w-4 h-4" />
           </div>
-          
+
           <div className="flex-1 space-y-2">
             <div className="flex items-start justify-between">
               <div className="space-y-1">
@@ -149,18 +133,13 @@ function BacklogItemCard({
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent className="z-50" align="end">
-                  <DropdownMenuItem onClick={() => onEdit?.(item)}>
-                    Edit Item
-                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => onMoveToSprint?.(item.id)}>
                     <ArrowRight className="w-4 h-4 mr-2" />
                     Move to Sprint
                   </DropdownMenuItem>
-                  <DropdownMenuItem 
-                    className="text-destructive"
-                    onClick={() => onDelete?.(item.id)}
-                  >
-                    Delete Item
+                  <DropdownMenuItem onClick={() => onArchive?.(item.id)}>
+                    <Archive className="w-4 h-4 mr-2" />
+                    Archive Item
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -168,10 +147,9 @@ function BacklogItemCard({
 
             <p className="text-sm text-muted-foreground line-clamp-2">{item.description}</p>
 
-            {/* Status and Priority */}
             <div className="flex items-center gap-2">
               <Badge className={statusColors[item.status]} variant="secondary">
-                {item.status.replace('_', ' ')}
+                {item.status.replace("_", " ")}
               </Badge>
               <Badge className={priorityColors[item.priority]} variant="secondary">
                 <Flag className="w-3 h-3 mr-1" />
@@ -214,7 +192,6 @@ function BacklogItemCard({
               </div>
             </div>
 
-            {/* Tags */}
             {item.tags.length > 0 && (
               <div className="flex flex-wrap gap-1">
                 {item.tags.slice(0, 3).map((tag) => (
@@ -231,7 +208,6 @@ function BacklogItemCard({
               </div>
             )}
 
-            {/* Footer */}
             <div className="flex items-center justify-between pt-2 border-t border-border">
               <div className="flex items-center gap-4 text-xs text-muted-foreground">
                 <div className="flex items-center gap-1">
@@ -243,13 +219,11 @@ function BacklogItemCard({
                   <span>Effort: {item.effort}/10</span>
                 </div>
               </div>
-              
+
               {item.assignee && (
                 <Avatar className="w-6 h-6">
                   <AvatarImage src={item.assignee.avatar} alt={item.assignee.name} />
-                  <AvatarFallback className="text-xs">
-                    {item.assignee.initials}
-                  </AvatarFallback>
+                  <AvatarFallback className="text-xs">{item.assignee.initials}</AvatarFallback>
                 </Avatar>
               )}
             </div>
@@ -261,84 +235,70 @@ function BacklogItemCard({
 }
 
 export default function Backlog() {
-  const [items, setItems] = useState<BacklogItem[]>(() => {
-    if (typeof window !== "undefined") {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        try {
-          const parsed = JSON.parse(stored) as (BacklogItem & { createdAt: string })[];
-          return enrichBacklogItems(
-            parsed.map((item) => ({
-              ...item,
-              createdAt: new Date(item.createdAt),
-            }))
-          );
-        } catch (error) {
-          console.warn("Failed to parse backlog storage", error);
-        }
-      }
-    }
-    return enrichBacklogItems(enterpriseBacklog);
-  });
+  const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterPriority, setFilterPriority] = useState("all");
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const serializable = items.map((item) => ({
-      ...item,
-      createdAt: item.createdAt.toISOString(),
-    }));
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(serializable));
-  }, [items]);
-
-  const createHistoryEntry = (
-    type: BacklogHistoryEntry["type"],
-    detail: string
-  ): BacklogHistoryEntry => ({
-    id: createId(),
-    timestamp: new Date().toISOString(),
-    type,
-    detail,
-  });
-
   const sensors = useSensors(
     useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8,
-      },
+      activationConstraint: { distance: 8 },
     })
   );
 
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
+  const backlogQuery = useQuery({
+    queryKey: ["backlog", "items"],
+    queryFn: listBacklogItems,
+  });
 
-    if (active.id !== over?.id) {
-      setItems((items) => {
-        const oldIndex = items.findIndex((item) => item.id === active.id);
-        const newIndex = items.findIndex((item) => item.id === over?.id);
-        if (oldIndex === -1 || newIndex === -1) {
-          return items;
-        }
-        const reordered = arrayMove(items, oldIndex, newIndex);
-        return reordered.map((item, index) => {
-          const newRank = index + 1;
-          if (item.rank !== newRank) {
-            return {
-              ...item,
-              rank: newRank,
-              history: [
-                ...(item.history ?? []),
-                createHistoryEntry("rank_change", `Rank adjusted to ${newRank}`),
-              ],
-            };
-          }
-          return item;
-        });
-      });
-    }
-  };
+  const createMutation = useMutation({
+    mutationFn: createBacklogItem,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["backlog", "items"] }),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({
+      id,
+      updates,
+      history,
+    }: {
+      id: string;
+      updates: UpdateBacklogItemInput;
+      history?: BacklogHistoryInput;
+    }) => updateBacklogItem(id, updates, history),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["backlog", "items"] }),
+  });
+
+  const reorderMutation = useMutation({
+    mutationFn: reorderBacklogItems,
+    onMutate: async (order: Array<{ id: string; rank: number }>) => {
+      await queryClient.cancelQueries({ queryKey: ["backlog", "items"] });
+      const previous = queryClient.getQueryData<BacklogItem[]>(["backlog", "items"]);
+      if (previous) {
+        const next = order
+          .map(({ id, rank }) => {
+            const match = previous.find((item) => item.id === id);
+            return match ? { ...match, rank } : undefined;
+          })
+          .filter((item): item is BacklogItem => Boolean(item));
+        queryClient.setQueryData(["backlog", "items"], next);
+      }
+      return { previous };
+    },
+    onError: (_error, _variables, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(["backlog", "items"], context.previous);
+      }
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ["backlog", "items"] }),
+  });
+
+  const archiveMutation = useMutation({
+    mutationFn: archiveBacklogItem,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["backlog", "items"] }),
+  });
+
+  const items = backlogQuery.data ?? [];
 
   const filteredItems = useMemo(() => {
     return items
@@ -355,58 +315,6 @@ export default function Backlog() {
       .sort((a, b) => (a.rank ?? 0) - (b.rank ?? 0));
   }, [items, searchQuery, filterPriority, filterStatus]);
 
-  const handleMoveToSprint = (itemId: string) => {
-    setItems((prev) =>
-      prev.map((item) =>
-        item.id === itemId
-          ? {
-              ...item,
-              status: "in_sprint" as const,
-              sprintId: "current-sprint",
-              history: [
-                ...(item.history ?? []),
-                createHistoryEntry("status_change", "Moved to in_sprint"),
-                createHistoryEntry("moved_to_sprint", "Moved to current sprint"),
-              ],
-            }
-          : item
-      )
-    );
-  };
-  const handleStoryPointsChange = (itemId: string, storyPoints: number) => {
-    setItems((prev) =>
-      prev.map((item) =>
-        item.id === itemId
-          ? {
-              ...item,
-              storyPoints,
-              history: [
-                ...(item.history ?? []),
-                createHistoryEntry("story_points_update", `Story points set to ${storyPoints}`),
-              ],
-            }
-          : item
-      )
-    );
-  };
-
-  const handleTimeEstimateChange = (itemId: string, time: number) => {
-    setItems((prev) =>
-      prev.map((item) =>
-        item.id === itemId
-          ? {
-              ...item,
-              timeEstimateHours: time,
-              history: [
-                ...(item.history ?? []),
-                createHistoryEntry("estimate_update", `Time estimate set to ${time}h`),
-              ],
-            }
-          : item
-      )
-    );
-  };
-
   const totalStoryPoints = useMemo(
     () => filteredItems.reduce((sum, item) => sum + (item.storyPoints || 0), 0),
     [filteredItems]
@@ -421,21 +329,101 @@ export default function Backlog() {
     [filteredItems]
   );
 
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) {
+      return;
+    }
+
+    const current = items;
+    const oldIndex = current.findIndex((item) => item.id === active.id);
+    const newIndex = current.findIndex((item) => item.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) {
+      return;
+    }
+
+    const reordered = arrayMove(current, oldIndex, newIndex);
+    const payload = reordered.map((item, index) => ({ id: item.id, rank: index + 1 }));
+    reorderMutation.mutate(payload);
+  };
+
+  const handleStoryPointsChange = (itemId: string, storyPoints: number) => {
+    updateMutation.mutate({
+      id: itemId,
+      updates: { storyPoints },
+      history: { type: "story_points_update", detail: `Story points set to ${storyPoints}` },
+    });
+  };
+
+  const handleTimeEstimateChange = (itemId: string, time: number) => {
+    updateMutation.mutate({
+      id: itemId,
+      updates: { timeEstimateHours: time },
+      history: { type: "estimate_update", detail: `Time estimate set to ${time}h` },
+    });
+  };
+
+  const handleMoveToSprint = (itemId: string) => {
+    updateMutation.mutate({
+      id: itemId,
+      updates: { status: "in_sprint" },
+      history: { type: "moved_to_sprint", detail: "Marked for sprint planning" },
+    });
+  };
+
+  const handleArchive = (itemId: string) => {
+    archiveMutation.mutate(itemId);
+  };
+
+  const handleQuickAdd = () => {
+    createMutation.mutate({
+      title: "New backlog item",
+      description: "Draft backlog item created from backlog view.",
+      status: "new",
+      priority: "medium",
+      storyPoints: 1,
+      timeEstimateHours: 2,
+      acceptanceCriteria: [],
+      businessValue: 5,
+      effort: 5,
+      tags: [],
+    });
+  };
+
+  if (backlogQuery.isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <p className="text-muted-foreground">Loading backlog items…</p>
+      </div>
+    );
+  }
+
+  if (backlogQuery.isError) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] space-y-2">
+        <p className="text-destructive font-medium">Unable to load backlog items.</p>
+        <Button onClick={() => backlogQuery.refetch()}>Retry</Button>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Product Backlog</h1>
           <p className="text-muted-foreground">Prioritize and manage your product backlog</p>
         </div>
-        <Button className="bg-gradient-primary hover:opacity-90">
+        <Button
+          className="bg-gradient-primary hover:opacity-90"
+          onClick={handleQuickAdd}
+          disabled={createMutation.isPending}
+        >
           <Plus className="w-4 h-4 mr-2" />
           Add Backlog Item
         </Button>
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <Card>
           <CardContent className="p-4">
@@ -450,7 +438,7 @@ export default function Backlog() {
             </div>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
@@ -487,9 +475,7 @@ export default function Backlog() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Ready Items</p>
-                <p className="text-2xl font-bold">
-                  {filteredItems.filter(item => item.status === "ready").length}
-                </p>
+                <p className="text-2xl font-bold">{filteredItems.filter((item) => item.status === "ready").length}</p>
               </div>
             </div>
           </CardContent>
@@ -510,18 +496,17 @@ export default function Backlog() {
         </Card>
       </div>
 
-      {/* Filters */}
       <div className="flex items-center gap-4 flex-wrap">
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
             placeholder="Search backlog items..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(event) => setSearchQuery(event.target.value)}
             className="pl-10"
           />
         </div>
-        
+
         <Select value={filterStatus} onValueChange={setFilterStatus}>
           <SelectTrigger className="w-48">
             <SelectValue placeholder="All Status" />
@@ -550,7 +535,6 @@ export default function Backlog() {
         </Select>
       </div>
 
-      {/* Backlog Items */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -559,12 +543,8 @@ export default function Backlog() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragEnd={handleDragEnd}
-          >
-            <SortableContext items={filteredItems.map(item => item.id)} strategy={verticalListSortingStrategy}>
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <SortableContext items={filteredItems.map((item) => item.id)} strategy={verticalListSortingStrategy}>
               <div className="space-y-3">
                 {filteredItems.map((item) => (
                   <BacklogItemCard
@@ -573,6 +553,7 @@ export default function Backlog() {
                     onMoveToSprint={handleMoveToSprint}
                     onStoryPointsChange={handleStoryPointsChange}
                     onTimeEstimateChange={handleTimeEstimateChange}
+                    onArchive={handleArchive}
                   />
                 ))}
               </div>

@@ -1,904 +1,571 @@
 import { useEffect, useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import {
-  Plus,
-  Play,
-  Square,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
+import {
   Target,
   Calendar,
   TrendingDown,
   CheckCircle,
   Clock,
-  BarChart3,
   Trophy,
   Zap,
   AlertTriangle,
+  Plus,
 } from "lucide-react";
-import { BacklogItem } from "@/types/backlog";
-import enterpriseBacklog from "@/data/enterpriseBacklog";
+import { listBacklogItems } from "@/services/backlog";
+import {
+  assignBacklogItemToSprint,
+  completeSprint,
+  createSprint,
+  listSprints,
+  removeBacklogItemFromSprint,
+  startSprint,
+  updateSprint,
+  type SprintWithItems,
+} from "@/services/sprints";
+import type { BacklogItem } from "@/types/backlog";
 
-interface Sprint {
-  id: string;
+interface CreateSprintForm {
   name: string;
   goal: string;
-  status: "planning" | "active" | "completed";
-  startDate: Date;
-  endDate: Date;
+  startDate: string;
+  endDate: string;
   capacity: number;
-  items: BacklogItem[];
-  burndownData: { day: number; remaining: number }[];
-  memberCapacity: Record<string, number>;
-  scopeChangeLog: ScopeChangeEntry[];
 }
 
-interface ScopeChangeEntry {
-  id: string;
-  timestamp: string;
-  action: "added" | "removed";
-  itemTitle: string;
-  points: number;
-}
+const defaultForm: CreateSprintForm = {
+  name: "",
+  goal: "",
+  startDate: "",
+  endDate: "",
+  capacity: 45,
+};
 
-const mockSprints: Sprint[] = [];
-const TEAM_MEMBERS = ["Alice Johnson", "Bob Smith", "Carol Perez", "Dana Lee"];
-const createId = () =>
-  typeof crypto !== "undefined" && crypto.randomUUID
-    ? crypto.randomUUID()
-    : Math.random().toString(36).slice(2);
-
-const enrichItem = (item: BacklogItem): BacklogItem => ({
-  ...item,
-  createdAt: new Date(item.createdAt),
-  timeEstimateHours: item.timeEstimateHours ?? Math.max(item.storyPoints ? item.storyPoints * 2 : 8, 1),
-});
-
-const statusColors = {
+const capacityVariant: Record<SprintWithItems["status"], string> = {
   planning: "bg-warning/20 text-warning",
-  active: "bg-success/20 text-success", 
+  active: "bg-success/20 text-success",
   completed: "bg-muted text-muted-foreground",
 };
 
-export default function SprintPlanning() {
-  const [sprints, setSprints] = useState<Sprint[]>(mockSprints);
-  const [availableItems, setAvailableItems] = useState<BacklogItem[]>(() =>
-    enterpriseBacklog.slice(0, 25).map(enrichItem)
+const memberKeys = (sprint: SprintWithItems | undefined): string[] =>
+  sprint ? Object.keys(sprint.memberCapacity) : [];
+
+const calculateVelocity = (history: number[]): { average: number; lower: number; upper: number } => {
+  if (!history.length) {
+    return { average: 0, lower: 0, upper: 0 };
+  }
+  const recent = history.slice(-3);
+  const average = Math.round(
+    recent.reduce((sum, value) => sum + value, 0) / (recent.length || 1)
   );
+  return {
+    average,
+    lower: Math.max(0, average - 5),
+    upper: average + 5,
+  };
+};
+
+const sumStoryPoints = (items: BacklogItem[]): number =>
+  items.reduce((sum, item) => sum + (item.storyPoints ?? 0), 0);
+
+export default function SprintPlanning() {
+  const queryClient = useQueryClient();
   const [selectedSprintId, setSelectedSprintId] = useState<string | null>(null);
-  const [velocityHistory, setVelocityHistory] = useState<number[]>([]);
+  const [form, setForm] = useState<CreateSprintForm>(defaultForm);
+
+  const backlogQuery = useQuery({
+    queryKey: ["backlog", "items"],
+    queryFn: listBacklogItems,
+  });
+
+  const sprintsQuery = useQuery({
+    queryKey: ["sprints", "list"],
+    queryFn: listSprints,
+  });
 
   useEffect(() => {
-    if (!selectedSprintId && sprints.length > 0) {
-      setSelectedSprintId(sprints[0].id);
+    if (!selectedSprintId && sprintsQuery.data?.length) {
+      setSelectedSprintId(sprintsQuery.data[0].id);
     }
-  }, [selectedSprintId, sprints]);
+  }, [selectedSprintId, sprintsQuery.data]);
 
-  const selectedSprint = useMemo(
-    () => sprints.find((sprint) => sprint.id === selectedSprintId) ?? sprints[0] ?? null,
-    [selectedSprintId, sprints]
-  );
+  const selectedSprint = useMemo(() => {
+    return sprintsQuery.data?.find((sprint) => sprint.id === selectedSprintId) ?? null;
+  }, [selectedSprintId, sprintsQuery.data]);
 
-  const activeSprint = sprints.find((sprint) => sprint.status === "active");
-  const currentSprintPoints = activeSprint?.items.reduce((sum, item) => sum + (item.storyPoints || 0), 0) || 0;
-  const sprintProgress = activeSprint ? (currentSprintPoints / activeSprint.capacity) * 100 : 0;
-  const selectedSprintPoints = selectedSprint?.items.reduce((sum, item) => sum + (item.storyPoints || 0), 0) || 0;
-  const selectedSprintCapacityUsage =
-    selectedSprint && selectedSprint.capacity > 0
-      ? Math.min(100, (selectedSprintPoints / selectedSprint.capacity) * 100)
-      : 0;
-  const selectedSprintDurationDays =
-    selectedSprint && selectedSprint.endDate && selectedSprint.startDate
-      ? Math.max(
-          1,
-          Math.round(
-            (selectedSprint.endDate.getTime() - selectedSprint.startDate.getTime()) /
-              (1000 * 60 * 60 * 24)
-          )
-        )
-      : 0;
-  const [newSprintName, setNewSprintName] = useState("");
-  const [newSprintGoal, setNewSprintGoal] = useState("");
-  const [newSprintStart, setNewSprintStart] = useState("");
-  const [newSprintEnd, setNewSprintEnd] = useState("");
-  const [newSprintCapacity, setNewSprintCapacity] = useState<number>(45);
-  const [newSprintDuration, setNewSprintDuration] = useState<number>(14);
-  const [newMemberCapacity, setNewMemberCapacity] = useState<Record<string, number>>(() =>
-    Object.fromEntries(TEAM_MEMBERS.map((member) => [member, 15]))
-  );
-
-  const lastVelocity = velocityHistory[velocityHistory.length - 1] ?? 0;
-  const recentVelocities = velocityHistory.slice(-3);
-  const averageVelocity = recentVelocities.length
-    ? Math.round(recentVelocities.reduce((sum, value) => sum + value, 0) / recentVelocities.length)
-    : 0;
-  const forecastLower = Math.max(0, averageVelocity - 5);
-  const forecastUpper = averageVelocity + 5;
-
-  const memberLoads = useMemo(() => {
-    if (!activeSprint) {
-      return TEAM_MEMBERS.map((member) => ({ name: member, committed: 0, capacity: 0 }));
-    }
-    const loadMap = new Map<string, number>();
-    activeSprint.items.forEach((item) => {
-      if (item.assignee?.name) {
-        loadMap.set(item.assignee.name, (loadMap.get(item.assignee.name) ?? 0) + (item.storyPoints ?? 0));
-      }
+  const availableItems = useMemo(() => {
+    const items = backlogQuery.data ?? [];
+    const assignedIds = new Set<string>();
+    sprintsQuery.data?.forEach((sprint) => {
+      sprint.items.forEach((item) => assignedIds.add(item.id));
     });
-    return TEAM_MEMBERS.map((member) => ({
-      name: member,
-      committed: loadMap.get(member) ?? 0,
-      capacity: activeSprint.memberCapacity[member] ?? 0,
-    }));
-  }, [activeSprint]);
+    return items.filter((item) => !assignedIds.has(item.id));
+  }, [backlogQuery.data, sprintsQuery.data]);
 
-  const capacityWarning = activeSprint ? currentSprintPoints > activeSprint.capacity : false;
+  const assignMutation = useMutation({
+    mutationFn: async ({ itemId, sprintId }: { itemId: string; sprintId: string }) =>
+      assignBacklogItemToSprint(itemId, sprintId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["backlog", "items"] });
+      queryClient.invalidateQueries({ queryKey: ["sprints", "list"] });
+    },
+  });
+
+  const removeMutation = useMutation({
+    mutationFn: async ({ itemId, sprintId }: { itemId: string; sprintId: string }) =>
+      removeBacklogItemFromSprint(itemId, sprintId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["backlog", "items"] });
+      queryClient.invalidateQueries({ queryKey: ["sprints", "list"] });
+    },
+  });
+
+  const updateSprintMutation = useMutation({
+    mutationFn: async ({
+      sprintId,
+      updates,
+    }: {
+      sprintId: string;
+      updates: Parameters<typeof updateSprint>[1];
+    }) => updateSprint(sprintId, updates),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["sprints", "list"] });
+    },
+  });
+
+  const startSprintMutation = useMutation({
+    mutationFn: startSprint,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["sprints", "list"] }),
+  });
+
+  const completeSprintMutation = useMutation({
+    mutationFn: completeSprint,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["sprints", "list"] }),
+  });
+
+  const createSprintMutation = useMutation({
+    mutationFn: createSprint,
+    onSuccess: (created) => {
+      queryClient.invalidateQueries({ queryKey: ["sprints", "list"] });
+      setForm(defaultForm);
+      setSelectedSprintId(created.id);
+    },
+  });
 
   const handleCreateSprint = () => {
-    if (!newSprintName || !newSprintStart) {
+    if (!form.name.trim()) {
       return;
     }
-    const startDate = new Date(newSprintStart);
-    const endDate = newSprintEnd
-      ? new Date(newSprintEnd)
-      : new Date(startDate.getTime() + newSprintDuration * 24 * 60 * 60 * 1000);
-    const sprint: Sprint = {
-      id: createId(),
-      name: newSprintName,
-      goal: newSprintGoal,
-      status: "planning",
-      startDate,
-      endDate,
-      capacity: newSprintCapacity,
-      items: [],
-      burndownData: Array.from({ length: Math.max(1, newSprintDuration) }, (_, index) => ({
-        day: index + 1,
-        remaining: newSprintCapacity,
-      })),
-      memberCapacity: { ...newMemberCapacity },
-      scopeChangeLog: [],
+    createSprintMutation.mutate({
+      name: form.name,
+      goal: form.goal,
+      startDate: form.startDate || undefined,
+      endDate: form.endDate || undefined,
+      capacity: Number.isFinite(form.capacity) ? form.capacity : undefined,
+      memberCapacity: {},
+    });
+  };
+
+  const handleCapacityChange = (sprint: SprintWithItems, member: string, capacity: number) => {
+    updateSprintMutation.mutate({
+      sprintId: sprint.id,
+      updates: {
+        memberCapacity: {
+          ...sprint.memberCapacity,
+          [member]: Math.max(0, capacity),
+        },
+      },
+    });
+  };
+
+  const handleSprintCapacityUpdate = (sprint: SprintWithItems, capacity: number) => {
+    updateSprintMutation.mutate({
+      sprintId: sprint.id,
+      updates: { capacity: Math.max(0, capacity) },
+    });
+  };
+
+  const metrics = useMemo(() => {
+    if (!selectedSprint) {
+      return { points: 0, capacityUsage: 0, percentage: 0, velocity: { average: 0, lower: 0, upper: 0 } };
+    }
+    const points = sumStoryPoints(selectedSprint.items);
+    const capacity = selectedSprint.capacity ?? 0;
+    const percentage = capacity > 0 ? Math.min(100, Math.round((points / capacity) * 100)) : 0;
+    return {
+      points,
+      capacityUsage: capacity,
+      percentage,
+      velocity: calculateVelocity(selectedSprint.velocityHistory),
     };
-    setSprints((prev) => [...prev, sprint]);
-    setSelectedSprintId(sprint.id);
-    setNewSprintName("");
-    setNewSprintGoal("");
-    setNewSprintStart("");
-    setNewSprintEnd("");
-    setNewSprintCapacity(45);
-    setNewSprintDuration(14);
-    setNewMemberCapacity(Object.fromEntries(TEAM_MEMBERS.map((member) => [member, 15])));
-  };
+  }, [selectedSprint]);
 
-  const handleStartSprint = (sprintId: string) => {
-    const now = new Date();
-    setSprints((prev) =>
-      prev.map((sprint) =>
-        sprint.id === sprintId
-          ? {
-              ...sprint,
-              status: "active" as const,
-              startDate: now,
-              scopeChangeLog: [...sprint.scopeChangeLog],
-            }
-          : sprint
-      )
+  if (backlogQuery.isLoading || sprintsQuery.isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <p className="text-muted-foreground">Loading sprint planning data…</p>
+      </div>
     );
-    setSelectedSprintId(sprintId);
-  };
+  }
 
-  const handleCompleteSprint = (sprintId: string) => {
-    const sprint = sprints.find((item) => item.id === sprintId);
-    const completedPoints = sprint?.items.reduce((sum, item) => sum + (item.storyPoints || 0), 0) ?? 0;
-    setSprints((prev) =>
-      prev.map((item) =>
-        item.id === sprintId
-          ? { ...item, status: "completed" as const, endDate: new Date() }
-          : item
-      )
+  if (backlogQuery.isError || sprintsQuery.isError) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] space-y-2">
+        <p className="text-destructive font-medium">Unable to load sprint planning data.</p>
+        <Button onClick={() => {
+          backlogQuery.refetch();
+          sprintsQuery.refetch();
+        }}>Retry</Button>
+      </div>
     );
-    setVelocityHistory((prev) => [...prev.slice(-5), completedPoints]);
-  };
-
-  const handleAddItemToSprint = (itemId: string, sprintId?: string) => {
-    const targetSprintId = sprintId ?? selectedSprint?.id;
-    if (!targetSprintId) return;
-    const item = availableItems.find((entry) => entry.id === itemId);
-    if (!item) return;
-    setAvailableItems((prev) => prev.filter((entry) => entry.id !== itemId));
-    setSprints((prev) =>
-      prev.map((sprint) =>
-        sprint.id === targetSprintId
-          ? {
-              ...sprint,
-              items: [...sprint.items, item],
-              scopeChangeLog:
-                sprint.status === "active"
-                  ? [
-                      ...sprint.scopeChangeLog,
-                      {
-                        id: createId(),
-                        timestamp: new Date().toISOString(),
-                        action: "added" as const,
-                        itemTitle: item.title,
-                        points: item.storyPoints ?? 0,
-                      },
-                    ]
-                  : sprint.scopeChangeLog,
-            }
-          : sprint
-      )
-    );
-  };
-
-  const handleRemoveFromSprint = (sprintId: string, itemId: string) => {
-    const sprint = sprints.find((entry) => entry.id === sprintId);
-    const item = sprint?.items.find((entry) => entry.id === itemId);
-    if (!sprint || !item) return;
-    setSprints((prev) =>
-      prev.map((current) =>
-        current.id === sprintId
-          ? {
-              ...current,
-              items: current.items.filter((entry) => entry.id !== itemId),
-              scopeChangeLog:
-                current.status === "active"
-                  ? [
-                      ...current.scopeChangeLog,
-                      {
-                        id: createId(),
-                        timestamp: new Date().toISOString(),
-                        action: "removed" as const,
-                        itemTitle: item.title,
-                        points: item.storyPoints ?? 0,
-                      },
-                    ]
-                  : current.scopeChangeLog,
-            }
-          : current
-      )
-    );
-    setAvailableItems((prev) => [...prev, item]);
-  };
-
-  const handleMemberCapacityChange = (sprintId: string, member: string, capacity: number) => {
-    setSprints((prev) =>
-      prev.map((sprint) =>
-        sprint.id === sprintId
-          ? {
-              ...sprint,
-              memberCapacity: {
-                ...sprint.memberCapacity,
-                [member]: Math.max(0, capacity),
-              },
-            }
-          : sprint
-      )
-    );
-  };
+  }
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Sprint Planning</h1>
           <p className="text-muted-foreground">Plan and manage your development sprints</p>
         </div>
+        <div className="flex gap-2">
+          {selectedSprint && selectedSprint.status === "planning" && (
+            <Button
+              variant="outline"
+              onClick={() => startSprintMutation.mutate(selectedSprint.id)}
+              disabled={startSprintMutation.isPending}
+            >
+              <Zap className="w-4 h-4 mr-2" />
+              Start Sprint
+            </Button>
+          )}
+          {selectedSprint && selectedSprint.status === "active" && (
+            <Button
+              variant="outline"
+              onClick={() => completeSprintMutation.mutate(selectedSprint.id)}
+              disabled={completeSprintMutation.isPending}
+            >
+              <CheckCircle className="w-4 h-4 mr-2" />
+              Complete Sprint
+            </Button>
+          )}
+        </div>
       </div>
 
-      {/* Active Sprint Stats */}
-      {activeSprint && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-success/10 rounded-lg">
-                  <Zap className="w-5 h-5 text-success" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Active Sprint</p>
-                  <p className="text-lg font-bold truncate">{activeSprint.name}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-primary/10 rounded-lg">
-                  <Target className="w-5 h-5 text-primary" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Story Points</p>
-                  <p className="text-2xl font-bold">{currentSprintPoints}/{activeSprint.capacity}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-warning/10 rounded-lg">
-                  <Calendar className="w-5 h-5 text-warning" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Days Remaining</p>
-                  <p className="text-2xl font-bold">
-                    {Math.ceil((activeSprint.endDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24))}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-accent/10 rounded-lg">
-                  <CheckCircle className="w-5 h-5 text-accent" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Completion</p>
-                  <p className="text-2xl font-bold">{Math.round(sprintProgress)}%</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* Sprint Tabs */}
-      <Tabs defaultValue="current" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="current">Current Sprint</TabsTrigger>
-          <TabsTrigger value="planning">Sprint Planning</TabsTrigger>
-          <TabsTrigger value="burndown">Burndown Chart</TabsTrigger>
-          <TabsTrigger value="history">Sprint History</TabsTrigger>
+      <Tabs value={selectedSprint?.id ?? "none"} onValueChange={setSelectedSprintId} className="space-y-4">
+        <TabsList className="flex flex-wrap gap-2">
+          {sprintsQuery.data?.map((sprint) => (
+            <TabsTrigger key={sprint.id} value={sprint.id} className="flex items-center gap-2">
+              <span>{sprint.name}</span>
+              <Badge variant="secondary" className={capacityVariant[sprint.status]}>
+                {sprint.status}
+              </Badge>
+            </TabsTrigger>
+          ))}
+          <TabsTrigger value="none" disabled>
+            {sprintsQuery.data?.length ? "" : "No sprints"}
+          </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="current" className="space-y-4">
-          {activeSprint ? (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Sprint Details */}
-              <div className="lg:col-span-2 space-y-4">
+        <TabsContent value={selectedSprint?.id ?? "none"} className="space-y-6">
+          {selectedSprint ? (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <Card>
-                  <CardHeader>
-                    <div className="flex items-start justify-between">
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-primary/10 rounded-lg">
+                        <Target className="w-5 h-5 text-primary" />
+                      </div>
                       <div>
-                        <CardTitle>{activeSprint.name}</CardTitle>
-                        <div className="flex items-center gap-2 mt-2">
-                          <Badge className={statusColors[activeSprint.status]} variant="secondary">
-                            {activeSprint.status}
-                          </Badge>
-                          <span className="text-sm text-muted-foreground">
-                            {activeSprint.startDate.toLocaleDateString()} - {activeSprint.endDate.toLocaleDateString()}
-                          </span>
-                        </div>
+                        <p className="text-sm text-muted-foreground">Story Points</p>
+                        <p className="text-2xl font-bold">{metrics.points}</p>
                       </div>
-                      <Button 
-                        variant="outline"
-                        onClick={() => handleCompleteSprint(activeSprint.id)}
-                      >
-                        <Square className="w-4 h-4 mr-2" />
-                        Complete Sprint
-                      </Button>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div>
-                      <h4 className="font-medium text-foreground mb-2">Sprint Goal</h4>
-                      <p className="text-muted-foreground">{activeSprint.goal}</p>
-                    </div>
-                    
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-medium">Capacity Usage</span>
-                        <span className="text-sm text-muted-foreground">
-                          {currentSprintPoints}/{activeSprint.capacity} points
-                        </span>
-                      </div>
-                      <Progress value={sprintProgress} className="h-2" />
                     </div>
                   </CardContent>
                 </Card>
 
-                {/* Sprint Items */}
                 <Card>
-                  <CardHeader>
-                    <CardTitle>Sprint Backlog ({activeSprint.items.length} items)</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      {activeSprint.items.map((item) => (
-                        <div key={item.id} className="p-4 border border-border rounded-lg">
-                          <div className="flex items-start justify-between gap-4">
-                            <div className="space-y-2">
-                              <h4 className="font-medium text-foreground">{item.title}</h4>
-                              <p className="text-sm text-muted-foreground">{item.description}</p>
-                              <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                                <Badge variant="outline">{item.storyPoints ?? 0} pts</Badge>
-                                <Badge variant="outline">{item.priority}</Badge>
-                                <span>{item.timeEstimateHours ?? 0} hrs</span>
-                              </div>
-                            </div>
-                            <div className="flex flex-col items-end gap-2">
-                              {item.assignee && (
-                                <div className="text-sm font-medium">{item.assignee.name}</div>
-                              )}
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleRemoveFromSprint(activeSprint.id, item.id)}
-                              >
-                                Remove
-                              </Button>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                      {activeSprint.items.length === 0 && (
-                        <p className="text-sm text-muted-foreground">No items assigned yet.</p>
-                      )}
-                    </div>
-                    {activeSprint.scopeChangeLog.length > 0 && (
-                      <div className="mt-4 border-t pt-3 space-y-2">
-                        <h4 className="text-sm font-medium text-foreground">Scope changes</h4>
-                        {activeSprint.scopeChangeLog.map((entry) => (
-                          <div key={entry.id} className="flex items-center gap-2 text-xs text-muted-foreground">
-                            <AlertTriangle className="w-3 h-3 text-warning" />
-                            <span>
-                              {new Date(entry.timestamp).toLocaleString()} — {entry.action === "added" ? "Added" : "Removed"} {entry.itemTitle} ({entry.points} pts)
-                            </span>
-                          </div>
-                        ))}
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-success/10 rounded-lg">
+                        <Calendar className="w-5 h-5 text-success" />
                       </div>
-                    )}
+                      <div>
+                        <p className="text-sm text-muted-foreground">Capacity</p>
+                        <p className="text-2xl font-bold">{metrics.capacityUsage ?? 0}</p>
+                      </div>
+                    </div>
                   </CardContent>
                 </Card>
-              </div>
 
-              {/* Team Velocity */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <TrendingDown className="w-5 h-5" />
-                    Team Velocity
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm">Last Sprint</span>
-                      <span className="font-medium">{lastVelocity} pts</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm">Average (3 sprints)</span>
-                      <span className="font-medium">{averageVelocity} pts</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm">Forecast Next Sprint</span>
-                      <span className="font-medium">{forecastLower}–{forecastUpper} pts</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm">Current Commitment</span>
-                      <span className="font-medium">{currentSprintPoints} pts</span>
-                    </div>
-                    {capacityWarning && (
-                      <div className="flex items-center gap-2 text-sm text-destructive">
-                        <AlertTriangle className="w-4 h-4" />
-                        <span>Commitment exceeds sprint capacity</span>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="pt-4 border-t">
-                    <h4 className="font-medium mb-3">Team Members</h4>
-                    <div className="space-y-2">
-                      {memberLoads.map((member) => {
-                        const overCapacity = member.capacity > 0 && member.committed > member.capacity;
-                        return (
-                          <div
-                            key={member.name}
-                            className={`flex items-center justify-between text-sm ${
-                              overCapacity ? "text-destructive" : "text-muted-foreground"
-                            }`}
-                          >
-                            <span>{member.name}</span>
-                            <div className="flex items-center gap-2">
-                              {overCapacity && <AlertTriangle className="w-3 h-3" />}
-                              <span>
-                                {member.committed}/{member.capacity || "∞"} pts
-                              </span>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          ) : (
-            <Card>
-              <CardContent className="flex items-center justify-center h-32">
-                <div className="text-center space-y-2">
-                  <Clock className="w-8 h-8 text-muted-foreground mx-auto" />
-                  <p className="text-muted-foreground">No active sprint</p>
-                  <p className="text-sm text-muted-foreground">Start a new sprint to begin tracking progress</p>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-        </TabsContent>
-
-        <TabsContent value="planning" className="space-y-6">
-          {sprints.length > 0 && (
-            <div className="space-y-4">
-              <div className="flex flex-wrap items-center justify-between gap-4">
-                <div>
-                  <p className="text-sm text-muted-foreground">Selected sprint</p>
-                  <h4 className="text-lg font-semibold text-foreground">{selectedSprint?.name ?? "None"}</h4>
-                </div>
-                <Select value={selectedSprint?.id ?? ""} onValueChange={setSelectedSprintId}>
-                  <SelectTrigger className="w-56">
-                    <SelectValue placeholder="Choose sprint" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {sprints.map((sprint) => (
-                      <SelectItem key={sprint.id} value={sprint.id}>
-                        {sprint.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {selectedSprint && (
                 <Card>
-                  <CardHeader className="flex flex-wrap items-start justify-between gap-4">
-                    <div>
-                      <CardTitle>{selectedSprint.name}</CardTitle>
-                      <div className="flex items-center gap-2 mt-2">
-                        <Badge className={statusColors[selectedSprint.status]} variant="secondary">
-                          {selectedSprint.status}
-                        </Badge>
-                        <span className="text-sm text-muted-foreground">
-                          {selectedSprint.startDate.toLocaleDateString()} – {selectedSprint.endDate.toLocaleDateString()}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {selectedSprint.status === "planning" && (
-                        <Button
-                          onClick={() => handleStartSprint(selectedSprint.id)}
-                          disabled={selectedSprint.items.length === 0}
-                        >
-                          <Play className="w-4 h-4 mr-2" />
-                          Start Sprint
-                        </Button>
-                      )}
-                      {selectedSprint.status === "active" && (
-                        <Button variant="outline" onClick={() => handleCompleteSprint(selectedSprint.id)}>
-                          <Square className="w-4 h-4 mr-2" />
-                          Complete Sprint
-                        </Button>
-                      )}
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                      <div>
-                        <p className="text-xs text-muted-foreground">Committed Points</p>
-                        <p className="text-lg font-semibold text-foreground">{selectedSprintPoints}</p>
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-warning/10 rounded-lg">
+                        <TrendingDown className="w-5 h-5 text-warning" />
                       </div>
                       <div>
-                        <p className="text-xs text-muted-foreground">Capacity</p>
-                        <p className="text-lg font-semibold text-foreground">{selectedSprint.capacity}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground">Duration</p>
-                        <p className="text-lg font-semibold text-foreground">
-                          {selectedSprintDurationDays} day{selectedSprintDurationDays === 1 ? "" : "s"}
+                        <p className="text-sm text-muted-foreground">Forecast</p>
+                        <p className="text-2xl font-bold">
+                          {metrics.velocity.lower} - {metrics.velocity.upper}
                         </p>
                       </div>
                     </div>
+                  </CardContent>
+                </Card>
 
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-muted/70 rounded-lg">
+                        <Clock className="w-5 h-5 text-foreground" />
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Timeline</p>
+                        <p className="text-2xl font-bold">
+                          {selectedSprint.startDate ?? "TBD"} → {selectedSprint.endDate ?? "TBD"}
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <Card className="lg:col-span-2">
+                  <CardHeader>
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <CardTitle>{selectedSprint.name}</CardTitle>
+                        <div className="flex items-center gap-2 mt-2">
+                          <Badge variant="secondary" className={capacityVariant[selectedSprint.status]}>
+                            {selectedSprint.status}
+                          </Badge>
+                          {selectedSprint.goal && (
+                            <span className="text-sm text-muted-foreground">{selectedSprint.goal}</span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          min={0}
+                          defaultValue={selectedSprint.capacity ?? 0}
+                          onBlur={(event) => handleSprintCapacityUpdate(
+                            selectedSprint,
+                            Number.parseFloat(event.target.value) || 0
+                          )}
+                          className="w-24 h-9 text-sm"
+                        />
+                        <span className="text-sm text-muted-foreground">Capacity</span>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
                     <div>
                       <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-medium text-foreground">Capacity Usage</span>
-                        <span className="text-sm text-muted-foreground">
-                          {selectedSprintPoints}/{selectedSprint.capacity} pts
-                        </span>
+                        <span className="text-sm font-medium">Capacity Usage</span>
+                        <span className="text-sm text-muted-foreground">{metrics.percentage}%</span>
                       </div>
-                      <Progress value={selectedSprintCapacityUsage} className="h-2" />
+                      <Progress value={metrics.percentage} />
                     </div>
 
-                    {selectedSprint.status === "planning" && selectedSprint.items.length === 0 && (
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <AlertTriangle className="w-4 h-4 text-warning" />
-                        <span>Add items to start this sprint.</span>
-                      </div>
-                    )}
-
                     <div className="space-y-3">
-                      <h4 className="text-sm font-medium text-foreground">Planned Items</h4>
-                      {selectedSprint.items.length > 0 ? (
+                      {selectedSprint.items.length === 0 ? (
+                        <p className="text-muted-foreground text-sm">No backlog items committed yet.</p>
+                      ) : (
                         selectedSprint.items.map((item) => (
                           <div
                             key={item.id}
-                            className="flex items-start justify-between gap-3 p-3 border border-border rounded-md"
+                            className="flex items-center justify-between border border-border rounded-lg px-3 py-2"
                           >
-                            <div className="space-y-1">
-                              <p className="text-sm font-medium text-foreground">{item.title}</p>
-                              <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                                <Badge variant="outline">{item.storyPoints ?? 0} pts</Badge>
-                                <Badge variant="outline">{item.priority}</Badge>
-                                <span>{item.timeEstimateHours ?? 0} hrs</span>
-                              </div>
+                            <div>
+                              <p className="font-medium text-foreground">{item.title}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {item.storyPoints ?? 0} pts • {item.priority}
+                              </p>
                             </div>
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => handleRemoveFromSprint(selectedSprint.id, item.id)}
+                              onClick={() => removeMutation.mutate({ itemId: item.id, sprintId: selectedSprint.id })}
+                              disabled={removeMutation.isPending}
                             >
                               Remove
                             </Button>
                           </div>
                         ))
-                      ) : (
-                        <p className="text-sm text-muted-foreground">No items assigned yet.</p>
                       )}
                     </div>
-
-                    {selectedSprint.scopeChangeLog.length > 0 && (
-                      <div className="space-y-2 border-t pt-3">
-                        <h4 className="text-sm font-medium text-foreground">Scope changes</h4>
-                        {selectedSprint.scopeChangeLog.map((entry) => (
-                          <div key={entry.id} className="flex items-center gap-2 text-xs text-muted-foreground">
-                            <AlertTriangle className="w-3 h-3 text-warning" />
-                            <span>
-                              {new Date(entry.timestamp).toLocaleString()} — {entry.action === "added" ? "Added" : "Removed"} {entry.itemTitle} ({entry.points} pts)
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
                   </CardContent>
                 </Card>
-              )}
-            </div>
-          )}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Available Backlog Items</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {availableItems.map((item) => (
-                    <div key={item.id} className="p-3 border border-border rounded-lg">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="space-y-1">
-                          <h4 className="font-medium text-foreground">{item.title}</h4>
-                          <p className="text-xs text-muted-foreground line-clamp-2">{item.description}</p>
-                          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                            <Badge variant="outline">{item.storyPoints ?? 0} pts</Badge>
-                            <Badge variant="outline">{item.priority}</Badge>
-                            <span>{item.timeEstimateHours ?? 0} hrs</span>
-                          </div>
-                        </div>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleAddItemToSprint(item.id)}
-                          disabled={!selectedSprint}
-                        >
-                          {selectedSprint ? `Add to ${selectedSprint.name}` : "Select sprint"}
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                  {availableItems.length === 0 && (
-                    <p className="text-sm text-muted-foreground">All backlog items are committed.</p>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
 
-            <div className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>New Sprint</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <label className="text-sm font-medium">Sprint Name</label>
-                    <input
-                      className="w-full mt-1 px-3 py-2 border border-border rounded-md"
-                      placeholder="Sprint 24 - Feature Name"
-                      value={newSprintName}
-                      onChange={(event) => setNewSprintName(event.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium">Sprint Goal</label>
-                    <textarea
-                      className="w-full mt-1 px-3 py-2 border border-border rounded-md"
-                      rows={3}
-                      placeholder="What do you want to achieve in this sprint?"
-                      value={newSprintGoal}
-                      onChange={(event) => setNewSprintGoal(event.target.value)}
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-sm font-medium">Start Date</label>
-                      <input
-                        type="date"
-                        className="w-full mt-1 px-3 py-2 border border-border rounded-md"
-                        value={newSprintStart}
-                        onChange={(event) => setNewSprintStart(event.target.value)}
-                      />
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium">End Date</label>
-                      <input
-                        type="date"
-                        className="w-full mt-1 px-3 py-2 border border-border rounded-md"
-                        value={newSprintEnd}
-                        onChange={(event) => setNewSprintEnd(event.target.value)}
-                      />
-                      <p className="text-xs text-muted-foreground mt-1">Leave blank to use duration</p>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-sm font-medium">Capacity (Story Points)</label>
-                      <input
-                        type="number"
-                        className="w-full mt-1 px-3 py-2 border border-border rounded-md"
-                        value={newSprintCapacity}
-                        onChange={(event) => setNewSprintCapacity(Number(event.target.value))}
-                      />
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium">Duration (Days)</label>
-                      <input
-                        type="number"
-                        className="w-full mt-1 px-3 py-2 border border-border rounded-md"
-                        value={newSprintDuration}
-                        onChange={(event) => setNewSprintDuration(Number(event.target.value))}
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <h4 className="text-sm font-medium">Team capacity allocation</h4>
-                    <div className="grid grid-cols-2 gap-3">
-                      {TEAM_MEMBERS.map((member) => (
-                        <div key={member} className="space-y-1">
-                          <label className="text-xs text-muted-foreground">{member}</label>
-                          <input
-                            type="number"
-                            className="w-full px-3 py-2 border border-border rounded-md text-sm"
-                            value={newMemberCapacity[member] ?? 0}
-                            onChange={(event) =>
-                              setNewMemberCapacity((prev) => ({
-                                ...prev,
-                                [member]: Number(event.target.value),
-                              }))
-                            }
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  <Button
-                    className="w-full"
-                    onClick={handleCreateSprint}
-                    type="button"
-                    disabled={!newSprintName || !newSprintStart}
-                  >
-                    <Plus className="w-4 h-4 mr-2" />
-                    Create Sprint
-                  </Button>
-                </CardContent>
-              </Card>
-
-              {selectedSprint && (
                 <Card>
                   <CardHeader>
-                    <CardTitle>Adjust Capacity for {selectedSprint.name}</CardTitle>
+                    <CardTitle>Member Capacity</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3">
-                    {TEAM_MEMBERS.map((member) => (
-                      <div key={member} className="flex items-center justify-between gap-3 text-sm">
-                        <span className="text-muted-foreground">{member}</span>
-                        <input
+                    {memberKeys(selectedSprint).length === 0 && (
+                      <p className="text-sm text-muted-foreground">
+                        Add capacity allocations to improve forecasts.
+                      </p>
+                    )}
+                    {memberKeys(selectedSprint).map((member) => (
+                      <div key={member} className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className="font-medium text-foreground">{member}</p>
+                          <p className="text-xs text-muted-foreground">Committed capacity (pts)</p>
+                        </div>
+                        <Input
                           type="number"
-                          className="w-24 px-3 py-2 border border-border rounded-md"
-                          value={selectedSprint.memberCapacity[member] ?? 0}
-                          onChange={(event) =>
-                            handleMemberCapacityChange(
-                              selectedSprint.id,
+                          min={0}
+                          defaultValue={selectedSprint?.memberCapacity[member] ?? 0}
+                          onBlur={(event) =>
+                            handleCapacityChange(
+                              selectedSprint,
                               member,
-                              Number(event.target.value)
+                              Number.parseFloat(event.target.value) || 0
                             )
                           }
+                          className="w-24 h-9 text-sm"
                         />
                       </div>
                     ))}
                   </CardContent>
                 </Card>
-              )}
-            </div>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="burndown">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <BarChart3 className="w-5 h-5" />
-                Sprint Burndown Chart
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {activeSprint ? (
-                <div className="h-64 flex items-center justify-center border border-dashed border-border rounded-lg">
-                  <div className="text-center space-y-2">
-                    <BarChart3 className="w-8 h-8 text-muted-foreground mx-auto" />
-                    <p className="text-muted-foreground">Burndown chart visualization</p>
-                    <p className="text-sm text-muted-foreground">
-                      Current: {activeSprint.burndownData[activeSprint.burndownData.length - 1]?.remaining || 0} points remaining
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <div className="h-64 flex items-center justify-center">
-                  <p className="text-muted-foreground">No active sprint to display burndown chart</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="history">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Trophy className="w-5 h-5" />
-                Sprint History
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {sprints.filter((sprint) => sprint.status === "completed").map((sprint) => (
-                  <div key={sprint.id} className="p-4 border border-border rounded-lg">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h4 className="font-medium text-foreground">{sprint.name}</h4>
-                        <p className="text-sm text-muted-foreground">{sprint.goal}</p>
-                        <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
-                          <span>{sprint.startDate.toLocaleDateString()} - {sprint.endDate.toLocaleDateString()}</span>
-                          <span>{sprint.capacity} points capacity</span>
-                        </div>
-                      </div>
-                      <Badge className={statusColors[sprint.status]} variant="secondary">
-                        {sprint.status}
-                      </Badge>
-                    </div>
-                  </div>
-                ))}
               </div>
-            </CardContent>
-          </Card>
+            </>
+          ) : (
+            <Card>
+              <CardContent className="p-6 text-center text-muted-foreground">
+                <p>Select a sprint to view details.</p>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
       </Tabs>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Zap className="w-5 h-5" />
+              Available Backlog Items
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {availableItems.length === 0 ? (
+              <p className="text-sm text-muted-foreground">All backlog items are committed.</p>
+            ) : (
+              availableItems.map((item) => (
+                <div
+                  key={item.id}
+                  className="flex items-center justify-between border border-border rounded-lg px-3 py-2"
+                >
+                  <div>
+                    <p className="font-medium text-foreground">{item.title}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {item.storyPoints ?? 0} pts • {item.priority}
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    disabled={!selectedSprint || assignMutation.isPending}
+                    onClick={() =>
+                      selectedSprint &&
+                      assignMutation.mutate({ itemId: item.id, sprintId: selectedSprint.id })
+                    }
+                  >
+                    Add to Sprint
+                  </Button>
+                </div>
+              ))
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Trophy className="w-5 h-5" />
+              Velocity History
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {selectedSprint && selectedSprint.velocityHistory.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {selectedSprint.velocityHistory.map((value, index) => (
+                  <Badge key={`${value}-${index}`} variant="outline">
+                    Sprint {index + 1}: {value} pts
+                  </Badge>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">Velocity data will appear after sprints complete.</p>
+            )}
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <AlertTriangle className="w-4 h-4" />
+              Use recent velocity to guide commitments and highlight risk.
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Plus className="w-5 h-5" />
+            Create Sprint
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+          <Input
+            placeholder="Sprint name"
+            value={form.name}
+            onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
+          />
+          <Input
+            placeholder="Sprint goal"
+            value={form.goal}
+            onChange={(event) => setForm((prev) => ({ ...prev, goal: event.target.value }))}
+          />
+          <Input
+            type="date"
+            value={form.startDate}
+            onChange={(event) => setForm((prev) => ({ ...prev, startDate: event.target.value }))}
+          />
+          <Input
+            type="date"
+            value={form.endDate}
+            onChange={(event) => setForm((prev) => ({ ...prev, endDate: event.target.value }))}
+          />
+          <Input
+            type="number"
+            min={0}
+            value={form.capacity}
+            onChange={(event) =>
+              setForm((prev) => ({ ...prev, capacity: Number.parseInt(event.target.value, 10) || 0 }))
+            }
+          />
+          <Button
+            className="md:col-span-2 lg:col-span-5"
+            onClick={handleCreateSprint}
+            disabled={createSprintMutation.isPending}
+          >
+            Create Sprint
+          </Button>
+        </CardContent>
+      </Card>
     </div>
   );
 }
