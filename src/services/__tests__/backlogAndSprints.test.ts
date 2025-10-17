@@ -111,7 +111,5 @@ describe("sprint service mapping", () => {
       "00000000-0000-4000-a000-000000000101",
       "00000000-0000-4000-a000-000000000103",
     ]);
-    expect(sprint.velocityHistory).toEqual([30, 34, 36]);
-    expect(sprint.memberCapacity["Ada Lovelace"]).toBe(15);
   });
 });

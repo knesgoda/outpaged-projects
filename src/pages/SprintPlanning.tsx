@@ -37,18 +37,16 @@ import type { BacklogItem } from "@/types/backlog";
 
 interface CreateSprintForm {
   name: string;
-  goal: string;
+  description: string;
   startDate: string;
   endDate: string;
-  capacity: number;
 }
 
 const defaultForm: CreateSprintForm = {
   name: "",
-  goal: "",
+  description: "",
   startDate: "",
   endDate: "",
-  capacity: 45,
 };
 
 const capacityVariant: Record<SprintWithItems["status"], string> = {
@@ -57,23 +55,6 @@ const capacityVariant: Record<SprintWithItems["status"], string> = {
   completed: "bg-muted text-muted-foreground",
 };
 
-const memberKeys = (sprint: SprintWithItems | undefined): string[] =>
-  sprint ? Object.keys(sprint.memberCapacity) : [];
-
-const calculateVelocity = (history: number[]): { average: number; lower: number; upper: number } => {
-  if (!history.length) {
-    return { average: 0, lower: 0, upper: 0 };
-  }
-  const recent = history.slice(-3);
-  const average = Math.round(
-    recent.reduce((sum, value) => sum + value, 0) / (recent.length || 1)
-  );
-  return {
-    average,
-    lower: Math.max(0, average - 5),
-    upper: average + 5,
-  };
-};
 
 const sumStoryPoints = (items: BacklogItem[]): number =>
   items.reduce((sum, item) => sum + (item.storyPoints ?? 0), 0);
@@ -166,47 +147,25 @@ export default function SprintPlanning() {
     if (!form.name.trim()) {
       return;
     }
+    // TODO: Get project ID from context or first backlog item
+    const projectId = "00000000-0000-4000-8000-000000000001"; // Placeholder
     createSprintMutation.mutate({
       name: form.name,
-      goal: form.goal,
+      description: form.description || undefined,
+      projectId,
       startDate: form.startDate || undefined,
       endDate: form.endDate || undefined,
-      capacity: Number.isFinite(form.capacity) ? form.capacity : undefined,
-      memberCapacity: {},
-    });
-  };
-
-  const handleCapacityChange = (sprint: SprintWithItems, member: string, capacity: number) => {
-    updateSprintMutation.mutate({
-      sprintId: sprint.id,
-      updates: {
-        memberCapacity: {
-          ...sprint.memberCapacity,
-          [member]: Math.max(0, capacity),
-        },
-      },
-    });
-  };
-
-  const handleSprintCapacityUpdate = (sprint: SprintWithItems, capacity: number) => {
-    updateSprintMutation.mutate({
-      sprintId: sprint.id,
-      updates: { capacity: Math.max(0, capacity) },
     });
   };
 
   const metrics = useMemo(() => {
     if (!selectedSprint) {
-      return { points: 0, capacityUsage: 0, percentage: 0, velocity: { average: 0, lower: 0, upper: 0 } };
+      return { points: 0, percentage: 0 };
     }
     const points = sumStoryPoints(selectedSprint.items);
-    const capacity = selectedSprint.capacity ?? 0;
-    const percentage = capacity > 0 ? Math.min(100, Math.round((points / capacity) * 100)) : 0;
     return {
       points,
-      capacityUsage: capacity,
-      percentage,
-      velocity: calculateVelocity(selectedSprint.velocityHistory),
+      percentage: 0,
     };
   }, [selectedSprint]);
 
@@ -302,7 +261,7 @@ export default function SprintPlanning() {
                       </div>
                       <div>
                         <p className="text-sm text-muted-foreground">Capacity</p>
-                        <p className="text-2xl font-bold">{metrics.capacityUsage ?? 0}</p>
+                        <p className="text-2xl font-bold">-</p>
                       </div>
                     </div>
                   </CardContent>
@@ -316,9 +275,7 @@ export default function SprintPlanning() {
                       </div>
                       <div>
                         <p className="text-sm text-muted-foreground">Forecast</p>
-                        <p className="text-2xl font-bold">
-                          {metrics.velocity.lower} - {metrics.velocity.upper}
-                        </p>
+                        <p className="text-2xl font-bold">-</p>
                       </div>
                     </div>
                   </CardContent>
@@ -351,23 +308,13 @@ export default function SprintPlanning() {
                           <Badge variant="secondary" className={capacityVariant[selectedSprint.status]}>
                             {selectedSprint.status}
                           </Badge>
-                          {selectedSprint.goal && (
-                            <span className="text-sm text-muted-foreground">{selectedSprint.goal}</span>
+                          {selectedSprint.description && (
+                            <span className="text-sm text-muted-foreground">{selectedSprint.description}</span>
                           )}
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Input
-                          type="number"
-                          min={0}
-                          defaultValue={selectedSprint.capacity ?? 0}
-                          onBlur={(event) => handleSprintCapacityUpdate(
-                            selectedSprint,
-                            Number.parseFloat(event.target.value) || 0
-                          )}
-                          className="w-24 h-9 text-sm"
-                        />
-                        <span className="text-sm text-muted-foreground">Capacity</span>
+                        <span className="text-sm text-muted-foreground">{metrics.points} story points</span>
                       </div>
                     </div>
                   </CardHeader>
@@ -415,32 +362,9 @@ export default function SprintPlanning() {
                     <CardTitle>Member Capacity</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3">
-                    {memberKeys(selectedSprint).length === 0 && (
-                      <p className="text-sm text-muted-foreground">
-                        Add capacity allocations to improve forecasts.
-                      </p>
-                    )}
-                    {memberKeys(selectedSprint).map((member) => (
-                      <div key={member} className="flex items-center justify-between gap-3">
-                        <div>
-                          <p className="font-medium text-foreground">{member}</p>
-                          <p className="text-xs text-muted-foreground">Committed capacity (pts)</p>
-                        </div>
-                        <Input
-                          type="number"
-                          min={0}
-                          defaultValue={selectedSprint?.memberCapacity[member] ?? 0}
-                          onBlur={(event) =>
-                            handleCapacityChange(
-                              selectedSprint,
-                              member,
-                              Number.parseFloat(event.target.value) || 0
-                            )
-                          }
-                          className="w-24 h-9 text-sm"
-                        />
-                      </div>
-                    ))}
+                    <p className="text-sm text-muted-foreground">
+                      Team capacity tracking coming soon.
+                    </p>
                   </CardContent>
                 </Card>
               </div>
@@ -502,20 +426,10 @@ export default function SprintPlanning() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {selectedSprint && selectedSprint.velocityHistory.length > 0 ? (
-              <div className="flex flex-wrap gap-2">
-                {selectedSprint.velocityHistory.map((value, index) => (
-                  <Badge key={`${value}-${index}`} variant="outline">
-                    Sprint {index + 1}: {value} pts
-                  </Badge>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">Velocity data will appear after sprints complete.</p>
-            )}
+            <p className="text-sm text-muted-foreground">Velocity tracking coming soon.</p>
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <AlertTriangle className="w-4 h-4" />
-              Use recent velocity to guide commitments and highlight risk.
+              Track velocity across sprints to guide commitments.
             </div>
           </CardContent>
         </Card>
@@ -528,16 +442,16 @@ export default function SprintPlanning() {
             Create Sprint
           </CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+        <CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <Input
             placeholder="Sprint name"
             value={form.name}
             onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
           />
           <Input
-            placeholder="Sprint goal"
-            value={form.goal}
-            onChange={(event) => setForm((prev) => ({ ...prev, goal: event.target.value }))}
+            placeholder="Description"
+            value={form.description}
+            onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
           />
           <Input
             type="date"
@@ -549,16 +463,8 @@ export default function SprintPlanning() {
             value={form.endDate}
             onChange={(event) => setForm((prev) => ({ ...prev, endDate: event.target.value }))}
           />
-          <Input
-            type="number"
-            min={0}
-            value={form.capacity}
-            onChange={(event) =>
-              setForm((prev) => ({ ...prev, capacity: Number.parseInt(event.target.value, 10) || 0 }))
-            }
-          />
           <Button
-            className="md:col-span-2 lg:col-span-5"
+            className="md:col-span-2 lg:col-span-4"
             onClick={handleCreateSprint}
             disabled={createSprintMutation.isPending}
           >

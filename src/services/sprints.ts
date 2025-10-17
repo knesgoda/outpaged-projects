@@ -17,13 +17,11 @@ interface SprintItemRow {
 interface SprintRow {
   id: string;
   name: string;
-  goal: string | null;
+  description: string | null;
+  project_id: string;
   status: string;
   start_date: string | null;
   end_date: string | null;
-  capacity: number | null;
-  velocity_history: unknown;
-  member_capacity: unknown;
   created_at: string;
   updated_at: string;
   sprint_items?: SprintItemRow[] | null;
@@ -32,51 +30,25 @@ interface SprintRow {
 export interface SprintWithItems {
   id: string;
   name: string;
-  goal: string | null;
+  description: string | null;
+  projectId: string;
   status: "planning" | "active" | "completed";
   startDate: string | null;
   endDate: string | null;
-  capacity: number | null;
-  velocityHistory: number[];
-  memberCapacity: Record<string, number>;
   items: BacklogItem[];
 }
 
 export interface CreateSprintInput {
   name: string;
-  goal?: string;
+  description?: string;
+  projectId: string;
   startDate?: string;
   endDate?: string;
-  capacity?: number;
   status?: "planning" | "active" | "completed";
-  memberCapacity?: Record<string, number>;
-  velocityHistory?: number[];
 }
 
 export interface UpdateSprintInput extends Partial<CreateSprintInput> {}
 
-const parseVelocityHistory = (value: unknown): number[] => {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-  return value
-    .map((entry) => (typeof entry === "number" ? entry : Number.parseFloat(String(entry))))
-    .filter((entry) => Number.isFinite(entry));
-};
-
-const parseMemberCapacity = (value: unknown): Record<string, number> => {
-  if (!value || typeof value !== "object") {
-    return {};
-  }
-  const entries: Array<[string, number]> = [];
-  for (const [key, raw] of Object.entries(value as Record<string, unknown>)) {
-    const numeric = typeof raw === "number" ? raw : Number.parseFloat(String(raw));
-    if (Number.isFinite(numeric)) {
-      entries.push([key, numeric]);
-    }
-  }
-  return Object.fromEntries(entries);
-};
 
 export function mapSprintRow(row: SprintRow): SprintWithItems {
   const items = (row.sprint_items ?? [])
@@ -89,13 +61,11 @@ export function mapSprintRow(row: SprintRow): SprintWithItems {
   return {
     id: row.id,
     name: row.name,
-    goal: row.goal,
+    description: row.description,
+    projectId: row.project_id,
     status: (row.status as SprintWithItems["status"]) ?? "planning",
     startDate: row.start_date,
     endDate: row.end_date,
-    capacity: row.capacity,
-    velocityHistory: parseVelocityHistory(row.velocity_history),
-    memberCapacity: parseMemberCapacity(row.member_capacity),
     items,
   };
 }
@@ -107,13 +77,11 @@ export async function listSprints(): Promise<SprintWithItems[]> {
       `
         id,
         name,
-        goal,
+        description,
+        project_id,
         status,
         start_date,
         end_date,
-        capacity,
-        velocity_history,
-        member_capacity,
         created_at,
         updated_at,
         sprint_items ( id, position, committed_points, backlog_items (
@@ -151,13 +119,11 @@ export async function createSprint(input: CreateSprintInput): Promise<SprintWith
   const now = new Date().toISOString();
   const payload = {
     name: input.name.trim(),
-    goal: input.goal ?? null,
+    description: input.description ?? null,
+    project_id: input.projectId,
     status: input.status ?? "planning",
     start_date: input.startDate ?? null,
     end_date: input.endDate ?? null,
-    capacity: input.capacity ?? null,
-    velocity_history: input.velocityHistory ?? [],
-    member_capacity: input.memberCapacity ?? {},
     created_at: now,
     updated_at: now,
   };
@@ -186,8 +152,8 @@ export async function updateSprint(id: string, updates: UpdateSprintInput): Prom
   if (typeof updates.name === "string") {
     payload.name = updates.name.trim();
   }
-  if (typeof updates.goal === "string") {
-    payload.goal = updates.goal;
+  if (typeof updates.description === "string") {
+    payload.description = updates.description;
   }
   if (typeof updates.status === "string") {
     payload.status = updates.status;
@@ -197,15 +163,6 @@ export async function updateSprint(id: string, updates: UpdateSprintInput): Prom
   }
   if (typeof updates.endDate !== "undefined") {
     payload.end_date = updates.endDate ?? null;
-  }
-  if (typeof updates.capacity !== "undefined") {
-    payload.capacity = updates.capacity ?? null;
-  }
-  if (typeof updates.velocityHistory !== "undefined") {
-    payload.velocity_history = updates.velocityHistory ?? [];
-  }
-  if (typeof updates.memberCapacity !== "undefined") {
-    payload.member_capacity = updates.memberCapacity ?? {};
   }
 
   if (Object.keys(payload).length <= 1) {
@@ -227,13 +184,11 @@ async function fetchSprintById(id: string): Promise<SprintWithItems> {
       `
         id,
         name,
-        goal,
+        description,
+        project_id,
         status,
         start_date,
         end_date,
-        capacity,
-        velocity_history,
-        member_capacity,
         created_at,
         updated_at,
         sprint_items ( id, position, committed_points, backlog_items (
