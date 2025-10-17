@@ -600,48 +600,6 @@ export type Database = {
           },
         ]
       }
-      sprints: {
-        Row: {
-          capacity: number | null
-          created_at: string
-          end_date: string | null
-          goal: string | null
-          id: string
-          member_capacity: Json
-          name: string
-          start_date: string | null
-          status: string
-          updated_at: string
-          velocity_history: Json
-        }
-        Insert: {
-          capacity?: number | null
-          created_at?: string
-          end_date?: string | null
-          goal?: string | null
-          id?: string
-          member_capacity?: Json
-          name: string
-          start_date?: string | null
-          status?: string
-          updated_at?: string
-          velocity_history?: Json
-        }
-        Update: {
-          capacity?: number | null
-          created_at?: string
-          end_date?: string | null
-          goal?: string | null
-          id?: string
-          member_capacity?: Json
-          name?: string
-          start_date?: string | null
-          status?: string
-          updated_at?: string
-          velocity_history?: Json
-        }
-        Relationships: []
-      }
       calendar_availability_blocks: {
         Row: {
           availability_type: Database["public"]["Enums"]["calendar_availability_type"]
