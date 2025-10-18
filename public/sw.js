@@ -1,9 +1,10 @@
 // Service Worker for OutPaged PWA
 // Offline-first with background sync and cache management
 
-const CACHE_VERSION = 'v1';
+const CACHE_VERSION = 'v2';
 const SHELL_CACHE = `outpaged-shell-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `outpaged-runtime-${CACHE_VERSION}`;
+const SUPABASE_CACHE_TTL_MS = 60 * 1000; // 1 minute TTL for Supabase responses
 const OFFLINE_URL = '/offline.html';
 
 const SHELL_URLS = [
@@ -49,18 +50,43 @@ self.addEventListener('fetch', (event) => {
   // API requests: stale-while-revalidate
   if (url.pathname.startsWith('/api/') || url.hostname.includes('supabase')) {
     event.respondWith(
-      caches.open(RUNTIME_CACHE).then((cache) => {
-        return cache.match(request).then((cached) => {
-          const fetchPromise = fetch(request).then((response) => {
-            if (response.ok) {
-              cache.put(request, response.clone());
+      (async () => {
+        const cache = await caches.open(RUNTIME_CACHE);
+        try {
+          const networkResponse = await fetch(request);
+          if (networkResponse && networkResponse.ok) {
+            const cacheCandidate = networkResponse.clone();
+            try {
+              const body = await cacheCandidate.text();
+              const headers = new Headers(cacheCandidate.headers);
+              headers.set('sw-fetched-at', Date.now().toString());
+              const responseToCache = new Response(body, {
+                status: cacheCandidate.status,
+                statusText: cacheCandidate.statusText,
+                headers,
+              });
+              await cache.put(request, responseToCache);
+            } catch (cacheError) {
+              // If caching fails, proceed without blocking the network response.
+              console.warn('Supabase cache put failed', cacheError);
             }
-            return response;
-          }).catch(() => cached || new Response('Offline', { status: 503 }));
-
-          return cached || fetchPromise;
-        });
-      })
+          }
+          return networkResponse;
+        } catch (error) {
+          const cached = await cache.match(request);
+          if (cached) {
+            const fetchedAtHeader = cached.headers.get('sw-fetched-at');
+            if (fetchedAtHeader) {
+              const age = Date.now() - Number(fetchedAtHeader);
+              if (Number.isFinite(age) && age <= SUPABASE_CACHE_TTL_MS) {
+                return cached;
+              }
+            }
+            await cache.delete(request);
+          }
+          return new Response('Offline', { status: 503 });
+        }
+      })()
     );
     return;
   }
