@@ -137,10 +137,21 @@ const resolveClient = (options?: ProjectServiceOptions) =>
 
 const applyWorkspaceConstraint = (builder: any, options?: ProjectServiceOptions) => {
   const tenant = resolveTenant(options);
-  if (!tenant?.workspaceId || typeof builder?.eq !== "function") {
+  if (!tenant?.workspaceId) {
     return builder;
   }
-  return builder.eq("workspace_id", tenant.workspaceId);
+
+  if (typeof builder?.or === "function") {
+    return builder.or(
+      `workspace_id.eq.${tenant.workspaceId},workspace_id.is.null`,
+    );
+  }
+
+  if (typeof builder?.eq === "function") {
+    return builder.eq("workspace_id", tenant.workspaceId);
+  }
+
+  return builder;
 };
 
 const normalizeArray = (value?: string[] | null) => {
@@ -350,6 +361,12 @@ export async function createProject(
 
   const tenant = resolveTenant(options);
 
+  if (!tenant?.workspaceId) {
+    throw new Error(
+      "A workspace must be selected before creating a project. Please choose a workspace and try again.",
+    );
+  }
+
   const lifecycleInput: ProjectLifecycleMetadata | undefined = input.lifecycle
     ? { ...input.lifecycle, idempotency_key: input.lifecycle.idempotency_key ?? idempotencyKey ?? null }
     : idempotencyKey
@@ -364,7 +381,7 @@ export async function createProject(
     start_date: input.start_date || null,
     end_date: input.end_date || null,
     owner_id: ownerId,
-    workspace_id: tenant?.workspaceId ?? null,
+    workspace_id: tenant.workspaceId,
     space_id: (tenant as any)?.spaceId ?? null,
     template_key: input.template_key ?? null,
     modules: normalizeArray(input.modules ?? null),
