@@ -35,7 +35,7 @@ export function QuarterlyRoadmap({ projectId }: { projectId: string }) {
 
   const fetchRoadmap = async () => {
     const { data: itemsData } = await supabase
-      .from('roadmap_items')
+      .from('roadmap_items' as any)
       .select('*')
       .eq('project_id', projectId)
       .order('year', { ascending: true })
@@ -45,7 +45,7 @@ export function QuarterlyRoadmap({ projectId }: { projectId: string }) {
       setItems(itemsData as any);
 
       const { data: milestonesData } = await supabase
-        .from('roadmap_milestones')
+        .from('roadmap_milestones' as any)
         .select('*')
         .in('roadmap_item_id', (itemsData as any).map((i: any) => i.id))
         .order('target_date', { ascending: true });

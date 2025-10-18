@@ -41,7 +41,7 @@ export function MarketingProvider({ children }: { children: React.ReactNode }) {
   const fetchCampaigns = async () => {
     try {
       const { data, error } = await supabase
-        .from('marketing_campaigns')
+        .from('marketing_campaigns' as any)
         .select('*')
         .order('created_at', { ascending: false });
 
@@ -65,7 +65,7 @@ export function MarketingProvider({ children }: { children: React.ReactNode }) {
   const createCampaign = async (data: Partial<Campaign>) => {
     try {
       const { data: campaign, error } = await supabase
-        .from('marketing_campaigns')
+        .from('marketing_campaigns' as any)
         .insert([{ ...data, workflow_state: 'draft' }])
         .select()
         .single();
@@ -92,7 +92,7 @@ export function MarketingProvider({ children }: { children: React.ReactNode }) {
   const updateCampaign = async (id: string, data: Partial<Campaign>) => {
     try {
       const { error } = await supabase
-        .from('marketing_campaigns')
+        .from('marketing_campaigns' as any)
         .update(data as any)
         .eq('id', id);
 

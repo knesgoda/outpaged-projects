@@ -45,7 +45,7 @@ export function SlackProvider({ children }: { children: React.ReactNode }) {
   const fetchSettings = async () => {
     try {
       const { data: settingsData, error: settingsError } = await supabase
-        .from('slack_integration_settings')
+        .from('slack_integration_settings' as any)
         .select('*')
         .maybeSingle();
 
@@ -54,7 +54,7 @@ export function SlackProvider({ children }: { children: React.ReactNode }) {
 
       if (settingsData) {
         const { data: mappingsData, error: mappingsError } = await supabase
-          .from('slack_channel_mappings')
+          .from('slack_channel_mappings' as any)
           .select('*')
           .eq('slack_settings_id', (settingsData as any).id);
 
@@ -80,14 +80,14 @@ export function SlackProvider({ children }: { children: React.ReactNode }) {
     try {
       if (settings) {
         const { error } = await supabase
-          .from('slack_integration_settings')
+          .from('slack_integration_settings' as any)
           .update(data as any)
           .eq('id', settings.id);
 
         if (error) throw error;
       } else {
         const { error } = await supabase
-          .from('slack_integration_settings')
+          .from('slack_integration_settings' as any)
           .insert([data as any]);
 
         if (error) throw error;
@@ -115,7 +115,7 @@ export function SlackProvider({ children }: { children: React.ReactNode }) {
       }
 
       const { error } = await supabase
-        .from('slack_channel_mappings')
+        .from('slack_channel_mappings' as any)
         .insert([{ ...data, slack_settings_id: settings.id } as any]);
 
       if (error) throw error;
@@ -138,7 +138,7 @@ export function SlackProvider({ children }: { children: React.ReactNode }) {
   const removeChannelMapping = async (id: string) => {
     try {
       const { error } = await supabase
-        .from('slack_channel_mappings')
+        .from('slack_channel_mappings' as any)
         .delete()
         .eq('id', id);
 

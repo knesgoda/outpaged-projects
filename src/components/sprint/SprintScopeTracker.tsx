@@ -25,7 +25,7 @@ export function SprintScopeTracker({ sprintId }: { sprintId: string }) {
 
   const fetchScopeChanges = async () => {
     const { data, error } = await supabase
-      .from('sprint_scope_changes')
+      .from('sprint_scope_changes' as any)
       .select('*')
       .eq('sprint_id', sprintId)
       .order('changed_at', { ascending: false });

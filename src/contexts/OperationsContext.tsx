@@ -42,7 +42,7 @@ export function OperationsProvider({ children }: { children: React.ReactNode }) 
   const fetchTasks = async () => {
     try {
       const { data, error } = await supabase
-        .from('operations_tasks')
+        .from('operations_tasks' as any)
         .select('*')
         .order('created_at', { ascending: false });
 
@@ -66,7 +66,7 @@ export function OperationsProvider({ children }: { children: React.ReactNode }) 
   const createTask = async (data: Partial<OperationsTask>) => {
     try {
       const { error } = await supabase
-        .from('operations_tasks')
+        .from('operations_tasks' as any)
         .insert([data as any]);
 
       if (error) throw error;
@@ -89,7 +89,7 @@ export function OperationsProvider({ children }: { children: React.ReactNode }) 
   const updateTask = async (id: string, data: Partial<OperationsTask>) => {
     try {
       const { error } = await supabase
-        .from('operations_tasks')
+        .from('operations_tasks' as any)
         .update(data as any)
         .eq('id', id);
 

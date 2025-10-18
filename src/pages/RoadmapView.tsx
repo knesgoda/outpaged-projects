@@ -72,10 +72,7 @@ export default function RoadmapView() {
         </p>
       </div>
 
-      <QuarterlyRoadmap
-        initiatives={mockInitiatives}
-        onInitiativeClick={(id) => console.log("Initiative clicked:", id)}
-      />
+      <QuarterlyRoadmap projectId="default-project-id" />
     </div>
   );
 }
