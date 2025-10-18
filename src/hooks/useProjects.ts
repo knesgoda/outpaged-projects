@@ -93,10 +93,11 @@ const toServiceParams = (params: ProjectsQueryInput): ProjectListParams => ({
 export function useProjects(params: ProjectsQueryInput) {
   const serviceParams = toServiceParams(params);
   const domainClient = useDomainClient();
+  const workspaceKey = domainClient.tenant.workspaceId ?? "no-workspace";
   const telemetry = useTelemetry();
 
   return useQuery({
-    queryKey: [projectsKey[0], serviceParams],
+    queryKey: [projectsKey[0], workspaceKey, serviceParams],
     queryFn: () => telemetry.measure("projects.list", () => listProjects(serviceParams, { client: domainClient })),
     placeholderData: previous => previous as any,
     staleTime: 0,
