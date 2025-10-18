@@ -98,7 +98,10 @@ export function useProjects(params: ProjectsQueryInput) {
   return useQuery({
     queryKey: [projectsKey[0], serviceParams],
     queryFn: () => telemetry.measure("projects.list", () => listProjects(serviceParams, { client: domainClient })),
-    placeholderData: (previous) => previous as any,
+    placeholderData: previous => previous as any,
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: "always",
   });
 }
 
