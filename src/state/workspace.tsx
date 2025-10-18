@@ -174,23 +174,51 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       if (workspaceId !== null) {
         setWorkspaceId(null);
         safeWriteStorage(WORKSPACE_STORAGE_KEY, null);
+        setSpaceId(null);
+        safeWriteStorage(SPACE_STORAGE_KEY, null);
       }
       return;
     }
 
-    if (!workspaceId || !workspaces.some((workspace) => workspace.id === workspaceId)) {
-      const stored = safeReadStorage(WORKSPACE_STORAGE_KEY);
-      const candidate = stored && workspaces.some((workspace) => workspace.id === stored)
-        ? stored
-        : workspaces[0]?.id ?? null;
+    const hasCurrentWorkspace = workspaceId
+      ? workspaces.some((workspace) => workspace.id === workspaceId)
+      : false;
 
-      if (candidate && candidate !== workspaceId) {
-        setWorkspaceId(candidate);
-        safeWriteStorage(WORKSPACE_STORAGE_KEY, candidate);
+    if (hasCurrentWorkspace) {
+      return;
+    }
+
+    const stored = safeReadStorage(WORKSPACE_STORAGE_KEY);
+    const storedIsValid = stored ? workspaces.some((workspace) => workspace.id === stored) : false;
+
+    if (storedIsValid) {
+      if (stored !== workspaceId) {
+        setWorkspaceId(stored);
+        safeWriteStorage(WORKSPACE_STORAGE_KEY, stored);
         setSpaceId(null);
         safeWriteStorage(SPACE_STORAGE_KEY, null);
       }
+      return;
     }
+
+    const autoSelectWorkspaceId = workspaces.length === 1 ? workspaces[0]?.id ?? null : null;
+
+    if (autoSelectWorkspaceId) {
+      if (autoSelectWorkspaceId !== workspaceId) {
+        setWorkspaceId(autoSelectWorkspaceId);
+        safeWriteStorage(WORKSPACE_STORAGE_KEY, autoSelectWorkspaceId);
+        setSpaceId(null);
+        safeWriteStorage(SPACE_STORAGE_KEY, null);
+      }
+      return;
+    }
+
+    if (workspaceId !== null) {
+      setWorkspaceId(null);
+    }
+    safeWriteStorage(WORKSPACE_STORAGE_KEY, null);
+    setSpaceId(null);
+    safeWriteStorage(SPACE_STORAGE_KEY, null);
   }, [workspaces, loadingWorkspaces, workspaceId]);
 
   useEffect(() => {
