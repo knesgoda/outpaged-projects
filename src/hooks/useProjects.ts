@@ -101,8 +101,10 @@ export function useProjects(params: ProjectsQueryInput) {
     queryFn: () => telemetry.measure("projects.list", () => listProjects(serviceParams, { client: domainClient })),
     placeholderData: previous => previous as any,
     staleTime: 0,
-    refetchOnMount: "always",
-    refetchOnWindowFocus: "always",
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+    // Force fresh data after workspace changes to avoid caching issues
+    gcTime: 0,
   });
 }
 

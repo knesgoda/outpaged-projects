@@ -141,12 +141,7 @@ const applyWorkspaceConstraint = (builder: any, options?: ProjectServiceOptions)
     return builder;
   }
 
-  if (typeof builder?.or === "function") {
-    return builder.or(
-      `workspace_id.eq.${tenant.workspaceId},workspace_id.is.null`,
-    );
-  }
-
+  // Use strict workspace filtering - all projects must have a workspace_id
   if (typeof builder?.eq === "function") {
     return builder.eq("workspace_id", tenant.workspaceId);
   }
