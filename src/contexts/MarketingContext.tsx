@@ -46,7 +46,7 @@ export function MarketingProvider({ children }: { children: React.ReactNode }) {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setCampaigns(data || []);
+      setCampaigns((data as any) || []);
     } catch (error: any) {
       toast({
         title: 'Error fetching campaigns',
@@ -78,7 +78,7 @@ export function MarketingProvider({ children }: { children: React.ReactNode }) {
       });
 
       await fetchCampaigns();
-      return campaign;
+      return campaign as any;
     } catch (error: any) {
       toast({
         title: 'Error creating campaign',
@@ -93,7 +93,7 @@ export function MarketingProvider({ children }: { children: React.ReactNode }) {
     try {
       const { error } = await supabase
         .from('marketing_campaigns')
-        .update(data)
+        .update(data as any)
         .eq('id', id);
 
       if (error) throw error;

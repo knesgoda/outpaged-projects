@@ -31,8 +31,8 @@ export function SprintScopeTracker({ sprintId }: { sprintId: string }) {
       .order('changed_at', { ascending: false });
 
     if (data) {
-      setScopeChanges(data);
-      const delta = data.reduce((sum, change) => sum + change.story_points_delta, 0);
+      setScopeChanges(data as any);
+      const delta = (data as any).reduce((sum: number, change: any) => sum + change.story_points_delta, 0);
       setTotalDelta(delta);
     }
   };

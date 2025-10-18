@@ -47,7 +47,7 @@ export function OperationsProvider({ children }: { children: React.ReactNode }) 
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setTasks(data || []);
+      setTasks((data as any) || []);
     } catch (error: any) {
       toast({
         title: 'Error fetching operations tasks',
@@ -67,7 +67,7 @@ export function OperationsProvider({ children }: { children: React.ReactNode }) 
     try {
       const { error } = await supabase
         .from('operations_tasks')
-        .insert([data]);
+        .insert([data as any]);
 
       if (error) throw error;
 
@@ -90,7 +90,7 @@ export function OperationsProvider({ children }: { children: React.ReactNode }) 
     try {
       const { error } = await supabase
         .from('operations_tasks')
-        .update(data)
+        .update(data as any)
         .eq('id', id);
 
       if (error) throw error;
@@ -126,8 +126,8 @@ export function OperationsProvider({ children }: { children: React.ReactNode }) 
       const now = new Date();
       const createdAt = new Date(task.created_at);
       
-      const responseDue = new Date(createdAt.getTime() + slaDef.response_time_minutes * 60000);
-      const resolutionDue = new Date(createdAt.getTime() + slaDef.resolution_time_minutes * 60000);
+      const responseDue = new Date(createdAt.getTime() + (slaDef as any).response_time_minutes * 60000);
+      const resolutionDue = new Date(createdAt.getTime() + (slaDef as any).resolution_time_minutes * 60000);
 
       let breachStatus: 'ok' | 'warning' | 'breached' = 'ok';
       if (now > resolutionDue) {

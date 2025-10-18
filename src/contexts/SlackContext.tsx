@@ -50,16 +50,16 @@ export function SlackProvider({ children }: { children: React.ReactNode }) {
         .maybeSingle();
 
       if (settingsError) throw settingsError;
-      setSettings(settingsData);
+      setSettings(settingsData as any);
 
       if (settingsData) {
         const { data: mappingsData, error: mappingsError } = await supabase
           .from('slack_channel_mappings')
           .select('*')
-          .eq('slack_settings_id', settingsData.id);
+          .eq('slack_settings_id', (settingsData as any).id);
 
         if (mappingsError) throw mappingsError;
-        setChannelMappings(mappingsData || []);
+        setChannelMappings((mappingsData as any) || []);
       }
     } catch (error: any) {
       toast({
@@ -81,14 +81,14 @@ export function SlackProvider({ children }: { children: React.ReactNode }) {
       if (settings) {
         const { error } = await supabase
           .from('slack_integration_settings')
-          .update(data)
+          .update(data as any)
           .eq('id', settings.id);
 
         if (error) throw error;
       } else {
         const { error } = await supabase
           .from('slack_integration_settings')
-          .insert([data]);
+          .insert([data as any]);
 
         if (error) throw error;
       }
@@ -116,7 +116,7 @@ export function SlackProvider({ children }: { children: React.ReactNode }) {
 
       const { error } = await supabase
         .from('slack_channel_mappings')
-        .insert([{ ...data, slack_settings_id: settings.id }]);
+        .insert([{ ...data, slack_settings_id: settings.id } as any]);
 
       if (error) throw error;
 
@@ -160,7 +160,6 @@ export function SlackProvider({ children }: { children: React.ReactNode }) {
   };
 
   const sendNotification = async (channel: string, message: string) => {
-    // This would typically call an edge function that interacts with Slack API
     toast({
       title: 'Notification sent',
       description: `Message sent to ${channel}`,

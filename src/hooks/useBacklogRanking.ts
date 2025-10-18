@@ -11,7 +11,7 @@ export function useBacklogRanking() {
     try {
       const { error } = await supabase
         .from('tasks')
-        .update({ backlog_rank: newRank })
+        .update({ backlog_rank: newRank } as any)
         .eq('id', taskId);
 
       if (error) throw error;
@@ -37,7 +37,7 @@ export function useBacklogRanking() {
       const updates = tasks.map((task) =>
         supabase
           .from('tasks')
-          .update({ backlog_rank: task.rank })
+          .update({ backlog_rank: task.rank } as any)
           .eq('id', task.id)
       );
 
