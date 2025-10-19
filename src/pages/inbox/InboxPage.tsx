@@ -287,7 +287,7 @@ export function InboxPage({ tab = "all" }: { tab?: InboxTab }) {
     }
 
     const current = filteredNotifications[activeIndex];
-    if (!current) return;
+    if (!current || !event?.key) return;
 
     if (event.key === "Enter") {
       event.preventDefault();

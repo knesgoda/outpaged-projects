@@ -263,6 +263,7 @@ export function Topbar({ onToggleSidebar, onOpenShortcuts }: TopbarProps) {
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
     const handler = (event: globalThis.KeyboardEvent) => {
+      if (!event?.key) return;
       if (event.key.toLowerCase() === "k" && (event.metaKey || event.ctrlKey)) {
         event.preventDefault();
         focusSearchInput(true);

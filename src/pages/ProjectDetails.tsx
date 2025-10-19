@@ -89,15 +89,10 @@ function LegacyProjectDetails({ overrideProjectId }: { overrideProjectId?: strin
 
     try {
       const { data, error } = await supabase
-        .from('project_members')
-        .select(`
-          *,
-          profiles!project_members_user_id_fkey (
-            full_name,
-            avatar_url
-          )
-        `)
-        .eq('project_id', projectId);
+        .from('project_members_with_profiles')
+        .select('*')
+        .eq('project_id', projectId)
+        .order('full_name', { ascending: true });
 
       if (error) throw error;
       setMembers(data || []);
@@ -344,7 +339,11 @@ function LegacyProjectDetails({ overrideProjectId }: { overrideProjectId?: strin
             <CardContent>
               <div className="space-y-3">
                 {tasks.slice(0, 5).map((task) => (
-                  <div key={task.id} className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                  <div 
+                    key={task.id} 
+                    className="flex items-center justify-between p-3 bg-muted rounded-lg cursor-pointer hover:bg-accent/50 transition-colors"
+                    onClick={() => navigate(`/dashboard/tasks/${task.id}`)}
+                  >
                     <div>
                       <p className="font-medium">{task.title}</p>
                       <p className="text-sm text-muted-foreground">
@@ -420,7 +419,11 @@ function LegacyProjectDetails({ overrideProjectId }: { overrideProjectId?: strin
               </Card>
             ) : (
               tasks.map((task) => (
-                <Card key={task.id} className="p-4">
+                <Card 
+                  key={task.id} 
+                  className="p-4 cursor-pointer hover:bg-accent/50 transition-colors"
+                  onClick={() => navigate(`/dashboard/tasks/${task.id}`)}
+                >
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
@@ -474,19 +477,15 @@ function LegacyProjectDetails({ overrideProjectId }: { overrideProjectId?: strin
               </Card>
             ) : (
               members.map((member) => (
-                <Card key={member.id} className="p-4">
+                <Card key={member.user_id} className="p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
                         <Users className="w-5 h-5" />
                       </div>
                       <div>
-                        <h4 className="font-medium">{member.profiles?.full_name || 'Unknown'}</h4>
-                        <p className="text-sm text-muted-foreground capitalize">{member.role}</p>
+                        <h4 className="font-medium">{member.full_name || 'Unknown'}</h4>
                       </div>
-                    </div>
-                    <div className="text-sm text-muted-foreground">
-                      Joined {format(new Date(member.joined_at), "MMM dd, yyyy")}
                     </div>
                   </div>
                 </Card>

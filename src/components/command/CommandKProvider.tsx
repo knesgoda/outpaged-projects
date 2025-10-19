@@ -70,6 +70,7 @@ export const CommandKProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
+      if (!event?.key) return;
       if (event.key.toLowerCase() === "k" && (event.metaKey || event.ctrlKey)) {
         event.preventDefault();
         openPalette();
