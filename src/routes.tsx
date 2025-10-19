@@ -38,6 +38,7 @@ const HelpSearchPage = lazy(() => import("@/pages/help/HelpSearchPage"));
 const OnboardingPage = lazy(() => import("@/pages/help/OnboardingPage"));
 const Login = lazy(() => import("@/pages/Login"));
 const AuthCallback = lazy(() => import("@/pages/AuthCallback"));
+const Logout = lazy(() => import("@/pages/Logout"));
 const NotAuthorizedPage = lazy(() => import("@/pages/NotAuthorized"));
 const NotFound = lazy(() => import("@/pages/NotFound"));
 const AdminHome = lazy(() => import("@/pages/admin/AdminHome"));
@@ -161,7 +162,7 @@ export function AppRoutes() {
     { path: "/login", element: withSuspense(<Login />) },
     { path: "/auth/callback", element: withSuspense(<AuthCallback />) },
     { path: "/auth", element: <Navigate to="/login" replace /> },
-    { path: "/logout", element: <Navigate to="/login" replace /> },
+    { path: "/logout", element: withSuspense(<Logout />) },
     { path: "/not-authorized", element: withSuspense(<NotAuthorizedPage />) },
     { path: "*", element: withSuspense(<NotFound />) },
   ]);
