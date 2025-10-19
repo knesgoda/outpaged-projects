@@ -6,6 +6,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   Sheet,
   SheetContent,
   SheetDescription,
@@ -43,7 +51,7 @@ function extractPrimaryNav(): SheetNavItem[] {
 export function MobileTopbar({ onToggleSidebar, onOpenShortcuts, onNavigate }: MobileTopbarProps) {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const { openPalette } = useCommandK();
   const connectivity = useConnectivityStatus(5_000);
   const navItems = useMemo(() => extractPrimaryNav(), []);
@@ -143,10 +151,56 @@ export function MobileTopbar({ onToggleSidebar, onOpenShortcuts, onNavigate }: M
           <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl" aria-label="Notifications">
             <Bell className="h-5 w-5" />
           </Button>
-          <Avatar className="h-10 w-10">
-            <AvatarImage src={(user as any)?.avatar_url ?? undefined} alt={(user as any)?.full_name ?? ""} />
-            <AvatarFallback>{user?.email?.slice(0, 2)?.toUpperCase() ?? "OP"}</AvatarFallback>
-          </Avatar>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-10 w-10 rounded-xl"
+                aria-label="Open account menu"
+                data-testid="mobile-account-menu-trigger"
+              >
+                <Avatar className="h-10 w-10">
+                  <AvatarImage src={(user as any)?.avatar_url ?? undefined} alt={(user as any)?.full_name ?? ""} />
+                  <AvatarFallback>{user?.email?.slice(0, 2)?.toUpperCase() ?? "OP"}</AvatarFallback>
+                </Avatar>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuLabel>{(user as any)?.full_name ?? "Account"}</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onSelect={(event) => {
+                  event.preventDefault();
+                  navigate("/profile");
+                  onNavigate?.();
+                }}
+              >
+                Profile
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onSelect={(event) => {
+                  event.preventDefault();
+                  navigate("/settings");
+                  onNavigate?.();
+                }}
+              >
+                Settings
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onSelect={(event) => {
+                  event.preventDefault();
+                  void (async () => {
+                    await signOut();
+                    navigate("/login", { replace: true });
+                  })();
+                }}
+              >
+                Sign out
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
       <div className="flex items-center gap-2">
