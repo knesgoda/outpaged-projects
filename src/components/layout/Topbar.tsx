@@ -58,6 +58,7 @@ import { formatSuggestionValue } from "@/lib/opqlSuggestions";
 import { opqlSuggest, searchAll, SearchAbuseError } from "@/services/search";
 import type { OpqlSuggestionItem, OpqlSuggestionResponse } from "@/types";
 import { useTelemetry } from "@/components/telemetry/TelemetryProvider";
+import { useToast } from "@/hooks/use-toast";
 
 function findNavLabel(path: string) {
   const walk = (items = NAV): string | undefined => {
@@ -147,7 +148,7 @@ type TopbarProps = {
 export function Topbar({ onToggleSidebar, onOpenShortcuts }: TopbarProps) {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const [role, setRole] = useState<Role>("viewer");
   const profileQuery = useMyProfile();
   const profile = profileQuery.data ?? null;
@@ -180,6 +181,22 @@ export function Topbar({ onToggleSidebar, onOpenShortcuts }: TopbarProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const blurTimeoutRef = useRef<number | null>(null);
   const suggestionRequestIdRef = useRef(0);
+  const { toast } = useToast();
+
+  const handleSignOut = useCallback(async () => {
+    try {
+      await signOut();
+      navigate("/login", { replace: true });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "An unexpected error occurred.";
+      toast({
+        title: "Unable to sign out",
+        description: message,
+        variant: "destructive",
+      });
+    }
+  }, [navigate, signOut, toast]);
 
   useEffect(() => {
     let active = true;
@@ -961,7 +978,11 @@ export function Topbar({ onToggleSidebar, onOpenShortcuts }: TopbarProps) {
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="gap-2">
+            <Button
+              variant="ghost"
+              className="gap-2"
+              data-testid="account-menu-trigger"
+            >
               <Avatar className="h-8 w-8">
                 {avatarUrl ? <AvatarImage src={avatarUrl} alt={displayName} /> : null}
                 <AvatarFallback>{displayInitial || "U"}</AvatarFallback>
@@ -975,7 +996,14 @@ export function Topbar({ onToggleSidebar, onOpenShortcuts }: TopbarProps) {
             <DropdownMenuItem onSelect={() => navigate("/profile")}>Profile</DropdownMenuItem>
             <DropdownMenuItem onSelect={() => navigate("/settings")}>Settings</DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={() => navigate("/logout")}>Sign out</DropdownMenuItem>
+            <DropdownMenuItem
+              onSelect={(event) => {
+                event.preventDefault();
+                void handleSignOut();
+              }}
+            >
+              Sign out
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

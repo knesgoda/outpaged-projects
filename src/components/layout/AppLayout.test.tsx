@@ -1,13 +1,25 @@
 import React, { type ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { HelmetProvider } from "react-helmet-async";
+
+const signOutMock = jest.fn();
+const mockNavigate = jest.fn();
+
+jest.mock("react-router-dom", () => {
+  const actual = jest.requireActual("react-router-dom");
+  return {
+    ...actual,
+    useNavigate: () => mockNavigate,
+  };
+});
 
 jest.mock("@/hooks/useAuth", () => ({
   useAuth: () => ({
     user: { id: "user-1", email: "test@outpaged.com" },
-    signOut: jest.fn(),
+    signOut: signOutMock,
     signInWithPassword: jest.fn(),
   }),
 }));
@@ -144,6 +156,11 @@ describe("AppLayout", () => {
     });
   });
 
+  beforeEach(() => {
+    signOutMock.mockReset();
+    mockNavigate.mockReset();
+  });
+
   const renderWithRoute = (initialEntry: string) => {
     const queryClient = new QueryClient();
     return render(
@@ -175,4 +192,41 @@ describe("AppLayout", () => {
     renderWithRoute("/help");
     expect(screen.getByRole("heading", { name: "Help center" })).toBeInTheDocument();
   });
+
+  it("signs out before navigating to the login page", async () => {
+    const deferred = createDeferred<void>();
+    signOutMock.mockImplementation(() => deferred.promise);
+
+    renderWithRoute("/");
+
+    const user = userEvent.setup();
+    const accountButton = await screen.findByTestId("account-menu-trigger");
+    await user.click(accountButton);
+
+    const signOutItem = await screen.findByText("Sign out");
+    await user.click(signOutItem);
+
+    expect(signOutMock).toHaveBeenCalledTimes(1);
+    expect(mockNavigate).not.toHaveBeenCalled();
+
+    deferred.resolve();
+
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith("/login", { replace: true });
+    });
+  });
 });
+
+function createDeferred<T>() {
+  let resolve: (value: T | PromiseLike<T>) => void;
+  let reject: (reason?: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return {
+    promise,
+    resolve: resolve!,
+    reject: reject!,
+  };
+}
