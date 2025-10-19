@@ -1,6 +1,20 @@
 import type React from "react";
 import { NavLink } from "react-router-dom";
-import { Calendar, FolderKanban, Home, MoreHorizontal, Search, UserCheck, FileText, BarChart3, Users, HelpCircle, BookText } from "lucide-react";
+import {
+  Calendar,
+  FolderKanban,
+  Home,
+  MoreHorizontal,
+  Search,
+  UserCheck,
+  FileText,
+  BarChart3,
+  Users,
+  HelpCircle,
+  BookText,
+  UserCircle,
+  Settings,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -28,11 +42,13 @@ const QUICK_LINKS: QuickLink[] = [
 ];
 
 const OVERFLOW_LINKS: QuickLink[] = [
+  { to: "/profile", label: "Profile", icon: UserCircle },
   { to: "/documents", label: "Docs", icon: BookText },
   { to: "/boards", label: "Boards", icon: FolderKanban },
   { to: "/reports", label: "Reports", icon: BarChart3 },
   { to: "/files", label: "Files", icon: FileText },
   { to: "/team", label: "Teams", icon: Users },
+  { to: "/settings", label: "Settings", icon: Settings },
   { to: "/help", label: "Help", icon: HelpCircle },
 ];
 
