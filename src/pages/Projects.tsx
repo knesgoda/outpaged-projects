@@ -14,6 +14,8 @@ import { format } from "date-fns";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import { formatProjectStatus, getProjectStatusBadgeVariant } from "@/utils/project-status";
+import { useAuth } from "@/hooks/useAuth";
+import { useWorkspaceContext } from "@/state/workspace";
 
 const DEFAULT_ERROR_MESSAGE = "An unexpected error occurred";
 
@@ -319,8 +321,18 @@ export default function Projects() {
 
   const { data: projectsData, isLoading, error } = useProjects({ status: "all", sort: "updated_at", dir: "desc" });
   const deleteProjectMutation = useDeleteProject();
+  const { user } = useAuth();
+  const { currentWorkspace } = useWorkspaceContext();
 
   const projects = (projectsData?.data as Project[]) || [];
+
+  // Dev-only debug banner
+  const isDev = import.meta.env.DEV;
+  const debugInfo = isDev ? {
+    userId: user?.id ?? "not signed in",
+    workspaceId: currentWorkspace?.id ?? "no workspace",
+    projectCount: projects.length,
+  } : null;
 
   const handleProjectSuccess = () => {
     // The query will automatically refetch
@@ -421,6 +433,15 @@ export default function Projects() {
 
   return (
     <div className="space-y-6 px-4 pb-16 sm:px-6 lg:px-8">
+      {/* Dev Debug Banner */}
+      {debugInfo && (
+        <div className="bg-yellow-100 dark:bg-yellow-900/20 border border-yellow-300 dark:border-yellow-700 rounded-md p-3 text-xs font-mono">
+          <div><strong>Debug:</strong> Auth={debugInfo.userId.slice(0, 8)}</div>
+          <div>Workspace={debugInfo.workspaceId.slice(0, 8)}</div>
+          <div>Projects={debugInfo.projectCount}</div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div className="space-y-1">
@@ -436,8 +457,26 @@ export default function Projects() {
         </Button>
       </div>
 
-      {/* Projects Grid */}
-      {projects.length === 0 ? (
+      {/* Auth Guard: Show sign-in prompt if not authenticated and no projects */}
+      {!user && projects.length === 0 ? (
+        <Card className="col-span-full">
+          <CardContent className="flex flex-col items-center justify-center min-h-[300px] space-y-4 py-8">
+            <FolderOpen className="w-16 h-16 text-muted-foreground/50" />
+            <div className="text-center space-y-2">
+              <h3 className="text-lg font-semibold text-foreground">You're not signed in</h3>
+              <p className="text-sm text-muted-foreground max-w-sm">
+                Sign in to see your projects and start organizing your work.
+              </p>
+              <Button
+                className="bg-gradient-primary hover:opacity-90 mt-4 w-full sm:w-auto"
+                onClick={() => window.location.href = '/login'}
+              >
+                Sign In
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      ) : projects.length === 0 ? (
         <Card className="col-span-full">
           <CardContent className="flex flex-col items-center justify-center min-h-[300px] space-y-4 py-8">
             <FolderOpen className="w-16 h-16 text-muted-foreground/50" />

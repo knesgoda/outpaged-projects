@@ -19,6 +19,7 @@ import {
 } from "@/services/projects";
 import { useDomainClient } from "@/domain/client";
 import { useTelemetry } from "@/components/telemetry/TelemetryProvider";
+import { useWorkspaceContext } from "@/state/workspace";
 
 export type { ProjectStatus, ProjectSort, SortDirection, ProjectSummary } from "@/services/projects";
 
@@ -95,16 +96,35 @@ export function useProjects(params: ProjectsQueryInput) {
   const domainClient = useDomainClient();
   const workspaceKey = domainClient.tenant.workspaceId ?? "no-workspace";
   const telemetry = useTelemetry();
+  const { workspacesReady } = useWorkspaceContext();
+
+  // Diagnostics logging
+  console.log("[useProjects] Query state:", {
+    workspaceId: domainClient.tenant.workspaceId,
+    organizationId: domainClient.tenant.organizationId,
+    userId: domainClient.tenant.userId,
+    workspacesReady,
+    queryKey: [projectsKey[0], workspaceKey, JSON.stringify(serviceParams)],
+  });
 
   return useQuery({
-    queryKey: [projectsKey[0], workspaceKey, serviceParams],
-    queryFn: () => telemetry.measure("projects.list", () => listProjects(serviceParams, { client: domainClient })),
+    queryKey: [projectsKey[0], workspaceKey, JSON.stringify(serviceParams)],
+    queryFn: async () => {
+      const result = await telemetry.measure("projects.list", () => 
+        listProjects(serviceParams, { client: domainClient })
+      );
+      console.log("[useProjects] Query result:", {
+        rowCount: result?.data?.length ?? 0,
+        workspaceId: domainClient.tenant.workspaceId,
+      });
+      return result;
+    },
     placeholderData: previous => previous as any,
     staleTime: 0,
     refetchOnMount: true,
     refetchOnWindowFocus: true,
-    // Force fresh data after workspace changes to avoid caching issues
     gcTime: 0,
+    enabled: workspacesReady, // Gate query until workspaces are loaded
   });
 }
 

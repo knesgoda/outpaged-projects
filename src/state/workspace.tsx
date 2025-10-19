@@ -13,9 +13,9 @@ import { fetchSpaces, fetchWorkspaces } from "@/services/workspaces";
 import type { OrganizationSummary } from "@/types/organization";
 import type { SpaceSummary, WorkspaceSummary } from "@/types/workspace";
 
-const WORKSPACE_STORAGE_KEY = "outpaged.currentWorkspace";
-const SPACE_STORAGE_KEY = "outpaged.currentSpace";
-const ORGANIZATION_STORAGE_KEY = "outpaged.currentOrganization";
+const WORKSPACE_STORAGE_KEY = "outpaged.currentWorkspace.v2";
+const SPACE_STORAGE_KEY = "outpaged.currentSpace.v2";
+const ORGANIZATION_STORAGE_KEY = "outpaged.currentOrganization.v2";
 
 function safeReadStorage(key: string): string | null {
   if (typeof window === "undefined") {
@@ -60,6 +60,7 @@ export type WorkspaceContextValue = {
   loadingWorkspaces: boolean;
   workspaceError: Error | null;
   refreshWorkspaces: () => Promise<void>;
+  workspacesReady: boolean;
   spaces: SpaceSummary[];
   currentSpace: SpaceSummary | null;
   setSpace: (spaceIdOrSlug: string | null) => void;
@@ -384,6 +385,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
   const currentSpace = useMemo(() => spaces.find((space) => space.id === spaceId) ?? null, [spaces, spaceId]);
 
+  const workspacesReady = !loadingWorkspaces && !loadingOrganizations;
+
   const value = useMemo<WorkspaceContextValue>(
     () => ({
       organizations,
@@ -398,6 +401,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       loadingWorkspaces,
       workspaceError,
       refreshWorkspaces,
+      workspacesReady,
       spaces,
       currentSpace,
       setSpace,
@@ -418,6 +422,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       loadingWorkspaces,
       workspaceError,
       refreshWorkspaces,
+      workspacesReady,
       spaces,
       currentSpace,
       setSpace,
