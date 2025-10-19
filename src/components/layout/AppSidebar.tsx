@@ -42,8 +42,19 @@ import {
   FileCode,
   Smartphone,
   Settings2,
-  Gauge
+  Gauge,
+  LogOut,
+  User,
+  ChevronUp
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface NavItem {
   title: string;
@@ -189,11 +200,16 @@ const navigationItems = [
 
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const { isAdmin } = useIsAdmin();
   const { data: workspaceSettings } = useWorkspaceSettings();
   const { data: profile } = useMyProfile();
   const location = useLocation();
+
+  const handleSignOut = async () => {
+    await signOut();
+    window.location.href = '/login';
+  };
 
   const brandName =
     workspaceSettings?.brand_name?.trim() || workspaceSettings?.name?.trim() || "OutPaged";
@@ -315,15 +331,38 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton asChild tooltip={profileName}>
-              <Link to="/settings/profile">
-                <Avatar className="h-6 w-6">
-                  {profileAvatar ? <AvatarImage src={profileAvatar} alt={profileName} /> : null}
-                  <AvatarFallback>{profileName.charAt(0).toUpperCase()}</AvatarFallback>
-                </Avatar>
-                <span className="truncate">{profileName}</span>
-              </Link>
-            </SidebarMenuButton>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <SidebarMenuButton className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground">
+                  <Avatar className="h-6 w-6">
+                    {profileAvatar ? <AvatarImage src={profileAvatar} alt={profileName} /> : null}
+                    <AvatarFallback>{profileName.charAt(0).toUpperCase()}</AvatarFallback>
+                  </Avatar>
+                  <span className="truncate">{profileName}</span>
+                  <ChevronUp className="ml-auto" />
+                </SidebarMenuButton>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent side="top" className="w-[--radix-popper-anchor-width]">
+                <DropdownMenuLabel>
+                  <div className="flex flex-col">
+                    <span className="text-sm font-medium">{profileName}</span>
+                    <span className="text-xs text-muted-foreground">{user?.email}</span>
+                  </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  <Link to="/settings/profile" className="cursor-pointer">
+                    <User className="mr-2 h-4 w-4" />
+                    Profile Settings
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer text-destructive focus:text-destructive">
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Sign Out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>
