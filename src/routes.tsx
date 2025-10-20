@@ -92,6 +92,7 @@ export function AppRoutes() {
         { path: "dashboard", element: withSuspense(<HomePage />) },
         { path: "board", element: withSuspense(<KanbanBoard />) },
         { path: "inbox", element: withSuspense(<InboxPage />) },
+        { path: "projects", element: withSuspense(<Projects />) },
         { path: "projects/:projectId", element: withSuspense(<ProjectDetails />) },
         { path: "spaces/:spaceId", element: withSuspense(<SpaceOverviewPage />) },
         { path: "tasks", element: withSuspense(<TasksPage />) },
