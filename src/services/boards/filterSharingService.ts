@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { supabase } from "@/integrations/supabase/client";
-import { mapSupabaseError } from "@/services/errors";
+import { mapSupabaseError } from "@/services/utils";
 
 export type FilterVisibility = "private" | "workspace" | "public";
 
