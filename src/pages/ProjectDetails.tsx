@@ -342,7 +342,7 @@ function LegacyProjectDetails({ overrideProjectId }: { overrideProjectId?: strin
                   <div 
                     key={task.id} 
                     className="flex items-center justify-between p-3 bg-muted rounded-lg cursor-pointer hover:bg-accent/50 transition-colors"
-                    onClick={() => navigate(`/dashboard/tasks/${task.id}`)}
+                    onClick={() => navigate(`/tasks/${task.id}`)}
                   >
                     <div>
                       <p className="font-medium">{task.title}</p>
@@ -422,7 +422,7 @@ function LegacyProjectDetails({ overrideProjectId }: { overrideProjectId?: strin
                 <Card 
                   key={task.id} 
                   className="p-4 cursor-pointer hover:bg-accent/50 transition-colors"
-                  onClick={() => navigate(`/dashboard/tasks/${task.id}`)}
+                  onClick={() => navigate(`/tasks/${task.id}`)}
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex-1">

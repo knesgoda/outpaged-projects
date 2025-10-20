@@ -10,6 +10,7 @@ const HomePage = lazy(() => import("@/pages/ia/HomePage"));
 const TimelinePage = lazy(() => import("@/pages/ia/TimelinePage"));
 const MyWorkPage = lazy(() => import("@/pages/ia/MyWorkPage"));
 const BoardsPage = lazy(() => import("@/pages/BoardsPage"));
+const KanbanBoard = lazy(() => import("@/pages/KanbanBoard"));
 // const CalendarPage = lazy(() => import("@/pages/calendar/CalendarPage"));
 const Projects = lazy(() => import("@/pages/Projects"));
 const ProjectDetails = lazy(() => import("@/pages/ProjectDetails"));
@@ -84,43 +85,38 @@ const TaskView = lazy(() => import("@/pages/TaskView"));
 export function AppRoutes() {
   return useRoutes([
     {
-      path: "/dashboard",
+      path: "/",
       element: withAppLayout(<AppLayout />),
       children: [
-        { index: true, element: withSuspense(<HomePage />) },
-        { path: "my-work", element: withSuspense(<MyWorkPage />) },
-        { path: "boards", element: withSuspense(<BoardsPage />) },
-        // { path: "calendar", element: withSuspense(<CalendarPage />) },
-        { path: "timeline", element: withSuspense(<TimelinePage />) },
-        { path: "inbox", element: withSuspense(<InboxRoute tab="all" />) },
-        { path: "inbox/mentions", element: withSuspense(<InboxRoute tab="mentions" />) },
-        { path: "inbox/assigned", element: withSuspense(<InboxRoute tab="assigned" />) },
-        { path: "inbox/following", element: withSuspense(<InboxRoute tab="following" />) },
-        { path: "inbox/due-soon", element: withSuspense(<InboxRoute tab="due-soon" />) },
-        { path: "inbox/unread", element: withSuspense(<InboxRoute tab="unread" />) },
-        { path: "projects", element: withSuspense(<Projects />) },
+        { index: true, element: <Navigate to="/dashboard" replace /> },
+        { path: "dashboard", element: withSuspense(<HomePage />) },
+        { path: "board", element: withSuspense(<KanbanBoard />) },
+        { path: "inbox", element: withSuspense(<InboxPage />) },
         { path: "projects/:projectId", element: withSuspense(<ProjectDetails />) },
         { path: "spaces/:spaceId", element: withSuspense(<SpaceOverviewPage />) },
         { path: "tasks", element: withSuspense(<TasksPage />) },
         { path: "tasks/:taskId", element: withSuspense(<TaskView />) },
         { path: "reports", element: withSuspense(<ReportsPage />) },
         { path: "documents", element: withSuspense(<DocumentsPage />) },
+        { path: "files", element: withSuspense(<FilesPage />) },
+        { path: "notifications", element: withSuspense(<NotificationsPage />) },
+        { path: "profile", element: withSuspense(<ProfilePage />) },
+        { path: "team", element: withSuspense(<TeamDirectoryPage />) },
+        { path: "team/:userId", element: withSuspense(<TeamMemberProfilePage />) },
         {
           path: "docs",
           children: [
             { index: true, element: withSuspense(<DocsHome />) },
-            { path: "new", element: withSuspense(<DocCreate />) },
+            { path: "create", element: withSuspense(<DocCreate />) },
             { path: ":docId", element: withSuspense(<DocDetail />) },
             { path: ":docId/edit", element: withSuspense(<DocEdit />) },
           ],
         },
-        { path: "files", element: withSuspense(<FilesPage />) },
         {
           path: "time",
-          element: withSuspense(<TimeHomePage />),
           children: [
-            { index: true, element: <Navigate to="my" replace /> },
-            { path: "my", element: withSuspense(<MyTimePage />) },
+            { index: true, element: withSuspense(<TimeHomePage />) },
+            { path: "my-time", element: withSuspense(<MyTimePage />) },
             { path: "approvals", element: withSuspense(<ApprovalsPage />) },
           ],
         },
@@ -136,12 +132,6 @@ export function AppRoutes() {
             { path: "onboarding", element: withSuspense(<OnboardingPage />) },
           ],
         },
-        { path: "__dev__/view-schema", element: withSuspense(<ViewSchemaPlayground />) },
-        { path: "__mobile__/board-preview", element: withSuspense(<MobileBoardPreview />) },
-        { path: "notifications", element: withSuspense(<NotificationsPage />) },
-        { path: "profile", element: withSuspense(<ProfilePage />) },
-        { path: "team", element: withSuspense(<TeamDirectoryPage />) },
-        { path: "team/:memberId", element: withSuspense(<TeamMemberProfilePage />) },
         {
           path: "admin",
           element: <AdminLayout />,
@@ -152,17 +142,24 @@ export function AppRoutes() {
             { path: "permissions", element: withSuspense(<PermissionsPage />) },
             { path: "security", element: withSuspense(<SecurityPage />) },
             { path: "offline", element: withSuspense(<OfflinePoliciesPage />) },
-            { path: "boards", element: withSuspense(<BoardGovernancePage />) },
-            { path: "audit", element: withSuspense(<AuditLogsPage />) },
+            { path: "audit-logs", element: withSuspense(<AuditLogsPage />) },
             { path: "data", element: withSuspense(<DataPage />) },
             { path: "webhooks", element: withSuspense(<WebhooksPage />) },
             { path: "api", element: withSuspense(<ApiExplorerPage />) },
             { path: "billing", element: withSuspense(<BillingPage />) },
+            { path: "board-governance", element: withSuspense(<BoardGovernancePage />) },
           ],
+        },
+        {
+          path: "dev/view-schema",
+          element: withSuspense(<ViewSchemaPlayground />),
+        },
+        {
+          path: "mobile/board-preview",
+          element: withSuspense(<MobileBoardPreview />),
         },
       ],
     },
-    { path: "/", element: <Navigate to="/dashboard" replace /> },
     { path: "/login", element: withSuspense(<Login />) },
     { path: "/auth/callback", element: withSuspense(<AuthCallback />) },
     { path: "/auth", element: <Navigate to="/login" replace /> },
