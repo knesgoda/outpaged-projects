@@ -13,21 +13,21 @@ import { enableOutpagedBrand } from '@/lib/featureFlags';
 import { StatusChip } from '@/components/outpaged/StatusChip';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { useProjectId } from '@/hooks/useProjectId';
 
 type StatusTone = 'neutral' | 'info' | 'success' | 'warning' | 'danger' | 'accent';
 
 export default function TaskView() {
-  const { code, taskNumber } = useParams();
-  const projectId = useProjectId();
+  const { taskId } = useParams();
   const navigate = useNavigate();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
-  // Fetch task by project ID/code and task number
+  // Fetch task by ID
   const { data: task, isLoading, error } = useQuery({
-    queryKey: ['task', projectId || code, taskNumber],
+    queryKey: ['task', taskId],
     queryFn: async () => {
-      let query = supabase
+      if (!taskId) throw new Error('Task ID is required');
+
+      const { data, error } = await supabase
         .from('tasks')
         .select(`
           *,
@@ -38,16 +38,8 @@ export default function TaskView() {
             code
           )
         `)
-        .eq('ticket_number', parseInt(taskNumber || '0'));
-
-      // Filter by project ID or code
-      if (projectId) {
-        query = query.eq('project_id', projectId);
-      } else if (code) {
-        query = query.eq('projects.code', code);
-      }
-
-      const { data, error } = await query.single();
+        .eq('id', taskId)
+        .single();
       
       if (error) {
         console.error('Error fetching task:', error);
@@ -62,8 +54,8 @@ export default function TaskView() {
   const handleBackClick = () => {
     if (task?.projects) {
       const project = Array.isArray(task.projects) ? task.projects[0] : task.projects;
-      if (projectId) {
-        navigate(`/dashboard/projects/${projectId}`);
+      if (task.project_id) {
+        navigate(`/dashboard/projects/${task.project_id}`);
       } else if (project?.code) {
         navigate(`/dashboard/projects/code/${project.code}`);
       } else {

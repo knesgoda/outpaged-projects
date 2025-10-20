@@ -79,10 +79,12 @@ function withSuspense(element: ReactNode) {
   return <Suspense fallback={suspenseFallback}>{element}</Suspense>;
 }
 
+const TaskView = lazy(() => import("@/pages/TaskView"));
+
 export function AppRoutes() {
   return useRoutes([
     {
-      path: "/",
+      path: "/dashboard",
       element: withAppLayout(<AppLayout />),
       children: [
         { index: true, element: withSuspense(<HomePage />) },
@@ -100,6 +102,7 @@ export function AppRoutes() {
         { path: "projects/:projectId", element: withSuspense(<ProjectDetails />) },
         { path: "spaces/:spaceId", element: withSuspense(<SpaceOverviewPage />) },
         { path: "tasks", element: withSuspense(<TasksPage />) },
+        { path: "tasks/:taskId", element: withSuspense(<TaskView />) },
         { path: "reports", element: withSuspense(<ReportsPage />) },
         { path: "documents", element: withSuspense(<DocumentsPage />) },
         {
@@ -159,6 +162,7 @@ export function AppRoutes() {
         },
       ],
     },
+    { path: "/", element: <Navigate to="/dashboard" replace /> },
     { path: "/login", element: withSuspense(<Login />) },
     { path: "/auth/callback", element: withSuspense(<AuthCallback />) },
     { path: "/auth", element: <Navigate to="/login" replace /> },
