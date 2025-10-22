@@ -34,10 +34,10 @@ export function StatsPanel({ tasks, children }: StatsPanelProps) {
   }).length;
 
   // Priority breakdown
-  const urgentTasks = tasks.filter(task => task.priority === 'urgent').length;
-  const highTasks = tasks.filter(task => task.priority === 'high').length;
-  const mediumTasks = tasks.filter(task => task.priority === 'medium').length;
-  const lowTasks = tasks.filter(task => task.priority === 'low').length;
+  const urgentTasks = tasks.filter(task => task.priority === 'P0').length;
+  const highTasks = tasks.filter(task => task.priority === 'P1').length;
+  const mediumTasks = tasks.filter(task => task.priority === 'P2').length;
+  const lowTasks = tasks.filter(task => task.priority === 'P3' || task.priority === 'P4').length;
 
   // Story points (velocity)
   const totalStoryPoints = tasks.reduce((sum, task) => sum + (task.story_points || 0), 0);

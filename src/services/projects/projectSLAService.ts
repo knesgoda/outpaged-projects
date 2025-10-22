@@ -160,7 +160,7 @@ function createDefaultPolicies(projectId: string): SLAPolicy[] {
         { id: "blocked", reason: "Task is blocked", type: "blocked" },
       ],
       filter: {
-        priorities: ["urgent", "high"],
+        priorities: ["P0", "P1"],
       },
       notificationChannels: ["slack", "email"],
       updatedAt: now,

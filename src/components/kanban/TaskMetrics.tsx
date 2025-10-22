@@ -32,10 +32,10 @@ export function TaskMetrics({ tasks, title = "Task Metrics" }: TaskMetricsProps)
   const blockedRate = totalTasks > 0 ? (blockedTasks / totalTasks) * 100 : 0;
 
   const priorityBreakdown = {
-    urgent: tasks.filter(task => task.priority === 'urgent').length,
-    high: tasks.filter(task => task.priority === 'high').length,
-    medium: tasks.filter(task => task.priority === 'medium').length,
-    low: tasks.filter(task => task.priority === 'low').length,
+    urgent: tasks.filter(task => task.priority === 'P0').length,
+    high: tasks.filter(task => task.priority === 'P1').length,
+    medium: tasks.filter(task => task.priority === 'P2').length,
+    low: tasks.filter(task => task.priority === 'P3' || task.priority === 'P4').length,
   };
 
   const totalStoryPoints = tasks.reduce((sum, task) => sum + (task.story_points || 0), 0);

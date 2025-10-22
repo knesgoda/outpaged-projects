@@ -219,7 +219,7 @@ function evaluateIdentifier(
     : row.aliases[alias] ?? null;
   if (!scoped) return undefined;
 
-  return expression.path.reduce<unknown>((current, segment) => {
+  return expression.path.reduce((current, segment) => {
     if (current === undefined || current === null) return undefined;
     if (typeof current !== "object") return undefined;
     const record = current as Record<string, unknown>;

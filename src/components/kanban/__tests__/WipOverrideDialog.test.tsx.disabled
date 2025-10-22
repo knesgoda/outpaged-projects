@@ -1,0 +1,106 @@
+import React from "react";
+import { describe, it, expect, beforeEach, vi } from "vitest";
+import { render, screen, waitFor } from "@testing-library/react";
+import { userEvent } from "@testing-library/user-event";
+import { WipOverrideDialog } from "../WipOverrideDialog";
+import type { SimplifiedOverrideState } from "../guards/types";
+
+describe("WipOverrideDialog", () => {
+  const basePending: SimplifiedOverrideState = {
+    task: {
+      id: "task-1",
+      title: "Test Task",
+      status: "in_progress",
+      priority: "P2",
+      hierarchy_level: "task",
+      task_type: "task",
+      tags: [],
+    },
+    reason: "column",
+    limit: 5,
+  };
+
+  function TestWipOverrideDialog({
+    requireReason = false,
+    onConfirm = vi.fn(),
+    onCancel = vi.fn(),
+    canOverride = true,
+  }: {
+    requireReason?: boolean;
+    onConfirm?: () => void;
+    onCancel?: () => void;
+    canOverride?: boolean;
+  }) {
+    const [reason, setReason] = React.useState("");
+
+    return (
+      <WipOverrideDialog
+        open
+        pending={{ ...basePending, requireReason }}
+        columnName="In Progress"
+        reason={reason}
+        onReasonChange={setReason}
+        onConfirm={onConfirm}
+        onCancel={onCancel}
+        canOverride={canOverride}
+      />
+    );
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("renders the dialog with correct content", () => {
+    render(<TestWipOverrideDialog />);
+    
+    expect(screen.getByText(/Work in Progress Limit Exceeded/i)).toBeInTheDocument();
+    expect(screen.getByText(/Test Task/i)).toBeInTheDocument();
+  });
+
+  it("allows confirmation when override is permitted", async () => {
+    const onConfirm = vi.fn();
+    render(<TestWipOverrideDialog onConfirm={onConfirm} canOverride={true} />);
+    
+    const confirmButton = screen.getByRole("button", { name: /override/i });
+    await userEvent.click(confirmButton);
+    
+    await waitFor(() => {
+      expect(onConfirm).toHaveBeenCalled();
+    });
+  });
+
+  it("shows cancel button and calls onCancel when clicked", async () => {
+    const onCancel = vi.fn();
+    render(<TestWipOverrideDialog onCancel={onCancel} />);
+    
+    const cancelButton = screen.getByRole("button", { name: /cancel/i });
+    await userEvent.click(cancelButton);
+    
+    await waitFor(() => {
+      expect(onCancel).toHaveBeenCalled();
+    });
+  });
+
+  it("requires reason when requireReason is true", async () => {
+    const onConfirm = vi.fn();
+    render(<TestWipOverrideDialog requireReason={true} onConfirm={onConfirm} canOverride={true} />);
+    
+    const confirmButton = screen.getByRole("button", { name: /override/i });
+    expect(confirmButton).toBeDisabled();
+    
+    const reasonInput = screen.getByPlaceholderText(/explain why/i);
+    await userEvent.type(reasonInput, "Urgent fix needed");
+    
+    await waitFor(() => {
+      expect(confirmButton).not.toBeDisabled();
+    });
+  });
+
+  it("disables confirmation when override is not permitted", () => {
+    render(<TestWipOverrideDialog canOverride={false} />);
+    
+    const confirmButton = screen.getByRole("button", { name: /override/i });
+    expect(confirmButton).toBeDisabled();
+  });
+});

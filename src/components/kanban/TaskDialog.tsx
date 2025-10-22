@@ -52,7 +52,7 @@ import AssigneeCompanySelect from "@/components/tasks/AssigneeCompanySelect";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import type { TaskLinkReference, TaskSubitemSummary, TaskRollup, TaskRelationSummary, TaskStatus } from "@/types/tasks";
+import type { TaskLinkReference, TaskSubitemSummary, TaskRollup, TaskRelationSummary, TaskStatus, TaskPriority } from "@/types/tasks";
 import { calculateRollup } from "@/services/tasksService";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCustomFieldDefinitions, useVisibleCustomFields } from "@/hooks/useCustomFields";
@@ -121,7 +121,7 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId,
   const [formData, setFormData] = useState({
     title: task?.title || "",
     description: task?.description || "",
-    priority: task?.priority || "medium",
+    priority: task?.priority || "P2",
     status: task?.status || "todo",
     smartTaskType: "task",
     parent_id: task?.parent_id || null,
@@ -510,7 +510,7 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId,
         setFormData({
           title: "",
           description: "",
-          priority: "medium",
+          priority: "P2",
           status: "todo",
           smartTaskType: "task",
           parent_id: null,
@@ -817,12 +817,16 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId,
                     </div>
                   <div>
                     <Label className="text-sm font-medium text-muted-foreground">Priority</Label>
-                    <Select value={formData.priority} onValueChange={(value) => setFormData(prev => ({ ...prev, priority: value as "low" | "medium" | "high" | "urgent" }))}>
+                    <Select value={formData.priority} onValueChange={(value) => setFormData(prev => ({ ...prev, priority: value as TaskPriority }))}>
                       <SelectTrigger className="mt-1">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="low">Low</SelectItem>
+                        <SelectItem value="P0">Critical (P0)</SelectItem>
+                        <SelectItem value="P1">High (P1)</SelectItem>
+                        <SelectItem value="P2">Medium (P2)</SelectItem>
+                        <SelectItem value="P3">Low (P3)</SelectItem>
+                        <SelectItem value="P4">Lowest (P4)</SelectItem>
                         <SelectItem value="medium">Medium</SelectItem>
                         <SelectItem value="high">High</SelectItem>
                         <SelectItem value="urgent">Urgent</SelectItem>
@@ -1441,13 +1445,16 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId,
                     </InfoRow>
 
                     <InfoRow label="Priority">
-                      <Select value={formData.priority} onValueChange={(value) => setFormData(prev => ({ ...prev, priority: value as "low" | "medium" | "high" | "urgent" }))}>
+                      <Select value={formData.priority} onValueChange={(value) => setFormData(prev => ({ ...prev, priority: value as TaskPriority }))}>
                         <SelectTrigger className="w-28">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="low">Low</SelectItem>
-                          <SelectItem value="medium">Medium</SelectItem>
+                          <SelectItem value="P0">P0</SelectItem>
+                          <SelectItem value="P1">P1</SelectItem>
+                          <SelectItem value="P2">P2</SelectItem>
+                          <SelectItem value="P3">P3</SelectItem>
+                          <SelectItem value="P4">P4</SelectItem>
                           <SelectItem value="high">High</SelectItem>
                           <SelectItem value="urgent">Urgent</SelectItem>
                         </SelectContent>

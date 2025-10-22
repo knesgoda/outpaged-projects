@@ -186,7 +186,7 @@ export default function TaskView() {
             tags: [],
             comments: 0,
             attachments: 0
-          }}
+          } as any}
           isOpen={isDialogOpen}
           onClose={() => setIsDialogOpen(false)}
           onSave={() => toast.success('Task updated')}
@@ -299,7 +299,7 @@ export default function TaskView() {
           tags: [],
           comments: 0,
           attachments: 0
-        } : null}
+        } as any : null}
         isOpen={isDialogOpen}
         onClose={() => setIsDialogOpen(false)}
         onSave={async (updatedTask) => {

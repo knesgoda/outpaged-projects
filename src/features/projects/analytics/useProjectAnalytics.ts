@@ -147,7 +147,7 @@ export function buildProjectAnalytics(
         if (task.status !== "done") {
           summary.openTasks += 1;
         }
-        if (task.priority === "urgent" || task.priority === "high") {
+        if (task.priority === "P0" || task.priority === "P1") {
           summary.urgent += 1;
         }
         summary.estimatedHours += task.estimated_hours ?? 0;
@@ -158,13 +158,13 @@ export function buildProjectAnalytics(
     if (task.blocked) {
       riskReasons.push("Blocked");
     }
-    if (!task.due_date && task.priority === "urgent") {
+    if (!task.due_date && task.priority === "P0") {
       riskReasons.push("Urgent without due date");
     }
     if (task.due_date && new Date(task.due_date) < generatedAt && !task.completed_at) {
       riskReasons.push("Overdue");
     }
-    if (task.due_date && differenceInDays(new Date(task.due_date), generatedAt) <= 2 && task.priority === "high") {
+    if (task.due_date && differenceInDays(new Date(task.due_date), generatedAt) <= 2 && task.priority === "P1") {
       riskReasons.push("High priority nearing due date");
     }
     if (riskReasons.length > 0) {
