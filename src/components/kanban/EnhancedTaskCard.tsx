@@ -172,10 +172,6 @@ export function EnhancedTaskCard({
                     <Eye className="w-4 h-4 mr-2" />
                     View Details
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onEdit?.(task); }}>
-                    <MoreHorizontal className="w-4 h-4 mr-2" />
-                    Edit Task
-                  </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem>
                     <GitBranch className="w-4 h-4 mr-2" />

@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { useRealtime } from "@/hooks/useRealtime";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -30,7 +31,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { EnhancedKanbanColumn, Column } from "@/components/kanban/EnhancedKanbanColumn";
 import { TaskCard, Task } from "@/components/kanban/TaskCard";
-import { TaskDialog } from "@/components/kanban/TaskDialog";
 import { BulkOperations } from "@/components/kanban/BulkOperations";
 import { TaskTemplates } from "@/components/kanban/TaskTemplates";
 import { ProjectSelector } from "@/components/kanban/ProjectSelector";
@@ -354,6 +354,7 @@ function LegacyKanbanBoard() {
   const { user } = useOptionalAuth();
   const { isAdmin } = useIsAdmin();
   const { toast } = useToast();
+  const navigate = useNavigate();
   
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [columns, setColumns] = useState<Column[]>([]);
@@ -361,12 +362,6 @@ function LegacyKanbanBoard() {
   const [loading, setLoading] = useState(true);
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
-  const [taskDialog, setTaskDialog] = useState<{
-    isOpen: boolean;
-    task?: Task | null;
-    columnId?: string;
-    swimlaneId?: string;
-  }>({ isOpen: false });
   const [detailViewTask, setDetailViewTask] = useState<Task | null>(null);
   const [availableAssignees, setAvailableAssignees] = useState<Array<{ id: string; name: string; avatar?: string | null }>>([]);
   const [availableSprints, setAvailableSprints] = useState<Array<{ id: string; name: string }>>([]);
@@ -1167,15 +1162,19 @@ function LegacyKanbanBoard() {
   };
 
   const handleAddTask = (columnId: string, swimlaneId?: string) => {
-    setTaskDialog({ isOpen: true, columnId, swimlaneId });
+    // For creating new tasks, we can keep a lightweight quick-add or navigate to create page
+    // For now, navigate to the board with a query param to open create dialog
+    console.log('Add task clicked for column:', columnId, 'swimlane:', swimlaneId);
   };
 
   const handleEditTask = (task: Task) => {
-    setTaskDialog({ isOpen: true, task });
+    // Navigate to task detail view for inline editing
+    navigate(`/tasks/${task.id}`);
   };
 
   const handleViewTask = (task: Task) => {
-    setTaskDialog({ isOpen: true, task });
+    // Navigate to task detail view
+    navigate(`/tasks/${task.id}`);
   };
 
   const handleDeleteTask = async (taskId: string) => {
@@ -1242,199 +1241,6 @@ function LegacyKanbanBoard() {
   const handleOverrideCancel = () => {
     setPendingOverride(null);
     setOverrideReason("");
-  };
-
-  const handleSaveTask = async (taskData: Partial<Task>) => {
-    if (!currentProjectId) {
-      toast({
-        title: "Error",
-        description: "No project selected",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      if (taskDialog.task) {
-        // Update existing task
-        // Handle assignees for existing tasks
-        if (taskData.assignees) {
-          // Remove all existing assignees
-          await supabase
-            .from('task_assignees')
-            .delete()
-            .eq('task_id', taskDialog.task.id);
-
-          // Add new assignees
-          if (taskData.assignees.length > 0) {
-            const assigneeInserts = taskData.assignees.map(assignee => ({
-              task_id: taskDialog.task.id,
-              user_id: assignee.id,
-              assigned_by: user?.id
-            }));
-
-            await supabase
-              .from('task_assignees')
-              .insert(assigneeInserts);
-          }
-        }
-
-        const { error } = await supabase
-          .from('tasks')
-          .update({
-            title: taskData.title,
-            description: taskData.description,
-            priority: taskData.priority,
-            hierarchy_level: (taskData as any).hierarchy_level,
-            task_type: (taskData as any).task_type,
-            due_date: (taskData as any).due_date || null,
-            story_points: (taskData as any).story_points || null,
-            status: (taskData as any).status,
-            swimlane_id: taskDialog.swimlaneId || null,
-            blocked: (taskData as any).blocked || false,
-            blocking_reason: (taskData as any).blocking_reason || null,
-          })
-          .eq('id', taskDialog.task.id);
-
-        if (error) throw error;
-
-        if (taskData.custom_fields && typeof taskData.custom_fields === "object") {
-          const entries = Object.entries(taskData.custom_fields as Record<string, unknown>)
-            .map(([customFieldId, value]) => ({ customFieldId, value }))
-            .filter(entry => entry.value !== undefined);
-          if (entries.length) {
-            await upsertTaskCustomFieldValues(taskDialog.task.id, entries);
-          }
-        }
-
-        if (currentProjectId && taskDialog.task) {
-          const nextStatus = ((taskData as any).status ?? taskDialog.task.status) as string;
-          const context = {
-            fromStatus: taskDialog.task.status,
-            toStatus: nextStatus,
-            projectId: currentProjectId,
-          };
-          try {
-            await enqueueAutomationEvent({
-              projectId: currentProjectId,
-              type: "task.updated",
-              taskId: taskDialog.task.id,
-              actorId: user?.id ?? undefined,
-              context: {
-                ...context,
-                fields: Object.keys(taskData ?? {}),
-              },
-            });
-            if (nextStatus !== taskDialog.task.status) {
-              await enqueueAutomationEvent({
-                projectId: currentProjectId,
-                type: "task.status_changed",
-                taskId: taskDialog.task.id,
-                actorId: user?.id ?? undefined,
-                context,
-              });
-            }
-          } catch (automationError) {
-            console.warn("Failed to enqueue automation event", automationError);
-          }
-        }
-
-        toast({
-          title: "Success",
-          description: "Task updated successfully",
-        });
-      } else {
-        // Create new task
-        const statusFromColumn = taskDialog.columnId ? await getStatusFromColumnId(taskDialog.columnId) : 'todo';
-        
-        const { data: newTask, error } = await supabase
-          .from('tasks')
-          .insert({
-            title: taskData.title!,
-            description: taskData.description,
-            priority: taskData.priority!,
-            hierarchy_level: (taskData as any).hierarchy_level || 'task',
-            task_type: (taskData as any).task_type || 'feature_request',
-            parent_id: (taskData as any).parent_id || null,
-            status: statusFromColumn as "todo" | "in_progress" | "in_review" | "done",
-            project_id: currentProjectId,
-            reporter_id: user?.id,
-            due_date: (taskData as any).due_date || null,
-            story_points: (taskData as any).story_points || null,
-            swimlane_id: taskDialog.swimlaneId || null,
-            blocked: false,
-            blocking_reason: null,
-          })
-          .select()
-          .single();
-
-        if (error) throw error;
-
-        // Add assignees for new task
-        if (taskData.assignees && taskData.assignees.length > 0 && newTask) {
-          const assigneeInserts = taskData.assignees.map(assignee => ({
-            task_id: newTask.id,
-            user_id: assignee.id,
-            assigned_by: user?.id
-          }));
-
-          const { error: assigneeError } = await supabase
-            .from('task_assignees')
-            .insert(assigneeInserts);
-
-          if (assigneeError) {
-            console.error('Error adding assignees:', assigneeError);
-            toast({
-              title: "Warning",
-              description: "Task created but failed to add assignees",
-              variant: "destructive",
-            });
-          }
-        }
-
-        if (currentProjectId && newTask) {
-          try {
-            await enqueueAutomationEvent({
-              projectId: currentProjectId,
-              type: "task.created",
-              taskId: newTask.id,
-              actorId: user?.id ?? undefined,
-              context: {
-                status: newTask.status,
-                columnId: taskDialog.columnId ?? null,
-              },
-            });
-          } catch (automationError) {
-            console.warn("Failed to enqueue automation event", automationError);
-          }
-        }
-
-        if (taskData.custom_fields && newTask?.id) {
-          const entries = Object.entries(taskData.custom_fields as Record<string, unknown>)
-            .map(([customFieldId, value]) => ({ customFieldId, value }))
-            .filter(entry => entry.value !== undefined);
-          if (entries.length) {
-            await upsertTaskCustomFieldValues(newTask.id, entries);
-          }
-        }
-
-        toast({
-          title: "Success",
-          description: "Task created successfully",
-        });
-      }
-
-      // Refresh tasks
-      await fetchTasks();
-      setTaskDialog({ isOpen: false });
-    } catch (error) {
-      console.error('Error saving task:', error);
-      toast({
-        title: "Error",
-        description: "Failed to save task",
-        variant: "destructive",
-      });
-    }
   };
 
   const getStatusFromColumn = useCallback(async (column: Column): Promise<string> => {
@@ -1961,17 +1767,6 @@ function LegacyKanbanBoard() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      {/* Single Task Dialog - handles both creating and editing tasks */}
-      <TaskDialog
-        task={taskDialog.task}
-        isOpen={taskDialog.isOpen}
-        onClose={() => setTaskDialog({ isOpen: false })}
-        onSave={handleSaveTask}
-        columnId={taskDialog.columnId}
-        projectId={currentProjectId || undefined}
-        columnMetadata={dialogColumn?.metadata}
-      />
     </div>
   );
 }

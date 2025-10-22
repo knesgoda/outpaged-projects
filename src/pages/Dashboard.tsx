@@ -21,7 +21,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { enableOutpagedBrand } from "@/lib/featureFlags";
 import { FilterChip } from "@/components/outpaged/FilterChip";
 import { StatusChip } from "@/components/outpaged/StatusChip";
-import { TaskDialog } from "@/components/kanban/TaskDialog";
 import { CreateTaskDialog } from "@/components/tasks/CreateTaskDialog";
 import { useCreateTask } from "@/hooks/useCreateTask";
 import { format } from "date-fns";
@@ -33,10 +32,10 @@ import {
 
 function OutpagedDashboard() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [assignedTasks, setAssignedTasks] = useState<any[]>([]);
   const [handoffItems, setHandoffItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedTask, setSelectedTask] = useState<any>(null);
   const [defaultProjectId, setDefaultProjectId] = useState<string | null>(null);
   const { openCreateTask, dialogProps } = useCreateTask({ projectId: defaultProjectId });
 
@@ -169,7 +168,7 @@ function OutpagedDashboard() {
                     return (
                       <div
                         key={task.id}
-                        onClick={() => setSelectedTask(task)}
+                        onClick={() => navigate(`/tasks/${task.id}`)}
                         className="flex items-center justify-between gap-4 rounded-3xl border border-[hsl(var(--chip-neutral))] bg-[hsl(var(--card))] px-4 py-4 shadow-soft cursor-pointer hover:bg-[hsl(var(--accent))]/5 transition-colors"
                       >
                         <div className="flex-1">
@@ -256,20 +255,6 @@ function OutpagedDashboard() {
           </Card>
         </div>
       </div>
-
-      {/* Task Dialog */}
-      {selectedTask && (
-        <TaskDialog
-          task={selectedTask}
-          isOpen={!!selectedTask}
-          onClose={() => setSelectedTask(null)}
-          onSave={() => {
-            setSelectedTask(null);
-            window.location.reload();
-          }}
-          projectId={selectedTask.project?.id}
-        />
-      )}
 
       {dialogProps && <CreateTaskDialog {...dialogProps} />}
     </div>
