@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { DragDropContext, Draggable, Droppable, type DropResult } from "@hello-pangea/dnd";
 import { useProject } from "@/contexts/ProjectContext";
@@ -88,8 +88,12 @@ export function BacklogPanel() {
     }
   }
 
-  const filteredItems = backlogItems.filter(item =>
-    item.title.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredItems = useMemo(
+    () =>
+      backlogItems.filter((item) =>
+        item.title.toLowerCase().includes(searchQuery.toLowerCase())
+      ),
+    [backlogItems, searchQuery]
   );
   const surfaceWidth = surfaceRef.current?.clientWidth ?? 1;
   const surfaceHeight = surfaceRef.current?.clientHeight ?? 1;
@@ -181,10 +185,6 @@ export function BacklogPanel() {
       },
     });
   }
-
-  const filteredItems = backlogItems.filter(item =>
-    item.title.toLowerCase().includes(searchQuery.toLowerCase())
-  );
 
   return (
     <div ref={surfaceRef} className="relative h-full overflow-hidden rounded-2xl bg-[#050d1f] text-slate-100">
