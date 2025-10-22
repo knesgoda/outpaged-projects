@@ -177,27 +177,37 @@ export async function removeTaskFromSprint(
 /**
  * Get tasks in a sprint
  */
-export async function getSprintTasks(sprintId: string): Promise<any[]> {
-  // For now, fetch tasks directly  
+export async function getSprintTasks(sprintId: string, projectId?: string): Promise<any[]> {
+  // For now, fetch tasks directly
   // Will use sprint_items join after types regenerate
-  const { data, error } = await supabase
+  let query = supabase
     .from('tasks')
     .select('*')
-    .order('created_at', { ascending: false });
+    .eq('sprint_id', sprintId);
+
+  if (projectId) {
+    query = query.eq('project_id', projectId);
+  }
+
+  const { data, error } = await query.order('created_at', { ascending: false });
 
   if (error) {
     console.error('Error fetching sprint tasks:', error);
     return [];
   }
 
-  return data || [];
+  return (data || []).filter(task => {
+    const matchesSprint = (task as any).sprint_id === sprintId;
+    const matchesProject = !projectId || (task as any).project_id === projectId;
+    return matchesSprint && matchesProject;
+  });
 }
 
 /**
  * Calculate sprint metrics
  */
-export async function getSprintMetrics(sprintId: string) {
-  const tasks = await getSprintTasks(sprintId);
+export async function getSprintMetrics(sprintId: string, projectId?: string) {
+  const tasks = await getSprintTasks(sprintId, projectId);
 
   const completedTasks = tasks.filter(t => (t as any).status_category === 'Done' || t.status === 'done');
   
