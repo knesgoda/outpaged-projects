@@ -44,54 +44,54 @@ const queryClient = new QueryClient({
 const App = () => {
   console.log('[App] Rendering OutPaged App');
   return (
-                  <OutpagedThemeProvider>
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <ProfileProvider>
-          <WorkspaceProvider>
-            <TenantProvider>
-              <TelemetryProvider>
-                <FeatureFlagProvider>
-                  <SecurityProvider>
-                    <AccessibilityProvider>
-                      <SlackProvider>
-                        <ReleaseProvider>
-                          <OperationsProvider>
-                            <MarketingProvider>
-                              <TooltipProvider>
-                                <Toaster />
-                                <Sonner />
-                                <BrowserRouter>
-                                  <CommandKProvider>
-                                    <AppErrorBoundary>
-                                      <PWAProvider>
-                                        <OfflinePolicyProvider>
-                                          <CommandPalette />
-                                          <KeyboardShortcuts />
-                                          <TaskPanelRouterProvider>
-                                            <AppRoutes />
-                                          </TaskPanelRouterProvider>
-                                        </OfflinePolicyProvider>
-                                      </PWAProvider>
-                                    </AppErrorBoundary>
-                                  </CommandKProvider>
-                                </BrowserRouter>
-                              </TooltipProvider>
-                            </MarketingProvider>
-                          </OperationsProvider>
-                        </ReleaseProvider>
-                      </SlackProvider>
-                    </AccessibilityProvider>
-                  </SecurityProvider>
-                </FeatureFlagProvider>
-              </TelemetryProvider>
-            </TenantProvider>
-          </WorkspaceProvider>
-        </ProfileProvider>
-      </AuthProvider>
-    </QueryClientProvider>
-  </OutpagedThemeProvider>
-);
+    <OutpagedThemeProvider>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <ProfileProvider>
+            <WorkspaceProvider>
+              <TenantProvider>
+                <TelemetryProvider>
+                  <FeatureFlagProvider>
+                    <SecurityProvider>
+                      <AccessibilityProvider>
+                        <SlackProvider>
+                          <ReleaseProvider>
+                            <OperationsProvider>
+                              <MarketingProvider>
+                                <TooltipProvider>
+                                  <Toaster />
+                                  <Sonner />
+                                  <BrowserRouter>
+                                    <CommandKProvider>
+                                      <AppErrorBoundary>
+                                        <PWAProvider>
+                                          <OfflinePolicyProvider>
+                                            <CommandPalette />
+                                            <KeyboardShortcuts />
+                                            <TaskPanelRouterProvider>
+                                              <AppRoutes />
+                                            </TaskPanelRouterProvider>
+                                          </OfflinePolicyProvider>
+                                        </PWAProvider>
+                                      </AppErrorBoundary>
+                                    </CommandKProvider>
+                                  </BrowserRouter>
+                                </TooltipProvider>
+                              </MarketingProvider>
+                            </OperationsProvider>
+                          </ReleaseProvider>
+                        </SlackProvider>
+                      </AccessibilityProvider>
+                    </SecurityProvider>
+                  </FeatureFlagProvider>
+                </TelemetryProvider>
+              </TenantProvider>
+            </WorkspaceProvider>
+          </ProfileProvider>
+        </AuthProvider>
+      </QueryClientProvider>
+    </OutpagedThemeProvider>
+  );
 };
 
 export default App;
