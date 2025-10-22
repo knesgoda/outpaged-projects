@@ -5,6 +5,7 @@ import type {
   BoardViewSortRule,
 } from "@/types/boards"
 import type { BoardGroupSummary } from "@/components/boards/types"
+import type { Database } from "@/integrations/supabase/types"
 
 import { buildColorLegend, evaluateColorRules } from "./colorRules"
 
@@ -19,11 +20,15 @@ export interface KanbanCard {
   ruleId?: string | null
 }
 
+export type KanbanColumnRecord = Database["public"]["Tables"]["kanban_columns"]["Row"]
+
 export interface KanbanColumn {
   id: string
   key: string
   label: string
   items: KanbanCard[]
+  columnId: string | null
+  columnRecord?: KanbanColumnRecord | null
   rollup: {
     total: number
     completed: number
@@ -54,6 +59,7 @@ export interface BuildKanbanDatasetParams {
   grouping: BoardViewGroupingConfiguration
   sortRules: BoardViewSortRule[]
   colorRules: BoardColorRule[]
+  columnLookup?: Map<string, KanbanColumnRecord>
 }
 
 const GROUP_ACCENTS = ["#2563eb", "#f97316", "#22c55e", "#a855f7", "#ec4899", "#6366f1"]
@@ -257,6 +263,7 @@ export const buildKanbanDataset = ({
   grouping,
   sortRules,
   colorRules,
+  columnLookup,
 }: BuildKanbanDatasetParams): KanbanDataset => {
   const sortedItems = sortBoardItems(items, sortRules)
   const groupingField = grouping.primary ?? null
@@ -266,17 +273,22 @@ export const buildKanbanDataset = ({
     swimlaneField
   )
 
+  const resolvedLookup = columnLookup ?? new Map<string, KanbanColumnRecord>()
+
   const laneMap = new Map<string, BoardSwimlaneDefinition>()
   swimlaneDefinitions.forEach((lane) => laneMap.set(lane.id, lane))
+
+  type LaneGroupEntry = {
+    label: string
+    items: KanbanCard[]
+    columnRecord?: KanbanColumnRecord | null
+  }
 
   const laneGroupMap = new Map<
     string,
     Map<
       string,
-      {
-        label: string
-        items: KanbanCard[]
-      }
+      LaneGroupEntry
     >
   >()
   const groupOrder: string[] = []
@@ -295,7 +307,12 @@ export const buildKanbanDataset = ({
 
     const groups = laneGroupMap.get(laneId)!
     if (!groups.has(groupKey)) {
-      groups.set(groupKey, { label: getGroupLabel(groupKey), items: [] })
+      const columnRecord = resolvedLookup.get(groupKey) ?? null
+      groups.set(groupKey, {
+        label: columnRecord?.name ?? getGroupLabel(groupKey),
+        items: [],
+        columnRecord,
+      })
     }
 
     const colorMatch = evaluateColorRules(item, colorRules)
@@ -314,12 +331,21 @@ export const buildKanbanDataset = ({
   const swimlanes: KanbanSwimlane[] = swimlaneDefinitions.map((lane) => {
     const groups = laneGroupMap.get(lane.id) ?? new Map()
     const columns: KanbanColumn[] = groupOrder.map((groupKey, index) => {
-      const column = groups.get(groupKey) ?? { label: getGroupLabel(groupKey), items: [] }
+      const column =
+        groups.get(groupKey) ??
+        ({
+          label: resolvedLookup.get(groupKey)?.name ?? getGroupLabel(groupKey),
+          items: [],
+          columnRecord: resolvedLookup.get(groupKey) ?? null,
+        } as LaneGroupEntry)
+      const record = column.columnRecord ?? resolvedLookup.get(groupKey) ?? null
       return {
         id: composeDroppableId(lane.id, groupKey),
         key: groupKey,
-        label: column.label,
+        label: record?.name ?? column.label,
         items: column.items,
+        columnId: record?.id ?? null,
+        columnRecord: record,
         rollup: computeRollup(column.items),
       }
     })
@@ -343,9 +369,10 @@ export const buildKanbanDataset = ({
       }
     })
 
+    const record = resolvedLookup.get(groupKey) ?? null
     return {
       id: groupKey,
-      name: getGroupLabel(groupKey),
+      name: record?.name ?? getGroupLabel(groupKey),
       count,
       accentColor: GROUP_ACCENTS[index % GROUP_ACCENTS.length],
     }

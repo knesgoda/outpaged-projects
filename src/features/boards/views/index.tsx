@@ -30,6 +30,7 @@ export interface BoardViewCanvasProps {
   onLoadMore?: () => Promise<void> | void;
   onItemsChange?: BoardViewProviderProps["onItemsChange"];
   onConfigurationChange?: BoardViewProviderProps["onConfigurationChange"];
+  columns?: BoardViewProviderProps["columns"];
 }
 
 export function BoardViewCanvas({
@@ -41,6 +42,7 @@ export function BoardViewCanvas({
   onLoadMore,
   onItemsChange,
   onConfigurationChange,
+  columns,
 }: BoardViewCanvasProps) {
   const Component = boardViewRegistry[configuration.mode] ?? TableBoardView;
 
@@ -55,6 +57,7 @@ export function BoardViewCanvas({
         onLoadMore={onLoadMore}
         onItemsChange={onItemsChange}
         onConfigurationChange={onConfigurationChange}
+        columns={columns}
       >
         <BoardStateShell>
           <Component />

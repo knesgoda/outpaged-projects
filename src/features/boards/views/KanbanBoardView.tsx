@@ -40,10 +40,12 @@ import {
 } from "./kanbanDataset"
 import { useBoardPerformanceTracker } from "./useBoardPerformance"
 import { useWIPValidation } from "@/hooks/useWIPValidation"
+import type { Database } from "@/integrations/supabase/types"
 
 type KanbanDataset = ReturnType<typeof buildKanbanDataset>
 type KanbanColumnModel = KanbanDataset["swimlanes"][number]["groups"][number]
 type KanbanCardModel = KanbanColumnModel["items"][number]
+type BoardColumnRecord = Database["public"]["Tables"]["kanban_columns"]["Row"]
 
 const DEFAULT_GROUPING_FIELDS = ["status", "stage", "state"]
 const NO_SWIMLANE_KEY = "__no_swimlane__"
@@ -231,6 +233,7 @@ export function KanbanBoardView() {
     hasMore,
     isLoadingMore,
     loadMore,
+    columns,
   } = useBoardViewContext()
 
   useBoardPerformanceTracker("kanban-board-view", items.length)
@@ -247,6 +250,72 @@ export function KanbanBoardView() {
     handleOverrideConfirm,
     handleOverrideCancel,
   } = useWIPValidation()
+
+  const columnLookup = useMemo(() => {
+    const map = new Map<string, BoardColumnRecord>()
+    columns.forEach((column) => {
+      if (!column) {
+        return
+      }
+
+      const keys = new Set<string>()
+      if (column.id) {
+        keys.add(String(column.id))
+      }
+      if (column.name) {
+        keys.add(String(column.name))
+      }
+
+      const statusKeys = Array.isArray(column.status_keys) ? column.status_keys : []
+      statusKeys.forEach((key) => {
+        if (key == null) {
+          return
+        }
+        const text = String(key)
+        if (text.trim().length === 0) {
+          return
+        }
+        keys.add(text)
+      })
+
+      const metadata = (column.metadata as Record<string, unknown> | null) ?? null
+      if (metadata) {
+        const groupKey = metadata["groupKey"]
+        if (typeof groupKey === "string" && groupKey.trim().length > 0) {
+          keys.add(groupKey)
+        }
+        const groupKeys = metadata["groupKeys"]
+        if (Array.isArray(groupKeys)) {
+          groupKeys.forEach((value) => {
+            if (value == null) {
+              return
+            }
+            const text = String(value)
+            if (text.trim().length === 0) {
+              return
+            }
+            keys.add(text)
+          })
+        }
+      }
+
+      keys.forEach((rawKey) => {
+        const key = String(rawKey)
+        if (key.length === 0) {
+          return
+        }
+        const trimmed = key.trim()
+        if (trimmed.length > 0) {
+          map.set(trimmed, column)
+          map.set(trimmed.toLowerCase(), column)
+        }
+        map.set(key, column)
+        map.set(key.toLowerCase(), column)
+      })
+    })
+
+    return map
+  }, [columns])
 
   const effectiveGrouping = useMemo(() => {
     if (configuration.grouping.primary) {
@@ -279,8 +348,9 @@ export function KanbanBoardView() {
         grouping: effectiveGrouping,
         sortRules: configuration.sort ?? [],
         colorRules: configuration.colorRules ?? [],
+        columnLookup,
       }),
-    [configuration.colorRules, configuration.sort, effectiveGrouping, items]
+    [columnLookup, configuration.colorRules, configuration.sort, effectiveGrouping, items]
   )
 
   const groupingField = dataset.groupingField
@@ -425,9 +495,42 @@ export function KanbanBoardView() {
       }
 
       // Parse destination to get column info
-      const destInfo = parseDroppableId(destination.droppableId);
-      const sourceInfo = parseDroppableId(source.droppableId);
-      
+      const destInfo = parseDroppableId(destination.droppableId)
+      const sourceInfo = parseDroppableId(source.droppableId)
+
+      const destColumnModel = (() => {
+        for (const lane of dataset.swimlanes) {
+          const match = lane.groups.find((group) => group.id === destination.droppableId)
+          if (match) {
+            return match
+          }
+        }
+        return null
+      })()
+
+      const trimmedGroupKey = destInfo.groupKey.trim()
+      const lookupCandidates = [
+        destColumnModel?.key,
+        destInfo.groupKey,
+        trimmedGroupKey,
+        destInfo.groupKey.toLowerCase(),
+        trimmedGroupKey.toLowerCase(),
+      ].filter((value): value is string => typeof value === "string" && value.length > 0)
+
+      const matchingColumn =
+        destColumnModel?.columnRecord ??
+        lookupCandidates.reduce<BoardColumnRecord | null>((found, key) => {
+          if (found) {
+            return found
+          }
+          return columnLookup.get(key) ?? null
+        }, null)
+      const resolvedColumnId = matchingColumn?.id ?? destColumnModel?.columnId ?? destInfo.groupKey
+      const resolvedColumnName =
+        matchingColumn?.name ??
+        destColumnModel?.label ??
+        (destInfo.groupKey === UNGROUPED_KEY ? "Ungrouped" : destInfo.groupKey)
+
       // Get the item being moved
       const itemIndex = findPositionInLaneGroup(
         items,
@@ -440,20 +543,22 @@ export function KanbanBoardView() {
       );
       
       if (itemIndex !== -1) {
-        const movedItem = items[itemIndex];
-        
+        const movedItem = items[itemIndex]
+
         // Count items in destination column
-        const destColumnItems = items.filter(item => {
-          const itemGroupKey = dataset.groupingField 
-            ? (item[dataset.groupingField] == null || item[dataset.groupingField] === "" 
-                ? UNGROUPED_KEY 
-                : String(item[dataset.groupingField]))
-            : UNGROUPED_KEY;
-          
-          return itemGroupKey === destInfo.groupKey && 
-                 itemBelongsToLane(item, destInfo.swimlaneId, dataset.definitions, dataset.swimlaneField);
-        });
-        
+        const destColumnItems = items.filter((item) => {
+          const itemGroupKey = dataset.groupingField
+            ? item[dataset.groupingField] == null || item[dataset.groupingField] === ""
+              ? UNGROUPED_KEY
+              : String(item[dataset.groupingField])
+            : UNGROUPED_KEY
+
+          return (
+            itemGroupKey === destInfo.groupKey &&
+            itemBelongsToLane(item, destInfo.swimlaneId, dataset.definitions, dataset.swimlaneField)
+          )
+        })
+
         // Perform the move with optimistic update
         const performMove = () => {
           const updated = moveKanbanCard({
@@ -469,24 +574,24 @@ export function KanbanBoardView() {
             replaceItems(updated);
           }
         };
-        
+
         // WIP Validation - check if we need to validate
-        if (movedItem.id && destInfo.groupKey) {
-          const taskData = movedItem as any as Task;
-          const columnName = destInfo.groupKey === UNGROUPED_KEY ? "Ungrouped" : destInfo.groupKey;
-          
+        if (movedItem.id && resolvedColumnId) {
+          const taskData = movedItem as any as Task
+          const columnName = resolvedColumnName
+
           const { allowed, validation } = await validateMove(
             taskData,
-            destInfo.groupKey, // Using groupKey as columnId
+            String(resolvedColumnId),
             columnName,
             destColumnItems.length
           );
-          
+
           if (!allowed && validation) {
             // Show WIP override dialog
             requestWIPOverride(
               taskData,
-              destInfo.groupKey,
+              String(resolvedColumnId),
               columnName,
               validation,
               performMove
@@ -499,7 +604,14 @@ export function KanbanBoardView() {
         performMove();
       }
     },
-    [dataset.definitions, dataset.groupingField, dataset.swimlaneField, items, replaceItems, validateMove, requestWIPOverride]
+    [
+      columnLookup,
+      dataset,
+      items,
+      replaceItems,
+      validateMove,
+      requestWIPOverride,
+    ]
   )
 
   if (isLoading) {
