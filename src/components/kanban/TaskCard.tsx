@@ -43,7 +43,6 @@ export function TaskCard({ task, onEdit, onDelete, onView, compact }: TaskCardPr
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: isDragging ? 0.5 : 1,
   };
 
   const handleStartTimer = useCallback(() => {
@@ -120,6 +119,7 @@ export function TaskCard({ task, onEdit, onDelete, onView, compact }: TaskCardPr
           ticketNumber={localTask.ticket_number || undefined}
           projectCode={localTask.project?.code || undefined}
           onClick={() => onView?.(localTask)}
+          isDragging={isDragging}
         />
         
         {/* Task relationships indicator */}
