@@ -1,27 +1,48 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { ChevronLeft, Loader2 } from 'lucide-react';
+import { ChevronLeft, Loader2, Calendar as CalendarIcon, User, Tag, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { TaskDialog } from '@/components/kanban/TaskDialog';
-import { LinkedResourcesPanel } from '@/components/linked/LinkedResourcesPanel';
-import { useState } from 'react';
-import { toast } from 'sonner';
-import { enableOutpagedBrand } from '@/lib/featureFlags';
-import { StatusChip } from '@/components/outpaged/StatusChip';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { InlineEditField } from '@/components/tasks/InlineEditField';
+import { RichTextEditor } from '@/components/rich-text/RichTextEditor';
+import { useTaskFieldUpdate } from '@/hooks/useTaskFieldUpdate';
+import { cn } from '@/lib/utils';
+import { format } from 'date-fns';
+import type { TaskPriority, TaskStatus } from '@/types/tasks';
+import { getPriorityLabel, mapLegacyPriority } from '@/lib/priorityMapping';
+import { CommentsSystemWithMentions } from '@/components/comments/CommentsSystemWithMentions';
 
-type StatusTone = 'neutral' | 'info' | 'success' | 'warning' | 'danger' | 'accent';
+const PRIORITY_OPTIONS: TaskPriority[] = ["P0", "P1", "P2", "P3", "P4"];
+const STATUS_OPTIONS: TaskStatus[] = ["todo", "in_progress", "in_review", "done", "blocked", "waiting"];
+
+const PRIORITY_COLORS: Record<TaskPriority, string> = {
+  P0: "bg-red-500 text-white",
+  P1: "bg-orange-500 text-white",
+  P2: "bg-yellow-600 text-white",
+  P3: "bg-blue-500 text-white",
+  P4: "bg-gray-500 text-white",
+};
+
+const STATUS_COLORS: Record<TaskStatus, string> = {
+  todo: "bg-slate-500 text-white",
+  in_progress: "bg-blue-500 text-white",
+  in_review: "bg-purple-500 text-white",
+  done: "bg-green-500 text-white",
+  blocked: "bg-red-500 text-white",
+  waiting: "bg-amber-500 text-white",
+};
 
 export default function TaskView() {
   const { taskId } = useParams();
   const navigate = useNavigate();
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const { mutateAsync: updateField } = useTaskFieldUpdate();
 
-  // Fetch task by ID
   const { data: task, isLoading, error } = useQuery({
     queryKey: ['task', taskId],
     queryFn: async () => {
@@ -41,33 +62,27 @@ export default function TaskView() {
         .eq('id', taskId)
         .single();
       
-      if (error) {
-        console.error('Error fetching task:', error);
-        throw error;
-      }
-      
+      if (error) throw error;
       return data;
     },
     retry: 1
   });
 
   const handleBackClick = () => {
-    if (task?.projects) {
-      const project = Array.isArray(task.projects) ? task.projects[0] : task.projects;
-      if (task.project_id) {
-        navigate(`/projects/${task.project_id}`);
-      } else if (project?.code) {
-        navigate(`/projects/code/${project.code}`);
-      } else {
-        navigate('/board');
-      }
+    if (task?.project_id) {
+      navigate(`/projects/${task.project_id}`);
     } else {
-      navigate('/tasks');
+      navigate('/board');
     }
   };
 
-  const handleEditTask = () => {
-    setIsDialogOpen(true);
+  const handleFieldUpdate = async (field: string, value: any) => {
+    if (!taskId) return;
+    await updateField({ taskId, field, value });
+  };
+
+  const handleDescriptionUpdate = async (html: string) => {
+    await handleFieldUpdate('description', html);
   };
 
   if (isLoading) {
@@ -96,109 +111,12 @@ export default function TaskView() {
   }
 
   const project = Array.isArray(task.projects) ? task.projects[0] : task.projects;
-
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'urgent': return 'bg-red-500';
-      case 'high': return 'bg-orange-500';
-      case 'medium': return 'bg-yellow-500';
-      case 'low': return 'bg-green-500';
-      default: return 'bg-gray-500';
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'todo': return 'bg-slate-500';
-      case 'in_progress': return 'bg-blue-500';
-      case 'in_review': return 'bg-purple-500';
-      case 'done': return 'bg-green-500';
-      default: return 'bg-gray-500';
-    }
-  };
-
-  const mapStatusChip = (status?: string): { label: string; variant: StatusTone } => {
-    switch (status) {
-      case 'done':
-      case 'packaged':
-        return { label: 'Packaged', variant: 'success' };
-      case 'in_progress':
-        return { label: 'In Progress', variant: 'accent' };
-      case 'in_review':
-        return { label: 'In Review', variant: 'success' };
-      case 'todo':
-      default:
-        return { label: 'To Do', variant: 'neutral' };
-    }
-  };
-
-  const formatDueDate = (due?: string) => {
-    if (!due) {
-      return 'April 16, 2024';
-    }
-
-    try {
-      return new Date(due).toLocaleDateString(undefined, {
-        month: 'long',
-        day: 'numeric',
-        year: 'numeric',
-      });
-    } catch (err) {
-      console.error('Failed to format due date', err);
-      return 'April 16, 2024';
-    }
-  };
-
-  const brandChecklist = [
-    { label: 'Design QA complete', required: true, checked: true },
-    { label: 'Specifications attached', required: true, checked: false },
-    { label: 'Accessibility review logged', checked: false },
-    { label: 'Add final assets to bundle', checked: false },
-  ];
-
-  const brandApprovals = [
-    { name: 'Satoshi', status: 'Awaiting review' },
-  ];
-
-  const brandTask = {
-    id: task.ticket_number ? `OP-${task.ticket_number}` : 'OP-1289',
-    title: task.title || 'Library UI polish',
-    description: task.description || 'Library screen of the new UI needs a final review',
-    dueDate: formatDueDate(task.due_date),
-    owner: (task as any)?.handoff_owner || 'Monica Lee',
-    projectName: project?.name || 'Design Systems',
-    status: mapStatusChip(task.status),
-  };
-
-  if (enableOutpagedBrand) {
-    return (
-      <>
-        <OutpagedTaskDetail
-          task={brandTask}
-          checklist={brandChecklist}
-          approvals={brandApprovals}
-          onBack={handleBackClick}
-          onEdit={handleEditTask}
-        />
-        <TaskDialog
-          task={{
-            ...task,
-            tags: [],
-            comments: 0,
-            attachments: 0
-          } as any}
-          isOpen={isDialogOpen}
-          onClose={() => setIsDialogOpen(false)}
-          onSave={() => toast.success('Task updated')}
-        />
-      </>
-    );
-  }
+  const taskKey = task.ticket_number && project?.code ? `${project.code}-${task.ticket_number}` : null;
 
   return (
-    <div className="container mx-auto p-6 max-w-4xl">
-      {/* Header with breadcrumb */}
-      <div className="flex items-center gap-4 mb-6">
+    <div className="container mx-auto p-6 max-w-7xl">
+      {/* Header */}
+      <div className="mb-6 flex items-center gap-4">
         <Button 
           variant="ghost" 
           size="sm" 
@@ -211,258 +129,182 @@ export default function TaskView() {
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <span>{project?.name || 'Project'}</span>
           <span>/</span>
-          <span>Task #{task.ticket_number}</span>
+          <span>{taskKey || 'Task'}</span>
         </div>
       </div>
 
-      {/* Task Details Card */}
-      <Card className="mb-6">
-        <CardHeader className="pb-4">
-          <div className="flex items-start justify-between">
-            <div className="flex-1">
-              <CardTitle className="text-2xl mb-2">{task.title}</CardTitle>
-              <div className="flex items-center gap-3 flex-wrap">
-                <Badge 
-                  variant="secondary" 
-                  className={`text-primary-foreground ${getStatusColor(task.status)}`}
-                >
-                  {task.status?.replace('_', ' ')}
-                </Badge>
-                <Badge 
-                  variant="secondary" 
-                  className={`text-primary-foreground ${getPriorityColor(task.priority)}`}
-                >
-                  {task.priority}
-                </Badge>
-                <Badge variant="outline">
-                  {task.task_type?.replace('_', ' ')}
-                </Badge>
-                {task.story_points && (
-                  <Badge variant="outline">
-                    {task.story_points} pts
-                  </Badge>
-                )}
-              </div>
-            </div>
-            <Button onClick={handleEditTask}>
-              Edit Task
-            </Button>
-          </div>
-        </CardHeader>
-        
-        <CardContent>
-          {task.description && (
-            <div className="mb-4">
-              <h3 className="font-semibold mb-2">Description</h3>
-              <div className="prose prose-sm max-w-none">
-                <p className="whitespace-pre-wrap">{task.description}</p>
-              </div>
-            </div>
-          )}
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-            <div>
-              <span className="font-medium">Created:</span>{' '}
-              {new Date(task.created_at).toLocaleDateString()}
-            </div>
-            <div>
-              <span className="font-medium">Updated:</span>{' '}
-              {new Date(task.updated_at).toLocaleDateString()}
-            </div>
-            {task.due_date && (
-              <div>
-                <span className="font-medium">Due Date:</span>{' '}
-                {new Date(task.due_date).toLocaleDateString()}
-              </div>
-            )}
-            {task.hierarchy_level && (
-              <div>
-                <span className="font-medium">Type:</span>{' '}
-                {task.hierarchy_level}
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      <LinkedResourcesPanel
-        entityType="task"
-        entityId={task.id}
-        projectId={task.project_id}
-        className="mb-6"
-      />
-
-      {/* Task Dialog for editing */}
-      <TaskDialog
-        task={task ? {
-          ...task,
-          tags: [],
-          comments: 0,
-          attachments: 0
-        } as any : null}
-        isOpen={isDialogOpen}
-        onClose={() => setIsDialogOpen(false)}
-        onSave={async (updatedTask) => {
-          setIsDialogOpen(false);
-          toast.success('Task updated successfully');
-          // Refresh the page to show updated data
-          window.location.reload();
-        }}
-        projectId={task?.project_id}
-      />
-    </div>
-  );
-}
-
-interface BrandChecklistItem {
-  label: string;
-  required?: boolean;
-  checked?: boolean;
-}
-
-interface BrandApprovalItem {
-  name: string;
-  status: string;
-}
-
-interface OutpagedTaskDetailProps {
-  task: {
-    id: string;
-    title: string;
-    description: string;
-    dueDate: string;
-    owner: string;
-    projectName: string;
-    status: { label: string; variant: StatusTone };
-  };
-  checklist: BrandChecklistItem[];
-  approvals: BrandApprovalItem[];
-  onBack: () => void;
-  onEdit: () => void;
-}
-
-function OutpagedTaskDetail({ task, checklist, approvals, onBack, onEdit }: OutpagedTaskDetailProps) {
-  const [items, setItems] = useState(checklist);
-
-  const handleToggle = (index: number) => {
-    setItems((prev) =>
-      prev.map((item, idx) =>
-        idx === index
-          ? {
-              ...item,
-              checked: !item.checked,
-            }
-          : item
-      )
-    );
-  };
-
-  const ctaLabel = task.status.label === "Packaged" ? "Create Software bundle" : "Send for approval";
-
-  return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-8">
-      <div className="flex items-center justify-between">
-        <Button variant="ghost" onClick={onBack} className="flex items-center gap-2 px-0 text-sm font-semibold">
-          <ChevronLeft className="h-4 w-4" />
-          Back to handoff
-        </Button>
-        <StatusChip variant={task.status.variant}>{task.status.label}</StatusChip>
-      </div>
-
-      <div className="grid gap-8 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-        <Card className="rounded-3xl border-none shadow-soft">
-          <CardContent className="space-y-6 p-8">
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div className="space-y-2">
-                <p className="text-xs font-semibold uppercase tracking-[0.35em] text-[hsl(var(--muted-foreground))]">
-                  {task.projectName}
-                </p>
-                <h1 className="text-3xl font-semibold tracking-tight text-[hsl(var(--foreground))]">{task.title}</h1>
-                <p className="text-sm text-[hsl(var(--muted-foreground))]">{task.id}</p>
-              </div>
-              <Button
-                className="rounded-full bg-accent px-6 py-2 text-sm font-semibold text-accent-foreground shadow-soft hover:bg-accent/90"
-                onClick={onEdit}
-              >
-                {ctaLabel}
-              </Button>
-            </div>
-
-            <p className="text-sm leading-6 text-[hsl(var(--muted-foreground))] whitespace-pre-wrap">{task.description}</p>
-          </CardContent>
-        </Card>
-
+      {/* Two-Column Layout */}
+      <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
+        {/* Left Column - Main Content */}
         <div className="space-y-6">
-          <Card className="rounded-3xl border-none shadow-soft">
-            <CardContent className="space-y-4 p-6">
-              <div className="space-y-1">
-                <p className="text-xs font-semibold uppercase tracking-[0.35em] text-[hsl(var(--muted-foreground))]">Handoff</p>
-                <h2 className="text-lg font-semibold text-[hsl(var(--foreground))]">Due {task.dueDate}</h2>
-              </div>
+          {/* Title */}
+          <Card>
+            <CardContent className="pt-6">
+              <InlineEditField
+                value={task.title}
+                onSave={(value) => handleFieldUpdate('title', value)}
+                placeholder="Task title"
+                displayAs="heading"
+              />
+              {taskKey && (
+                <div className="mt-2 text-sm text-muted-foreground">{taskKey}</div>
+              )}
+            </CardContent>
+          </Card>
 
-              <div className="flex items-center justify-between rounded-2xl border border-[hsl(var(--chip-neutral))] bg-[hsl(var(--chip-neutral))]/30 px-4 py-3">
-                <div>
-                  <p className="text-sm font-semibold text-[hsl(var(--foreground))]">{task.owner}</p>
-                  <p className="text-xs text-[hsl(var(--muted-foreground))]">Handoff owner</p>
-                </div>
-                <StatusChip variant="warning">Handoff pending</StatusChip>
-              </div>
+          {/* Description */}
+          <Card>
+            <CardHeader>
+              <h3 className="text-lg font-semibold">Description</h3>
+            </CardHeader>
+            <CardContent>
+              <RichTextEditor
+                value={task.description || ''}
+                onChange={handleDescriptionUpdate}
+                placeholder="Add a description..."
+                autosaveEnabled
+                autosaveKey={`task-${taskId}-description`}
+                minHeight={200}
+              />
+            </CardContent>
+          </Card>
 
-              <div className="space-y-3">
-                {items.map((item, index) => (
-                  <label
-                    key={item.label}
-                    className="flex items-center justify-between gap-4 rounded-2xl border border-[hsl(var(--chip-neutral))] bg-[hsl(var(--card))] px-4 py-3 text-sm"
+          {/* Comments */}
+          <Card>
+            <CardHeader>
+              <h3 className="text-lg font-semibold">Comments</h3>
+            </CardHeader>
+            <CardContent>
+              <CommentsSystemWithMentions
+                entityType="task"
+                entityId={taskId || ''}
+                projectId={task.project_id}
+              />
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Right Column - Metadata */}
+        <div className="space-y-6">
+          {/* Status */}
+          <Card>
+            <CardContent className="pt-6">
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-muted-foreground">Status</label>
+                  <Select
+                    value={task.status}
+                    onValueChange={(value) => handleFieldUpdate('status', value)}
                   >
-                    <div className="flex items-center gap-3">
-                      <Checkbox
-                        checked={item.checked}
-                        onCheckedChange={() => handleToggle(index)}
-                        className="h-4 w-4"
-                      />
-                      <span className="font-semibold text-[hsl(var(--foreground))]">{item.label}</span>
-                    </div>
-                    {item.required && (
-                      <span className="text-xs font-semibold uppercase tracking-wide text-[hsl(var(--accent))]">Required</span>
-                    )}
-                  </label>
-                ))}
+                    <SelectTrigger>
+                      <SelectValue>
+                        <Badge className={cn("rounded-md", STATUS_COLORS[task.status as TaskStatus])}>
+                          {task.status.replace('_', ' ')}
+                        </Badge>
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {STATUS_OPTIONS.map((status) => (
+                        <SelectItem key={status} value={status}>
+                          <Badge className={cn("rounded-md", STATUS_COLORS[status])}>
+                            {status.replace('_', ' ')}
+                          </Badge>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-muted-foreground">Priority</label>
+                  <Select
+                    value={task.priority}
+                    onValueChange={(value) => handleFieldUpdate('priority', value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue>
+                        <Badge className={cn("rounded-md", PRIORITY_COLORS[task.priority as TaskPriority])}>
+                          {getPriorityLabel(task.priority as TaskPriority)}
+                        </Badge>
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PRIORITY_OPTIONS.map((priority) => (
+                        <SelectItem key={priority} value={priority}>
+                          <Badge className={cn("rounded-md", PRIORITY_COLORS[priority])}>
+                            {getPriorityLabel(priority)}
+                          </Badge>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="rounded-3xl border-none shadow-soft">
-            <CardContent className="space-y-4 p-6">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-[hsl(var(--foreground))]">Approvals</h2>
-                <StatusChip variant="neutral">{approvals.length} pending</StatusChip>
+          {/* Dates */}
+          <Card>
+            <CardContent className="pt-6">
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-muted-foreground">Due Date</label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full justify-start text-left font-normal",
+                          !task.due_date && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {task.due_date ? format(new Date(task.due_date), "PPP") : "Pick a date"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={task.due_date ? new Date(task.due_date) : undefined}
+                        onSelect={(date) => handleFieldUpdate('due_date', date?.toISOString())}
+                        initialFocus
+                        className="pointer-events-auto"
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
               </div>
+            </CardContent>
+          </Card>
 
-              <div className="space-y-3">
-                {approvals.map((approval) => (
-                  <div
-                    key={approval.name}
-                    className="flex items-center justify-between gap-4 rounded-2xl border border-[hsl(var(--chip-neutral))] bg-[hsl(var(--card))] px-4 py-3"
-                  >
-                    <div className="flex items-center gap-3">
-                      <Avatar className="h-9 w-9">
-                        <AvatarImage src="" alt={approval.name} />
-                        <AvatarFallback>{approval.name.slice(0, 2).toUpperCase()}</AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <p className="text-sm font-semibold text-[hsl(var(--foreground))]">{approval.name}</p>
-                        <p className="text-xs text-[hsl(var(--muted-foreground))]">{approval.status}</p>
-                      </div>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="rounded-full border border-[hsl(var(--chip-neutral))] px-3 py-1 text-xs font-semibold"
-                    >
-                      Remind
-                    </Button>
-                  </div>
-                ))}
+          {/* Effort */}
+          <Card>
+            <CardContent className="pt-6">
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-muted-foreground">Story Points</label>
+                  <InlineEditField
+                    value={task.story_points?.toString() || ''}
+                    onSave={async (value) => handleFieldUpdate('story_points', value ? parseInt(value) : null)}
+                    placeholder="0"
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Metadata */}
+          <Card>
+            <CardContent className="pt-6">
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Created</span>
+                  <span>{format(new Date(task.created_at), "PPP")}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Updated</span>
+                  <span>{format(new Date(task.updated_at), "PPP")}</span>
+                </div>
               </div>
             </CardContent>
           </Card>

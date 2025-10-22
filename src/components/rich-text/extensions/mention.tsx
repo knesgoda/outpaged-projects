@@ -2,6 +2,7 @@ import Mention from "@tiptap/extension-mention";
 import { ReactRenderer } from "@tiptap/react";
 import tippy, { type Instance as TippyInstance } from "tippy.js";
 import "tippy.js/dist/tippy.css";
+import { PluginKey } from "@tiptap/pm/state";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import type { Editor } from "@tiptap/react";
@@ -129,6 +130,7 @@ export function createMentionExtension(options: MentionExtensionOptions) {
       return `@${label}`;
     },
     suggestion: {
+      pluginKey: new PluginKey("mention-suggestion"),
       char: "@",
       allowSpaces: false,
       items: async ({ query }) => {

@@ -3,6 +3,7 @@ import Suggestion, { type SuggestionOptions } from "@tiptap/suggestion";
 import { ReactRenderer } from "@tiptap/react";
 import tippy, { type Instance as TippyInstance } from "tippy.js";
 import "tippy.js/dist/tippy.css";
+import { PluginKey } from "@tiptap/pm/state";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import type { Editor } from "@tiptap/react";
@@ -158,6 +159,7 @@ export function createCrossReferenceExtension(options: CrossReferenceExtensionOp
     addProseMirrorPlugins() {
       return [
         Suggestion({
+          pluginKey: new PluginKey("xref-suggestion"),
           editor: this.editor as any,
           char: "[",
           allowSpaces: true,
