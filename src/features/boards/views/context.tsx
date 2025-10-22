@@ -1,9 +1,12 @@
 import { createContext, useCallback, useContext, useMemo } from "react";
 import type { PropsWithChildren } from "react";
 import type { BoardViewConfiguration } from "@/types/boards";
+import type { Database } from "@/integrations/supabase/types";
 
 export type { BoardViewConfiguration };
 export type BoardViewRecord = Record<string, unknown>;
+
+export type BoardColumnRecord = Database["public"]["Tables"]["kanban_columns"]["Row"];
 
 export interface BoardViewContextValue {
   items: BoardViewRecord[];
@@ -15,6 +18,7 @@ export interface BoardViewContextValue {
   replaceItems: (items: BoardViewRecord[]) => void;
   updateConfiguration: (patch: Partial<BoardViewConfiguration>) => void;
   loadMore?: () => Promise<void> | void;
+  columns: BoardColumnRecord[];
 }
 
 export interface BoardViewProviderProps {
@@ -26,6 +30,7 @@ export interface BoardViewProviderProps {
   onLoadMore?: () => Promise<void> | void;
   onItemsChange?: (items: BoardViewRecord[]) => void;
   onConfigurationChange?: (configuration: BoardViewConfiguration) => void;
+  columns?: BoardColumnRecord[];
 }
 
 const BoardViewContext = createContext<BoardViewContextValue | undefined>(undefined);
@@ -39,6 +44,7 @@ export function BoardViewProvider({
   onLoadMore,
   onItemsChange,
   onConfigurationChange,
+  columns = [],
   children,
 }: PropsWithChildren<BoardViewProviderProps>) {
   const replaceItems = useCallback(
@@ -86,6 +92,7 @@ export function BoardViewProvider({
       replaceItems,
       updateConfiguration,
       loadMore,
+      columns,
     }),
     [
       configuration,
@@ -97,6 +104,7 @@ export function BoardViewProvider({
       replaceItems,
       updateConfiguration,
       updateItem,
+      columns,
     ]
   );
 

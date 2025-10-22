@@ -10,7 +10,10 @@ import { ErrorBoundary } from "@/components/boards/ErrorBoundary";
 import { LoadingState } from "@/components/boards/LoadingState";
 import type { BoardViewRecord } from "@/features/boards/views";
 import type { BoardViewConfiguration } from "@/types/boards";
+import type { Database } from "@/integrations/supabase/types";
 import { useProject } from "@/contexts/ProjectContext";
+
+type KanbanColumnRow = Database["public"]["Tables"]["kanban_columns"]["Row"];
 
 export default function ProjectKanbanView() {
   const { project } = useProject();
@@ -37,13 +40,23 @@ export default function ProjectKanbanView() {
   const { data: boardData, isLoading: tasksLoading } = useQuery({
     queryKey: ["project-board-kanban", project.id],
     queryFn: async () => {
-      const { data: tasks } = await supabase
-        .from("tasks")
-        .select("*")
-        .eq("project_id", project.id)
-        .order("created_at", { ascending: false });
+      const [tasksResult, columnsResult] = await Promise.all([
+        supabase
+          .from("tasks")
+          .select("*")
+          .eq("project_id", project.id)
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("kanban_columns")
+          .select("*")
+          .eq("project_id", project.id)
+          .order("position", { ascending: true }),
+      ]);
 
-      return { tasks: (tasks || []) as BoardViewRecord[] };
+      return {
+        tasks: (tasksResult.data || []) as BoardViewRecord[],
+        columns: (columnsResult.data || []) as KanbanColumnRow[],
+      };
     },
     enabled: !!boardId,
   });
@@ -69,6 +82,7 @@ export default function ProjectKanbanView() {
               items={boardData.tasks}
               configuration={configuration}
               isLoading={false}
+              columns={boardData.columns}
             >
               <MobileKanbanView boardId={boardId} />
             </BoardViewProvider>
@@ -85,6 +99,7 @@ export default function ProjectKanbanView() {
           items={boardData.tasks}
           configuration={configuration}
           isLoading={false}
+          columns={boardData.columns}
         />
       </div>
     </ErrorBoundary>
