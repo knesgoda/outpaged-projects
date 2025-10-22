@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
 import { LeftSidebar } from "@/components/boards/LeftSidebar"
+import { BacklogPanel } from "@/components/boards/BacklogPanel"
 import type { BoardSwimlaneDefinition, BoardViewSortRule } from "@/types/boards"
 
 import { useBoardViewContext } from "./context"
@@ -403,10 +404,46 @@ export function KanbanBoardView() {
   )
 
   const handleDragEnd = useCallback(
-    (result: DropResult) => {
+    async (result: DropResult) => {
       const { destination, source } = result
       if (!destination) {
         return
+      }
+
+      // Parse destination to get column info
+      const destInfo = parseDroppableId(destination.droppableId);
+      const sourceInfo = parseDroppableId(source.droppableId);
+      
+      // Get the item being moved
+      const itemIndex = findPositionInLaneGroup(
+        items,
+        dataset.groupingField,
+        dataset.swimlaneField,
+        dataset.definitions,
+        sourceInfo.swimlaneId,
+        sourceInfo.groupKey,
+        source.index
+      );
+      
+      if (itemIndex !== -1) {
+        const movedItem = items[itemIndex];
+        
+        // Basic WIP validation (simplified for now)
+        // Count items in destination column
+        const destColumnItems = items.filter(item => {
+          const itemGroupKey = dataset.groupingField 
+            ? (item[dataset.groupingField] == null || item[dataset.groupingField] === "" 
+                ? UNGROUPED_KEY 
+                : String(item[dataset.groupingField]))
+            : UNGROUPED_KEY;
+          
+          return itemGroupKey === destInfo.groupKey && 
+                 itemBelongsToLane(item, destInfo.swimlaneId, dataset.definitions, dataset.swimlaneField);
+        });
+        
+        // Allow move for now (full WIP validation requires column metadata)
+        // TODO: Implement full WIP check with validateColumnMove from columnService
+        console.log(`Moving to column with ${destColumnItems.length} items`);
       }
 
       const updated = moveKanbanCard({
@@ -439,6 +476,11 @@ export function KanbanBoardView() {
 
   return (
     <div className="flex h-full gap-4">
+      {/* Backlog & Sprint Panel */}
+      <div className="w-80 flex-shrink-0 overflow-hidden">
+        <BacklogPanel />
+      </div>
+
       <LeftSidebar
         collapsed={isSidebarCollapsed}
         onToggle={() => setIsSidebarCollapsed((value) => !value)}

@@ -1,4 +1,3 @@
-
 import { useDroppable } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -16,6 +15,10 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { WIPIndicator } from "@/components/boards/WIPIndicator";
+import { ColumnSettingsMenu } from "@/components/boards/ColumnSettingsMenu";
+import { getWIPStatus } from "@/services/boards/columnService";
+import type { ColumnMetadata } from "@/types/kanban";
 
 export interface Column {
   id: string;
@@ -188,15 +191,13 @@ export function EnhancedKanbanColumn({
               <CardTitle className={`text-sm font-medium text-foreground ${isDraggable ? 'cursor-grab active:cursor-grabbing' : ''}`}>
                 {column.title}
               </CardTitle>
-              <Badge variant="secondary" className="text-xs">
-                {column.tasks.length}
-                {typeof displayLimit === "number" && `/${displayLimit}`}
-              </Badge>
-              {isOverLimit && (
-                <Badge variant="destructive" className="text-xs">
-                  {limitSource} reached
-                </Badge>
-              )}
+              
+              {/* WIP Indicator */}
+              <WIPIndicator 
+                currentCount={column.tasks.length} 
+                metadata={column.metadata as ColumnMetadata}
+              />
+              
               {hasActiveOverride && (
                 <Badge variant="destructive" className="text-xs" data-testid="active-wip-override">
                   Override active
@@ -225,9 +226,18 @@ export function EnhancedKanbanColumn({
                 size="icon"
                 className="w-10 h-10 sm:w-6 sm:h-6"
                 onClick={() => onAddTask?.(column.id)}
+                title="Add task"
               >
                 <Plus className="w-4 h-4" />
               </Button>
+              
+              {/* Column Settings */}
+              <ColumnSettingsMenu
+                columnId={column.id}
+                columnName={column.title}
+                metadata={column.metadata}
+              />
+              
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon" className="w-10 h-10 sm:w-6 sm:h-6">

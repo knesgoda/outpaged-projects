@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { 
   MoreHorizontal, 
   Calendar, 
@@ -16,8 +17,11 @@ import {
   AlertCircle,
   XCircle,
   Users,
-  GitBranch
+  GitBranch,
+  Ban,
+  TrendingUp
 } from "lucide-react";
+import { differenceInDays, formatDistanceToNow } from "date-fns";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -31,6 +35,7 @@ import { TaskRelationshipIndicator } from "@/components/tasks/TaskRelationshipIn
 import { TaskBlockManager } from "@/components/tasks/TaskBlockManager";
 import { useTaskRelationships } from "@/hooks/useTaskRelationships";
 import type { TaskWithDetails } from "@/types/tasks";
+import { cn } from "@/lib/utils";
 
 interface EnhancedTaskCardProps {
   task: TaskWithDetails;
@@ -90,6 +95,24 @@ export function EnhancedTaskCard({
   const { relationships } = useTaskRelationships(task.id);
   const totalTime = user ? getTotalTimeForTask(task.id) : 0;
   
+  // Calculate aging (days since created)
+  const agingDays = task.created_at 
+    ? differenceInDays(new Date(), new Date(task.created_at))
+    : 0;
+  const isAging = agingDays > 7; // Highlight tasks older than 7 days
+  
+  // Check for due date status
+  const isDueSoon = task.due_date 
+    ? differenceInDays(new Date(task.due_date), new Date()) <= 2 && differenceInDays(new Date(task.due_date), new Date()) >= 0
+    : false;
+  const isOverdue = task.due_date 
+    ? new Date(task.due_date) < new Date()
+    : false;
+
+  // Check if blocked
+  const isBlocked = (task as any).blocked || false;
+  const blockingReason = (task as any).blocking_reason || '';
+  
   const {
     attributes,
     listeners,
@@ -105,9 +128,6 @@ export function EnhancedTaskCard({
   };
 
   const StatusIcon = statusIcons[task.status as keyof typeof statusIcons] || AlertCircle;
-
-  const isOverdue = task.due_date && new Date(task.due_date) < new Date();
-  const isDueSoon = task.due_date && new Date(task.due_date) <= new Date(Date.now() + 24 * 60 * 60 * 1000);
 
   return (
     <Card
@@ -192,13 +212,90 @@ export function EnhancedTaskCard({
 
         {/* Title and Description */}
         <div className="space-y-2">
-          <h4 className={`font-medium text-foreground leading-snug ${compact ? 'text-sm' : 'text-base'}`}>
-            {task.title}
-          </h4>
+          <div className="flex items-start justify-between gap-2">
+            <h4 className={cn(
+              "font-medium text-foreground leading-snug flex-1",
+              compact ? 'text-sm' : 'text-base',
+              isBlocked && "line-through opacity-60"
+            )}>
+              {task.title}
+            </h4>
+            
+            {/* Blocked Pill */}
+            {isBlocked && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge variant="destructive" className="gap-1 flex-shrink-0">
+                      <Ban className="h-3 w-3" />
+                      BLOCKED
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="max-w-xs">{blockingReason || 'Task is blocked'}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+          </div>
+          
           {!compact && task.description && (
             <p className="text-sm text-muted-foreground line-clamp-2">
               {task.description}
             </p>
+          )}
+          
+          {/* Aging and SLA Indicators */}
+          {(isAging || isOverdue || isDueSoon) && (
+            <div className="flex gap-1.5 flex-wrap">
+              {isAging && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Badge variant="outline" className="gap-1 text-xs border-warning bg-warning/10 text-warning">
+                        <TrendingUp className="h-3 w-3" />
+                        {agingDays}d
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>In progress for {agingDays} days</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+              
+              {isOverdue && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Badge variant="destructive" className="gap-1 text-xs">
+                        <AlertCircle className="h-3 w-3" />
+                        Overdue
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>{formatDistanceToNow(new Date(task.due_date!), { addSuffix: true })}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+              
+              {isDueSoon && !isOverdue && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Badge variant="outline" className="gap-1 text-xs border-warning bg-warning/10 text-warning">
+                        <Clock className="h-3 w-3" />
+                        Due soon
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>{formatDistanceToNow(new Date(task.due_date!), { addSuffix: true })}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+            </div>
           )}
         </div>
 
