@@ -12,30 +12,44 @@ export function useProjectNavigation() {
   const navigate = useNavigate();
 
   const navigateToProjectSettings = (project: ProjectNavigationData | { id: string }) => {
-    navigate(`/projects/${project.id}/settings`);
+    const identifier = 'code' in project && project.code ? project.code : project.id;
+    navigate(`/projects/${identifier}/settings`);
   };
 
-  const navigateToProject = (projectIdOrProject: string | { id: string }, tab?: string) => {
-    const projectId = typeof projectIdOrProject === 'string' ? projectIdOrProject : projectIdOrProject.id;
+  const navigateToProject = (projectIdOrProject: string | { id: string; code?: string | null }, tab?: string) => {
+    const identifier = typeof projectIdOrProject === 'string' 
+      ? projectIdOrProject 
+      : (projectIdOrProject.code || projectIdOrProject.id);
+    
     if (tab && tab !== 'overview') {
-      navigate(`/projects/${projectId}/${tab}`);
+      navigate(`/projects/${identifier}/${tab}`);
     } else {
-      navigate(`/projects/${projectId}`);
+      navigate(`/projects/${identifier}`);
     }
   };
 
   const getProjectUrl = (projectIdOrProject: string | { id: string; code?: string | null }, tab?: string) => {
-    const projectId = typeof projectIdOrProject === 'string' ? projectIdOrProject : projectIdOrProject.id;
+    const identifier = typeof projectIdOrProject === 'string' 
+      ? projectIdOrProject 
+      : (projectIdOrProject.code || projectIdOrProject.id);
+    
     if (tab && tab !== 'overview') {
-      return `/projects/${projectId}/${tab}`;
+      return `/projects/${identifier}/${tab}`;
     }
-    return `/projects/${projectId}`;
+    return `/projects/${identifier}`;
+  };
+
+  const getTaskUrl = (project: { id: string; code?: string | null }, taskNumber: number, view: string = 'kanban') => {
+    const identifier = project.code || project.id;
+    const taskKey = project.code ? `${project.code}-${taskNumber}` : taskNumber.toString();
+    return `/projects/${identifier}/${view}/${taskKey}`;
   };
 
   return {
     navigateToProjectSettings,
     navigateToProject,
     getProjectUrl,
+    getTaskUrl,
   };
 }
 

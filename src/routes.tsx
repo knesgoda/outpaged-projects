@@ -82,6 +82,7 @@ function withSuspense(element: ReactNode) {
 
 const TaskView = lazy(() => import("@/pages/TaskView"));
 const UnifiedProjectView = lazy(() => import("@/pages/projects/UnifiedProjectView"));
+const ProjectResolver = lazy(() => import("@/pages/projects/ProjectResolver").then(m => ({ default: m.ProjectResolver })));
 const ProjectKanbanView = lazy(() => import("@/pages/projects/views/ProjectKanbanView"));
 const ProjectTableView = lazy(() => import("@/pages/projects/views/ProjectTableView"));
 const ProjectTimelineView = lazy(() => import("@/pages/projects/views/ProjectTimelineView"));
@@ -100,14 +101,23 @@ export function AppRoutes() {
         { path: "projects", element: withSuspense(<Projects />) },
         {
           path: "projects/:projectId",
-          element: withSuspense(<UnifiedProjectView />),
+          element: withSuspense(<ProjectResolver />),
           children: [
-            { index: true, element: <Navigate to="kanban" replace /> },
-            { path: "kanban", element: withSuspense(<ProjectKanbanView />) },
-            { path: "table", element: withSuspense(<ProjectTableView />) },
-            { path: "timeline", element: withSuspense(<ProjectTimelineView />) },
-            { path: "calendar", element: withSuspense(<ProjectCalendarView />) },
-            { path: "settings", element: withSuspense(<ProjectDetails />) },
+            {
+              element: withSuspense(<UnifiedProjectView />),
+              children: [
+                { index: true, element: <Navigate to="kanban" replace /> },
+                { path: "kanban", element: withSuspense(<ProjectKanbanView />) },
+                { path: "kanban/:taskKey", element: withSuspense(<TaskView />) },
+                { path: "table", element: withSuspense(<ProjectTableView />) },
+                { path: "table/:taskKey", element: withSuspense(<TaskView />) },
+                { path: "timeline", element: withSuspense(<ProjectTimelineView />) },
+                { path: "timeline/:taskKey", element: withSuspense(<TaskView />) },
+                { path: "calendar", element: withSuspense(<ProjectCalendarView />) },
+                { path: "calendar/:taskKey", element: withSuspense(<TaskView />) },
+                { path: "settings", element: withSuspense(<ProjectDetails />) },
+              ],
+            },
           ],
         },
         { path: "spaces/:spaceId", element: withSuspense(<SpaceOverviewPage />) },

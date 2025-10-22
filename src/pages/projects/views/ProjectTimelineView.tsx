@@ -1,4 +1,3 @@
-import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { ensureProjectBoard } from "@/services/projects/boardInitializer";
@@ -10,33 +9,31 @@ import { BoardViewProvider } from "@/features/boards/views/context";
 import { BoardStateProvider } from "@/features/boards/views/BoardStateProvider";
 import type { BoardViewConfiguration } from "@/types/boards";
 import type { BoardViewRecord } from "@/features/boards/views";
+import { useProject } from "@/contexts/ProjectContext";
 
 export default function ProjectTimelineView() {
-  const { projectId } = useParams<{ projectId: string }>();
+  const { project } = useProject();
   const isMobile = useIsMobile();
 
   const { data: boardData, isLoading } = useQuery({
-    queryKey: ["project-board-timeline", projectId],
+    queryKey: ["project-board-timeline", project.id],
     queryFn: async () => {
-      if (!projectId) throw new Error("Project ID required");
-
-      const { data: project } = await supabase
+      const { data: projectData } = await supabase
         .from("projects")
         .select("default_board_id")
-        .eq("id", projectId)
+        .eq("id", project.id)
         .single();
 
-      const boardId = project?.default_board_id || await ensureProjectBoard(projectId);
+      const boardId = projectData?.default_board_id || await ensureProjectBoard(project.id);
 
       const { data: tasks } = await supabase
         .from("tasks")
         .select("*")
-        .eq("project_id", projectId)
+        .eq("project_id", project.id)
         .order("start_date", { ascending: true });
 
       return { boardId, tasks: (tasks || []) as BoardViewRecord[] };
     },
-    enabled: !!projectId,
   });
 
   if (isLoading || !boardData) {

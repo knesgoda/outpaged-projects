@@ -42,7 +42,7 @@ const STATUS_COLORS: Record<TaskStatus, string> = {
 };
 
 export default function TaskView() {
-  const { taskId } = useParams();
+  const { taskId, taskKey: taskKeyParam } = useParams();
   const navigate = useNavigate();
   const { mutateAsync: updateField } = useTaskFieldUpdate();
   const isMobile = useIsMobile();
@@ -50,31 +50,60 @@ export default function TaskView() {
   // Dev-only: Log component mount
   useEffect(() => {
     if (import.meta.env.DEV) {
-      console.log(`[TaskView] mounted for taskId=${taskId}`);
+      console.log(`[TaskView] mounted for taskId=${taskId}, taskKey=${taskKeyParam}`);
     }
-  }, [taskId]);
+  }, [taskId, taskKeyParam]);
 
   const { data: task, isLoading, error } = useQuery({
-    queryKey: ['task', taskId],
+    queryKey: ['task', taskId, taskKeyParam],
     queryFn: async () => {
-      if (!taskId) throw new Error('Task ID is required');
+      // Support both UUID (taskId) and project code format (taskKey)
+      if (taskKeyParam) {
+        // Parse taskKey like "IRP-1" into project code and ticket number
+        const match = taskKeyParam.match(/^([A-Z0-9]+)-(\d+)$/);
+        if (!match) throw new Error('Invalid task key format');
+        
+        const [, projectCode, ticketNumberStr] = match;
+        const ticketNumber = parseInt(ticketNumberStr, 10);
 
-      const { data, error } = await supabase
-        .from('tasks')
-        .select(`
-          *,
-          project_id,
-          projects!inner (
-            id,
-            name,
-            code
-          )
-        `)
-        .eq('id', taskId)
-        .single();
+        const { data, error } = await supabase
+          .from('tasks')
+          .select(`
+            *,
+            project_id,
+            projects!inner (
+              id,
+              name,
+              code
+            )
+          `)
+          .eq('projects.code', projectCode)
+          .eq('ticket_number', ticketNumber)
+          .single();
+        
+        if (error) throw error;
+        return data;
+      } else if (taskId) {
+        // Fallback to UUID lookup
+        const { data, error } = await supabase
+          .from('tasks')
+          .select(`
+            *,
+            project_id,
+            projects!inner (
+              id,
+              name,
+              code
+            )
+          `)
+          .eq('id', taskId)
+          .single();
+        
+        if (error) throw error;
+        return data;
+      }
       
-      if (error) throw error;
-      return data;
+      throw new Error('No task identifier provided');
     },
     retry: 1
   });

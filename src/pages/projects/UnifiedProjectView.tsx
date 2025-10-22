@@ -1,36 +1,18 @@
 import { useParams, useNavigate, Outlet, useLocation } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { ProjectViewHeader } from "./ProjectViewHeader";
+import { useProject } from "@/contexts/ProjectContext";
+import ProjectViewHeader from "./ProjectViewHeader";
 import { useProjectViewPreferences } from "@/hooks/useProjectViewPreferences";
 import type { BoardViewMode } from "@/types/boards";
 import { Loader2 } from "lucide-react";
 import { useEffect } from "react";
 
 export default function UnifiedProjectView() {
-  const { projectId } = useParams<{ projectId: string }>();
+  const { project } = useProject();
   const navigate = useNavigate();
   const location = useLocation();
 
-  const { data: project, isLoading: projectLoading } = useQuery({
-    queryKey: ["project", projectId],
-    queryFn: async () => {
-      if (!projectId) throw new Error("Project ID required");
-
-      const { data, error } = await supabase
-        .from("projects")
-        .select("*")
-        .eq("id", projectId)
-        .single();
-
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!projectId,
-  });
-
   const { defaultView, setDefaultView, isLoading: prefsLoading } = 
-    useProjectViewPreferences(projectId || "");
+    useProjectViewPreferences(project.id);
 
   // Get current view from URL
   const pathParts = location.pathname.split("/");
@@ -41,23 +23,22 @@ export default function UnifiedProjectView() {
     : defaultView;
 
   // Redirect to default view if on base project URL
+  const projectIdentifier = project.code || project.id;
   useEffect(() => {
-    if (projectId && !prefsLoading && location.pathname === `/projects/${projectId}`) {
-      navigate(`/projects/${projectId}/${defaultView}`, { replace: true });
+    if (!prefsLoading && location.pathname === `/projects/${projectIdentifier}`) {
+      navigate(`/projects/${projectIdentifier}/${defaultView}`, { replace: true });
     }
-  }, [projectId, defaultView, prefsLoading, location.pathname, navigate]);
+  }, [projectIdentifier, defaultView, prefsLoading, location.pathname, navigate]);
 
   const handleViewChange = async (view: BoardViewMode) => {
-    if (!projectId) return;
-    
     // Save preference
     await setDefaultView(view);
     
     // Navigate to new view
-    navigate(`/projects/${projectId}/${view}`);
+    navigate(`/projects/${projectIdentifier}/${view}`);
   };
 
-  if (projectLoading || prefsLoading) {
+  if (prefsLoading) {
     return (
       <div className="flex items-center justify-center h-screen">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -65,18 +46,10 @@ export default function UnifiedProjectView() {
     );
   }
 
-  if (!project) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <p className="text-muted-foreground">Project not found</p>
-      </div>
-    );
-  }
-
   return (
     <div className="flex flex-col h-screen">
       <ProjectViewHeader
-        projectId={project.id}
+        projectId={projectIdentifier}
         projectName={project.name}
         currentView={currentView}
         onViewChange={handleViewChange}

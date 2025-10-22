@@ -27,7 +27,7 @@ const VIEW_OPTIONS: { value: BoardViewMode; label: string }[] = [
   { value: "calendar", label: "Calendar" },
 ];
 
-export function ProjectViewHeader({
+export default function ProjectViewHeader({
   projectId,
   projectName,
   currentView,
