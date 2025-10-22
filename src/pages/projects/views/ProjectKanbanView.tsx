@@ -34,15 +34,7 @@ export default function ProjectKanbanView() {
     enabled: !!projectId,
   });
 
-  if (isLoading || !boardId || !projectId) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
-
-  // Fetch tasks for mobile view
+  // Fetch tasks for mobile view - must be called unconditionally
   const { data: tasks } = useQuery({
     queryKey: ["project-tasks-mobile", projectId],
     queryFn: async () => {
@@ -54,8 +46,16 @@ export default function ProjectKanbanView() {
         .order("created_at", { ascending: false });
       return (data || []) as BoardViewRecord[];
     },
-    enabled: !!projectId && isMobile,
+    enabled: !!projectId,
   });
+
+  if (isLoading || !boardId || !projectId) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   if (isMobile) {
     return (

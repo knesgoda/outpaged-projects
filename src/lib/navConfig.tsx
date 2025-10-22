@@ -85,7 +85,7 @@ export const NAV: NavItem[] = [
   },
   {
     id: "boards",
-    label: "Boards",
+    label: "All Boards",
     path: "/boards",
     icon: <Layers3 className="h-5 w-5" aria-hidden="true" />,
     roles: ALL_ROLES,
