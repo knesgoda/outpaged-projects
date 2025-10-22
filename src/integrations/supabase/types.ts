@@ -377,6 +377,125 @@ export type Database = {
           },
         ]
       }
+      board_views: {
+        Row: {
+          board_id: string
+          configuration: Json | null
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          filter_expression: Json | null
+          id: string
+          is_default: boolean | null
+          name: string
+          position: number | null
+          updated_at: string | null
+          view_mode: string
+        }
+        Insert: {
+          board_id: string
+          configuration?: Json | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          filter_expression?: Json | null
+          id?: string
+          is_default?: boolean | null
+          name: string
+          position?: number | null
+          updated_at?: string | null
+          view_mode?: string
+        }
+        Update: {
+          board_id?: string
+          configuration?: Json | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          filter_expression?: Json | null
+          id?: string
+          is_default?: boolean | null
+          name?: string
+          position?: number | null
+          updated_at?: string | null
+          view_mode?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "board_views_board_id_fkey"
+            columns: ["board_id"]
+            isOneToOne: false
+            referencedRelation: "boards"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      boards: {
+        Row: {
+          archived_at: string | null
+          color: string | null
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          icon: string | null
+          id: string
+          name: string
+          project_id: string | null
+          settings: Json | null
+          space_id: string | null
+          type: string
+          updated_at: string | null
+          workspace_id: string | null
+        }
+        Insert: {
+          archived_at?: string | null
+          color?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          icon?: string | null
+          id?: string
+          name: string
+          project_id?: string | null
+          settings?: Json | null
+          space_id?: string | null
+          type?: string
+          updated_at?: string | null
+          workspace_id?: string | null
+        }
+        Update: {
+          archived_at?: string | null
+          color?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          icon?: string | null
+          id?: string
+          name?: string
+          project_id?: string | null
+          settings?: Json | null
+          space_id?: string | null
+          type?: string
+          updated_at?: string | null
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "boards_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "boards_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       challenge_participants: {
         Row: {
           challenge_id: string
@@ -1380,8 +1499,10 @@ export type Database = {
       }
       projects: {
         Row: {
+          board_settings: Json | null
           code: string | null
           created_at: string
+          default_board_id: string | null
           description: string | null
           end_date: string | null
           id: string
@@ -1396,8 +1517,10 @@ export type Database = {
           workspace_id: string | null
         }
         Insert: {
+          board_settings?: Json | null
           code?: string | null
           created_at?: string
+          default_board_id?: string | null
           description?: string | null
           end_date?: string | null
           id?: string
@@ -1412,8 +1535,10 @@ export type Database = {
           workspace_id?: string | null
         }
         Update: {
+          board_settings?: Json | null
           code?: string | null
           created_at?: string
+          default_board_id?: string | null
           description?: string | null
           end_date?: string | null
           id?: string
@@ -1428,6 +1553,13 @@ export type Database = {
           workspace_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "fk_projects_default_board"
+            columns: ["default_board_id"]
+            isOneToOne: false
+            referencedRelation: "boards"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "projects_space_id_fkey"
             columns: ["space_id"]
@@ -2921,6 +3053,44 @@ export type Database = {
             columns: ["current_narrative_id"]
             isOneToOne: false
             referencedRelation: "story_narratives"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_project_view_preferences: {
+        Row: {
+          created_at: string | null
+          default_view_mode: string | null
+          id: string
+          project_id: string
+          updated_at: string | null
+          user_id: string
+          view_settings: Json | null
+        }
+        Insert: {
+          created_at?: string | null
+          default_view_mode?: string | null
+          id?: string
+          project_id: string
+          updated_at?: string | null
+          user_id: string
+          view_settings?: Json | null
+        }
+        Update: {
+          created_at?: string | null
+          default_view_mode?: string | null
+          id?: string
+          project_id?: string
+          updated_at?: string | null
+          user_id?: string
+          view_settings?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_project_view_preferences_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
         ]

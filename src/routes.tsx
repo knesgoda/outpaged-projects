@@ -81,6 +81,11 @@ function withSuspense(element: ReactNode) {
 }
 
 const TaskView = lazy(() => import("@/pages/TaskView"));
+const UnifiedProjectView = lazy(() => import("@/pages/projects/UnifiedProjectView"));
+const ProjectKanbanView = lazy(() => import("@/pages/projects/views/ProjectKanbanView"));
+const ProjectTableView = lazy(() => import("@/pages/projects/views/ProjectTableView"));
+const ProjectTimelineView = lazy(() => import("@/pages/projects/views/ProjectTimelineView"));
+const ProjectCalendarView = lazy(() => import("@/pages/projects/views/ProjectCalendarView"));
 
 export function AppRoutes() {
   return useRoutes([
@@ -93,7 +98,18 @@ export function AppRoutes() {
         { path: "board", element: withSuspense(<KanbanBoard />) },
         { path: "inbox", element: withSuspense(<InboxPage />) },
         { path: "projects", element: withSuspense(<Projects />) },
-        { path: "projects/:projectId", element: withSuspense(<ProjectDetails />) },
+        {
+          path: "projects/:projectId",
+          element: withSuspense(<UnifiedProjectView />),
+          children: [
+            { index: true, element: <Navigate to="kanban" replace /> },
+            { path: "kanban", element: withSuspense(<ProjectKanbanView />) },
+            { path: "table", element: withSuspense(<ProjectTableView />) },
+            { path: "timeline", element: withSuspense(<ProjectTimelineView />) },
+            { path: "calendar", element: withSuspense(<ProjectCalendarView />) },
+            { path: "settings", element: withSuspense(<ProjectDetails />) },
+          ],
+        },
         { path: "spaces/:spaceId", element: withSuspense(<SpaceOverviewPage />) },
         { path: "tasks", element: withSuspense(<TasksPage />) },
         { path: "tasks/:taskId", element: withSuspense(<TaskView />) },
