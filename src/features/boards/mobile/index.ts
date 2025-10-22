@@ -16,4 +16,5 @@ export {
   MobileGanttView,
 } from "./MobileBoardViews";
 export { MobileQuickActionsSheet } from "./MobileQuickActionsSheet";
+export { MobileQuickTaskSheet } from "./MobileQuickTaskSheet";
 export { ConflictResolutionDialog } from "./ConflictResolutionDialog";

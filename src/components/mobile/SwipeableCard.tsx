@@ -1,6 +1,8 @@
 import { useState, useRef, TouchEvent, ReactNode } from "react";
+
+import { CheckCircle2, Flag, ArrowRight, XCircle, Trash2 } from "lucide-react";
+
 import { cn } from "@/lib/utils";
-import { CheckCircle2, XCircle, ArrowRight, Trash2 } from "lucide-react";
 
 interface SwipeAction {
   id: string;
@@ -8,6 +10,7 @@ interface SwipeAction {
   icon: ReactNode;
   color: string;
   onAction: () => void;
+  hapticPattern?: number | number[];
 }
 
 interface SwipeableCardProps {
@@ -54,19 +57,33 @@ export function SwipeableCard({
     }
   };
 
+  const triggerHaptic = (pattern?: number | number[]) => {
+    if (typeof window === "undefined") return;
+    if (!pattern) return;
+    try {
+      window.navigator?.vibrate?.(pattern);
+    } catch {
+      // noop - haptics are best effort
+    }
+  };
+
   const handleTouchEnd = () => {
     setIsSwiping(false);
-    
+
     const threshold = 80;
-    
+
     if (translateX > threshold && rightAction) {
       // Swipe right action
       rightAction.onAction();
+      triggerHaptic(rightAction.hapticPattern ?? 35);
       setTranslateX(0);
+      onSwipeRight?.();
     } else if (translateX < -threshold && leftAction) {
       // Swipe left action
       leftAction.onAction();
+      triggerHaptic(leftAction.hapticPattern ?? [0, 24, 12, 24]);
       setTranslateX(0);
+      onSwipeLeft?.();
     } else {
       // Reset if threshold not met
       setTranslateX(0);
@@ -77,12 +94,12 @@ export function SwipeableCard({
   const showRightAction = translateX < -20;
 
   return (
-    <div className="relative overflow-hidden">
+    <div className="relative overflow-hidden rounded-2xl">
       {/* Left action background */}
       {rightAction && (
         <div
           className={cn(
-            "absolute left-0 top-0 bottom-0 flex items-center px-4 transition-opacity",
+            "absolute left-0 top-0 bottom-0 flex items-center px-4 transition-opacity rounded-2xl",
             rightAction.color,
             showLeftAction ? "opacity-100" : "opacity-0"
           )}
@@ -99,7 +116,7 @@ export function SwipeableCard({
       {leftAction && (
         <div
           className={cn(
-            "absolute right-0 top-0 bottom-0 flex items-center justify-end px-4 transition-opacity",
+            "absolute right-0 top-0 bottom-0 flex items-center justify-end px-4 transition-opacity rounded-2xl",
             leftAction.color,
             showRightAction ? "opacity-100" : "opacity-0"
           )}
@@ -135,31 +152,53 @@ export const SwipeActions = {
     id: "complete",
     label: "Complete",
     icon: <CheckCircle2 className="h-5 w-5" />,
-    color: "bg-success text-success-foreground",
+    color: "bg-emerald-500/10 text-emerald-200 ring-1 ring-emerald-400/30",
     onAction: onComplete,
+    hapticPattern: 40,
   }),
-  
+
+  done: (onDone: () => void): SwipeAction => ({
+    id: "done",
+    label: "Mark done",
+    icon: <CheckCircle2 className="h-5 w-5" />,
+    color: "bg-emerald-500/15 text-emerald-100 ring-1 ring-emerald-400/40",
+    onAction: onDone,
+    hapticPattern: 45,
+  }),
+
   delete: (onDelete: () => void): SwipeAction => ({
     id: "delete",
     label: "Delete",
     icon: <Trash2 className="h-5 w-5" />,
     color: "bg-destructive text-destructive-foreground",
     onAction: onDelete,
+    hapticPattern: [0, 30, 20, 30],
   }),
-  
+
   moveForward: (onMove: () => void): SwipeAction => ({
     id: "move",
     label: "Move",
     icon: <ArrowRight className="h-5 w-5" />,
     color: "bg-primary text-primary-foreground",
     onAction: onMove,
+    hapticPattern: 35,
   }),
-  
+
   archive: (onArchive: () => void): SwipeAction => ({
     id: "archive",
     label: "Archive",
     icon: <XCircle className="h-5 w-5" />,
     color: "bg-warning text-warning-foreground",
     onAction: onArchive,
+    hapticPattern: [0, 30, 10, 30],
+  }),
+
+  flag: (onFlag: () => void): SwipeAction => ({
+    id: "flag",
+    label: "Flag",
+    icon: <Flag className="h-5 w-5" />,
+    color: "bg-orange-500/15 text-orange-100 ring-1 ring-orange-400/40",
+    onAction: onFlag,
+    hapticPattern: [0, 28, 14, 28],
   }),
 };
