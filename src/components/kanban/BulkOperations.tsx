@@ -27,7 +27,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Task } from "./TaskCard";
+import type { TaskWithDetails } from "@/types/tasks";
 import {
   bulkAddTasksToSprint,
   bulkAssignAssignee,
@@ -46,7 +46,7 @@ import { Trash2, Move, Calendar, Eye, GitBranch, Download } from "lucide-react";
 interface BulkOperationsProps {
   selectedTasks: string[];
   onSelectionChange: (taskIds: string[]) => void;
-  tasks: Task[];
+  tasks: TaskWithDetails[];
   onOperationComplete: () => void;
   availableAssignees?: Array<{ id: string; name: string; avatar?: string }>;
   availableColumns?: Array<{ id: string; title: string }>;

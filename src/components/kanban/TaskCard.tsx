@@ -1,16 +1,17 @@
 import { useEffect, useState, useCallback } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { StandardizedTaskCard, StandardizedTask } from "@/components/ui/standardized-task-card";
+import { StandardizedTaskCard } from "@/components/ui/standardized-task-card";
 import type { StandardizedTaskCardProps } from "@/components/ui/standardized-task-card";
 import { useTimeTracking } from "@/hooks/useTimeTracking";
 import { useAuth } from "@/hooks/useAuth";
 import { TaskRelationshipIndicator } from "@/components/tasks/TaskRelationshipIndicator";
 import { useTaskRelationships } from "@/hooks/useTaskRelationships";
 import { updateTaskFields, replaceTaskAssignees } from "@/services/tasksService";
+import type { TaskWithDetails } from "@/types/tasks";
 
 // Re-export the Task interface for backward compatibility
-export interface Task extends StandardizedTask {}
+export interface Task extends TaskWithDetails {}
 
 interface TaskCardProps {
   task: Task;
@@ -24,7 +25,7 @@ export function TaskCard({ task, onEdit, onDelete, onView, compact }: TaskCardPr
   const { user } = useAuth();
   const { relationships } = useTaskRelationships(task.id);
   const { startTimer, runningEntry } = useTimeTracking();
-  const [localTask, setLocalTask] = useState<StandardizedTask>(task);
+  const [localTask, setLocalTask] = useState<Task>(task);
 
   useEffect(() => {
     setLocalTask(task);
@@ -57,7 +58,7 @@ export function TaskCard({ task, onEdit, onDelete, onView, compact }: TaskCardPr
     }
   }, [localTask, onEdit]);
 
-  const handleInlineUpdate = useCallback<NonNullable<StandardizedTaskCardProps["onInlineUpdate"]>>(async (field, value) => {
+  const handleInlineUpdate = useCallback(async (field: string, value: unknown) => {
     switch (field) {
       case "title": {
         const next = String(value ?? "");
@@ -80,7 +81,7 @@ export function TaskCard({ task, onEdit, onDelete, onView, compact }: TaskCardPr
       case "due_date": {
         const next = typeof value === "string" ? value : null;
         await updateTaskFields(localTask.id, { due_date: next });
-        setLocalTask((prev) => ({ ...prev, due_date: next ?? undefined, dueDate: next ?? undefined }));
+        setLocalTask((prev) => ({ ...prev, due_date: next ?? undefined }));
         break;
       }
       case "assignees": {
@@ -106,17 +107,19 @@ export function TaskCard({ task, onEdit, onDelete, onView, compact }: TaskCardPr
     <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
       <div className="relative">
         <StandardizedTaskCard
-          task={localTask}
-          onEdit={onEdit}
-          onDelete={onDelete}
-          onView={onView}
-          compact={compact}
-          showProject={false}
-          interactive={true}
-          enableInlineEditing
-          onInlineUpdate={handleInlineUpdate}
-          onLogTime={handleLogTime}
-          onStartTimer={() => handleStartTimer()}
+          id={localTask.id}
+          title={localTask.title}
+          status={localTask.status}
+          priority={localTask.priority}
+          taskType={localTask.task_type}
+          assigneeAvatar={localTask.assignees?.[0]?.avatar}
+          assigneeName={localTask.assignees?.[0]?.name}
+          dueDate={localTask.due_date}
+          blocked={localTask.blocked || false}
+          tags={localTask.tags.map(t => t.label)}
+          ticketNumber={localTask.ticket_number || undefined}
+          projectCode={localTask.project?.code || undefined}
+          onClick={() => onView?.(localTask)}
         />
         
         {/* Task relationships indicator */}

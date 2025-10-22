@@ -30,13 +30,13 @@ import { useAuth } from "@/hooks/useAuth";
 import { TaskRelationshipIndicator } from "@/components/tasks/TaskRelationshipIndicator";
 import { TaskBlockManager } from "@/components/tasks/TaskBlockManager";
 import { useTaskRelationships } from "@/hooks/useTaskRelationships";
-import { Task } from "@/components/kanban/TaskCard";
+import type { TaskWithDetails } from "@/types/tasks";
 
 interface EnhancedTaskCardProps {
-  task: Task;
-  onEdit?: (task: Task) => void;
+  task: TaskWithDetails;
+  onEdit?: (task: TaskWithDetails) => void;
   onDelete?: (taskId: string) => void;
-  onView?: (task: Task) => void;
+  onView?: (task: TaskWithDetails) => void;
   onUpdate?: () => void;
   compact?: boolean;
   showMetrics?: boolean;
@@ -106,8 +106,8 @@ export function EnhancedTaskCard({
 
   const StatusIcon = statusIcons[task.status as keyof typeof statusIcons] || AlertCircle;
 
-  const isOverdue = task.dueDate && new Date(task.dueDate) < new Date();
-  const isDueSoon = task.dueDate && new Date(task.dueDate) <= new Date(Date.now() + 24 * 60 * 60 * 1000);
+  const isOverdue = task.due_date && new Date(task.due_date) < new Date();
+  const isDueSoon = task.due_date && new Date(task.due_date) <= new Date(Date.now() + 24 * 60 * 60 * 1000);
 
   return (
     <Card
@@ -220,8 +220,8 @@ export function EnhancedTaskCard({
         {!compact && task.tags.length > 0 && (
           <div className="flex flex-wrap gap-1">
             {task.tags.slice(0, 3).map((tag) => (
-              <Badge key={tag} variant="outline" className="text-xs px-2 py-0">
-                {tag}
+              <Badge key={tag.id} variant="outline" className="text-xs px-2 py-0">
+                {tag.label}
               </Badge>
             ))}
             {task.tags.length > 3 && (
@@ -252,28 +252,28 @@ export function EnhancedTaskCard({
         {/* Footer */}
         <div className="flex items-center justify-between pt-2 border-t border-border">
           <div className="flex items-center gap-2 text-muted-foreground flex-wrap">
-            {task.dueDate && (
+            {task.due_date && (
               <div className={`flex items-center gap-1 text-xs ${
                 isOverdue ? 'text-destructive font-medium' : isDueSoon ? 'text-warning font-medium' : ''
               }`}>
                 <Calendar className="w-3 h-3" />
                 <span className={compact ? "text-xs" : "hidden sm:inline"}>
-                  {compact ? task.dueDate.split(' ')[0] : task.dueDate}
+                  {compact ? task.due_date.split(' ')[0] : task.due_date}
                 </span>
               </div>
             )}
             {showMetrics && (
               <>
-                {task.comments > 0 && (
+                {task.commentCount > 0 && (
                   <div className="flex items-center gap-1 text-xs">
                     <MessageSquare className="w-3 h-3" />
-                    {task.comments}
+                    {task.commentCount}
                   </div>
                 )}
-                {task.attachments > 0 && (
+                {task.attachmentCount > 0 && (
                   <div className="flex items-center gap-1 text-xs">
                     <Paperclip className="w-3 h-3" />
-                    {task.attachments}
+                    {task.attachmentCount}
                   </div>
                 )}
                 {totalTime > 0 && (

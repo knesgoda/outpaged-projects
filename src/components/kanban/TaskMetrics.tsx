@@ -2,7 +2,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Task } from "./TaskCard";
+import type { TaskWithDetails } from "@/types/tasks";
 import { 
   Clock, 
   CheckCircle2, 
@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 
 interface TaskMetricsProps {
-  tasks: Task[];
+  tasks: TaskWithDetails[];
   title?: string;
 }
 
@@ -24,8 +24,8 @@ export function TaskMetrics({ tasks, title = "Task Metrics" }: TaskMetricsProps)
   const inProgressTasks = tasks.filter(task => task.status === 'in_progress').length;
   const blockedTasks = tasks.filter(task => task.blocked).length;
   const overdueTasks = tasks.filter(task => {
-    if (!task.dueDate) return false;
-    return new Date(task.dueDate) < new Date();
+    if (!task.due_date) return false;
+    return new Date(task.due_date) < new Date();
   }).length;
 
   const completionRate = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;

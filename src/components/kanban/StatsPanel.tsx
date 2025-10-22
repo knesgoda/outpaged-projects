@@ -11,10 +11,10 @@ import {
   TrendingUp,
   X
 } from "lucide-react";
-import { Task } from "@/components/kanban/TaskCard";
+import type { TaskWithDetails } from "@/types/tasks";
 
 interface StatsPanelProps {
-  tasks: Task[];
+  tasks: TaskWithDetails[];
   children: React.ReactNode;
 }
 
@@ -27,9 +27,9 @@ export function StatsPanel({ tasks, children }: StatsPanelProps) {
   const inProgressTasks = tasks.filter(task => task.status === 'in_progress').length;
   const blockedTasks = tasks.filter(task => task.blocked).length;
   const overdueTasks = tasks.filter(task => {
-    if (!task.dueDate) return false;
+    if (!task.due_date) return false;
     const today = new Date();
-    const dueDate = new Date(task.dueDate);
+    const dueDate = new Date(task.due_date);
     return dueDate < today && task.status !== 'done';
   }).length;
 
