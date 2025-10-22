@@ -13,6 +13,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { InlineEditField } from '@/components/tasks/InlineEditField';
 import { RichTextEditor } from '@/components/rich-text/RichTextEditor';
 import { useTaskFieldUpdate } from '@/hooks/useTaskFieldUpdate';
+import { useIsMobile } from '@/hooks/useDevice';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import type { TaskPriority, TaskStatus } from '@/types/tasks';
@@ -44,6 +45,7 @@ export default function TaskView() {
   const { taskId } = useParams();
   const navigate = useNavigate();
   const { mutateAsync: updateField } = useTaskFieldUpdate();
+  const isMobile = useIsMobile();
 
   // Dev-only: Log component mount
   useEffect(() => {
@@ -123,19 +125,34 @@ export default function TaskView() {
   const taskKey = task.ticket_number && project?.code ? `${project.code}-${task.ticket_number}` : null;
 
   return (
-    <div className="container mx-auto p-6 max-w-7xl">
+    <div className={cn(
+      "container mx-auto p-3 max-w-7xl",
+      "lg:p-6"
+    )}>
       {/* Header */}
-      <div className="mb-6 flex items-center gap-4">
+      <div className={cn(
+        "mb-4 flex items-center gap-2",
+        "lg:mb-6 lg:gap-4"
+      )}>
         <Button 
           variant="ghost" 
           size="sm" 
           onClick={handleBackClick}
-          className="p-2"
+          className={cn(
+            "p-1",
+            "lg:p-2"
+          )}
         >
-          <ChevronLeft className="h-4 w-4" />
+          <ChevronLeft className={cn(
+            "h-4 w-4",
+            "lg:h-5 lg:w-5"
+          )} />
         </Button>
         
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <div className={cn(
+          "flex items-center gap-1 text-xs text-muted-foreground",
+          "lg:gap-2 lg:text-sm"
+        )}>
           <span>{project?.name || 'Project'}</span>
           <span>/</span>
           <span>{taskKey || 'Task'}</span>
@@ -143,12 +160,21 @@ export default function TaskView() {
       </div>
 
       {/* Two-Column Layout */}
-      <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
+      <div className={cn(
+        "flex flex-col gap-4",
+        "lg:grid lg:grid-cols-[2fr_1fr] lg:gap-6"
+      )}>
         {/* Left Column - Main Content */}
-        <div className="space-y-6">
+        <div className={cn(
+          "space-y-4",
+          "lg:space-y-6"
+        )}>
           {/* Title */}
           <Card>
-            <CardContent className="pt-6">
+            <CardContent className={cn(
+              "pt-4 px-3",
+              "lg:pt-6 lg:px-6"
+            )}>
               <InlineEditField
                 value={task.title}
                 onSave={(value) => handleFieldUpdate('title', value)}
@@ -163,10 +189,19 @@ export default function TaskView() {
 
           {/* Description */}
           <Card>
-            <CardHeader>
-              <h3 className="text-lg font-semibold">Description</h3>
+            <CardHeader className={cn(
+              "px-3 py-3",
+              "lg:px-6 lg:py-4"
+            )}>
+              <h3 className={cn(
+                "text-base font-semibold",
+                "lg:text-lg"
+              )}>Description</h3>
             </CardHeader>
-            <CardContent>
+            <CardContent className={cn(
+              "px-3 pb-3",
+              "lg:px-6 lg:pb-6"
+            )}>
               <RichTextEditor
                 value={task.description || ''}
                 onChange={handleDescriptionUpdate}
@@ -180,10 +215,19 @@ export default function TaskView() {
 
           {/* Comments */}
           <Card>
-            <CardHeader>
-              <h3 className="text-lg font-semibold">Comments</h3>
+            <CardHeader className={cn(
+              "px-3 py-3",
+              "lg:px-6 lg:py-4"
+            )}>
+              <h3 className={cn(
+                "text-base font-semibold",
+                "lg:text-lg"
+              )}>Comments</h3>
             </CardHeader>
-            <CardContent>
+            <CardContent className={cn(
+              "px-3 pb-3",
+              "lg:px-6 lg:pb-6"
+            )}>
               <CommentsSystemWithMentions
                 entityType="task"
                 entityId={taskId || ''}
@@ -203,18 +247,36 @@ export default function TaskView() {
         </div>
 
         {/* Right Column - Metadata */}
-        <div className="space-y-6">
+        <div className={cn(
+          "space-y-4",
+          "lg:space-y-6"
+        )}>
           {/* Status */}
           <Card>
-            <CardContent className="pt-6">
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-muted-foreground">Status</label>
+            <CardContent className={cn(
+              "pt-4 px-3 pb-3",
+              "lg:pt-6 lg:px-6 lg:pb-6"
+            )}>
+              <div className={cn(
+                "space-y-3",
+                "lg:space-y-4"
+              )}>
+                <div className={cn(
+                  "space-y-1.5",
+                  "lg:space-y-2"
+                )}>
+                  <label className={cn(
+                    "text-xs font-medium text-muted-foreground",
+                    "lg:text-sm"
+                  )}>Status</label>
                   <Select
                     value={task.status}
                     onValueChange={(value) => handleFieldUpdate('status', value)}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className={cn(
+                      "h-10",
+                      "lg:h-auto"
+                    )}>
                       <SelectValue>
                         <Badge className={cn("rounded-md", STATUS_COLORS[task.status as TaskStatus])}>
                           {task.status.replace('_', ' ')}
@@ -233,13 +295,22 @@ export default function TaskView() {
                   </Select>
                 </div>
 
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-muted-foreground">Priority</label>
+                <div className={cn(
+                  "space-y-1.5",
+                  "lg:space-y-2"
+                )}>
+                  <label className={cn(
+                    "text-xs font-medium text-muted-foreground",
+                    "lg:text-sm"
+                  )}>Priority</label>
                   <Select
                     value={task.priority}
                     onValueChange={(value) => handleFieldUpdate('priority', value)}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className={cn(
+                      "h-10",
+                      "lg:h-auto"
+                    )}>
                       <SelectValue>
                         <Badge className={cn("rounded-md", PRIORITY_COLORS[task.priority as TaskPriority])}>
                           {getPriorityLabel(task.priority as TaskPriority)}
@@ -263,16 +334,29 @@ export default function TaskView() {
 
           {/* Dates */}
           <Card>
-            <CardContent className="pt-6">
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-muted-foreground">Due Date</label>
+            <CardContent className={cn(
+              "pt-4 px-3 pb-3",
+              "lg:pt-6 lg:px-6 lg:pb-6"
+            )}>
+              <div className={cn(
+                "space-y-3",
+                "lg:space-y-4"
+              )}>
+                <div className={cn(
+                  "space-y-1.5",
+                  "lg:space-y-2"
+                )}>
+                  <label className={cn(
+                    "text-xs font-medium text-muted-foreground",
+                    "lg:text-sm"
+                  )}>Due Date</label>
                   <Popover>
                     <PopoverTrigger asChild>
                       <Button
                         variant="outline"
                         className={cn(
-                          "w-full justify-start text-left font-normal",
+                          "w-full justify-start text-left font-normal text-sm h-10",
+                          "lg:text-base lg:h-auto",
                           !task.due_date && "text-muted-foreground"
                         )}
                       >
@@ -297,10 +381,22 @@ export default function TaskView() {
 
           {/* Effort */}
           <Card>
-            <CardContent className="pt-6">
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-muted-foreground">Story Points</label>
+            <CardContent className={cn(
+              "pt-4 px-3 pb-3",
+              "lg:pt-6 lg:px-6 lg:pb-6"
+            )}>
+              <div className={cn(
+                "space-y-3",
+                "lg:space-y-4"
+              )}>
+                <div className={cn(
+                  "space-y-1.5",
+                  "lg:space-y-2"
+                )}>
+                  <label className={cn(
+                    "text-xs font-medium text-muted-foreground",
+                    "lg:text-sm"
+                  )}>Story Points</label>
                   <InlineEditField
                     value={task.story_points?.toString() || ''}
                     onSave={async (value) => handleFieldUpdate('story_points', value ? parseInt(value) : null)}
@@ -313,8 +409,14 @@ export default function TaskView() {
 
           {/* Metadata */}
           <Card>
-            <CardContent className="pt-6">
-              <div className="space-y-2 text-sm">
+            <CardContent className={cn(
+              "pt-4 px-3 pb-3",
+              "lg:pt-6 lg:px-6 lg:pb-6"
+            )}>
+              <div className={cn(
+                "space-y-2 text-xs",
+                "lg:text-sm"
+              )}>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Created</span>
                   <span>{format(new Date(task.created_at), "PPP")}</span>
