@@ -55,27 +55,24 @@ export function useProjectNavigation() {
 
 export async function resolveProject(identifier: string): Promise<ProjectNavigationData | null> {
   try {
-    // Try to find project by ID first
-    let query = supabase
+    const trimmedIdentifier = identifier.trim();
+    if (!trimmedIdentifier) {
+      return null;
+    }
+
+    // Check if identifier is a UUID
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(trimmedIdentifier);
+
+    // Query by the appropriate field
+    const baseQuery = supabase
       .from('projects')
       .select('id, name, code, description')
-      .eq('id', identifier)
+      .limit(1);
+
+    const { data, error } = await (isUuid
+      ? baseQuery.eq('id', trimmedIdentifier)
+      : baseQuery.eq('code', trimmedIdentifier))
       .maybeSingle();
-
-    let { data, error } = await query;
-
-    // If not found by ID and identifier looks like a code, try by code
-    if (!data && !error && identifier.length < 36) {
-      const codeQuery = supabase
-        .from('projects')
-        .select('id, name, code, description')
-        .eq('code', identifier)
-        .maybeSingle();
-
-      const codeResult = await codeQuery;
-      data = codeResult.data;
-      error = codeResult.error;
-    }
 
     if (error) {
       console.error('Error resolving project:', error);
