@@ -6,6 +6,8 @@ import { Loader2 } from "lucide-react";
 import { useIsMobile } from "@/features/boards/mobile";
 import { MobileCalendarBoardView } from "@/features/boards/mobile";
 import { BoardViewCanvas } from "@/features/boards/views";
+import { BoardViewProvider } from "@/features/boards/views/context";
+import { BoardStateProvider } from "@/features/boards/views/BoardStateProvider";
 import type { BoardViewConfiguration } from "@/types/boards";
 import type { BoardViewRecord } from "@/features/boards/views";
 
@@ -52,6 +54,22 @@ export default function ProjectCalendarView() {
     sort: [],
     columnPreferences: { order: [], hidden: [] },
   };
+
+  if (isMobile) {
+    return (
+      <div className="p-4">
+        <BoardStateProvider>
+          <BoardViewProvider
+            items={boardData.tasks}
+            configuration={configuration}
+            isLoading={false}
+          >
+            <MobileCalendarBoardView />
+          </BoardViewProvider>
+        </BoardStateProvider>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 lg:p-6">
