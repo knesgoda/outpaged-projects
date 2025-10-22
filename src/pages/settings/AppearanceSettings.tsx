@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { useTheme } from "next-themes";
+import { useTheme } from "@/components/theme/theme-context";
+import type { ThemeName } from "@/components/theme/theme-context";
 
 const STORAGE_KEY = "outpaged.appearance";
 
@@ -59,11 +60,11 @@ export default function AppearanceSettings() {
           <CardDescription>Choose light, dark, or match your system.</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-2">
-          {[
-            { label: "System", value: "system" },
-            { label: "Light", value: "light" },
-            { label: "Dark", value: "dark" },
-          ].map((option) => (
+          {([
+            { label: "System", value: "system" as ThemeName },
+            { label: "Light", value: "light" as ThemeName },
+            { label: "Dark", value: "dark" as ThemeName },
+          ]).map((option) => (
             <Button
               key={option.value}
               variant={theme === option.value ? "default" : "outline"}
