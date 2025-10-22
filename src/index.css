@@ -11,12 +11,24 @@
 
   body {
     font-family: 'Quicksand', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont;
+    font-weight: 400;
     @apply bg-background text-foreground antialiased;
   }
 
   :root {
     font-feature-settings: "liga" 1, "kern" 1;
     font-variant-ligatures: contextual;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6,
+  strong {
+    font-family: 'Quicksand', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont;
+    font-weight: 500;
   }
 
   .high-contrast {
@@ -34,7 +46,8 @@
   }
 
   .keyboard-navigation *:focus-visible {
-    outline: 2px solid hsl(var(--accent));
+    outline: 2px solid transparent;
+    outline-color: hsl(var(--accent));
     outline-offset: 3px;
   }
 

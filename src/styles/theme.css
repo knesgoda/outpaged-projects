@@ -1,8 +1,4 @@
 :root {
-  --op-orange: #FF7A00;
-  --op-royal: #0B3D91;
-  --op-dark: #1F2937;
-
   /* Spacing scale */
   --space-1: 0.25rem;
   --space-2: 0.5rem;
@@ -21,31 +17,31 @@
   --radius: 1rem;
 
   /* Elevation */
-  --shadow-soft: 0 20px 45px -20px hsl(218 60% 40% / 0.2);
-  --shadow-medium: 0 32px 60px -24px hsl(215 56% 30% / 0.35);
-  --shadow-large: 0 40px 80px -30px hsl(215 60% 25% / 0.4);
+  --shadow-soft: 0 18px 40px -24px hsl(208 65% 35% / 0.18);
+  --shadow-medium: 0 32px 64px -28px hsl(208 70% 30% / 0.28);
+  --shadow-large: 0 48px 92px -32px hsl(208 75% 26% / 0.32);
 
   /* Default to light tokens to avoid FOUC */
-  --background: 0 0% 98%;
-  --foreground: 215 25% 20%;
-  --card: 0 0% 100%;
-  --card-foreground: 215 25% 20%;
+  --background: 220 16% 96%; /* #F4F5F7 */
+  --foreground: 208 100% 12%; /* #001B33 */
+  --card: 0 0% 100%; /* #FFFFFF */
+  --card-foreground: 208 90% 14%;
   --popover: 0 0% 100%;
-  --popover-foreground: 215 25% 20%;
-  --border: 220 15% 88%;
+  --popover-foreground: 208 90% 14%;
+  --border: 215 20% 85%;
   --input: 0 0% 100%;
-  --ring: 29 100% 50%;
-  --primary: 29 100% 50%;
+  --ring: 220 100% 61%;
+  --primary: 25 100% 50%; /* #FF6A00 */
   --primary-foreground: 0 0% 100%;
-  --primary-hover: 29 100% 45%;
-  --primary-light: 29 100% 60%;
-  --secondary: 217 32% 92%;
-  --secondary-foreground: 215 25% 20%;
-  --muted: 220 18% 94%;
-  --muted-foreground: 215 15% 50%;
-  --accent: 29 100% 50%;
+  --primary-hover: 25 100% 44%;
+  --primary-light: 25 100% 58%;
+  --secondary: 218 25% 92%;
+  --secondary-foreground: 208 60% 20%;
+  --muted: 218 20% 88%;
+  --muted-foreground: 208 25% 36%;
+  --accent: 220 100% 61%; /* #3778FF */
   --accent-foreground: 0 0% 100%;
-  --accent-light: 29 100% 60%;
+  --accent-light: 220 100% 70%;
   --destructive: 5 84% 58%;
   --destructive-foreground: 0 0% 100%;
   --success: 152 68% 42%;
@@ -53,57 +49,57 @@
   --warning: 35 92% 55%;
   --warning-foreground: 215 25% 20%;
 
-  --sidebar-background: 215 28% 14%;
-  --sidebar-foreground: 0 0% 98%;
-  --sidebar-primary: 29 100% 50%;
+  --sidebar-background: 208 100% 10%;
+  --sidebar-foreground: 0 0% 100%;
+  --sidebar-primary: 25 100% 50%;
   --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 215 26% 22%;
-  --sidebar-accent-foreground: 0 0% 98%;
-  --sidebar-border: 215 20% 26%;
-  --sidebar-ring: 29 100% 50%;
+  --sidebar-accent: 208 70% 22%;
+  --sidebar-accent-foreground: 220 20% 96%;
+  --sidebar-border: 210 60% 28%;
+  --sidebar-ring: 220 100% 61%;
 
-  --gradient-primary: linear-gradient(135deg, hsl(29 100% 50%), hsl(29 100% 60%));
-  --gradient-accent: linear-gradient(135deg, hsl(210 86% 55%), hsl(29 100% 50%));
-  --gradient-hero: radial-gradient(circle at 20% 20%, hsl(29 100% 60% / 0.1), transparent 55%),
-    radial-gradient(circle at 80% 0%, hsl(210 86% 55% / 0.1), transparent 55%),
-    hsl(0 0% 98%);
+  --gradient-primary: linear-gradient(135deg, hsl(25 100% 50%), hsl(25 100% 58%));
+  --gradient-accent: linear-gradient(135deg, hsl(220 100% 61%), hsl(25 100% 50%));
+  --gradient-hero: radial-gradient(circle at 20% 20%, hsl(220 100% 61% / 0.08), transparent 55%),
+    radial-gradient(circle at 80% 0%, hsl(25 100% 58% / 0.12), transparent 55%),
+    hsl(220 16% 96%);
 
-  --chip-neutral: 220 18% 92%;
-  --chip-neutral-foreground: 215 24% 32%;
-  --chip-info: 218 86% 92%;
-  --chip-info-foreground: 218 86% 30%;
+  --chip-neutral: 218 20% 88%;
+  --chip-neutral-foreground: 208 25% 36%;
+  --chip-info: 220 100% 92%;
+  --chip-info-foreground: 220 100% 30%;
   --chip-success: 152 68% 90%;
   --chip-success-foreground: 152 60% 30%;
-  --chip-warning: 29 100% 90%;
+  --chip-warning: 35 92% 88%;
   --chip-warning-foreground: 29 94% 36%;
   --chip-danger: 5 84% 90%;
   --chip-danger-foreground: 5 70% 35%;
-  --chip-accent: 218 86% 90%;
-  --chip-accent-foreground: 218 86% 31%;
+  --chip-accent: 220 100% 90%;
+  --chip-accent-foreground: 220 100% 32%;
 }
 
 [data-theme="outpaged-light"] {
   color-scheme: light;
-  --background: 0 0% 98%;
-  --foreground: 215 25% 20%;
+  --background: 220 16% 96%;
+  --foreground: 208 100% 12%;
   --card: 0 0% 100%;
-  --card-foreground: 215 25% 20%;
+  --card-foreground: 208 90% 14%;
   --popover: 0 0% 100%;
-  --popover-foreground: 215 25% 20%;
-  --border: 220 15% 88%;
+  --popover-foreground: 208 90% 14%;
+  --border: 215 20% 85%;
   --input: 0 0% 100%;
-  --ring: 29 100% 50%;
-  --primary: 29 100% 50%;
+  --ring: 220 100% 61%;
+  --primary: 25 100% 50%;
   --primary-foreground: 0 0% 100%;
-  --primary-hover: 29 100% 45%;
-  --primary-light: 29 100% 60%;
-  --secondary: 217 32% 92%;
-  --secondary-foreground: 215 25% 20%;
-  --muted: 220 18% 94%;
-  --muted-foreground: 215 15% 50%;
-  --accent: 29 100% 50%;
+  --primary-hover: 25 100% 44%;
+  --primary-light: 25 100% 58%;
+  --secondary: 218 25% 92%;
+  --secondary-foreground: 208 60% 20%;
+  --muted: 218 20% 88%;
+  --muted-foreground: 208 25% 36%;
+  --accent: 220 100% 61%;
   --accent-foreground: 0 0% 100%;
-  --accent-light: 29 100% 60%;
+  --accent-light: 220 100% 70%;
   --destructive: 5 84% 58%;
   --destructive-foreground: 0 0% 100%;
   --success: 152 68% 42%;
@@ -111,42 +107,42 @@
   --warning: 35 92% 55%;
   --warning-foreground: 215 25% 20%;
 
-  --chip-neutral: 220 18% 92%;
-  --chip-neutral-foreground: 215 24% 32%;
-  --chip-info: 218 86% 92%;
-  --chip-info-foreground: 218 86% 30%;
+  --chip-neutral: 218 20% 88%;
+  --chip-neutral-foreground: 208 25% 36%;
+  --chip-info: 220 100% 92%;
+  --chip-info-foreground: 220 100% 30%;
   --chip-success: 152 68% 90%;
   --chip-success-foreground: 152 60% 30%;
-  --chip-warning: 29 100% 90%;
+  --chip-warning: 35 92% 88%;
   --chip-warning-foreground: 29 94% 36%;
   --chip-danger: 5 84% 90%;
   --chip-danger-foreground: 5 70% 35%;
-  --chip-accent: 218 86% 90%;
-  --chip-accent-foreground: 218 86% 31%;
+  --chip-accent: 220 100% 90%;
+  --chip-accent-foreground: 220 100% 32%;
 }
 
 [data-theme="outpaged-dark"] {
   color-scheme: dark;
-  --background: 215 28% 14%;
-  --foreground: 0 0% 98%;
-  --card: 215 26% 18%;
-  --card-foreground: 0 0% 98%;
-  --popover: 215 26% 18%;
-  --popover-foreground: 0 0% 98%;
-  --border: 215 20% 26%;
-  --input: 215 26% 18%;
-  --ring: 29 100% 50%;
-  --primary: 29 100% 50%;
+  --background: 208 100% 10%;
+  --foreground: 220 20% 96%;
+  --card: 208 70% 16%;
+  --card-foreground: 220 20% 96%;
+  --popover: 208 70% 18%;
+  --popover-foreground: 220 20% 96%;
+  --border: 210 60% 28%;
+  --input: 208 70% 16%;
+  --ring: 220 100% 65%;
+  --primary: 25 100% 54%;
   --primary-foreground: 0 0% 100%;
-  --primary-hover: 29 100% 45%;
-  --primary-light: 29 100% 60%;
-  --secondary: 217 24% 24%;
-  --secondary-foreground: 0 0% 98%;
-  --muted: 215 22% 22%;
-  --muted-foreground: 0 0% 70%;
-  --accent: 210 86% 55%;
+  --primary-hover: 25 100% 48%;
+  --primary-light: 25 100% 60%;
+  --secondary: 208 70% 22%;
+  --secondary-foreground: 220 20% 96%;
+  --muted: 208 60% 24%;
+  --muted-foreground: 220 15% 80%;
+  --accent: 220 100% 70%;
   --accent-foreground: 0 0% 100%;
-  --accent-light: 210 86% 65%;
+  --accent-light: 220 100% 76%;
   --destructive: 5 84% 58%;
   --destructive-foreground: 0 0% 100%;
   --success: 152 68% 45%;
@@ -154,20 +150,20 @@
   --warning: 35 92% 60%;
   --warning-foreground: 0 0% 100%;
 
-  --chip-neutral: 221 34% 24%;
-  --chip-neutral-foreground: 210 40% 90%;
-  --chip-info: 218 86% 30%;
-  --chip-info-foreground: 210 40% 96%;
-  --chip-success: 152 68% 32%;
-  --chip-success-foreground: 210 40% 96%;
-  --chip-warning: 35 92% 34%;
-  --chip-warning-foreground: 210 40% 96%;
-  --chip-danger: 5 84% 34%;
-  --chip-danger-foreground: 210 40% 96%;
-  --chip-accent: 218 86% 36%;
-  --chip-accent-foreground: 210 40% 96%;
+  --chip-neutral: 208 60% 24%;
+  --chip-neutral-foreground: 220 20% 96%;
+  --chip-info: 220 100% 40%;
+  --chip-info-foreground: 220 20% 96%;
+  --chip-success: 152 68% 36%;
+  --chip-success-foreground: 220 20% 96%;
+  --chip-warning: 35 92% 40%;
+  --chip-warning-foreground: 220 20% 96%;
+  --chip-danger: 5 84% 40%;
+  --chip-danger-foreground: 220 20% 96%;
+  --chip-accent: 220 100% 46%;
+  --chip-accent-foreground: 220 20% 96%;
 
-  --shadow-soft: 0 20px 45px -20px hsl(215 60% 5% / 0.6);
-  --shadow-medium: 0 35px 70px -25px hsl(215 60% 5% / 0.7);
-  --shadow-large: 0 40px 90px -30px hsl(215 60% 5% / 0.75);
+  --shadow-soft: 0 18px 40px -22px hsl(210 60% 5% / 0.7);
+  --shadow-medium: 0 30px 60px -24px hsl(210 70% 4% / 0.75);
+  --shadow-large: 0 40px 80px -28px hsl(210 70% 4% / 0.8);
 }
