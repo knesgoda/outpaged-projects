@@ -1,11 +1,6 @@
 // @ts-nocheck - TODO: Deprecate this dialog in favor of inline editing in TaskView
-import { useState, useEffect, useRef, KeyboardEvent, useMemo } from "react";
-import {
-  ResponsiveDialog as Dialog,
-  ResponsiveDialogContent as DialogContent,
-  ResponsiveDialogTitle as DialogTitle,
-  ResponsiveDialogDescription as DialogDescription,
-} from "@/components/ui/responsive-dialog";
+import { useState, useEffect, useRef, KeyboardEvent, useMemo, useId } from "react";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -32,7 +27,7 @@ import { SmartTaskTypeSelector, SMART_TASK_TYPE_OPTIONS } from "@/components/tas
 import { RichTextEditor } from "@/components/rich-text/RichTextEditor";
 import { SafeHtml } from "@/components/ui/safe-html";
 import { Task } from "./TaskCard";
-import { CalendarIcon, X, User, Tag, MessageSquare, Paperclip, GitBranch, Check, XCircle, CheckCircle, Link as LinkIcon, Trash2 } from "lucide-react";
+import { CalendarIcon, X, User, Paperclip, Check, XCircle, CheckCircle, Link as LinkIcon, Trash2 } from "lucide-react";
 import type { ColumnBaseMetadata } from "@/types/boardColumns";
 import { evaluateDefinitionChecklists, type ChecklistItemEvaluation } from "@/features/boards/guards";
 import { format } from "date-fns";
@@ -53,11 +48,13 @@ import AssigneeCompanySelect from "@/components/tasks/AssigneeCompanySelect";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { TaskLinkReference, TaskSubitemSummary, TaskRollup, TaskRelationSummary, TaskStatus, TaskPriority } from "@/types/tasks";
 import { calculateRollup } from "@/services/tasksService";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCustomFieldDefinitions, useVisibleCustomFields } from "@/hooks/useCustomFields";
 import { isComputedField } from "@/domain/customFields";
+import { motion } from "framer-motion";
 
 function getInitials(name?: string | null) {
   if (!name) return "U";
@@ -153,6 +150,7 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId,
   const [subitemRollup, setSubitemRollup] = useState<TaskRollup | undefined>(task?.rollup);
   const [relationSummaries, setRelationSummaries] = useState<TaskRelationSummary[]>(task?.relations ?? []);
   const [showRelationships, setShowRelationships] = useState(false);
+  const [activeTab, setActiveTab] = useState("details");
   const { uploadFile, deleteFile, isUploading } = useFileUpload();
   const { toast } = useToast();
   const { user } = useAuth();
@@ -698,947 +696,793 @@ export function TaskDialog({ task, isOpen, onClose, onSave, columnId, projectId,
     setIsEditingDescription(false);
   };
 
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'urgent': return 'hsl(var(--destructive))';
-      case 'high': return 'hsl(var(--destructive) / 0.8)';
-      case 'medium': return 'hsl(var(--warning))';
-      case 'low': return 'hsl(var(--success))';
-      default: return 'hsl(var(--muted))';
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'done': return 'hsl(var(--success))';
-      case 'in_progress': return 'hsl(var(--primary))';
-      case 'in_review': return 'hsl(var(--warning))';
-      default: return 'hsl(var(--muted))';
-    }
-  };
+  const titleId = useId();
+  const descriptionId = useId();
+  const brandThemeStyles = useMemo(
+    () => ({
+      "--background": "208 100% 12%",
+      "--foreground": "0 0% 100%",
+      "--card": "208 70% 18%",
+      "--card-foreground": "0 0% 100%",
+      "--muted": "208 60% 20%",
+      "--muted-foreground": "210 40% 85%",
+      "--border": "210 60% 28%",
+      "--input": "208 60% 20%",
+      "--ring": "220 100% 61%",
+      "--primary": "25 100% 50%",
+      "--primary-foreground": "0 0% 100%",
+      "--accent": "220 100% 61%",
+      "--accent-foreground": "0 0% 100%",
+      "--popover": "208 70% 18%",
+      "--popover-foreground": "0 0% 100%",
+    }),
+    []
+  );
+  const focusRingClass = "focus-visible:ring-[#3778FF] focus-visible:ring-offset-0 focus-visible:outline-none";
+  const brandInputClasses = "bg-white/5 border-white/20 text-white placeholder:text-white/50";
+  const brandSelectTriggerClasses = "border-white/20 bg-white/10 text-white";
+  const brandPrimaryButtonClasses = "bg-[#FF6A00] text-white hover:bg-[#e85f00]";
+  const brandSecondaryButtonClasses = "border-[#0a2a4a] text-white hover:bg-white/10";
+  const brandGhostButtonClasses = "text-white hover:bg-white/10";
+  const brandSurfaceClasses = "rounded-xl border border-white/10 bg-white/5";
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className={cn(
-        "max-w-5xl h-[90svh] overflow-hidden bg-card border border-border p-0 flex flex-col",
-        isMobile ? "w-full" : "md:max-h-[90vh]"
-      )}>
-        <DialogTitle className="sr-only">
-          {task ? `Edit Task: ${formData.title}` : 'Create New Task'}
-        </DialogTitle>
-        <DialogDescription className="sr-only">
-          {task ? 'Edit task details, assignees, and manage comments' : 'Create a new task with details and assignees'}
-        </DialogDescription>
-
-        {/* Header - Fixed */}
-        <div className="flex justify-between items-start px-4 md:px-6 py-4 border-b border-border bg-muted/30 shrink-0">
-          <div className="flex-1 min-w-0">
-            <p className="text-sm text-muted-foreground mb-1 font-mono">
-              {task?.project?.code && task?.ticket_number 
-                ? `${task.project.code}-${task.ticket_number}`
-                : task?.id?.slice(0, 8) || 'NEW'
-              }
-            </p>
-            
-            {isEditingTitle ? (
-              <div className="flex items-center gap-2">
-                <Input
-                  ref={titleInputRef}
-                  value={editedTitle}
-                  onChange={(e) => setEditedTitle(e.target.value)}
-                  onKeyDown={onTitleKey}
-                  className="text-lg md:text-xl font-semibold bg-background border-input"
-                  autoFocus
-                />
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={saveTitle}
-                  className="p-1 h-auto text-primary shrink-0"
-                >
-                  <Check className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={cancelTitle}
-                  className="p-1 h-auto text-muted-foreground shrink-0"
-                >
-                  <XCircle className="h-4 w-4" />
-                </Button>
-              </div>
-            ) : (
-              <h1
-                onClick={() => {
-                  setEditedTitle(formData.title);
-                  setIsEditingTitle(true);
-                  setTimeout(() => titleInputRef.current?.focus(), 0);
-                }}
-                className="text-lg md:text-xl font-semibold text-foreground hover:bg-accent/50 rounded px-2 py-1 -mx-2 cursor-text line-clamp-2"
-              >
-                {formData.title || "Untitled Task"}
-              </h1>
-            )}
-          </div>
-        </div>
-
-        {/* Main Content - Single Scroll Container */}
-        <ScrollArea className="flex-1 min-h-0">
-          <div className="p-4 md:p-6 space-y-6">
-            {/* Mobile: Single column layout */}
-            {isMobile ? (
-              <div className="space-y-6">
-                {/* Task Info Section */}
-                <section className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label className="text-sm font-medium text-muted-foreground">Status</Label>
-                      <Select
-                        value={formData.status}
-                        onValueChange={(value) =>
-                          setFormData(prev => ({
-                            ...prev,
-                            status: value,
-                            blocked: value === 'blocked',
-                          }))
-                        }
+    <Sheet open={isOpen} onOpenChange={(nextOpen) => (!nextOpen ? onClose() : undefined)}>
+      <SheetContent
+        side={isMobile ? "bottom" : "right"}
+        className={cn(
+          "flex h-[100svh] w-full flex-col overflow-hidden border-l border-white/10 p-0 text-foreground shadow-[0_20px_60px_-20px_rgba(5,26,46,0.65)]",
+          isMobile ? "max-h-[100svh]" : "sm:max-w-5xl"
+        )}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        aria-describedby={`${descriptionId}-details`}
+        style={brandThemeStyles}
+      >
+        <motion.div
+          initial={{ x: isMobile ? 0 : 56, opacity: 0 }}
+          animate={{ x: 0, opacity: 1 }}
+          transition={{ duration: 0.28, ease: "easeOut" }}
+          className="flex h-full flex-col"
+        >
+          <header className="sticky top-0 z-30 border-b border-white/10 bg-[#051A2E]/95 px-4 py-4 backdrop-blur sm:px-6">
+            <div className="flex flex-col gap-4">
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0 flex-1">
+                  <p id={descriptionId} className="text-xs font-medium uppercase tracking-[0.18em] text-white/60">
+                    {task?.project?.code && task?.ticket_number
+                      ? `${task.project.code}-${task.ticket_number}`
+                      : task?.id?.slice(0, 8) || "New task"}
+                  </p>
+                  {isEditingTitle ? (
+                    <div className="mt-2 flex items-center gap-2">
+                      <Input
+                        ref={titleInputRef}
+                        value={editedTitle}
+                        onChange={(event) => setEditedTitle(event.target.value)}
+                        onKeyDown={onTitleKey}
+                        className={cn("text-2xl font-semibold", brandInputClasses, focusRingClass)}
+                        autoFocus
+                      />
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={saveTitle}
+                        className={cn("h-8 w-8", brandGhostButtonClasses, focusRingClass)}
                       >
-                        <SelectTrigger className="mt-1">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="todo">To Do</SelectItem>
-                          <SelectItem value="in_progress">In Progress</SelectItem>
-                          <SelectItem value="in_review">In Review</SelectItem>
-                          <SelectItem value="done">Done</SelectItem>
-                          <SelectItem value="blocked">Blocked</SelectItem>
-                          <SelectItem value="waiting">Waiting</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  <div>
-                    <Label className="text-sm font-medium text-muted-foreground">Priority</Label>
-                    <Select value={formData.priority} onValueChange={(value) => setFormData(prev => ({ ...prev, priority: value as TaskPriority }))}>
-                      <SelectTrigger className="mt-1">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="P0">Critical (P0)</SelectItem>
-                        <SelectItem value="P1">High (P1)</SelectItem>
-                        <SelectItem value="P2">Medium (P2)</SelectItem>
-                        <SelectItem value="P3">Low (P3)</SelectItem>
-                        <SelectItem value="P4">Lowest (P4)</SelectItem>
-                        <SelectItem value="medium">Medium</SelectItem>
-                        <SelectItem value="high">High</SelectItem>
-                        <SelectItem value="urgent">Urgent</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  </div>
-
-                  {checklistEvaluation && (
-                    <div className="rounded-lg border bg-muted/30 p-3 space-y-3">
-                      <ChecklistList title="Definition of Ready" items={checklistEvaluation.ready} />
-                      <ChecklistList title="Definition of Done" items={checklistEvaluation.done} />
-                    </div>
-                  )}
-
-                  {(formData.blocked || formData.status === 'blocked') && (
-                    <div className="space-y-2">
-                      <Label className="text-sm font-medium text-muted-foreground">Blocking reason</Label>
-                      <Textarea
-                        value={formData.blocking_reason}
-                        onChange={(event) =>
-                          setFormData(prev => ({ ...prev, blocking_reason: event.target.value }))
-                        }
-                        placeholder="Explain what is preventing progress"
-                        className="min-h-[80px]"
-                      />
-                    </div>
-                  )}
-
-                  {/* Assignees */}
-                  <div>
-                    <Label className="text-sm font-medium text-muted-foreground mb-2 block">Assignees</Label>
-                    <AssigneeCompanySelect
-                      value={currentAssignees.map(a => a.id)}
-                      onChange={(ids) => {}} // Not used, using onSelectOne instead
-                      onSelectOne={handleAddAssignee}
-                      suggestProjectId={projectId}
-                    />
-                    {currentAssignees.length > 0 && (
-                      <div className="flex flex-wrap gap-2 mt-2">
-                        {currentAssignees.map((assignee) => (
-                          <div key={assignee.id} className="flex items-center gap-2 bg-accent/50 rounded-full px-2 py-1">
-                            <Avatar className="h-5 w-5">
-                              <AvatarImage src={assignee.avatar || ""} />
-                              <AvatarFallback className="text-xs">
-                                {getInitials(assignee.name)}
-                              </AvatarFallback>
-                            </Avatar>
-                            <span className="text-sm">{assignee.name}</span>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-4 w-4 p-0 hover:bg-destructive/20"
-                              onClick={() => removeAssignee(assignee.id)}
-                            >
-                              <X className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Start Date */}
-                  <div>
-                    <Label className="text-sm font-medium text-muted-foreground">Start Date</Label>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className={cn("w-full mt-1 justify-start text-left font-normal", !formData.startDate && "text-muted-foreground")}
-                        >
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {formData.startDate ? format(formData.startDate, "PPP") : "Pick a date"}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={formData.startDate}
-                          onSelect={(date) => setFormData(prev => ({ ...prev, startDate: date }))}
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-
-                  {/* End Date */}
-                  <div>
-                    <Label className="text-sm font-medium text-muted-foreground">End Date</Label>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className={cn("w-full mt-1 justify-start text-left font-normal", !formData.endDate && "text-muted-foreground")}
-                        >
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {formData.endDate ? format(formData.endDate, "PPP") : "Pick a date"}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={formData.endDate}
-                          onSelect={(date) => setFormData(prev => ({ ...prev, endDate: date }))}
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-
-                  {customFieldsLoading ? (
-                    <div className="space-y-3" aria-live="polite">
-                      {[0, 1, 2].map((index) => (
-                        <Skeleton key={index} className="h-10 w-full" />
-                      ))}
-                    </div>
-                  ) : visibleCustomFields.length > 0 ? (
-                    <div className="space-y-4 rounded-lg border bg-muted/30 p-4">
-                      <div>
-                        <p className="text-sm font-semibold text-foreground">Custom fields</p>
-                        <p className="text-xs text-muted-foreground">
-                          Aligns with project governance and drives automations, boards, and reports.
-                        </p>
-                      </div>
-                      {visibleCustomFields.map((definition) => (
-                        <div key={definition.id} className="space-y-2">
-                          <Label className="text-xs font-medium text-muted-foreground">
-                            {definition.name}
-                            {definition.isRequired ? <span className="ml-1 text-destructive">*</span> : null}
-                          </Label>
-                          {renderCustomFieldInput(definition)}
-                          {definition.description ? (
-                            <p className="text-xs text-muted-foreground">{definition.description}</p>
-                          ) : null}
-                        </div>
-                      ))}
-                    </div>
-                  ) : null}
-
-                  {/* Due Date */}
-                  <div>
-                    <Label className="text-sm font-medium text-muted-foreground">Due Date</Label>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className={cn("w-full mt-1 justify-start text-left font-normal", !formData.dueDate && "text-muted-foreground")}
-                        >
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {formData.dueDate ? format(formData.dueDate, "PPP") : "Pick a date"}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={formData.dueDate}
-                          onSelect={(date) => setFormData(prev => ({ ...prev, dueDate: date }))}
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <div>
-                      <Label className="text-sm font-medium text-muted-foreground">Estimated Hours</Label>
-                      <Input
-                        type="number"
-                        min="0"
-                        step="0.25"
-                        className="mt-1"
-                        value={formData.estimatedHours ?? ""}
-                        onChange={(event) =>
-                          setFormData(prev => ({
-                            ...prev,
-                            estimatedHours: event.target.value ? Number(event.target.value) : undefined,
-                          }))
-                        }
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-sm font-medium text-muted-foreground">Actual Hours</Label>
-                      <Input
-                        type="number"
-                        min="0"
-                        step="0.25"
-                        className="mt-1"
-                        value={formData.actualHours ?? ""}
-                        onChange={(event) =>
-                          setFormData(prev => ({
-                            ...prev,
-                            actualHours: event.target.value ? Number(event.target.value) : undefined,
-                          }))
-                        }
-                      />
-                    </div>
-                  </div>
-                </section>
-
-                {/* Description */}
-                <section>
-                  <h3 className="text-lg font-medium text-foreground mb-3">Description</h3>
-                  
-                  {isEditingDescription ? (
-                    <div className="space-y-3">
-                      <RichTextEditor
-                        value={editedDescription}
-                        onChange={setEditedDescription}
-                        placeholder="Describe the task..."
-                        className="min-h-[200px]"
-                      />
-                      <div className="flex gap-2">
-                        <Button
-                          onClick={saveDescription}
-                          size="sm"
-                          className="bg-primary text-primary-foreground hover:bg-primary/90"
-                        >
-                          Save
-                        </Button>
-                        <Button
-                          variant="outline"
-                          onClick={cancelDescription}
-                          size="sm"
-                        >
-                          Cancel
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div
-                      onClick={() => {
-                        setEditedDescription(formData.description);
-                        setIsEditingDescription(true);
-                      }}
-                      className="min-h-[100px] p-4 rounded-md border border-input bg-background hover:bg-accent/30 cursor-text transition-colors"
-                    >
-                      {formData.description ? (
-                        <SafeHtml html={formData.description} />
-                      ) : (
-                        <p className="text-muted-foreground">Click to add a description...</p>
-                      )}
-                    </div>
-                  )}
-                </section>
-
-                {/* Attachments */}
-                <section>
-                  <h3 className="text-lg font-medium text-foreground mb-3">Attachments</h3>
-                  <FileUpload
-                    onFileUpload={handleFileUpload}
-                    disabled={isUploading}
-                    className="mb-4"
-                  />
-                  {Array.isArray(formData.attachments) && formData.attachments.length > 0 && (
-                    <div className="space-y-2">
-                      {formData.attachments.map((attachment: any) => (
-                        <div key={attachment.id} className="flex items-center justify-between p-2 bg-accent/50 rounded">
-                          <div className="flex items-center gap-2">
-                            <Paperclip className="h-4 w-4 text-muted-foreground" />
-                            <span className="text-sm">{attachment.name}</span>
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleFileRemove(attachment.id)}
-                            className="h-8 w-8 p-0 hover:bg-destructive/20"
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </section>
-
-                {/* Links */}
-                <section>
-                  <h3 className="text-lg font-medium text-foreground mb-3">Links</h3>
-                  <div className="flex flex-col sm:flex-row gap-2 mb-3">
-                    <Input
-                      value={newLinkTitle}
-                      onChange={(event) => setNewLinkTitle(event.target.value)}
-                      placeholder="Link title"
-                    />
-                    <Input
-                      value={newLinkUrl}
-                      onChange={(event) => setNewLinkUrl(event.target.value)}
-                      placeholder="https://example.com"
-                    />
-                    <Button onClick={handleAddLink} variant="secondary">
-                      Add
-                    </Button>
-                  </div>
-                  {links.length > 0 ? (
-                    <div className="space-y-2">
-                      {links.map(link => (
-                        <div key={link.id} className="flex items-center justify-between p-2 bg-accent/50 rounded">
-                          <div className="flex items-center gap-2">
-                            <LinkIcon className="h-4 w-4 text-muted-foreground" />
-                            <a href={link.url} target="_blank" rel="noreferrer" className="text-sm text-primary hover:underline">
-                              {link.title || link.url}
-                            </a>
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleRemoveLink(link.id)}
-                            className="h-8 w-8 p-0 hover:bg-destructive/20"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">No links added yet.</p>
-                  )}
-                </section>
-
-                {/* Subitems */}
-                <section>
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-lg font-medium text-foreground">Subitems</h3>
-                    {subitemRollup && (
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <span>{subitemRollup.completed}/{subitemRollup.total}</span>
-                        <Progress value={Math.round((subitemRollup.progress ?? 0) * 100)} className="w-20 h-1.5" />
-                      </div>
-                    )}
-                  </div>
-                  {subitems.length > 0 ? (
-                    <div className="space-y-2">
-                      {subitems.map(subitem => (
-                        <div key={subitem.id} className="flex items-center justify-between p-2 bg-accent/40 rounded">
-                          <div className="flex items-center gap-2">
-                            <Checkbox
-                              checked={subitem.completed || subitem.status === 'done'}
-                              onCheckedChange={() => handleToggleSubitem(subitem.id, subitem.completed || subitem.status === 'done')}
-                            />
-                            <span className="text-sm">{subitem.title}</span>
-                          </div>
-                          <Badge variant="outline" className="text-xs capitalize">
-                            {subitem.status.replace('_', ' ')}
-                          </Badge>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">No subitems yet.</p>
-                  )}
-                </section>
-
-                {combinedRelations.length > 0 && (
-                  <section>
-                    <h3 className="text-lg font-medium text-foreground mb-3">Relations</h3>
-                    <div className="flex flex-wrap gap-2">
-                      {combinedRelations.map(relation => (
-                        <Badge key={`${relation.id}-${relation.direction}`} variant="secondary" className="capitalize">
-                          {relation.direction === 'incoming' ? '⬅' : '➡'} {relation.type.replace('_', ' ')}
-                        </Badge>
-                      ))}
-                    </div>
-                  </section>
-                )}
-
-                {/* Time Tracking */}
-                {task?.id && (
-                  <section>
-                    <h3 className="text-lg font-medium text-foreground mb-3">Time Tracking</h3>
-                    <div className="space-y-4">
-                      <TimeTracker taskId={task.id} taskTitle={formData.title} />
-                      <TimeEntriesList taskId={task.id} />
-                    </div>
-                  </section>
-                )}
-
-                {/* Comments */}
-                {task?.id && (
-                  <section>
-                    <h3 className="text-lg font-medium text-foreground mb-3">Comments</h3>
-                    <CommentsSystemWithMentions
-                      entityType="task"
-                      entityId={task.id}
-                      projectId={projectId}
-                      onCountChange={setCommentCount}
-                    />
-                  </section>
-                )}
-              </div>
-            ) : (
-              /* Desktop: Two column layout */
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 min-h-0">
-                {/* Left Column - Main Content */}
-                <div className="lg:col-span-2 space-y-6">
-                  {/* Description */}
-                  <section>
-                    <h3 className="text-lg font-medium text-foreground mb-3">Description</h3>
-                    
-                    {isEditingDescription ? (
-                      <div className="space-y-3">
-                        <RichTextEditor
-                          value={editedDescription}
-                          onChange={setEditedDescription}
-                          placeholder="Describe the task..."
-                          className="min-h-[200px]"
-                        />
-                        <div className="flex gap-2">
-                          <Button
-                            onClick={saveDescription}
-                            size="sm"
-                            className="bg-primary text-primary-foreground hover:bg-primary/90"
-                          >
-                            Save
-                          </Button>
-                          <Button
-                            variant="outline"
-                            onClick={cancelDescription}
-                            size="sm"
-                          >
-                            Cancel
-                          </Button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div
-                        onClick={() => {
-                          setEditedDescription(formData.description);
-                          setIsEditingDescription(true);
-                        }}
-                        className="min-h-[100px] p-4 rounded-md border border-input bg-background hover:bg-accent/30 cursor-text transition-colors"
+                        <Check className="h-4 w-4" aria-hidden="true" />
+                        <span className="sr-only">Save title</span>
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={cancelTitle}
+                        className={cn("h-8 w-8", brandGhostButtonClasses, focusRingClass)}
                       >
-                        {formData.description ? (
-                          <SafeHtml html={formData.description} />
-                        ) : (
-                          <p className="text-muted-foreground">Click to add a description...</p>
-                        )}
-                      </div>
-                    )}
-                  </section>
-
-                  {/* Attachments */}
-                  <section>
-                    <h3 className="text-lg font-medium text-foreground mb-3">Attachments</h3>
-                    <FileUpload
-                      onFileUpload={handleFileUpload}
-                      disabled={isUploading}
-                      className="mb-4"
-                    />
-                    {Array.isArray(formData.attachments) && formData.attachments.length > 0 && (
-                      <div className="space-y-2">
-                        {formData.attachments.map((attachment: any) => (
-                          <div key={attachment.id} className="flex items-center justify-between p-2 bg-accent/50 rounded">
-                            <div className="flex items-center gap-2">
-                              <Paperclip className="h-4 w-4 text-muted-foreground" />
-                              <span className="text-sm">{attachment.name}</span>
-                            </div>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleFileRemove(attachment.id)}
-                              className="h-8 w-8 p-0 hover:bg-destructive/20"
-                            >
-                              <X className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </section>
-
-                  {/* Links */}
-                  <section>
-                    <h3 className="text-lg font-medium text-foreground mb-3">Links</h3>
-                    <div className="flex flex-col sm:flex-row gap-2 mb-3">
-                      <Input
-                        value={newLinkTitle}
-                        onChange={(event) => setNewLinkTitle(event.target.value)}
-                        placeholder="Link title"
-                      />
-                      <Input
-                        value={newLinkUrl}
-                        onChange={(event) => setNewLinkUrl(event.target.value)}
-                        placeholder="https://example.com"
-                      />
-                      <Button onClick={handleAddLink} variant="secondary">
-                        Add
+                        <XCircle className="h-4 w-4" aria-hidden="true" />
+                        <span className="sr-only">Cancel editing title</span>
                       </Button>
                     </div>
-                    {links.length > 0 ? (
-                      <div className="space-y-2">
-                        {links.map(link => (
-                          <div key={link.id} className="flex items-center justify-between p-2 bg-accent/50 rounded">
-                            <div className="flex items-center gap-2">
-                              <LinkIcon className="h-4 w-4 text-muted-foreground" />
-                              <a href={link.url} target="_blank" rel="noreferrer" className="text-sm text-primary hover:underline">
-                                {link.title || link.url}
-                              </a>
-                            </div>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleRemoveLink(link.id)}
-                              className="h-8 w-8 p-0 hover:bg-destructive/20"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-sm text-muted-foreground">No links added yet.</p>
-                    )}
-                  </section>
-
-                  {/* Subitems */}
-                  <section>
-                    <div className="flex items-center justify-between mb-3">
-                      <h3 className="text-lg font-medium text-foreground">Subitems</h3>
-                      {subitemRollup && (
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <span>{subitemRollup.completed}/{subitemRollup.total}</span>
-                          <Progress value={Math.round((subitemRollup.progress ?? 0) * 100)} className="w-20 h-1.5" />
-                        </div>
-                      )}
-                    </div>
-                  {subitems.length > 0 ? (
-                    <div className="space-y-2">
-                      {subitems.map(subitem => (
-                        <div key={subitem.id} className="flex items-center justify-between p-2 bg-accent/40 rounded">
-                          <div className="flex items-center gap-2">
-                            <Checkbox
-                              checked={subitem.completed || subitem.status === 'done'}
-                              onCheckedChange={() => handleToggleSubitem(subitem.id, subitem.completed || subitem.status === 'done')}
-                            />
-                            <span className="text-sm">{subitem.title}</span>
-                          </div>
-                          <Badge variant="outline" className="text-xs capitalize">
-                            {subitem.status.replace('_', ' ')}
-                          </Badge>
-                        </div>
-                      ))}
-                    </div>
                   ) : (
-                    <p className="text-sm text-muted-foreground">No subitems yet.</p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditedTitle(formData.title);
+                        setIsEditingTitle(true);
+                        setTimeout(() => titleInputRef.current?.focus(), 0);
+                      }}
+                      className={cn(
+                        "mt-2 w-full text-left text-2xl font-semibold text-white transition hover:text-primary",
+                        focusRingClass
+                      )}
+                      id={titleId}
+                    >
+                      {formData.title || "Untitled Task"}
+                    </button>
                   )}
-                </section>
-
-                {combinedRelations.length > 0 && (
-                  <section>
-                    <h3 className="text-lg font-medium text-foreground mb-3">Relations</h3>
-                    <div className="flex flex-wrap gap-2">
-                      {combinedRelations.map(relation => (
-                        <Badge key={`${relation.id}-${relation.direction}`} variant="secondary" className="capitalize">
-                          {relation.direction === 'incoming' ? '⬅' : '➡'} {relation.type.replace('_', ' ')}
-                        </Badge>
-                      ))}
+                  {task?.id ? (
+                    <div className="mt-2 flex items-center gap-3 text-xs text-white/70">
+                      <TaskRelationshipIndicator taskId={task.id} compact />
+                      <span className="flex items-center gap-1">
+                        <User className="h-3 w-3" aria-hidden="true" />
+                        {currentAssignees.length > 0
+                          ? `${currentAssignees.length} assignee${currentAssignees.length > 1 ? "s" : ""}`
+                          : "Unassigned"}
+                      </span>
                     </div>
-                  </section>
-                )}
-
-                {/* Time Tracking */}
-                {task?.id && (
-                  <section>
-                      <h3 className="text-lg font-medium text-foreground mb-3">Time Tracking</h3>
-                      <div className="space-y-4">
-                        <TimeTracker taskId={task.id} taskTitle={formData.title} />
-                        <TimeEntriesList taskId={task.id} />
-                      </div>
-                    </section>
-                  )}
-
-                  {/* Comments */}
-                  {task?.id && (
-                    <section>
-                      <h3 className="text-lg font-medium text-foreground mb-3">Comments</h3>
-                      <CommentsSystemWithMentions
-                        entityType="task"
-                        entityId={task.id}
-                        projectId={projectId}
-                        onCountChange={setCommentCount}
-                      />
-                    </section>
-                  )}
+                  ) : null}
                 </div>
-
-                {/* Right Column - Sidebar */}
-                <div className="space-y-6">
-                  {/* Task Info */}
-                  <section className="bg-muted/30 rounded-lg p-4 space-y-4">
-                    <h3 className="font-medium text-foreground">Task Info</h3>
-                    
-                    <InfoRow label="Status">
-                      <Select
-                        value={formData.status}
-                        onValueChange={(value) =>
-                          setFormData(prev => ({
-                            ...prev,
-                            status: value,
-                            blocked: value === 'blocked',
-                          }))
-                        }
-                      >
-                        <SelectTrigger className="w-28">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="todo">To Do</SelectItem>
-                          <SelectItem value="in_progress">In Progress</SelectItem>
-                          <SelectItem value="in_review">In Review</SelectItem>
-                          <SelectItem value="done">Done</SelectItem>
-                          <SelectItem value="blocked">Blocked</SelectItem>
-                          <SelectItem value="waiting">Waiting</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </InfoRow>
-
-                    <InfoRow label="Priority">
-                      <Select value={formData.priority} onValueChange={(value) => setFormData(prev => ({ ...prev, priority: value as TaskPriority }))}>
-                        <SelectTrigger className="w-28">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="P0">P0</SelectItem>
-                          <SelectItem value="P1">P1</SelectItem>
-                          <SelectItem value="P2">P2</SelectItem>
-                          <SelectItem value="P3">P3</SelectItem>
-                          <SelectItem value="P4">P4</SelectItem>
-                          <SelectItem value="high">High</SelectItem>
-                          <SelectItem value="urgent">Urgent</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </InfoRow>
-
-                    <InfoRow label="Start Date">
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className={cn("w-32 justify-start text-left font-normal", !formData.startDate && "text-muted-foreground")}
-                          >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {formData.startDate ? format(formData.startDate, "MMM dd") : "Set date"}
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="end">
-                          <Calendar
-                            mode="single"
-                            selected={formData.startDate}
-                            onSelect={(date) => setFormData(prev => ({ ...prev, startDate: date }))}
-                            initialFocus
-                          />
-                        </PopoverContent>
-                      </Popover>
-                    </InfoRow>
-
-                    <InfoRow label="Due Date">
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className={cn("w-32 justify-start text-left font-normal", !formData.dueDate && "text-muted-foreground")}
-                          >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {formData.dueDate ? format(formData.dueDate, "MMM dd") : "Set date"}
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="end">
-                          <Calendar
-                            mode="single"
-                            selected={formData.dueDate}
-                            onSelect={(date) => setFormData(prev => ({ ...prev, dueDate: date }))}
-                            initialFocus
-                          />
-                        </PopoverContent>
-                      </Popover>
-                    </InfoRow>
-
-                    <InfoRow label="End Date">
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className={cn("w-32 justify-start text-left font-normal", !formData.endDate && "text-muted-foreground")}
-                          >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {formData.endDate ? format(formData.endDate, "MMM dd") : "Set date"}
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="end">
-                          <Calendar
-                            mode="single"
-                            selected={formData.endDate}
-                            onSelect={(date) => setFormData(prev => ({ ...prev, endDate: date }))}
-                            initialFocus
-                          />
-                        </PopoverContent>
-                      </Popover>
-                    </InfoRow>
-
-                    <InfoRow label="Est. Hours">
-                      <Input
-                        type="number"
-                        min="0"
-                        step="0.25"
-                        value={formData.estimatedHours ?? ""}
-                        onChange={(event) =>
-                          setFormData(prev => ({
-                            ...prev,
-                            estimatedHours: event.target.value ? Number(event.target.value) : undefined,
-                          }))
-                        }
-                        className="w-32"
-                      />
-                    </InfoRow>
-
-                    <InfoRow label="Actual Hours">
-                      <Input
-                        type="number"
-                        min="0"
-                        step="0.25"
-                        value={formData.actualHours ?? ""}
-                        onChange={(event) =>
-                          setFormData(prev => ({
-                            ...prev,
-                            actualHours: event.target.value ? Number(event.target.value) : undefined,
-                          }))
-                        }
-                        className="w-32"
-                      />
-                    </InfoRow>
-
-                    {(formData.blocked || formData.status === 'blocked') && (
-                      <div className="space-y-2">
-                        <Label className="text-sm font-medium text-muted-foreground">Blocking reason</Label>
-                        <Textarea
-                          value={formData.blocking_reason}
-                          onChange={(event) =>
-                            setFormData(prev => ({ ...prev, blocking_reason: event.target.value }))
-                          }
-                          placeholder="Explain what is preventing progress"
-                          className="min-h-[80px]"
-                        />
-                      </div>
-                    )}
-                  </section>
-
-                  {/* Assignees */}
-                  <section className="bg-muted/30 rounded-lg p-4 space-y-4">
-                    <h3 className="font-medium text-foreground">Assignees</h3>
-                    <AssigneeCompanySelect
-                      value={currentAssignees.map(a => a.id)}
-                      onChange={(ids) => {}} // Not used, using onSelectOne instead
-                      onSelectOne={handleAddAssignee}
-                      suggestProjectId={projectId}
-                    />
-                    {currentAssignees.length > 0 && (
-                      <div className="space-y-2">
-                        {currentAssignees.map((assignee) => (
-                          <div key={assignee.id} className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <Avatar className="h-6 w-6">
-                                <AvatarImage src={assignee.avatar || ""} />
-                                <AvatarFallback className="text-xs">
-                                  {getInitials(assignee.name)}
-                                </AvatarFallback>
-                              </Avatar>
-                              <span className="text-sm">{assignee.name}</span>
-                            </div>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-6 w-6 p-0 hover:bg-destructive/20"
-                              onClick={() => removeAssignee(assignee.id)}
-                            >
-                              <X className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </section>
-
-                  {checklistEvaluation && (
-                    <section className="bg-muted/30 rounded-lg p-4 space-y-3">
-                      <h3 className="font-medium text-foreground">Workflow checklists</h3>
-                      <ChecklistList title="Definition of Ready" items={checklistEvaluation.ready} />
-                      <ChecklistList title="Definition of Done" items={checklistEvaluation.done} />
-                    </section>
-                  )}
+                <div className="flex items-center gap-2">
+                  <Select
+                    value={formData.status}
+                    onValueChange={(value) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        status: value,
+                        blocked: value === "blocked",
+                      }))
+                    }
+                  >
+                    <SelectTrigger
+                      className={cn("w-[140px] justify-between", brandSelectTriggerClasses, focusRingClass)}
+                      aria-label="Task status"
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="border border-white/10 bg-[#0B2A45] text-white">
+                      <SelectItem value="todo">To Do</SelectItem>
+                      <SelectItem value="in_progress">In Progress</SelectItem>
+                      <SelectItem value="in_review">In Review</SelectItem>
+                      <SelectItem value="done">Done</SelectItem>
+                      <SelectItem value="blocked">Blocked</SelectItem>
+                      <SelectItem value="waiting">Waiting</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={onClose}
+                    className={cn("h-10 w-10", brandGhostButtonClasses, focusRingClass)}
+                    aria-label="Close task drawer"
+                  >
+                    <X className="h-5 w-5" aria-hidden="true" />
+                  </Button>
                 </div>
               </div>
-            )}
-          </div>
-        </ScrollArea>
+            </div>
+          </header>
 
-        {/* Footer - Fixed */}
-        <div className="px-4 md:px-6 py-3 border-t border-border bg-muted/30 shrink-0">
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={onClose}>
-              Cancel
-            </Button>
-            <Button onClick={handleSave} className="bg-primary text-primary-foreground hover:bg-primary/90">
-              {task ? "Update Task" : "Create Task"}
-            </Button>
+          <p className="sr-only" id={`${descriptionId}-details`}>
+            Manage task details, subtasks, comments, and files from this drawer.
+          </p>
+
+          <div className="flex-1 px-4 pt-3 sm:px-6">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="flex h-full flex-col">
+              <TabsList className="flex w-full gap-1 rounded-lg bg-white/10 p-1 text-white">
+                <TabsTrigger
+                  value="details"
+                  className={cn(
+                    "flex-1 rounded-md px-3 py-2 text-sm font-medium text-white transition data-[state=active]:bg-white/20 data-[state=active]:shadow-sm",
+                    focusRingClass
+                  )}
+                >
+                  Details
+                </TabsTrigger>
+                <TabsTrigger
+                  value="subtasks"
+                  className={cn(
+                    "flex-1 rounded-md px-3 py-2 text-sm font-medium text-white transition data-[state=active]:bg-white/20 data-[state=active]:shadow-sm",
+                    focusRingClass
+                  )}
+                >
+                  Subtasks
+                </TabsTrigger>
+                <TabsTrigger
+                  value="comments"
+                  className={cn(
+                    "flex-1 rounded-md px-3 py-2 text-sm font-medium text-white transition data-[state=active]:bg-white/20 data-[state=active]:shadow-sm",
+                    focusRingClass
+                  )}
+                >
+                  Comments
+                </TabsTrigger>
+                <TabsTrigger
+                  value="files"
+                  className={cn(
+                    "flex-1 rounded-md px-3 py-2 text-sm font-medium text-white transition data-[state=active]:bg-white/20 data-[state=active]:shadow-sm",
+                    focusRingClass
+                  )}
+                >
+                  Files
+                </TabsTrigger>
+              </TabsList>
+
+              <div className="mt-4 flex-1 overflow-hidden">
+                <TabsContent
+                  value="details"
+                  className="mt-0 flex h-full flex-col overflow-hidden px-0 data-[state=inactive]:hidden"
+                >
+                  <ScrollArea className="flex-1 pr-4">
+                    <div className="space-y-6 pb-12">
+                      <section className={cn(brandSurfaceClasses, "p-5 space-y-4")}> 
+                        <div>
+                          <h3 className="text-base font-semibold text-white">Overview</h3>
+                          <p className="text-xs text-white/70">Capture the story behind the task.</p>
+                        </div>
+                        {isEditingDescription ? (
+                          <div className="space-y-3">
+                            <RichTextEditor
+                              value={editedDescription}
+                              onChange={setEditedDescription}
+                              placeholder="Describe the task..."
+                              className="min-h-[200px]"
+                            />
+                            <div className="flex flex-wrap gap-2">
+                              <Button
+                                onClick={saveDescription}
+                                className={cn(brandPrimaryButtonClasses, focusRingClass)}
+                              >
+                                Save
+                              </Button>
+                              <Button
+                                variant="outline"
+                                onClick={cancelDescription}
+                                className={cn(brandSecondaryButtonClasses, focusRingClass)}
+                              >
+                                Cancel
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div
+                            onClick={() => {
+                              setEditedDescription(formData.description);
+                              setIsEditingDescription(true);
+                            }}
+                            className="cursor-text rounded-lg border border-white/10 bg-white/5 p-4 text-sm text-white/80 transition hover:bg-white/10"
+                          >
+                            {formData.description ? (
+                              <SafeHtml html={formData.description} />
+                            ) : (
+                              <p className="text-sm text-white/70">Click to add a description...</p>
+                            )}
+                          </div>
+                        )}
+                      </section>
+
+                      <section className={cn(brandSurfaceClasses, "p-5 space-y-4")}> 
+                        <div>
+                          <h3 className="text-base font-semibold text-white">Task information</h3>
+                          <p className="text-xs text-white/70">Keep status, scheduling, and effort aligned.</p>
+                        </div>
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          <div>
+                            <Label className="text-xs uppercase tracking-wide text-white/70">Status</Label>
+                            <Select
+                              value={formData.status}
+                              onValueChange={(value) =>
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  status: value,
+                                  blocked: value === "blocked",
+                                }))
+                              }
+                            >
+                              <SelectTrigger className={cn("mt-2", brandSelectTriggerClasses, focusRingClass)}>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent className="border border-white/10 bg-[#0B2A45] text-white">
+                                <SelectItem value="todo">To Do</SelectItem>
+                                <SelectItem value="in_progress">In Progress</SelectItem>
+                                <SelectItem value="in_review">In Review</SelectItem>
+                                <SelectItem value="done">Done</SelectItem>
+                                <SelectItem value="blocked">Blocked</SelectItem>
+                                <SelectItem value="waiting">Waiting</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <Label className="text-xs uppercase tracking-wide text-white/70">Priority</Label>
+                            <Select
+                              value={formData.priority}
+                              onValueChange={(value) =>
+                                setFormData((prev) => ({ ...prev, priority: value as TaskPriority }))
+                              }
+                            >
+                              <SelectTrigger className={cn("mt-2", brandSelectTriggerClasses, focusRingClass)}>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent className="border border-white/10 bg-[#0B2A45] text-white">
+                                <SelectItem value="P0">Critical (P0)</SelectItem>
+                                <SelectItem value="P1">High (P1)</SelectItem>
+                                <SelectItem value="P2">Medium (P2)</SelectItem>
+                                <SelectItem value="P3">Low (P3)</SelectItem>
+                                <SelectItem value="P4">Lowest (P4)</SelectItem>
+                                <SelectItem value="high">High</SelectItem>
+                                <SelectItem value="urgent">Urgent</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          <div>
+                            <Label className="text-xs uppercase tracking-wide text-white/70">Start date</Label>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  className={cn(
+                                    "mt-2 w-full justify-start text-left text-sm",
+                                    brandSecondaryButtonClasses,
+                                    focusRingClass,
+                                    !formData.startDate && "text-white/60"
+                                  )}
+                                >
+                                  <CalendarIcon className="mr-2 h-4 w-4" aria-hidden="true" />
+                                  {formData.startDate ? format(formData.startDate, "PPP") : "Pick start date"}
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-auto border border-white/10 bg-[#0B2A45] p-0 text-white" align="start">
+                                <Calendar
+                                  mode="single"
+                                  selected={formData.startDate}
+                                  onSelect={(date) => setFormData((prev) => ({ ...prev, startDate: date }))}
+                                  initialFocus
+                                />
+                              </PopoverContent>
+                            </Popover>
+                          </div>
+                          <div>
+                            <Label className="text-xs uppercase tracking-wide text-white/70">Due date</Label>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  className={cn(
+                                    "mt-2 w-full justify-start text-left text-sm",
+                                    brandSecondaryButtonClasses,
+                                    focusRingClass,
+                                    !formData.dueDate && "text-white/60"
+                                  )}
+                                >
+                                  <CalendarIcon className="mr-2 h-4 w-4" aria-hidden="true" />
+                                  {formData.dueDate ? format(formData.dueDate, "PPP") : "Pick due date"}
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-auto border border-white/10 bg-[#0B2A45] p-0 text-white" align="start">
+                                <Calendar
+                                  mode="single"
+                                  selected={formData.dueDate}
+                                  onSelect={(date) => setFormData((prev) => ({ ...prev, dueDate: date }))}
+                                  initialFocus
+                                />
+                              </PopoverContent>
+                            </Popover>
+                          </div>
+                          <div>
+                            <Label className="text-xs uppercase tracking-wide text-white/70">End date</Label>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  className={cn(
+                                    "mt-2 w-full justify-start text-left text-sm",
+                                    brandSecondaryButtonClasses,
+                                    focusRingClass,
+                                    !formData.endDate && "text-white/60"
+                                  )}
+                                >
+                                  <CalendarIcon className="mr-2 h-4 w-4" aria-hidden="true" />
+                                  {formData.endDate ? format(formData.endDate, "PPP") : "Pick end date"}
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-auto border border-white/10 bg-[#0B2A45] p-0 text-white" align="start">
+                                <Calendar
+                                  mode="single"
+                                  selected={formData.endDate}
+                                  onSelect={(date) => setFormData((prev) => ({ ...prev, endDate: date }))}
+                                  initialFocus
+                                />
+                              </PopoverContent>
+                            </Popover>
+                          </div>
+                          <div>
+                            <Label className="text-xs uppercase tracking-wide text-white/70">Estimated hours</Label>
+                            <Input
+                              type="number"
+                              min="0"
+                              step="0.25"
+                              value={formData.estimatedHours ?? ""}
+                              onChange={(event) =>
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  estimatedHours: event.target.value ? Number(event.target.value) : undefined,
+                                }))
+                              }
+                              className={cn("mt-2", brandInputClasses, focusRingClass)}
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs uppercase tracking-wide text-white/70">Actual hours</Label>
+                            <Input
+                              type="number"
+                              min="0"
+                              step="0.25"
+                              value={formData.actualHours ?? ""}
+                              onChange={(event) =>
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  actualHours: event.target.value ? Number(event.target.value) : undefined,
+                                }))
+                              }
+                              className={cn("mt-2", brandInputClasses, focusRingClass)}
+                            />
+                          </div>
+                        </div>
+                        {(formData.blocked || formData.status === "blocked") && (
+                          <div>
+                            <Label className="text-xs uppercase tracking-wide text-white/70">Blocking reason</Label>
+                            <Textarea
+                              value={formData.blocking_reason}
+                              onChange={(event) =>
+                                setFormData((prev) => ({ ...prev, blocking_reason: event.target.value }))
+                              }
+                              placeholder="Explain what is preventing progress"
+                              className={cn("mt-2 min-h-[100px]", brandInputClasses, focusRingClass)}
+                            />
+                          </div>
+                        )}
+                        <div>
+                          <SmartTaskTypeSelector
+                            value={formData.smartTaskType}
+                            onChange={(value) => setFormData((prev) => ({ ...prev, smartTaskType: value }))}
+                          />
+                        </div>
+                      </section>
+
+                      {customFieldsLoading ? (
+                        <section className={cn(brandSurfaceClasses, "p-5 space-y-3")}> 
+                          <h3 className="text-base font-semibold text-white">Custom fields</h3>
+                          {[0, 1, 2].map((index) => (
+                            <Skeleton key={index} className="h-10 w-full rounded-md bg-white/10" />
+                          ))}
+                        </section>
+                      ) : visibleCustomFields.length > 0 ? (
+                        <section className={cn(brandSurfaceClasses, "p-5 space-y-4")}> 
+                          <div>
+                            <h3 className="text-base font-semibold text-white">Custom fields</h3>
+                            <p className="text-xs text-white/70">Support governance and automation across boards and reports.</p>
+                          </div>
+                          {visibleCustomFields.map((definition) => (
+                            <div key={definition.id} className="space-y-1.5">
+                              <Label className="text-xs uppercase tracking-wide text-white/70">
+                                {definition.name}
+                                {definition.isRequired ? <span className="ml-1 text-destructive">*</span> : null}
+                              </Label>
+                              {renderCustomFieldInput(definition)}
+                              {definition.description ? (
+                                <p className="text-xs text-white/60">{definition.description}</p>
+                              ) : null}
+                            </div>
+                          ))}
+                        </section>
+                      ) : null}
+
+                      <section className={cn(brandSurfaceClasses, "p-5 space-y-4")}> 
+                        <div>
+                          <h3 className="text-base font-semibold text-white">Tags</h3>
+                          <p className="text-xs text-white/70">Use tags to cluster similar work and improve search.</p>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Input
+                            value={newTag}
+                            onChange={(event) => setNewTag(event.target.value)}
+                            placeholder="Add tag"
+                            className={cn("max-w-xs", brandInputClasses, focusRingClass)}
+                          />
+                          <Button
+                            onClick={addTag}
+                            className={cn(brandSecondaryButtonClasses, focusRingClass)}
+                            variant="outline"
+                          >
+                            Add
+                          </Button>
+                        </div>
+                        {formData.tags.length > 0 ? (
+                          <div className="flex flex-wrap gap-2">
+                            {formData.tags.map((tag) => (
+                              <Badge key={tag} className="bg-white/10 text-white">
+                                <span className="mr-2">{tag}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => removeTag(tag)}
+                                  className={cn("ml-auto text-white/70", focusRingClass)}
+                                >
+                                  ×
+                                </button>
+                              </Badge>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-sm text-white/70">No tags yet.</p>
+                        )}
+                      </section>
+
+                      <section className={cn(brandSurfaceClasses, "p-5 space-y-4")}> 
+                        <div>
+                          <h3 className="text-base font-semibold text-white">Assignees</h3>
+                          <p className="text-xs text-white/70">Invite collaborators or hand off work instantly.</p>
+                        </div>
+                        <AssigneeCompanySelect
+                          value={currentAssignees.map((assignee) => assignee.id)}
+                          onChange={() => {}}
+                          onSelectOne={handleAddAssignee}
+                          suggestProjectId={projectId}
+                        />
+                        {currentAssignees.length > 0 ? (
+                          <div className="space-y-2">
+                            {currentAssignees.map((assignee) => (
+                              <div key={assignee.id} className="flex items-center justify-between rounded-lg bg-white/5 px-3 py-2">
+                                <div className="flex items-center gap-3">
+                                  <Avatar className="h-8 w-8 border border-white/10">
+                                    <AvatarImage src={assignee.avatar || ""} alt={assignee.name} />
+                                    <AvatarFallback className="text-xs text-white">
+                                      {getInitials(assignee.name)}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <span className="text-sm font-medium text-white">{assignee.name}</span>
+                                </div>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => removeAssignee(assignee.id)}
+                                  className={cn("h-8 w-8", brandGhostButtonClasses, focusRingClass)}
+                                >
+                                  <X className="h-4 w-4" aria-hidden="true" />
+                                  <span className="sr-only">Remove assignee</span>
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-sm text-white/70">Assign someone to drive this work forward.</p>
+                        )}
+                      </section>
+
+                      <section className={cn(brandSurfaceClasses, "p-5 space-y-4")}> 
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <div>
+                            <h3 className="text-base font-semibold text-white">Relationships</h3>
+                            <p className="text-xs text-white/70">Understand dependencies and blockers at a glance.</p>
+                          </div>
+                          {task?.id ? <TaskRelationshipIndicator taskId={task.id} /> : null}
+                        </div>
+                        {combinedRelations.length > 0 ? (
+                          <div className="flex flex-wrap gap-2">
+                            {combinedRelations.map((relation) => (
+                              <Badge
+                                key={`${relation.id}-${relation.direction}`}
+                                variant="secondary"
+                                className="bg-white/10 capitalize text-white"
+                              >
+                                {relation.direction === "incoming" ? "⬅" : "➡"} {relation.type.replace("_", " ")}
+                              </Badge>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-sm text-white/70">No linked work yet.</p>
+                        )}
+                        <div>
+                          {task?.id ? (
+                            <TaskRelationshipsDialog taskId={task.id} taskTitle={formData.title}>
+                              <Button className={cn(brandSecondaryButtonClasses, focusRingClass)} variant="outline">
+                                Manage relationships
+                              </Button>
+                            </TaskRelationshipsDialog>
+                          ) : (
+                            <p className="text-sm text-white/70">Save the task to manage relationships.</p>
+                          )}
+                        </div>
+                      </section>
+
+                      {task?.id ? (
+                        <section className={cn(brandSurfaceClasses, "p-5 space-y-4")}> 
+                          <div>
+                            <h3 className="text-base font-semibold text-white">Time tracking</h3>
+                            <p className="text-xs text-white/70">Log new entries and review previous time tracked.</p>
+                          </div>
+                          <TimeTracker taskId={task.id} taskTitle={formData.title} />
+                          <TimeEntriesList taskId={task.id} />
+                        </section>
+                      ) : null}
+                    </div>
+                  </ScrollArea>
+                </TabsContent>
+
+                <TabsContent
+                  value="subtasks"
+                  className="mt-0 flex h-full flex-col overflow-hidden px-0 data-[state=inactive]:hidden"
+                >
+                  <ScrollArea className="flex-1 pr-4">
+                    <div className="space-y-6 pb-12">
+                      <section className={cn(brandSurfaceClasses, "p-5 space-y-4")}> 
+                        <div className="flex items-center justify-between gap-3">
+                          <h3 className="text-base font-semibold text-white">Subitems</h3>
+                          {subitemRollup ? (
+                            <div className="flex items-center gap-2 text-xs text-white/70">
+                              <span>{subitemRollup.completed}/{subitemRollup.total}</span>
+                              <Progress value={Math.round((subitemRollup.progress ?? 0) * 100)} className="h-1.5 w-24" />
+                            </div>
+                          ) : null}
+                        </div>
+                        {subitems.length > 0 ? (
+                          <div className="space-y-2">
+                            {subitems.map((subitem) => (
+                              <div key={subitem.id} className="flex items-center justify-between rounded-lg bg-white/5 px-3 py-2">
+                                <div className="flex items-center gap-2">
+                                  <Checkbox
+                                    checked={subitem.completed || subitem.status === "done"}
+                                    onCheckedChange={() => handleToggleSubitem(subitem.id, subitem.completed || subitem.status === "done")}
+                                  />
+                                  <span className="text-sm text-white">{subitem.title}</span>
+                                </div>
+                                <Badge variant="outline" className="text-xs capitalize text-white">
+                                  {subitem.status.replace("_", " ")}
+                                </Badge>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-sm text-white/70">No subitems yet.</p>
+                        )}
+                      </section>
+
+                      {checklistEvaluation ? (
+                        <section className={cn(brandSurfaceClasses, "p-5 space-y-4")}> 
+                          <h3 className="text-base font-semibold text-white">Workflow checklists</h3>
+                          <ChecklistList title="Definition of Ready" items={checklistEvaluation.ready} />
+                          <ChecklistList title="Definition of Done" items={checklistEvaluation.done} />
+                        </section>
+                      ) : null}
+                    </div>
+                  </ScrollArea>
+                </TabsContent>
+
+                <TabsContent
+                  value="comments"
+                  className="mt-0 flex h-full flex-col overflow-hidden px-0 data-[state=inactive]:hidden"
+                >
+                  <ScrollArea className="flex-1 pr-4">
+                    <div className="space-y-4 pb-12">
+                      {task?.id ? (
+                        <CommentsSystemWithMentions
+                          entityType="task"
+                          entityId={task.id}
+                          projectId={projectId}
+                          onCountChange={setCommentCount}
+                        />
+                      ) : (
+                        <div className={cn(brandSurfaceClasses, "p-5 text-sm text-white/70")}>Save the task to start the conversation.</div>
+                      )}
+                    </div>
+                  </ScrollArea>
+                </TabsContent>
+
+                <TabsContent
+                  value="files"
+                  className="mt-0 flex h-full flex-col overflow-hidden px-0 data-[state=inactive]:hidden"
+                >
+                  <ScrollArea className="flex-1 pr-4">
+                    <div className="space-y-6 pb-12">
+                      <section className={cn(brandSurfaceClasses, "p-5 space-y-4")}> 
+                        <div>
+                          <h3 className="text-base font-semibold text-white">Attachments</h3>
+                          <p className="text-xs text-white/70">Upload supporting docs, visuals, or specs.</p>
+                        </div>
+                        <FileUpload onFileUpload={handleFileUpload} disabled={isUploading} />
+                        {Array.isArray(formData.attachments) && formData.attachments.length > 0 ? (
+                          <div className="space-y-2">
+                            {formData.attachments.map((attachment: UploadedFile) => (
+                              <div key={attachment.id} className="flex items-center justify-between rounded-lg bg-white/5 px-3 py-2">
+                                <div className="flex items-center gap-2 text-sm text-white">
+                                  <Paperclip className="h-4 w-4" aria-hidden="true" />
+                                  <span>{attachment.name}</span>
+                                </div>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleFileRemove(attachment.id)}
+                                  className={cn("h-8 w-8", brandGhostButtonClasses, focusRingClass)}
+                                >
+                                  <X className="h-4 w-4" aria-hidden="true" />
+                                  <span className="sr-only">Remove attachment</span>
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-sm text-white/70">No files have been added yet.</p>
+                        )}
+                      </section>
+
+                      <section className={cn(brandSurfaceClasses, "p-5 space-y-4")}> 
+                        <div>
+                          <h3 className="text-base font-semibold text-white">Links</h3>
+                          <p className="text-xs text-white/70">Reference docs, tickets, or external resources.</p>
+                        </div>
+                        <div className="flex flex-col gap-2 sm:flex-row">
+                          <Input
+                            value={newLinkTitle}
+                            onChange={(event) => setNewLinkTitle(event.target.value)}
+                            placeholder="Link title"
+                            className={cn(brandInputClasses, focusRingClass)}
+                          />
+                          <Input
+                            value={newLinkUrl}
+                            onChange={(event) => setNewLinkUrl(event.target.value)}
+                            placeholder="https://example.com"
+                            className={cn(brandInputClasses, focusRingClass)}
+                          />
+                          <Button onClick={handleAddLink} className={cn(brandPrimaryButtonClasses, focusRingClass)}>
+                            Add
+                          </Button>
+                        </div>
+                        {links.length > 0 ? (
+                          <div className="space-y-2">
+                            {links.map((link) => (
+                              <div key={link.id} className="flex items-center justify-between rounded-lg bg-white/5 px-3 py-2">
+                                <a
+                                  href={link.url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="flex items-center gap-2 text-sm text-white hover:text-primary"
+                                >
+                                  <LinkIcon className="h-4 w-4" aria-hidden="true" />
+                                  <span>{link.title || link.url}</span>
+                                </a>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleRemoveLink(link.id)}
+                                  className={cn("h-8 w-8", brandGhostButtonClasses, focusRingClass)}
+                                >
+                                  <Trash2 className="h-4 w-4" aria-hidden="true" />
+                                  <span className="sr-only">Remove link</span>
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-sm text-white/70">No links added yet.</p>
+                        )}
+                      </section>
+                    </div>
+                  </ScrollArea>
+                </TabsContent>
+              </div>
+            </Tabs>
           </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+
+          <footer className="border-t border-white/10 bg-[#051A2E]/95 px-4 py-4 sm:px-6">
+            <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+              <Button
+                variant="outline"
+                onClick={onClose}
+                className={cn(brandSecondaryButtonClasses, focusRingClass)}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSave}
+                className={cn(brandPrimaryButtonClasses, focusRingClass)}
+              >
+                {task ? "Update Task" : "Create Task"}
+              </Button>
+            </div>
+          </footer>
+        </motion.div>
+      </SheetContent>
+    </Sheet>
   );
 }
