@@ -39,7 +39,7 @@ export function BacklogPanel() {
     setActiveSprint(sprint);
     
     if (sprint) {
-      const metrics = await getSprintMetrics(sprint.id);
+      const metrics = await getSprintMetrics(sprint.id, sprint.project_id);
       setSprintMetrics(metrics);
     }
   }
