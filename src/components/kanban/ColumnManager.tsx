@@ -315,7 +315,7 @@ export function ColumnManager({ projectId, columns, swimlanes, onUpdate }: Colum
             color: formData.color,
             wip_limit: formData.wip_limit ? parseInt(formData.wip_limit) : null,
             column_type: formData.column_type,
-            metadata: serializeColumnMetadata(metadataToPersist),
+            metadata: serializeColumnMetadata(metadataToPersist) as any,
           })
           .eq('id', editingColumn.id);
 
@@ -331,7 +331,7 @@ export function ColumnManager({ projectId, columns, swimlanes, onUpdate }: Colum
         
         const { error } = await supabase
           .from('kanban_columns')
-          .insert({
+          .insert([{
             project_id: projectId,
             name: formData.name.trim(),
             color: formData.color,
@@ -339,8 +339,8 @@ export function ColumnManager({ projectId, columns, swimlanes, onUpdate }: Colum
             wip_limit: formData.wip_limit ? parseInt(formData.wip_limit) : null,
             is_default: false,
             column_type: formData.column_type,
-            metadata: serializeColumnMetadata(metadataToPersist),
-          });
+            metadata: serializeColumnMetadata(metadataToPersist) as any,
+          }]);
 
         if (error) throw error;
 

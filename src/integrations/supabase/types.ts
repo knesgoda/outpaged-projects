@@ -439,6 +439,7 @@ export type Database = {
           description: string | null
           icon: string | null
           id: string
+          mode: string | null
           name: string
           project_id: string | null
           settings: Json | null
@@ -455,6 +456,7 @@ export type Database = {
           description?: string | null
           icon?: string | null
           id?: string
+          mode?: string | null
           name: string
           project_id?: string | null
           settings?: Json | null
@@ -471,6 +473,7 @@ export type Database = {
           description?: string | null
           icon?: string | null
           id?: string
+          mode?: string | null
           name?: string
           project_id?: string | null
           settings?: Json | null
@@ -1128,9 +1131,11 @@ export type Database = {
           created_at: string
           id: string
           is_default: boolean | null
+          metadata: Json | null
           name: string
           position: number
           project_id: string
+          status_keys: string[] | null
           updated_at: string
           wip_limit: number | null
         }
@@ -1139,9 +1144,11 @@ export type Database = {
           created_at?: string
           id?: string
           is_default?: boolean | null
+          metadata?: Json | null
           name: string
           position: number
           project_id: string
+          status_keys?: string[] | null
           updated_at?: string
           wip_limit?: number | null
         }
@@ -1150,9 +1157,11 @@ export type Database = {
           created_at?: string
           id?: string
           is_default?: boolean | null
+          metadata?: Json | null
           name?: string
           position?: number
           project_id?: string
+          status_keys?: string[] | null
           updated_at?: string
           wip_limit?: number | null
         }
@@ -2380,6 +2389,56 @@ export type Database = {
           status_value?: string
         }
         Relationships: []
+      }
+      task_statuses: {
+        Row: {
+          category: string
+          color: string | null
+          created_at: string
+          description: string | null
+          id: string
+          is_default: boolean | null
+          key: string
+          name: string
+          position: number
+          project_id: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_default?: boolean | null
+          key: string
+          name: string
+          position?: number
+          project_id: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_default?: boolean | null
+          key?: string
+          name?: string
+          position?: number
+          project_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_statuses_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       tasks: {
         Row: {
