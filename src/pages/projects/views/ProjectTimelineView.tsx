@@ -48,8 +48,9 @@ export default function ProjectTimelineView() {
   const configuration: BoardViewConfiguration = {
     mode: "timeline",
     filters: {},
-    grouping: null,
-    sorting: null,
+    grouping: { primary: null, swimlaneField: null, swimlanes: [] },
+    sort: [],
+    columnPreferences: { order: [], hidden: [] },
   };
 
   return (

@@ -48,8 +48,9 @@ export default function ProjectCalendarView() {
   const configuration: BoardViewConfiguration = {
     mode: "calendar",
     filters: {},
-    grouping: null,
-    sorting: null,
+    grouping: { primary: null, swimlaneField: null, swimlanes: [] },
+    sort: [],
+    columnPreferences: { order: [], hidden: [] },
   };
 
   return (

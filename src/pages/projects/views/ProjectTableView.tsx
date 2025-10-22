@@ -48,8 +48,9 @@ export default function ProjectTableView() {
   const configuration: BoardViewConfiguration = {
     mode: "table",
     filters: {},
-    grouping: null,
-    sorting: null,
+    grouping: { primary: null, swimlaneField: null, swimlanes: [] },
+    sort: [],
+    columnPreferences: { order: [], hidden: [] },
   };
 
   return (
