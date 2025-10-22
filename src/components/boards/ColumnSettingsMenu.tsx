@@ -65,20 +65,22 @@ export function ColumnSettingsMenu({
           <Settings className="h-4 w-4" />
         </Button>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="border border-[#0F3357] bg-[#001B33] text-white shadow-large">
         <DialogHeader>
-          <DialogTitle>Column Settings: {columnName}</DialogTitle>
-          <DialogDescription>
+          <DialogTitle className="text-white">Column Settings: {columnName}</DialogTitle>
+          <DialogDescription className="text-white/70">
             Configure WIP limits, entry policies, and SLA for this column
           </DialogDescription>
         </DialogHeader>
-        
-        <div className="space-y-4 py-4">
-          <div className="space-y-2">
-            <h4 className="text-sm font-medium">WIP Limits</h4>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label htmlFor="soft-limit" className="text-xs">Soft Limit (Warning)</Label>
+
+        <div className="space-y-6 py-2">
+          <div className="space-y-3">
+            <h4 className="text-sm font-semibold text-white">WIP Limits</h4>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="soft-limit" className="text-xs uppercase tracking-wide text-accent-light">
+                  Soft Limit (Warning)
+                </Label>
                 <Input
                   id="soft-limit"
                   type="number"
@@ -86,10 +88,13 @@ export function ColumnSettingsMenu({
                   value={softLimit}
                   onChange={(e) => setSoftLimit(e.target.value)}
                   placeholder="e.g., 5"
+                  className="border-transparent bg-[#E6ECF2] text-[#001B33] placeholder:text-[#4B5C6A] focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-[#001B33]"
                 />
               </div>
-              <div className="space-y-1">
-                <Label htmlFor="hard-limit" className="text-xs">Hard Limit (Block)</Label>
+              <div className="space-y-2">
+                <Label htmlFor="hard-limit" className="text-xs uppercase tracking-wide text-accent-light">
+                  Hard Limit (Block)
+                </Label>
                 <Input
                   id="hard-limit"
                   type="number"
@@ -97,39 +102,44 @@ export function ColumnSettingsMenu({
                   value={hardLimit}
                   onChange={(e) => setHardLimit(e.target.value)}
                   placeholder="e.g., 8"
+                  className="border-transparent bg-[#E6ECF2] text-[#001B33] placeholder:text-[#4B5C6A] focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-[#001B33]"
                 />
               </div>
             </div>
           </div>
 
-          <div className="space-y-2">
-            <h4 className="text-sm font-medium">Entry Policies</h4>
-            <div className="flex items-center justify-between">
-              <Label htmlFor="require-assignee" className="text-sm font-normal">
+          <div className="space-y-3">
+            <h4 className="text-sm font-semibold text-white">Entry Policies</h4>
+            <div className="flex items-center justify-between gap-4 rounded-lg bg-white/5 px-3 py-2">
+              <Label htmlFor="require-assignee" className="text-sm font-medium text-white">
                 Require assignee
               </Label>
               <Switch
                 id="require-assignee"
                 checked={requireAssignee}
                 onCheckedChange={setRequireAssignee}
+                className="border border-accent/50 bg-[#112C47] focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-[#001B33] data-[state=checked]:bg-accent"
               />
             </div>
-            <div className="flex items-center justify-between">
-              <Label htmlFor="require-estimate" className="text-sm font-normal">
+            <div className="flex items-center justify-between gap-4 rounded-lg bg-white/5 px-3 py-2">
+              <Label htmlFor="require-estimate" className="text-sm font-medium text-white">
                 Require estimate
               </Label>
               <Switch
                 id="require-estimate"
                 checked={requireEstimate}
                 onCheckedChange={setRequireEstimate}
+                className="border border-accent/50 bg-[#112C47] focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-[#001B33] data-[state=checked]:bg-accent"
               />
             </div>
           </div>
 
-          <div className="space-y-2">
-            <h4 className="text-sm font-medium">SLA</h4>
-            <div className="space-y-1">
-              <Label htmlFor="sla-hours" className="text-xs">Max time in column (hours)</Label>
+          <div className="space-y-3">
+            <h4 className="text-sm font-semibold text-white">SLA</h4>
+            <div className="space-y-2">
+              <Label htmlFor="sla-hours" className="text-xs uppercase tracking-wide text-accent-light">
+                Max time in column (hours)
+              </Label>
               <Input
                 id="sla-hours"
                 type="number"
@@ -137,16 +147,26 @@ export function ColumnSettingsMenu({
                 value={slaHours}
                 onChange={(e) => setSlaHours(e.target.value)}
                 placeholder="e.g., 48"
+                className="border-transparent bg-[#E6ECF2] text-[#001B33] placeholder:text-[#4B5C6A] focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-[#001B33]"
               />
             </div>
           </div>
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setIsOpen(false)}>
+        <DialogFooter className="mt-2 flex flex-col gap-2 sm:flex-row">
+          <Button
+            variant="outline"
+            onClick={() => setIsOpen(false)}
+            className="border-[#0F3357] bg-transparent text-white shadow-none hover:bg-[#0F3357] focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-[#001B33]"
+          >
             Cancel
           </Button>
-          <Button onClick={handleSave}>Save Settings</Button>
+          <Button
+            onClick={handleSave}
+            className="bg-[#FF6A00] text-white shadow-none transition-colors hover:bg-[#E65E00] focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-[#001B33]"
+          >
+            Save Settings
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
