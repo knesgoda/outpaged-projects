@@ -2,27 +2,78 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { 
+import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { 
+import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { 
-  Search, 
-  Filter, 
-  X, 
+import {
+  Search,
+  Filter,
+  X,
   Calendar,
   User,
   Tag
 } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+const NAVY_SURFACE = "#0A1F44";
+
+interface ActiveFilterChipProps {
+  label: string;
+  value: string;
+  onClear: () => void;
+}
+
+function ActiveFilterChip({ label, value, onClear }: ActiveFilterChipProps) {
+  const ariaLabel = `${label} filter ${value}`;
+
+  return (
+    <button
+      type="button"
+      onClick={onClear}
+      className="group inline-flex items-center gap-2 rounded-full border border-[rgba(255,106,0,0.65)] bg-[#0A1F44] px-3 py-1 text-sm text-white shadow-[0_0_0_1px_rgba(8,23,55,0.65)] transition hover:border-[rgba(255,106,0,0.9)] hover:bg-[#0C254F] focus-visible:ring-2 focus-visible:ring-[rgba(55,120,255,0.75)] focus-visible:ring-offset-2 focus-visible:ring-offset-[#040f26]"
+      aria-label={`Remove ${ariaLabel}`}
+    >
+      <span className="font-medium text-[color:rgba(255,255,255,0.85)]">{label}:</span>
+      <span className="text-[color:rgba(255,255,255,0.9)]">{value}</span>
+      <span className="sr-only">Remove {ariaLabel}</span>
+      <X className="h-3.5 w-3.5 text-white/70 transition group-hover:text-white" aria-hidden="true" />
+    </button>
+  );
+}
+
+interface ToggleChipProps {
+  label: string;
+  isActive: boolean;
+  onToggle: () => void;
+}
+
+function ToggleChip({ label, isActive, onToggle }: ToggleChipProps) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      className={cn(
+        "inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium transition focus-visible:ring-2 focus-visible:ring-[rgba(55,120,255,0.75)] focus-visible:ring-offset-2 focus-visible:ring-offset-[#081737]",
+        isActive
+          ? "border-[rgba(55,120,255,0.8)] bg-[rgba(55,120,255,0.15)] text-white shadow-[0_0_0_1px_rgba(55,120,255,0.3)]"
+          : "border-white/20 bg-white/5 text-white/80 hover:border-white/40 hover:bg-white/10"
+      )}
+      aria-pressed={isActive}
+      aria-label={`${isActive ? "Remove" : "Add"} tag filter ${label}`}
+    >
+      {label}
+    </button>
+  );
+}
 
 export interface KanbanFilters {
   search: string;
@@ -41,9 +92,9 @@ interface KanbanFiltersProps {
   availableTags?: string[];
 }
 
-export function KanbanFiltersComponent({ 
-  filters, 
-  onFiltersChange, 
+export function KanbanFiltersComponent({
+  filters,
+  onFiltersChange,
   availableAssignees = [],
   availableTags = []
 }: KanbanFiltersProps) {
@@ -75,49 +126,128 @@ export function KanbanFiltersComponent({
     });
   };
 
-  const activeFiltersCount = Object.entries(filters).reduce((count, [key, value]) => {
-    if (key === 'search' && value) return count + 1;
-    if (key === 'tags' && Array.isArray(value) && value.length > 0) return count + 1;
-    if (typeof value === 'string' && value !== 'all' && value !== '') return count + 1;
-    return count;
-  }, 0);
+  const activeFilters: Array<{ key: string; label: string; value: string; onClear: () => void }> = [];
+
+  if (filters.search) {
+    activeFilters.push({
+      key: 'search',
+      label: 'Search',
+      value: filters.search,
+      onClear: () => updateFilter('search', '')
+    });
+  }
+
+  if (filters.assignee !== 'all') {
+    const assigneeLabel =
+      filters.assignee === 'unassigned'
+        ? 'Unassigned'
+        : availableAssignees.find(a => a.id === filters.assignee)?.name || filters.assignee;
+    activeFilters.push({
+      key: 'assignee',
+      label: 'Assignee',
+      value: assigneeLabel,
+      onClear: () => updateFilter('assignee', 'all')
+    });
+  }
+
+  if (filters.priority !== 'all') {
+    activeFilters.push({
+      key: 'priority',
+      label: 'Priority',
+      value: filters.priority,
+      onClear: () => updateFilter('priority', 'all')
+    });
+  }
+
+  if (filters.hierarchy !== 'all') {
+    activeFilters.push({
+      key: 'hierarchy',
+      label: 'Type',
+      value: filters.hierarchy,
+      onClear: () => updateFilter('hierarchy', 'all')
+    });
+  }
+
+  if (filters.taskType !== 'all') {
+    activeFilters.push({
+      key: 'taskType',
+      label: 'Task Type',
+      value: filters.taskType.replace('_', ' '),
+      onClear: () => updateFilter('taskType', 'all')
+    });
+  }
+
+  if (filters.dueDate !== 'all') {
+    activeFilters.push({
+      key: 'dueDate',
+      label: 'Due',
+      value: filters.dueDate.replace('_', ' '),
+      onClear: () => updateFilter('dueDate', 'all')
+    });
+  }
+
+  filters.tags.forEach(tag => {
+    activeFilters.push({
+      key: `tag-${tag}`,
+      label: 'Tag',
+      value: tag,
+      onClear: () => removeTag(tag)
+    });
+  });
+
+  const activeFiltersCount = activeFilters.length;
 
   return (
     <div className="space-y-4">
       {/* Search and Filter Toggle */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder="Search tasks..."
-            value={filters.search}
-            onChange={(e) => updateFilter('search', e.target.value)}
-            className="pl-10 bg-muted/30 border-muted focus:bg-background"
-          />
+      <div className="flex flex-col gap-3 sm:flex-row">
+        <div className="flex-1">
+          <label htmlFor="kanban-filter-search" className="sr-only">
+            Search tasks
+          </label>
+          <div
+            className="group relative flex items-center gap-3 rounded-xl border border-white/10 px-4 py-2 shadow-[0_12px_32px_rgba(7,19,45,0.35)] transition focus-within:border-[rgba(55,120,255,0.45)] focus-within:ring-2 focus-within:ring-[rgba(55,120,255,0.55)] focus-within:ring-offset-2 focus-within:ring-offset-[#040f26]"
+            style={{ backgroundColor: NAVY_SURFACE }}
+          >
+            <Search className="h-4 w-4 text-white/60" aria-hidden="true" />
+            <Input
+              id="kanban-filter-search"
+              placeholder="Search tasks..."
+              value={filters.search}
+              onChange={(e) => updateFilter('search', e.target.value)}
+              className="h-11 flex-1 border-none bg-transparent p-0 text-sm text-white caret-[#FF6A00] placeholder:text-white/60 focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:outline-none"
+            />
+          </div>
         </div>
-        
+
         <Popover open={isOpen} onOpenChange={setIsOpen}>
           <PopoverTrigger asChild>
-            <Button variant="outline" className="relative">
-              <Filter className="w-4 h-4 mr-2" />
+            <Button
+              variant="outline"
+              className="relative flex items-center gap-2 rounded-xl border-white/20 bg-[#0A1F44] text-white shadow-[0_8px_24px_rgba(7,19,45,0.28)] transition hover:border-white/30 hover:bg-[#0C254F] focus-visible:ring-2 focus-visible:ring-[rgba(55,120,255,0.6)] focus-visible:ring-offset-2 focus-visible:ring-offset-[#040f26]"
+            >
+              <Filter className="h-4 w-4" aria-hidden="true" />
               Filters
               {activeFiltersCount > 0 && (
-                <Badge variant="secondary" className="ml-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs">
+                <span className="ml-2 inline-flex h-5 w-5 items-center justify-center rounded-full bg-[#FF6A00] text-xs font-semibold text-white shadow-[0_2px_6px_rgba(255,106,0,0.35)]">
                   {activeFiltersCount}
-                </Badge>
+                </span>
               )}
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-80 p-4" align="end">
+          <PopoverContent
+            className="w-80 rounded-2xl border border-white/15 bg-[#081737] p-4 text-white shadow-[0_24px_48px_rgba(5,12,32,0.45)]"
+            align="end"
+          >
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <h4 className="font-medium">Filter Tasks</h4>
+                <h4 className="text-sm font-semibold tracking-wide text-white/90">Filter Tasks</h4>
                 {activeFiltersCount > 0 && (
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     onClick={clearAllFilters}
-                    className="text-muted-foreground"
+                    className="text-[color:rgba(55,120,255,0.85)] hover:text-white"
                   >
                     Clear all
                   </Button>
@@ -126,19 +256,27 @@ export function KanbanFiltersComponent({
 
               {/* Assignee Filter */}
               <div className="space-y-2">
-                <label className="text-sm font-medium flex items-center gap-2">
-                  <User className="w-4 h-4" />
+                <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-white/60">
+                  <User className="h-4 w-4 text-[color:rgba(55,120,255,0.85)]" aria-hidden="true" />
                   Assignee
                 </label>
                 <Select value={filters.assignee} onValueChange={(value) => updateFilter('assignee', value)}>
-                  <SelectTrigger>
+                  <SelectTrigger className="border-white/20 bg-[#0F2248] text-white focus-visible:ring-[rgba(55,120,255,0.7)] focus-visible:ring-offset-2 focus-visible:ring-offset-[#081737]">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Assignees</SelectItem>
-                    <SelectItem value="unassigned">Unassigned</SelectItem>
+                  <SelectContent className="border-[#1C2D5A] bg-[#0F2248] text-white">
+                    <SelectItem className="data-[state=checked]:bg-[rgba(55,120,255,0.2)] data-[state=checked]:text-white focus:bg-[rgba(55,120,255,0.15)]" value="all">
+                      All Assignees
+                    </SelectItem>
+                    <SelectItem className="data-[state=checked]:bg-[rgba(55,120,255,0.2)] data-[state=checked]:text-white focus:bg-[rgba(55,120,255,0.15)]" value="unassigned">
+                      Unassigned
+                    </SelectItem>
                     {availableAssignees.map(assignee => (
-                      <SelectItem key={assignee.id} value={assignee.id}>
+                      <SelectItem
+                        key={assignee.id}
+                        value={assignee.id}
+                        className="data-[state=checked]:bg-[rgba(55,120,255,0.2)] data-[state=checked]:text-white focus:bg-[rgba(55,120,255,0.15)]"
+                      >
                         {assignee.name}
                       </SelectItem>
                     ))}
@@ -148,74 +286,120 @@ export function KanbanFiltersComponent({
 
               {/* Priority Filter */}
               <div className="space-y-2">
-                <label className="text-sm font-medium">Priority</label>
+                <label className="text-xs font-semibold uppercase tracking-wide text-white/60">Priority</label>
                 <Select value={filters.priority} onValueChange={(value) => updateFilter('priority', value)}>
-                  <SelectTrigger>
+                  <SelectTrigger className="border-white/20 bg-[#0F2248] text-white focus-visible:ring-[rgba(55,120,255,0.7)] focus-visible:ring-offset-2 focus-visible:ring-offset-[#081737]">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Priorities</SelectItem>
-                    <SelectItem value="urgent">Urgent</SelectItem>
-                    <SelectItem value="high">High</SelectItem>
-                    <SelectItem value="medium">Medium</SelectItem>
-                    <SelectItem value="low">Low</SelectItem>
+                  <SelectContent className="border-[#1C2D5A] bg-[#0F2248] text-white">
+                    <SelectItem className="data-[state=checked]:bg-[rgba(55,120,255,0.2)] data-[state=checked]:text-white focus:bg-[rgba(55,120,255,0.15)]" value="all">
+                      All Priorities
+                    </SelectItem>
+                    <SelectItem className="data-[state=checked]:bg-[rgba(55,120,255,0.2)] data-[state=checked]:text-white focus:bg-[rgba(55,120,255,0.15)]" value="urgent">
+                      Urgent
+                    </SelectItem>
+                    <SelectItem className="data-[state=checked]:bg-[rgba(55,120,255,0.2)] data-[state=checked]:text-white focus:bg-[rgba(55,120,255,0.15)]" value="high">
+                      High
+                    </SelectItem>
+                    <SelectItem className="data-[state=checked]:bg-[rgba(55,120,255,0.2)] data-[state=checked]:text-white focus:bg-[rgba(55,120,255,0.15)]" value="medium">
+                      Medium
+                    </SelectItem>
+                    <SelectItem className="data-[state=checked]:bg-[rgba(55,120,255,0.2)] data-[state=checked]:text-white focus:bg-[rgba(55,120,255,0.15)]" value="low">
+                      Low
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               {/* Hierarchy Filter */}
               <div className="space-y-2">
-                <label className="text-sm font-medium">Type</label>
+                <label className="text-xs font-semibold uppercase tracking-wide text-white/60">Type</label>
                 <Select value={filters.hierarchy} onValueChange={(value) => updateFilter('hierarchy', value)}>
-                  <SelectTrigger>
+                  <SelectTrigger className="border-white/20 bg-[#0F2248] text-white focus-visible:ring-[rgba(55,120,255,0.7)] focus-visible:ring-offset-2 focus-visible:ring-offset-[#081737]">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Types</SelectItem>
-                    <SelectItem value="initiative">Initiatives</SelectItem>
-                    <SelectItem value="epic">Epics</SelectItem>
-                    <SelectItem value="story">Stories</SelectItem>
-                    <SelectItem value="task">Tasks</SelectItem>
-                    <SelectItem value="subtask">Sub-tasks</SelectItem>
+                  <SelectContent className="border-[#1C2D5A] bg-[#0F2248] text-white">
+                    <SelectItem className="data-[state=checked]:bg-[rgba(55,120,255,0.2)] data-[state=checked]:text-white focus:bg-[rgba(55,120,255,0.15)]" value="all">
+                      All Types
+                    </SelectItem>
+                    <SelectItem className="data-[state=checked]:bg-[rgba(55,120,255,0.2)] data-[state=checked]:text-white focus:bg-[rgba(55,120,255,0.15)]" value="initiative">
+                      Initiatives
+                    </SelectItem>
+                    <SelectItem className="data-[state=checked]:bg-[rgba(55,120,255,0.2)] data-[state=checked]:text-white focus:bg-[rgba(55,120,255,0.15)]" value="epic">
+                      Epics
+                    </SelectItem>
+                    <SelectItem className="data-[state=checked]:bg-[rgba(55,120,255,0.2)] data-[state=checked]:text-white focus:bg-[rgba(55,120,255,0.15)]" value="story">
+                      Stories
+                    </SelectItem>
+                    <SelectItem className="data-[state=checked]:bg-[rgba(55,120,255,0.2)] data-[state=checked]:text-white focus:bg-[rgba(55,120,255,0.15)]" value="task">
+                      Tasks
+                    </SelectItem>
+                    <SelectItem className="data-[state=checked]:bg-[rgba(55,120,255,0.2)] data-[state=checked]:text-white focus:bg-[rgba(55,120,255,0.15)]" value="subtask">
+                      Sub-tasks
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               {/* Task Type Filter */}
               <div className="space-y-2">
-                <label className="text-sm font-medium">Task Type</label>
+                <label className="text-xs font-semibold uppercase tracking-wide text-white/60">Task Type</label>
                 <Select value={filters.taskType} onValueChange={(value) => updateFilter('taskType', value)}>
-                  <SelectTrigger>
+                  <SelectTrigger className="border-white/20 bg-[#0F2248] text-white focus-visible:ring-[rgba(55,120,255,0.7)] focus-visible:ring-offset-2 focus-visible:ring-offset-[#081737]">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Task Types</SelectItem>
-                    <SelectItem value="feature_request">Feature Request</SelectItem>
-                    <SelectItem value="bug">Bug</SelectItem>
-                    <SelectItem value="design">Design</SelectItem>
-                    <SelectItem value="task">Task</SelectItem>
+                  <SelectContent className="border-[#1C2D5A] bg-[#0F2248] text-white">
+                    <SelectItem className="data-[state=checked]:bg-[rgba(55,120,255,0.2)] data-[state=checked]:text-white focus:bg-[rgba(55,120,255,0.15)]" value="all">
+                      All Task Types
+                    </SelectItem>
+                    <SelectItem className="data-[state=checked]:bg-[rgba(55,120,255,0.2)] data-[state=checked]:text-white focus:bg-[rgba(55,120,255,0.15)]" value="feature_request">
+                      Feature Request
+                    </SelectItem>
+                    <SelectItem className="data-[state=checked]:bg-[rgba(55,120,255,0.2)] data-[state=checked]:text-white focus:bg-[rgba(55,120,255,0.15)]" value="bug">
+                      Bug
+                    </SelectItem>
+                    <SelectItem className="data-[state=checked]:bg-[rgba(55,120,255,0.2)] data-[state=checked]:text-white focus:bg-[rgba(55,120,255,0.15)]" value="design">
+                      Design
+                    </SelectItem>
+                    <SelectItem className="data-[state=checked]:bg-[rgba(55,120,255,0.2)] data-[state=checked]:text-white focus:bg-[rgba(55,120,255,0.15)]" value="task">
+                      Task
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               {/* Due Date Filter */}
               <div className="space-y-2">
-                <label className="text-sm font-medium flex items-center gap-2">
-                  <Calendar className="w-4 h-4" />
+                <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-white/60">
+                  <Calendar className="h-4 w-4 text-[color:rgba(55,120,255,0.85)]" aria-hidden="true" />
                   Due Date
                 </label>
                 <Select value={filters.dueDate} onValueChange={(value) => updateFilter('dueDate', value)}>
-                  <SelectTrigger>
+                  <SelectTrigger className="border-white/20 bg-[#0F2248] text-white focus-visible:ring-[rgba(55,120,255,0.7)] focus-visible:ring-offset-2 focus-visible:ring-offset-[#081737]">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Any Due Date</SelectItem>
-                    <SelectItem value="overdue">Overdue</SelectItem>
-                    <SelectItem value="today">Due Today</SelectItem>
-                    <SelectItem value="tomorrow">Due Tomorrow</SelectItem>
-                    <SelectItem value="this_week">Due This Week</SelectItem>
-                    <SelectItem value="next_week">Due Next Week</SelectItem>
-                    <SelectItem value="no_due_date">No Due Date</SelectItem>
+                  <SelectContent className="border-[#1C2D5A] bg-[#0F2248] text-white">
+                    <SelectItem className="data-[state=checked]:bg-[rgba(55,120,255,0.2)] data-[state=checked]:text-white focus:bg-[rgba(55,120,255,0.15)]" value="all">
+                      Any Due Date
+                    </SelectItem>
+                    <SelectItem className="data-[state=checked]:bg-[rgba(55,120,255,0.2)] data-[state=checked]:text-white focus:bg-[rgba(55,120,255,0.15)]" value="overdue">
+                      Overdue
+                    </SelectItem>
+                    <SelectItem className="data-[state=checked]:bg-[rgba(55,120,255,0.2)] data-[state=checked]:text-white focus:bg-[rgba(55,120,255,0.15)]" value="today">
+                      Due Today
+                    </SelectItem>
+                    <SelectItem className="data-[state=checked]:bg-[rgba(55,120,255,0.2)] data-[state=checked]:text-white focus:bg-[rgba(55,120,255,0.15)]" value="tomorrow">
+                      Due Tomorrow
+                    </SelectItem>
+                    <SelectItem className="data-[state=checked]:bg-[rgba(55,120,255,0.2)] data-[state=checked]:text-white focus:bg-[rgba(55,120,255,0.15)]" value="this_week">
+                      Due This Week
+                    </SelectItem>
+                    <SelectItem className="data-[state=checked]:bg-[rgba(55,120,255,0.2)] data-[state=checked]:text-white focus:bg-[rgba(55,120,255,0.15)]" value="next_week">
+                      Due Next Week
+                    </SelectItem>
+                    <SelectItem className="data-[state=checked]:bg-[rgba(55,120,255,0.2)] data-[state=checked]:text-white focus:bg-[rgba(55,120,255,0.15)]" value="no_due_date">
+                      No Due Date
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -223,21 +407,22 @@ export function KanbanFiltersComponent({
               {/* Tags Filter */}
               {availableTags.length > 0 && (
                 <div className="space-y-2">
-                  <label className="text-sm font-medium flex items-center gap-2">
-                    <Tag className="w-4 h-4" />
+                  <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-white/60">
+                    <Tag className="h-4 w-4 text-[color:rgba(55,120,255,0.85)]" aria-hidden="true" />
                     Tags
                   </label>
-                  <div className="flex flex-wrap gap-1 max-h-20 overflow-y-auto">
-                    {availableTags.map(tag => (
-                      <Badge 
-                        key={tag}
-                        variant={filters.tags.includes(tag) ? "default" : "outline"}
-                        className="cursor-pointer text-xs"
-                        onClick={() => filters.tags.includes(tag) ? removeTag(tag) : addTag(tag)}
-                      >
-                        {tag}
-                      </Badge>
-                    ))}
+                  <div className="flex max-h-24 flex-wrap gap-2 overflow-y-auto">
+                    {availableTags.map(tag => {
+                      const isActive = filters.tags.includes(tag);
+                      return (
+                        <ToggleChip
+                          key={tag}
+                          label={tag}
+                          isActive={isActive}
+                          onToggle={() => (isActive ? removeTag(tag) : addTag(tag))}
+                        />
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -249,69 +434,13 @@ export function KanbanFiltersComponent({
       {/* Active Filters Display */}
       {activeFiltersCount > 0 && (
         <div className="flex flex-wrap gap-2">
-          {filters.search && (
-            <Badge variant="secondary" className="gap-1">
-              Search: {filters.search}
-              <X 
-                className="w-3 h-3 cursor-pointer" 
-                onClick={() => updateFilter('search', '')}
-              />
-            </Badge>
-          )}
-          {filters.assignee !== 'all' && (
-            <Badge variant="secondary" className="gap-1">
-              Assignee: {filters.assignee === 'unassigned' ? 'Unassigned' : 
-                availableAssignees.find(a => a.id === filters.assignee)?.name || filters.assignee}
-              <X 
-                className="w-3 h-3 cursor-pointer" 
-                onClick={() => updateFilter('assignee', 'all')}
-              />
-            </Badge>
-          )}
-          {filters.priority !== 'all' && (
-            <Badge variant="secondary" className="gap-1">
-              Priority: {filters.priority}
-              <X 
-                className="w-3 h-3 cursor-pointer" 
-                onClick={() => updateFilter('priority', 'all')}
-              />
-            </Badge>
-          )}
-          {filters.hierarchy !== 'all' && (
-            <Badge variant="secondary" className="gap-1">
-              Type: {filters.hierarchy}
-              <X 
-                className="w-3 h-3 cursor-pointer" 
-                onClick={() => updateFilter('hierarchy', 'all')}
-              />
-            </Badge>
-          )}
-          {filters.taskType !== 'all' && (
-            <Badge variant="secondary" className="gap-1">
-              Task Type: {filters.taskType.replace('_', ' ')}
-              <X 
-                className="w-3 h-3 cursor-pointer" 
-                onClick={() => updateFilter('taskType', 'all')}
-              />
-            </Badge>
-          )}
-          {filters.dueDate !== 'all' && (
-            <Badge variant="secondary" className="gap-1">
-              Due: {filters.dueDate.replace('_', ' ')}
-              <X 
-                className="w-3 h-3 cursor-pointer" 
-                onClick={() => updateFilter('dueDate', 'all')}
-              />
-            </Badge>
-          )}
-          {filters.tags.map(tag => (
-            <Badge key={tag} variant="secondary" className="gap-1">
-              Tag: {tag}
-              <X 
-                className="w-3 h-3 cursor-pointer" 
-                onClick={() => removeTag(tag)}
-              />
-            </Badge>
+          {activeFilters.map(filter => (
+            <ActiveFilterChip
+              key={filter.key}
+              label={filter.label}
+              value={filter.value}
+              onClear={filter.onClear}
+            />
           ))}
         </div>
       )}
