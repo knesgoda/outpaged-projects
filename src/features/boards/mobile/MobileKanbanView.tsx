@@ -5,6 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { QueueDrawer } from "@/components/mobile/QueueDrawer";
+import { SwipeableCard, SwipeActions } from "@/components/mobile/SwipeableCard";
+import { useToast } from "@/hooks/use-toast";
 
 import type { QueueSyncer } from "@/services/offline";
 import { useBoardViewContext } from "../views/context";
@@ -35,6 +37,7 @@ const toRecordId = (record: Record<string, unknown>): string | null => {
 
 export function MobileKanbanView({ boardId, syncer = DEFAULT_SYNCER }: MobileKanbanViewProps) {
   const { items, configuration, replaceItems, isLoading } = useBoardViewContext();
+  const { toast } = useToast();
   const [activeIndex, setActiveIndex] = useState(0);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [selectedColumnLabel, setSelectedColumnLabel] = useState<string | null>(null);
@@ -212,6 +215,52 @@ export function MobileKanbanView({ boardId, syncer = DEFAULT_SYNCER }: MobileKan
     []
   );
 
+  const handleCardSwipeComplete = useCallback(
+    async (card: KanbanCard, columnIndex: number) => {
+      const nextColumn = columns[columnIndex + 1];
+      if (!nextColumn || !groupingField) {
+        toast({
+          title: "Cannot move",
+          description: "This is the last column",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const recordId = toRecordId(card.record);
+      if (!recordId) return;
+
+      await persistChange(
+        card,
+        { type: "move", from: columns[columnIndex].key, to: nextColumn.key, field: groupingField },
+        { [groupingField]: nextColumn.key }
+      );
+
+      toast({
+        title: "Moved",
+        description: `Moved to ${nextColumn.label}`,
+      });
+    },
+    [columns, groupingField, persistChange, toast]
+  );
+
+  const handleCardSwipeDelete = useCallback(
+    async (card: KanbanCard) => {
+      const recordId = toRecordId(card.record);
+      if (!recordId) return;
+
+      // Optimistically remove from UI
+      const nextItems = items.filter(item => toRecordId(item) !== recordId);
+      replaceItems(nextItems);
+
+      toast({
+        title: "Deleted",
+        description: "Task has been deleted",
+      });
+    },
+    [items, replaceItems, toast]
+  );
+
   if (isLoading) {
     return (
       <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
@@ -278,18 +327,39 @@ export function MobileKanbanView({ boardId, syncer = DEFAULT_SYNCER }: MobileKan
                       <p className="text-sm text-muted-foreground">No cards in this column.</p>
                     ) : (
                       column.items.map((card) => (
-                        <button
+                        <SwipeableCard
                           key={card.id}
-                          type="button"
-                          className="w-full rounded-xl border bg-card px-3 py-2 text-left shadow-sm transition hover:border-primary"
-                          onClick={() => handleCardPress(card, column.label)}
-                          data-testid="mobile-kanban-card"
+                          rightAction={SwipeActions.complete(() => handleCardSwipeComplete(card, index))}
+                          leftAction={SwipeActions.delete(() => handleCardSwipeDelete(card))}
                         >
-                          <div className="text-sm font-medium">{String(card.record.title ?? card.record.name ?? card.id)}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {String(card.record.assignee ?? card.record.owner ?? "Unassigned")}
-                          </div>
-                        </button>
+                          <button
+                            type="button"
+                            className="w-full rounded-xl border bg-card px-4 py-3 text-left shadow-sm transition hover:border-primary active:scale-[0.98]"
+                            onClick={() => handleCardPress(card, column.label)}
+                            data-testid="mobile-kanban-card"
+                          >
+                            <div className="space-y-1">
+                              <div className="text-sm font-medium leading-tight">
+                                {String(card.record.title ?? card.record.name ?? card.id)}
+                              </div>
+                              {card.record.description && (
+                                <div className="text-xs text-muted-foreground line-clamp-2">
+                                  {String(card.record.description)}
+                                </div>
+                              )}
+                              <div className="flex items-center gap-2 pt-1">
+                                <div className="text-xs text-muted-foreground">
+                                  {String(card.record.assignee ?? card.record.owner ?? "Unassigned")}
+                                </div>
+                                {card.record.priority && (
+                                  <Badge variant="outline" className="text-[10px] h-4 px-1">
+                                    {String(card.record.priority)}
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                          </button>
+                        </SwipeableCard>
                       ))
                     )}
                   </div>

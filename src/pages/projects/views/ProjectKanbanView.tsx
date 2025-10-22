@@ -3,10 +3,11 @@ import { MobileKanbanView } from "@/features/boards/mobile";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { ensureProjectBoard } from "@/services/projects/boardInitializer";
-import { Loader2 } from "lucide-react";
 import { BoardViewCanvas } from "@/features/boards/views";
 import { BoardViewProvider } from "@/features/boards/views/context";
 import { BoardStateProvider } from "@/features/boards/views/BoardStateProvider";
+import { ErrorBoundary } from "@/components/boards/ErrorBoundary";
+import { LoadingState } from "@/components/boards/LoadingState";
 import type { BoardViewRecord } from "@/features/boards/views";
 import type { BoardViewConfiguration } from "@/types/boards";
 import { useProject } from "@/contexts/ProjectContext";
@@ -48,11 +49,7 @@ export default function ProjectKanbanView() {
   });
 
   if (isLoading || tasksLoading || !boardId || !boardData) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    );
+    return <LoadingState type="cards" count={8} message="Loading kanban board..." />;
   }
 
   const configuration: BoardViewConfiguration = {
@@ -65,27 +62,31 @@ export default function ProjectKanbanView() {
 
   if (isMobile) {
     return (
-      <div className="h-full">
-        <BoardStateProvider>
-          <BoardViewProvider
-            items={boardData.tasks}
-            configuration={configuration}
-            isLoading={false}
-          >
-            <MobileKanbanView boardId={boardId} />
-          </BoardViewProvider>
-        </BoardStateProvider>
-      </div>
+      <ErrorBoundary>
+        <div className="h-full">
+          <BoardStateProvider>
+            <BoardViewProvider
+              items={boardData.tasks}
+              configuration={configuration}
+              isLoading={false}
+            >
+              <MobileKanbanView boardId={boardId} />
+            </BoardViewProvider>
+          </BoardStateProvider>
+        </div>
+      </ErrorBoundary>
     );
   }
 
   return (
-    <div className="h-full">
-      <BoardViewCanvas
-        items={boardData.tasks}
-        configuration={configuration}
-        isLoading={false}
-      />
-    </div>
+    <ErrorBoundary>
+      <div className="h-full">
+        <BoardViewCanvas
+          items={boardData.tasks}
+          configuration={configuration}
+          isLoading={false}
+        />
+      </div>
+    </ErrorBoundary>
   );
 }

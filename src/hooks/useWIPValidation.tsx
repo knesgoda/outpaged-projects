@@ -17,6 +17,7 @@ export function useWIPValidation() {
   const [pendingOverride, setPendingOverride] = useState<WIPOverrideState | null>(null);
   const [overrideReason, setOverrideReason] = useState("");
   const [showOverrideDialog, setShowOverrideDialog] = useState(false);
+  const [isValidating, setIsValidating] = useState(false);
 
   const validateMove = useCallback(
     async (
@@ -24,7 +25,8 @@ export function useWIPValidation() {
       toColumnId: string,
       columnName: string,
       currentColumnCount: number
-    ): Promise<{ allowed: boolean; validation?: ColumnMoveValidation }> => {
+    ): Promise<{ allowed: boolean; validation?: ColumnMoveValidation; error?: Error }> => {
+      setIsValidating(true);
       try {
         const validation = await validateColumnMove(task.id, toColumnId, currentColumnCount);
         
@@ -35,8 +37,10 @@ export function useWIPValidation() {
         return { allowed: true, validation };
       } catch (error) {
         console.error("WIP validation error:", error);
-        // Allow move on error to prevent blocking
-        return { allowed: true };
+        // Allow move on error to prevent blocking, but return the error
+        return { allowed: true, error: error as Error };
+      } finally {
+        setIsValidating(false);
       }
     },
     []
@@ -95,5 +99,6 @@ export function useWIPValidation() {
     setOverrideReason,
     handleOverrideConfirm,
     handleOverrideCancel,
+    isValidating,
   };
 }

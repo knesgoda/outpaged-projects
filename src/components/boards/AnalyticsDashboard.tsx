@@ -1,5 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CumulativeFlowDiagram } from "./analytics/CumulativeFlowDiagram";
+import { LoadingState } from "@/components/boards/LoadingState";
 import { useEffect, useState } from "react";
 import { useProject } from "@/contexts/ProjectContext";
 import { fetchCFDData, fetchCycleTimeMetrics, fetchThroughputMetrics } from "@/services/boards/analyticsService";
@@ -11,11 +12,11 @@ export function AnalyticsDashboard() {
   const [columns, setColumns] = useState<ColumnDefinition[]>([]);
   const [cycleTime, setCycleTime] = useState({ average: 0, median: 0, p85: 0, p95: 0 });
   const [throughput, setThroughput] = useState({ average: 0 });
-  const [loading, setLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     async function loadAnalytics() {
-      setLoading(true);
+      setIsLoading(true);
       try {
         const [cfd, ct, tp] = await Promise.all([
           fetchCFDData(project.id, 30),
@@ -30,17 +31,17 @@ export function AnalyticsDashboard() {
       } catch (error) {
         console.error('Error loading analytics:', error);
       } finally {
-        setLoading(false);
+        setIsLoading(false);
       }
     }
 
     loadAnalytics();
   }, [project.id]);
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="p-6">
-        <div className="text-center text-muted-foreground">Loading analytics...</div>
+        <LoadingState type="spinner" message="Loading analytics..." />
       </div>
     );
   }
