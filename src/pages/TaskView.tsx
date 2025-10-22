@@ -1,5 +1,6 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { ChevronLeft, Loader2, Calendar as CalendarIcon, User, Tag, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -17,6 +18,7 @@ import { format } from 'date-fns';
 import type { TaskPriority, TaskStatus } from '@/types/tasks';
 import { getPriorityLabel, mapLegacyPriority } from '@/lib/priorityMapping';
 import { CommentsSystemWithMentions } from '@/components/comments/CommentsSystemWithMentions';
+import { LinkedResourcesPanel } from '@/components/linked/LinkedResourcesPanel';
 
 const PRIORITY_OPTIONS: TaskPriority[] = ["P0", "P1", "P2", "P3", "P4"];
 const STATUS_OPTIONS: TaskStatus[] = ["todo", "in_progress", "in_review", "done", "blocked", "waiting"];
@@ -42,6 +44,13 @@ export default function TaskView() {
   const { taskId } = useParams();
   const navigate = useNavigate();
   const { mutateAsync: updateField } = useTaskFieldUpdate();
+
+  // Dev-only: Log component mount
+  useEffect(() => {
+    if (import.meta.env.DEV) {
+      console.log(`[TaskView] mounted for taskId=${taskId}`);
+    }
+  }, [taskId]);
 
   const { data: task, isLoading, error } = useQuery({
     queryKey: ['task', taskId],
@@ -182,6 +191,15 @@ export default function TaskView() {
               />
             </CardContent>
           </Card>
+
+          {/* Linked Resources */}
+          <LinkedResourcesPanel
+            entityType="task"
+            entityId={taskId || ''}
+            projectId={task.project_id}
+            title="Linked resources"
+            allowManualLink={true}
+          />
         </div>
 
         {/* Right Column - Metadata */}

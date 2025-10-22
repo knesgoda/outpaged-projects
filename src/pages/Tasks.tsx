@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -106,6 +107,7 @@ const typeIcons = {
 export default function Tasks() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [tasks, setTasks] = useState<TaskType[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -228,14 +230,12 @@ export default function Tasks() {
   };
 
   const handleTaskClick = (task: any) => {
-    setSelectedTask(task);
-    setIsTaskDialogOpen(true);
+    navigate(`/tasks/${task.id}`);
   };
 
   const handleEditTask = (e: React.MouseEvent, task: any) => {
     e.stopPropagation();
-    setSelectedTask(task);
-    setIsTaskDialogOpen(true);
+    navigate(`/tasks/${task.id}`);
   };
 
   const handleDeleteTask = (e: React.MouseEvent, taskId: string) => {

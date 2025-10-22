@@ -1,5 +1,4 @@
 import {
-  Fragment,
   useCallback,
   useEffect,
   useMemo,
@@ -815,7 +814,7 @@ export function Topbar({ onToggleSidebar, onOpenShortcuts }: TopbarProps) {
         <Breadcrumb>
           <BreadcrumbList>
             {breadcrumbs.map((crumb, index) => (
-              <Fragment key={crumb.href}>
+              <div key={crumb.href}>
                 <BreadcrumbItem>
                   {index === breadcrumbs.length - 1 ? (
                     <BreadcrumbPage>{crumb.label}</BreadcrumbPage>
@@ -824,7 +823,7 @@ export function Topbar({ onToggleSidebar, onOpenShortcuts }: TopbarProps) {
                   )}
                 </BreadcrumbItem>
                 {index < breadcrumbs.length - 1 && <BreadcrumbSeparator />}
-              </Fragment>
+              </div>
             ))}
           </BreadcrumbList>
         </Breadcrumb>

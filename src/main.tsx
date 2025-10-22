@@ -4,10 +4,40 @@ import './index.css';
 
 console.log('[main.tsx] Starting OutPaged application');
 
+// Dev-only: Import React singleton detector
+if (import.meta.env.DEV) {
+  import('./dev/reactSingletonCheck');
+}
+
 if (!(globalThis as { __import_meta_env__?: Record<string, unknown> }).__import_meta_env__) {
   (globalThis as { __import_meta_env__?: Record<string, unknown> }).__import_meta_env__ = {
     ...import.meta.env,
   };
+}
+
+// Dev-only: Clean up stale service workers and caches
+if (import.meta.env.DEV) {
+  (async () => {
+    try {
+      if ('serviceWorker' in navigator) {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        for (const registration of registrations) {
+          await registration.unregister();
+          console.log('[main.tsx] [DEV] Unregistered service worker:', registration.scope);
+        }
+      }
+      if ('caches' in window) {
+        const cacheNames = await caches.keys();
+        for (const cacheName of cacheNames) {
+          await caches.delete(cacheName);
+          console.log('[main.tsx] [DEV] Deleted cache:', cacheName);
+        }
+      }
+      console.log('[main.tsx] [DEV] Service worker and cache cleanup complete');
+    } catch (error) {
+      console.warn('[main.tsx] [DEV] Failed to cleanup service worker/caches:', error);
+    }
+  })();
 }
 
 console.log('[main.tsx] Creating root and rendering App');
@@ -25,7 +55,8 @@ const postMessageToWorker = (registration: ServiceWorkerRegistration | undefined
   worker?.postMessage(message);
 };
 
-if ('serviceWorker' in navigator) {
+// Only register service worker in production
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
   let registration: ServiceWorkerRegistration | undefined;
   let controllerChanged = false;
   let updatePromptShown = false;
