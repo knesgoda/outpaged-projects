@@ -1,4 +1,5 @@
-import { useMemo, useCallback, useState, useEffect, useRef } from "react"
+import { useMemo, useCallback, useState, useEffect, useRef, type FocusEvent } from "react"
+import { motion } from "framer-motion"
 import {
   DragDropContext,
   Draggable,
@@ -239,6 +240,15 @@ export function KanbanBoardView() {
   useBoardPerformanceTracker("kanban-board-view", items.length)
 
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
+  const [activeColumnId, setActiveColumnId] = useState<string | null>(null)
+
+  const handleColumnActivate = useCallback((columnId: string) => {
+    setActiveColumnId(columnId)
+  }, [])
+
+  const handleColumnDeactivate = useCallback((columnId: string) => {
+    setActiveColumnId((current) => (current === columnId ? null : current))
+  }, [])
   
   const {
     validateMove,
@@ -775,6 +785,9 @@ export function KanbanBoardView() {
                             hasMore={hasMore}
                             isLoadingMore={isLoadingMore}
                             loadMore={loadMore}
+                            isActive={activeColumnId === column.id}
+                            onActivate={() => handleColumnActivate(column.id)}
+                            onDeactivate={() => handleColumnDeactivate(column.id)}
                           />
                         )}
                       </Droppable>
@@ -815,6 +828,9 @@ interface KanbanColumnProps {
   hasMore: boolean
   isLoadingMore: boolean
   loadMore?: () => Promise<void> | void
+  isActive?: boolean
+  onActivate?: () => void
+  onDeactivate?: () => void
 }
 
 function KanbanColumn({
@@ -824,6 +840,9 @@ function KanbanColumn({
   hasMore,
   isLoadingMore,
   loadMore,
+  isActive = false,
+  onActivate,
+  onDeactivate,
 }: KanbanColumnProps) {
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const setRefs = useCallback(
@@ -857,19 +876,56 @@ function KanbanColumn({
     }
   }, [column.items.length, hasMore, isLoadingMore, loadMore, virtualCards])
 
+  const handlePointerEnter = useCallback(() => {
+    onActivate?.()
+  }, [onActivate])
+
+  const handlePointerLeave = useCallback(() => {
+    onDeactivate?.()
+  }, [onDeactivate])
+
+  const handleFocusCapture = useCallback(() => {
+    onActivate?.()
+  }, [onActivate])
+
+  const handleBlurCapture = useCallback(
+    (event: FocusEvent<HTMLDivElement>) => {
+      if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+        onDeactivate?.()
+      }
+    },
+    [onDeactivate]
+  )
+
+  const cardShadow = snapshot.isDraggingOver
+    ? "0 18px 40px -24px rgba(55, 120, 255, 0.35)"
+    : "var(--shadow-soft)"
+
   return (
-    <Card
-      className={cn(
-        "flex h-full flex-col border transition",
-        snapshot.isDraggingOver ? "border-primary" : "border-border"
-      )}
+    <motion.div
+      layout
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.18, ease: "easeInOut" }}
+      onPointerEnter={handlePointerEnter}
+      onPointerLeave={handlePointerLeave}
+      onFocusCapture={handleFocusCapture}
+      onBlurCapture={handleBlurCapture}
+      className="relative"
     >
-      <CardHeader className="flex items-center justify-between gap-2 border-b bg-muted/40 py-3">
-        <CardTitle className="text-sm font-semibold">{column.label}</CardTitle>
-        <Badge variant="secondary">
-          {column.rollup.completed}/{column.rollup.total}
-        </Badge>
-      </CardHeader>
+      <Card
+        className={cn(
+          "relative flex h-full flex-col overflow-hidden rounded-xl border border-white/10 bg-[hsl(var(--background))]/90 backdrop-blur-sm transition-shadow",
+          snapshot.isDraggingOver ? "ring-2 ring-[hsl(var(--accent))]" : "ring-1 ring-transparent"
+        )}
+        style={{ boxShadow: cardShadow }}
+      >
+        <CardHeader className="flex items-center justify-between gap-2 border-b border-white/10 bg-transparent py-3">
+          <CardTitle className="text-sm font-semibold">{column.label}</CardTitle>
+          <Badge variant="secondary">
+            {column.rollup.completed}/{column.rollup.total}
+          </Badge>
+        </CardHeader>
       <CardContent className="py-3">
         <div
           ref={setRefs}
@@ -933,7 +989,15 @@ function KanbanColumn({
           </div>
         </div>
       </CardContent>
-    </Card>
+        <span
+          aria-hidden="true"
+          className={cn(
+            "pointer-events-none absolute inset-x-6 bottom-0 h-0.5 rounded-full bg-[#FF6A00] transition-opacity duration-200",
+            isActive ? "opacity-100" : "opacity-0"
+          )}
+        />
+      </Card>
+    </motion.div>
   )
 }
 
@@ -951,6 +1015,7 @@ function KanbanCard({ card, isDragging }: KanbanCardProps) {
         isDragging ? "border-primary" : "border-border"
       )}
       data-testid="board-card"
+      aria-grabbed={isDragging}
       data-color={card.color ?? undefined}
       style={
         card.color
