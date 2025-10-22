@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Search, ListTodo, Calendar } from "lucide-react";
 import { fetchBacklogItems, getBacklogStats } from "@/services/boards/backlogService";
+import { statusService } from "@/services/boards/statusService";
 import { getActiveSprint, getSprintMetrics } from "@/services/boards/sprintService";
 import { SprintPanel } from "./SprintPanel";
 import { BacklogCard } from "./BacklogCard";
@@ -19,19 +20,46 @@ export function BacklogPanel() {
   const [sprintMetrics, setSprintMetrics] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [backlogStatuses, setBacklogStatuses] = useState<string[]>(["backlog", "todo"]);
 
   useEffect(() => {
-    loadBacklogData();
+    loadBacklogConfiguration();
     loadSprintData();
   }, [project.id]);
 
-  async function loadBacklogData() {
+  async function loadBacklogConfiguration() {
+    const statuses = await resolveBacklogStatuses();
+    setBacklogStatuses(statuses);
+    await loadBacklogData(statuses);
+  }
+
+  async function resolveBacklogStatuses(): Promise<string[]> {
+    try {
+      const statuses = await statusService.getProjectStatuses(project.id);
+      const backlogKeys = statuses
+        .filter(status => status.category === "Todo")
+        .map(status => status.key)
+        .filter((key): key is string => Boolean(key && key.trim()));
+
+      return backlogKeys.length > 0 ? backlogKeys : ["backlog", "todo"];
+    } catch (error) {
+      console.error("Error resolving backlog statuses:", error);
+      return ["backlog", "todo"];
+    }
+  }
+
+  async function loadBacklogData(statuses: string[] = backlogStatuses) {
     setIsLoading(true);
-    const items = await fetchBacklogItems(project.id);
-    const stats = await getBacklogStats(project.id);
-    setBacklogItems(items);
-    setBacklogStats(stats);
-    setIsLoading(false);
+    try {
+      const items = await fetchBacklogItems(project.id, statuses);
+      const stats = await getBacklogStats(project.id, statuses, items);
+      setBacklogItems(items);
+      setBacklogStats(stats);
+    } catch (error) {
+      console.error("Error loading backlog:", error);
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   async function loadSprintData() {
@@ -108,7 +136,7 @@ export function BacklogPanel() {
                   <BacklogCard
                     key={item.id}
                     task={item}
-                    onRefresh={loadBacklogData}
+                    onRefresh={() => loadBacklogData()}
                   />
                 ))
               )}

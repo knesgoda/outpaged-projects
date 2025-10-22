@@ -2,18 +2,27 @@ import { supabase } from "@/integrations/supabase/client";
 
 /**
  * Fetch backlog items for a project
- * Backlog = tasks not in current sprint or with "Backlog" status
+ * Backlog = tasks not currently assigned to a sprint that match the configured backlog statuses
  */
 export async function fetchBacklogItems(
   projectId: string,
   backlogStatuses: string[] = ['backlog', 'todo']
 ): Promise<any[]> {
-  const { data, error } = await supabase
+  const normalizedStatuses = (backlogStatuses || [])
+    .map((status) => (typeof status === 'string' ? status.trim() : ''))
+    .filter((status): status is string => status.length > 0);
+
+  let query = supabase
     .from('tasks')
     .select('*')
     .eq('project_id', projectId)
-    .or('sprint_id.is.null')
-    .order('created_at', { ascending: false });
+    .is('sprint_id', null);
+
+  if (normalizedStatuses.length > 0) {
+    query = query.in('status', normalizedStatuses);
+  }
+
+  const { data, error } = await query.order('created_at', { ascending: false });
 
   if (error) {
     console.error('Error fetching backlog:', error);
@@ -99,18 +108,22 @@ export function generateRankBetween(before?: string, after?: string): string {
 /**
  * Get backlog statistics
  */
-export async function getBacklogStats(projectId: string) {
-  const items = await fetchBacklogItems(projectId);
+export async function getBacklogStats(
+  projectId: string,
+  backlogStatuses: string[] = ['backlog', 'todo'],
+  items?: any[]
+) {
+  const sourceItems = items ?? await fetchBacklogItems(projectId, backlogStatuses);
 
   return {
-    totalItems: items.length,
-    totalPoints: items.reduce((sum, t) => sum + (t.story_points || 0), 0),
-    totalHours: items.reduce((sum, t) => sum + (t.estimate_hours || 0), 0),
+    totalItems: sourceItems.length,
+    totalPoints: sourceItems.reduce((sum, t) => sum + (t.story_points || 0), 0),
+    totalHours: sourceItems.reduce((sum, t) => sum + (t.estimate_hours || 0), 0),
     byPriority: {
-      urgent: items.filter(t => t.priority === 'urgent').length,
-      high: items.filter(t => t.priority === 'high').length,
-      medium: items.filter(t => t.priority === 'medium').length,
-      low: items.filter(t => t.priority === 'low').length,
+      urgent: sourceItems.filter(t => t.priority === 'urgent').length,
+      high: sourceItems.filter(t => t.priority === 'high').length,
+      medium: sourceItems.filter(t => t.priority === 'medium').length,
+      low: sourceItems.filter(t => t.priority === 'low').length,
     },
   };
 }
