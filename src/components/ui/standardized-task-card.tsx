@@ -127,10 +127,11 @@ export interface StandardizedTaskCardProps {
 }
 
 const priorityColors = {
-  low: "bg-muted text-muted-foreground",
-  medium: "bg-warning/20 text-warning",
-  high: "bg-destructive/20 text-destructive",
-  urgent: "bg-destructive text-destructive-foreground",
+  P0: "bg-destructive text-destructive-foreground",
+  P1: "bg-destructive/20 text-destructive",
+  P2: "bg-warning/20 text-warning",
+  P3: "bg-muted text-muted-foreground",
+  P4: "bg-muted text-muted-foreground",
 };
 
 const statusColors = {

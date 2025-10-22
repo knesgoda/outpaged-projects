@@ -61,7 +61,7 @@ type TaskAssigneeRow = Database["public"]["Views"]["task_assignees_with_profiles
 type CommentRow = Database["public"]["Tables"]["comments"]["Row"];
 
 const DEFAULT_STATUS: TaskStatus = "todo";
-const DEFAULT_PRIORITY: TaskPriority = "medium";
+const DEFAULT_PRIORITY: TaskPriority = "P2";
 const DEFAULT_HIERARCHY: TaskHierarchyLevel = "task";
 const DEFAULT_TYPE: TaskType = "task";
 

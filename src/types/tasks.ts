@@ -2,7 +2,7 @@
  * Enumerations describing core task characteristics.
  */
 export type TaskHierarchyLevel = "initiative" | "epic" | "story" | "task" | "subtask";
-export type TaskPriority = "low" | "medium" | "high" | "urgent";
+export type TaskPriority = "P0" | "P1" | "P2" | "P3" | "P4";
 export type TaskStatus = "todo" | "in_progress" | "in_review" | "done" | "blocked" | "waiting";
 export type TaskType =
   | "bug"
@@ -128,6 +128,73 @@ export interface TaskIntegrationBadge {
   lastSyncedAt?: string;
 }
 
+// New types for Combo Task Card spec
+export type TaskEnvironment = "dev" | "staging" | "prod" | "other";
+export type TaskSecurityLevel = "public" | "internal" | "restricted";
+export type TaskVersionType = "affects" | "fixes";
+export type CodeReferenceType = "pr" | "commit" | "branch" | "build" | "deployment";
+export type StatusCategory = "Todo" | "InProgress" | "Done";
+
+export interface TaskWatcher {
+  id: string;
+  user_id: string;
+  name?: string;
+  avatar?: string;
+}
+
+export interface TaskComponent {
+  id: string;
+  name: string;
+}
+
+export interface TaskVersion {
+  id: string;
+  version: string;
+  type: TaskVersionType;
+}
+
+export interface TaskChecklist {
+  id: string;
+  title: string;
+  items: TaskChecklistItem[];
+  position: number;
+}
+
+export interface TaskChecklistItem {
+  id: string;
+  text: string;
+  done: boolean;
+  position: number;
+}
+
+export interface TaskCodeReference {
+  id: string;
+  type: CodeReferenceType;
+  url: string;
+  provider: string;
+  status?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface TaskStatusTransition {
+  id: string;
+  from_status: string | null;
+  to_status: string;
+  from_category: string | null;
+  to_category: string | null;
+  transitioned_at: string;
+  transitioned_by: string | null;
+}
+
+export interface TaskDerivedFields {
+  ageDays: number;
+  leadTimeDays?: number;
+  cycleTimeDays?: number;
+  progress: number;
+  blocked: boolean;
+  statusCategory: StatusCategory;
+}
+
 export interface TaskCoreFields {
   id: string;
   title: string;
@@ -151,6 +218,17 @@ export interface TaskCoreFields {
   ticket_number?: number | null;
   created_at?: string;
   updated_at?: string;
+  owner_id?: string | null;
+  resolved_at?: string | null;
+  area?: string | null;
+  environment?: TaskEnvironment | null;
+  security_level?: TaskSecurityLevel;
+  archived?: boolean;
+  created_by?: string | null;
+  last_edited_by?: string | null;
+  reporter_id?: string | null;
+  assignee_id?: string | null;
+  sprint_id?: string | null;
   project?: {
     id?: string;
     name?: string | null;
@@ -160,6 +238,8 @@ export interface TaskCoreFields {
 
 export interface TaskWithDetails extends TaskCoreFields {
   assignees: TaskAssignee[];
+  owner?: TaskAssignee | null;
+  reporter?: TaskAssignee | null;
   tags: TaskTag[];
   tagNames: string[];
   files: TaskFileReference[];
@@ -173,4 +253,11 @@ export interface TaskWithDetails extends TaskCoreFields {
   externalLinks?: string[];
   customFields?: Record<string, unknown>;
   customFieldHistory?: TaskCustomFieldHistoryEntry[];
+  watchers?: TaskWatcher[];
+  components?: TaskComponent[];
+  versions?: TaskVersion[];
+  checklists?: TaskChecklist[];
+  codeRefs?: TaskCodeReference[];
+  transitions?: TaskStatusTransition[];
+  derived?: TaskDerivedFields;
 }
