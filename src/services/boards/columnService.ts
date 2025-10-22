@@ -261,3 +261,21 @@ export async function countTasksInColumn(
 
   return count || 0;
 }
+
+/**
+ * Update column metadata including WIP limits, entry policies, and SLA
+ */
+export async function updateColumnMetadata(
+  columnId: string,
+  metadata: ColumnMetadata
+): Promise<void> {
+  const { error } = await supabase
+    .from("kanban_columns")
+    .update({ metadata } as any)
+    .eq("id", columnId);
+
+  if (error) {
+    console.error("Error updating column metadata:", error);
+    throw error;
+  }
+}

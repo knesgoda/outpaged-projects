@@ -1,39 +1,49 @@
-import { useMemo } from "react";
-import { useProject } from "@/contexts/ProjectContext";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CumulativeFlowDiagram } from "./analytics/CumulativeFlowDiagram";
-import { subDays, format } from "date-fns";
+import { useEffect, useState } from "react";
+import { useProject } from "@/contexts/ProjectContext";
+import { fetchCFDData, fetchCycleTimeMetrics, fetchThroughputMetrics } from "@/services/boards/analyticsService";
+import type { CFDDataPoint, ColumnDefinition } from "@/services/boards/analyticsService";
 
 export function AnalyticsDashboard() {
   const { project } = useProject();
+  const [cfdData, setCfdData] = useState<CFDDataPoint[]>([]);
+  const [columns, setColumns] = useState<ColumnDefinition[]>([]);
+  const [cycleTime, setCycleTime] = useState({ average: 0, median: 0, p85: 0, p95: 0 });
+  const [throughput, setThroughput] = useState({ average: 0 });
+  const [loading, setLoading] = useState(true);
 
-  // Generate mock CFD data for demonstration
-  const cfdData = useMemo(() => {
-    const days = 30;
-    const data = [];
-    const columns = [
-      { name: "Backlog", color: "#6b7280" },
-      { name: "Todo", color: "#3b82f6" },
-      { name: "In Progress", color: "#f59e0b" },
-      { name: "In Review", color: "#8b5cf6" },
-      { name: "Done", color: "#10b981" },
-    ];
+  useEffect(() => {
+    async function loadAnalytics() {
+      setLoading(true);
+      try {
+        const [cfd, ct, tp] = await Promise.all([
+          fetchCFDData(project.id, 30),
+          fetchCycleTimeMetrics(project.id),
+          fetchThroughputMetrics(project.id, 4),
+        ]);
 
-    for (let i = days; i >= 0; i--) {
-      const date = format(subDays(new Date(), i), "MMM d");
-      const point: any = { date };
-      
-      // Generate cumulative counts
-      point["Backlog"] = Math.max(0, 50 - i * 0.5);
-      point["Todo"] = Math.max(0, 40 - i * 0.4);
-      point["In Progress"] = Math.min(15, i * 0.3);
-      point["In Review"] = Math.min(10, i * 0.2);
-      point["Done"] = Math.min(50, i * 1.2);
-      
-      data.push(point);
+        setCfdData(cfd.data);
+        setColumns(cfd.columns);
+        setCycleTime(ct);
+        setThroughput(tp);
+      } catch (error) {
+        console.error('Error loading analytics:', error);
+      } finally {
+        setLoading(false);
+      }
     }
 
-    return { data, columns };
-  }, []);
+    loadAnalytics();
+  }, [project.id]);
+
+  if (loading) {
+    return (
+      <div className="p-6">
+        <div className="text-center text-muted-foreground">Loading analytics...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 space-y-6">
@@ -44,10 +54,43 @@ export function AnalyticsDashboard() {
         </p>
       </div>
 
-      <CumulativeFlowDiagram 
-        data={cfdData.data} 
-        columns={cfdData.columns}
-      />
+      {/* Metrics Cards */}
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium">Avg Cycle Time</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{cycleTime.average} days</div>
+            <p className="text-xs text-muted-foreground">
+              Median: {cycleTime.median}d • 85%: {cycleTime.p85}d
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium">Throughput</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{throughput.average} tasks/week</div>
+            <p className="text-xs text-muted-foreground">4-week average</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium">Active Columns</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{columns.length}</div>
+            <p className="text-xs text-muted-foreground">On this board</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* CFD Chart */}
+      <CumulativeFlowDiagram data={cfdData} columns={columns} />
     </div>
   );
 }

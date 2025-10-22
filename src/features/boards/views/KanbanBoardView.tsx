@@ -26,7 +26,9 @@ import {
 import { cn } from "@/lib/utils"
 import { LeftSidebar } from "@/components/boards/LeftSidebar"
 import { BacklogPanel } from "@/components/boards/BacklogPanel"
+import { WipOverrideDialog } from "@/components/kanban/WipOverrideDialog"
 import type { BoardSwimlaneDefinition, BoardViewSortRule } from "@/types/boards"
+import type { Task } from "@/components/kanban/TaskCard"
 
 import { useBoardViewContext } from "./context"
 import { BoardMetricsHeader } from "./BoardMetricsHeader"
@@ -37,6 +39,7 @@ import {
   UNGROUPED_KEY,
 } from "./kanbanDataset"
 import { useBoardPerformanceTracker } from "./useBoardPerformance"
+import { useWIPValidation } from "@/hooks/useWIPValidation"
 
 type KanbanDataset = ReturnType<typeof buildKanbanDataset>
 type KanbanColumnModel = KanbanDataset["swimlanes"][number]["groups"][number]
@@ -233,6 +236,17 @@ export function KanbanBoardView() {
   useBoardPerformanceTracker("kanban-board-view", items.length)
 
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
+  
+  const {
+    validateMove,
+    requestWIPOverride,
+    showOverrideDialog,
+    pendingOverride,
+    overrideReason,
+    setOverrideReason,
+    handleOverrideConfirm,
+    handleOverrideCancel,
+  } = useWIPValidation()
 
   const effectiveGrouping = useMemo(() => {
     if (configuration.grouping.primary) {
@@ -428,7 +442,6 @@ export function KanbanBoardView() {
       if (itemIndex !== -1) {
         const movedItem = items[itemIndex];
         
-        // Basic WIP validation (simplified for now)
         // Count items in destination column
         const destColumnItems = items.filter(item => {
           const itemGroupKey = dataset.groupingField 
@@ -441,25 +454,52 @@ export function KanbanBoardView() {
                  itemBelongsToLane(item, destInfo.swimlaneId, dataset.definitions, dataset.swimlaneField);
         });
         
-        // Allow move for now (full WIP validation requires column metadata)
-        // TODO: Implement full WIP check with validateColumnMove from columnService
-        console.log(`Moving to column with ${destColumnItems.length} items`);
-      }
+        // Perform the move with optimistic update
+        const performMove = () => {
+          const updated = moveKanbanCard({
+            items,
+            groupingField: dataset.groupingField,
+            swimlaneField: dataset.swimlaneField,
+            swimlanes: dataset.definitions,
+            source,
+            destination,
+          });
 
-      const updated = moveKanbanCard({
-        items,
-        groupingField: dataset.groupingField,
-        swimlaneField: dataset.swimlaneField,
-        swimlanes: dataset.definitions,
-        source,
-        destination,
-      })
-
-      if (updated !== items) {
-        replaceItems(updated)
+          if (updated !== items) {
+            replaceItems(updated);
+          }
+        };
+        
+        // WIP Validation - check if we need to validate
+        if (movedItem.id && destInfo.groupKey) {
+          const taskData = movedItem as any as Task;
+          const columnName = destInfo.groupKey === UNGROUPED_KEY ? "Ungrouped" : destInfo.groupKey;
+          
+          const { allowed, validation } = await validateMove(
+            taskData,
+            destInfo.groupKey, // Using groupKey as columnId
+            columnName,
+            destColumnItems.length
+          );
+          
+          if (!allowed && validation) {
+            // Show WIP override dialog
+            requestWIPOverride(
+              taskData,
+              destInfo.groupKey,
+              columnName,
+              validation,
+              performMove
+            );
+            return; // Don't perform move yet
+          }
+        }
+        
+        // If validation passed or no validation needed, perform move
+        performMove();
       }
     },
-    [dataset.definitions, dataset.groupingField, dataset.swimlaneField, items, replaceItems]
+    [dataset.definitions, dataset.groupingField, dataset.swimlaneField, items, replaceItems, validateMove, requestWIPOverride]
   )
 
   if (isLoading) {
@@ -475,20 +515,21 @@ export function KanbanBoardView() {
   const hasMultipleSwimlanes = dataset.swimlanes.length > 1
 
   return (
-    <div className="flex h-full gap-4">
-      {/* Backlog & Sprint Panel */}
-      <div className="w-80 flex-shrink-0 overflow-hidden">
-        <BacklogPanel />
-      </div>
+    <>
+      <div className="flex h-full gap-4">
+        {/* Backlog & Sprint Panel */}
+        <div className="w-80 flex-shrink-0 overflow-hidden">
+          <BacklogPanel />
+        </div>
 
-      <LeftSidebar
-        collapsed={isSidebarCollapsed}
-        onToggle={() => setIsSidebarCollapsed((value) => !value)}
-        groups={dataset.groupSummaries}
-        legends={dataset.legends}
-      />
+        <LeftSidebar
+          collapsed={isSidebarCollapsed}
+          onToggle={() => setIsSidebarCollapsed((value) => !value)}
+          groups={dataset.groupSummaries}
+          legends={dataset.legends}
+        />
 
-      <div className="flex flex-1 flex-col gap-4">
+        <div className="flex flex-1 flex-col gap-4">
         <div className="flex flex-wrap items-center justify-between gap-4 border-b bg-background px-4 py-3 shadow-sm">
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-2">
@@ -634,6 +675,24 @@ export function KanbanBoardView() {
         </DragDropContext>
       </div>
     </div>
+    
+    {/* WIP Override Dialog */}
+    <WipOverrideDialog
+      open={showOverrideDialog}
+      pending={pendingOverride ? {
+        task: pendingOverride.task,
+        reason: pendingOverride.reason,
+        limit: pendingOverride.limit,
+        requireReason: pendingOverride.requireReason,
+      } : null}
+      columnName={pendingOverride?.columnName}
+      reason={overrideReason}
+      onReasonChange={setOverrideReason}
+      onConfirm={handleOverrideConfirm}
+      onCancel={handleOverrideCancel}
+      canOverride={true}
+    />
+    </>
   )
 }
 

@@ -17,8 +17,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { WIPIndicator } from "@/components/boards/WIPIndicator";
 import { ColumnSettingsMenu } from "@/components/boards/ColumnSettingsMenu";
-import { getWIPStatus } from "@/services/boards/columnService";
+import { getWIPStatus, updateColumnMetadata } from "@/services/boards/columnService";
 import type { ColumnMetadata } from "@/types/kanban";
+import { useToast } from "@/hooks/use-toast";
 
 export interface Column {
   id: string;
@@ -69,6 +70,24 @@ export function EnhancedKanbanColumn({
   projectId = "",
   availableAssignees = []
 }: EnhancedKanbanColumnProps) {
+  const { toast } = useToast();
+  
+  const handleSaveColumnSettings = async (newMetadata: ColumnMetadata) => {
+    try {
+      await updateColumnMetadata(column.id, newMetadata);
+      toast({
+        title: "Settings saved",
+        description: "Column settings have been updated successfully.",
+      });
+      // Optionally trigger a refetch of column data
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to save column settings.",
+        variant: "destructive",
+      });
+    }
+  };
   const droppableId = swimlaneId ? `${column.id}::${swimlaneId}` : column.id;
   const { setNodeRef, isOver } = useDroppable({
     id: droppableId,
@@ -236,6 +255,7 @@ export function EnhancedKanbanColumn({
                 columnId={column.id}
                 columnName={column.title}
                 metadata={column.metadata}
+                onSave={handleSaveColumnSettings}
               />
               
               <DropdownMenu>
